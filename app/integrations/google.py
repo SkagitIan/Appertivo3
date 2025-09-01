@@ -11,7 +11,11 @@ import requests
 
 from django.conf import settings
 
-from dotenv import load_dotenv
+try:  # pragma: no cover - optional dependency
+    from dotenv import load_dotenv
+except ImportError:  # pragma: no cover
+    load_dotenv = lambda: None
+
 load_dotenv()
 
 from app.models import Connection

@@ -12,13 +12,21 @@ from django.utils.html import strip_tags
 from django.conf import settings
 from django.urls import reverse
 import json
-import openai
 import os
+
+try:  # pragma: no cover - optional dependency
+    import openai
+except ImportError:  # pragma: no cover
+    openai = None
 
 import requests
 import stripe
 
-from dotenv import load_dotenv
+try:  # pragma: no cover - optional dependency
+    from dotenv import load_dotenv
+except ImportError:  # pragma: no cover
+    load_dotenv = lambda: None
+
 load_dotenv()
 
 from django.utils import timezone
@@ -44,9 +52,11 @@ from django.views.decorators.http import require_http_methods, require_POST
 
 logger = logging.getLogger(__name__)
 
+
 def home(request):
-    """Home page view"""
-    return render(request, 'app/home.html')
+    """Home page view."""
+    articles = Article.objects.all()[:5]
+    return render(request, "app/home.html", {"articles": articles})
 
 
 def resources(request):

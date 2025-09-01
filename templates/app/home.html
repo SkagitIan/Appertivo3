@@ -296,7 +296,13 @@
             <div>
                 <h3 class="text-lg font-semibold mb-4">Future Articles</h3>
                 <ul class="space-y-2">
+                    {% for article in articles %}
+                    <li>
+                        <a href="{{ article.get_absolute_url }}" title="{{ article.title }}" class="hover:underline">{{ article.title }}</a>
+                    </li>
+                    {% empty %}
                     <li>Coming soon</li>
+                    {% endfor %}
                 </ul>
             </div>
             <div>
