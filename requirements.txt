@@ -1,12 +1,13 @@
-django-cloudinary-storage
+Django
 cloudinary
-htmx
-gunicorn                # for production WSGI
-python-dotenv  # to manage env vars locally
-django-extensions  # for development utilities
-django-debug-toolbar  # for development debugging
-django-cors-headers # for handling CORS in development
 django-anymail[brevo]
-openai
-django-allauth
+django-cloudinary-storage
+django-cors-headers # for handling CORS in development
 django-crontab
+django-extensions  # for development utilities
+gunicorn                # for production WSGI
+openai
+python-dotenv  # to manage env vars locally
+requests
+stripe
+whitenoise
