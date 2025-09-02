@@ -47,3 +47,41 @@ class SpecialsListToggleTests(TestCase):
         self.assertTemplateUsed(response, "app/calendar.html")
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.default_view, "calendar")
+
+
+class CalendarEventsTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="owner", password="pw")
+        UserProfile.objects.create(user=self.user, restaurant_name="R")
+        self.client.login(username="owner", password="pw")
+
+    def test_calendar_view_includes_status_colors(self):
+        start = timezone.now()
+        end = start + timedelta(hours=1)
+        active = Special.objects.create(
+            user=self.user,
+            title="Active",
+            description="desc",
+            price=5,
+            start_date=start,
+            end_date=end,
+            status="active",
+            cta_type="web",
+            cta_url="",
+        )
+        expired = Special.objects.create(
+            user=self.user,
+            title="Expired",
+            description="desc",
+            price=5,
+            start_date=start - timedelta(days=1),
+            end_date=end - timedelta(days=1),
+            status="expired",
+            cta_type="web",
+            cta_url="",
+        )
+        response = self.client.get(reverse("specials_list") + "?view=calendar")
+        events = response.context["events"]
+        colors = {e["id"]: e["color"] for e in events}
+        self.assertEqual(colors[str(active.id)], "#22c55e")
+        self.assertEqual(colors[str(expired.id)], "#6b7280")
