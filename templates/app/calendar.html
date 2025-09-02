@@ -1,0 +1,35 @@
+{% extends 'base/base.html' %}
+{% block title %}Specials Calendar - Appertivo{% endblock %}
+{% block content %}
+<div class="min-h-screen bg-slate-50">
+    {% include 'base/dashboard_nav.html' %}
+    <main class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        <div class="mb-8 flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-900">Specials Calendar</h1>
+            </div>
+            {% include 'app/partials/view_toggle.html' %}
+        </div>
+        <div class="flex items-center justify-between mb-4">
+            <a href="?view=calendar&year={{ prev_month.year }}&month={{ prev_month.month }}" class="btn-outline">&lt;</a>
+            <h2 class="text-xl font-semibold">{{ current_month|date:"F Y" }}</h2>
+            <a href="?view=calendar&year={{ next_month.year }}&month={{ next_month.month }}" class="btn-outline">&gt;</a>
+        </div>
+        <div class="grid grid-cols-7 gap-2">
+            {% for week in cells %}
+                {% for day in week %}
+                    <div class="border rounded p-2 {% if not day.in_month %}opacity-50{% endif %}">
+                        <div class="text-sm font-semibold">{{ day.date.day }}</div>
+                        {% for special in day.specials %}
+                            <div class="mt-1 text-xs truncate">{{ special.title }}</div>
+                        {% endfor %}
+                        {% if not day.specials %}
+                            <div class="mt-1 text-xs text-slate-400">+ Add</div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            {% endfor %}
+        </div>
+    </main>
+</div>
+{% endblock %}
