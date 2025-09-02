@@ -5,11 +5,11 @@
 {% block content %}
 <div class="min-h-screen bg-slate-50">
     <!-- Navigation -->
-{% include 'base/dashboard_nav.html' %}
-
+    {% include 'base/dashboard_nav.html' %}
 
     <!-- Main Content -->
     <main class="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        <!-- Breadcrumbs -->
         <div class="mb-8">
             <div class="flex items-center">
                 <a href="{% url 'dashboard' %}" class="text-slate-500 hover:text-slate-700">
@@ -28,26 +28,35 @@
             
             <div class="mt-4">
                 <h1 class="text-2xl font-bold text-slate-900">Embed Widget</h1>
-                <p class="mt-2 text-slate-600">Add the Appertivo widget to your restaurant website to showcase daily specials and capture customer emails.</p>
+                <p class="mt-2 text-slate-600">
+                    Add the Appertivo widget to your restaurant website to showcase daily specials and capture customer emails.
+                </p>
             </div>
         </div>
 
+        <!-- Grid: Embed + Preview -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <!-- Widget Code -->
             <div class="bg-white stripe-shadow rounded-lg p-6">
                 <h2 class="text-lg font-semibold text-slate-900 mb-4">Embed Code</h2>
                 <p class="text-sm text-slate-600 mb-4">
-                    Copy this code and paste it into your website where you want the special widget to appear:
+                    Copy this code and paste it into your website where you want the widget to appear:
                 </p>
                 
-                <div class="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-4">
+                <div class="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-4 overflow-x-auto">
                     <code class="text-sm font-mono text-slate-800" id="embed-code">
 &lt;div id="appertivo-widget"&gt;&lt;/div&gt;
 &lt;script src="{{ widget_js_url }}"&gt;&lt;/script&gt;
                     </code>
                 </div>
                 
-                <button onclick="copyEmbedCode()" class="btn-primary text-sm" data-testid="button-copy-code">
+                <button onclick="copyEmbedCode()" 
+                        class="inline-block px-4 py-2 text-sm font-semibold text-white 
+                               bg-[#f08000] rounded-md shadow-md
+                               transition transform duration-200 ease-in-out
+                               hover:bg-[#ff9933] hover:scale-105 hover:shadow-lg
+                               focus:outline-none focus:ring-2 focus:ring-[#f08000]/50"
+                        data-testid="button-copy-code">
                     📋 Copy Code
                 </button>
                 
@@ -72,9 +81,7 @@
                 
                 <!-- Widget Preview Container -->
                 <div id="appertivo-widget-preview" class="border border-slate-200 rounded-lg p-4 bg-slate-50">
-                    <div class="text-center text-slate-500 py-8">
-                        Loading preview...
-                    </div>
+                    <div class="text-center text-slate-500 py-8">Loading preview...</div>
                 </div>
                 
                 <div class="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
@@ -95,11 +102,22 @@
                 Create a special first, then test how your widget works:
             </p>
             
-            <div class="flex space-x-4">
-                <a href="{% url 'create_special' %}" class="btn-primary" data-testid="button-create-special">
+            <div class="flex flex-col sm:flex-row gap-4">
+                <a href="{% url 'create_special' %}"
+                   class="inline-block px-5 py-2 text-sm font-semibold text-white 
+                          bg-[#f08000] rounded-md shadow-md text-center
+                          transition transform duration-200 ease-in-out
+                          hover:bg-[#ff9933] hover:scale-105 hover:shadow-lg
+                          focus:outline-none focus:ring-2 focus:ring-[#f08000]/50"
+                   data-testid="button-create-special">
                     Create Your First Special
                 </a>
-                <button onclick="refreshPreview()" class="btn-outline" data-testid="button-refresh-preview">
+                <button onclick="refreshPreview()"
+                        class="inline-block px-5 py-2 text-sm font-semibold text-[#49475B] bg-white border border-[#49475B] rounded-md shadow-sm
+                               transition transform duration-200 ease-in-out
+                               hover:bg-[#f9f9f9] hover:scale-105 hover:shadow-md
+                               focus:outline-none focus:ring-2 focus:ring-[#49475B]/50"
+                        data-testid="button-refresh-preview">
                     Refresh Preview
                 </button>
             </div>
@@ -114,16 +132,17 @@ function copyEmbedCode() {
         const btn = event.target;
         const originalText = btn.textContent;
         btn.textContent = '✓ Copied!';
+        btn.classList.remove('bg-[#f08000]');
         btn.classList.add('bg-green-600');
         setTimeout(() => {
             btn.textContent = originalText;
             btn.classList.remove('bg-green-600');
+            btn.classList.add('bg-[#f08000]');
         }, 2000);
     });
 }
 
 function loadWidgetPreview() {
-    // Load the actual widget in preview
     fetch('{% url "widget_special" user.id %}')
         .then(response => response.json())
         .then(data => {
@@ -131,37 +150,47 @@ function loadWidgetPreview() {
             if (data.special) {
                 const special = data.special;
                 preview.innerHTML = `
-                    <div style="max-width: 400px; background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-                        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 16px; text-align: center;">
-                            <h3 style="margin: 0;">Today's Special at ${special.restaurant_name}</h3>
+                    <div class="max-w-sm bg-white rounded-xl shadow-md overflow-hidden">
+                        <div class="bg-gradient-to-r from-[#f08000] to-[#B993D6] text-white p-4 text-center">
+                            <h3 class="m-0 text-lg font-semibold">Today's Special at ${special.restaurant_name}</h3>
                         </div>
-                        <div style="padding: 20px; text-align: center;">
-                            ${special.image ? `<img src="${special.image}" alt="${special.title}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px; margin-bottom: 12px;">` : ''}
-                            <div style="font-size: 20px; font-weight: bold; margin-bottom: 8px; color: #1f2937;">${special.title}</div>
-                            <div style="color: #6b7280; margin-bottom: 12px; line-height: 1.5;">${special.description}</div>
-                            <div style="font-size: 24px; font-weight: bold; color: #059669; margin-bottom: 16px;">$${special.price}</div>
+                        <div class="p-4 text-center">
+                            ${special.image ? `<img src="${special.image}" alt="${special.title}" class="w-full h-48 object-cover rounded-lg mb-3">` : ''}
+                            <div class="text-xl font-bold text-slate-900 mb-1">${special.title}</div>
+                            <div class="text-slate-600 mb-3">${special.description}</div>
+                            <div class="text-2xl font-bold text-green-600 mb-4">$${special.price}</div>
                             ${special.cta_type === 'web' && special.cta_url ? 
-                                `<a href="${special.cta_url}" style="display: inline-block; background: #3b82f6; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500; margin-bottom: 16px;">Order Online</a>` :
+                                `<a href="${special.cta_url}" class="inline-block px-4 py-2 bg-[#f08000] text-white rounded-md shadow-md
+                                                                  hover:bg-[#ff9933] hover:scale-105 transform transition">
+                                    Order Online
+                                 </a>` :
                                 special.cta_type === 'call' && special.cta_phone ? 
-                                `<a href="tel:${special.cta_phone}" style="display: inline-block; background: #3b82f6; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500; margin-bottom: 16px;">Call to Order</a>` : ''
+                                `<a href="tel:${special.cta_phone}" class="inline-block px-4 py-2 bg-[#f08000] text-white rounded-md shadow-md
+                                                                           hover:bg-[#ff9933] hover:scale-105 transform transition">
+                                    Call to Order
+                                 </a>` : ''
                             }
-                            <div style="border-top: 1px solid #e5e7eb; padding-top: 16px; margin-top: 16px;">
-                                <p style="margin-bottom: 8px; font-size: 14px; color: #6b7280;">Get notified about future specials:</p>
-                                <div style="display: flex; gap: 8px;">
-                                    <input type="email" placeholder="Enter your email" style="flex: 1; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;">
-                                    <button style="background: #059669; color: white; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-weight: 500;">Subscribe</button>
-                                </div>
+                        </div>
+                        <div class="border-t border-slate-200 p-4">
+                            <p class="text-sm text-slate-600 mb-2">Get notified about future specials:</p>
+                            <div class="flex flex-col sm:flex-row gap-2">
+                                <input type="email" placeholder="Enter your email"
+                                       class="flex-1 px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#f08000]/50">
+                                <button class="px-4 py-2 bg-[#f08000] text-white rounded-md shadow-md
+                                               hover:bg-[#ff9933] hover:scale-105 transform transition">
+                                    Subscribe
+                                </button>
                             </div>
                         </div>
                     </div>
                 `;
             } else {
                 preview.innerHTML = `
-                    <div style="max-width: 400px; background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-                        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 16px; text-align: center;">
-                            <h3 style="margin: 0;">{{ user.profile.restaurant_name|default:user.username }}</h3>
+                    <div class="max-w-sm bg-white rounded-xl shadow-md overflow-hidden">
+                        <div class="bg-gradient-to-r from-[#f08000] to-[#B993D6] text-white p-4 text-center">
+                            <h3 class="m-0 text-lg font-semibold">{{ user.profile.restaurant_name|default:user.username }}</h3>
                         </div>
-                        <div style="text-align: center; padding: 40px 20px; color: #6b7280;">
+                        <div class="p-8 text-slate-500 text-center">
                             <p>No special available today.</p>
                             <p>Check back soon!</p>
                         </div>
@@ -171,16 +200,17 @@ function loadWidgetPreview() {
         })
         .catch(err => {
             console.error('Preview error:', err);
-            document.getElementById('appertivo-widget-preview').innerHTML = '<p style="text-align: center; color: #ef4444;">Unable to load preview</p>';
+            document.getElementById('appertivo-widget-preview').innerHTML =
+                '<p class="text-center text-red-500">Unable to load preview</p>';
         });
 }
 
 function refreshPreview() {
-    document.getElementById('appertivo-widget-preview').innerHTML = '<div class="text-center text-slate-500 py-8">Loading preview...</div>';
+    document.getElementById('appertivo-widget-preview').innerHTML =
+        '<div class="text-center text-slate-500 py-8">Loading preview...</div>';
     loadWidgetPreview();
 }
 
-// Load preview on page load
 document.addEventListener('DOMContentLoaded', loadWidgetPreview);
 </script>
 {% endblock %}

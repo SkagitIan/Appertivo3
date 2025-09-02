@@ -42,7 +42,7 @@ DEBUG = True
 
 ALLOWED_HOSTS = [
     "appertivo.com", "www.appertivo.com",
-    "app.appertivo.com", "localhost", "127.0.0.1"
+    "app.appertivo.com", "localhost", "127.0.0.1","38.68.10.226"
 ]
 
 # Application definition

@@ -13,20 +13,10 @@ from django.conf import settings
 from django.urls import reverse
 import json
 import os
-
-try:  # pragma: no cover - optional dependency
-    import openai
-except ImportError:  # pragma: no cover
-    openai = None
-
+import openai
 import requests
 import stripe
-
-try:  # pragma: no cover - optional dependency
-    from dotenv import load_dotenv
-except ImportError:  # pragma: no cover
-    load_dotenv = lambda: None
-
+from dotenv import load_dotenv
 load_dotenv()
 
 from django.utils import timezone
@@ -419,18 +409,34 @@ def specials_list(request):
                     "end": s.end_date.isoformat(),
                     "color": color,
                     "edit_url": reverse("special_edit", args=[s.id]),
+                    "card_url": reverse("special_card_partial", args=[s.id]),
                 }
             )
         context = {
             "events": events,
             "create_url": reverse("create_special"),
             "current_view": "calendar",
+            "edit_partial_url": reverse("special_form_edit_partial", args=[s.id]),
+
         }
         template = "app/calendar.html"
     else:
         context = {"specials": specials, "current_view": "list"}
         template = "app/list.html"
     return render(request, template, context)
+
+@login_required
+def special_form_partial(request, special_id=None):
+    special = None
+    if special_id:
+        special = get_object_or_404(Special, id=special_id, user=request.user)
+    form = SpecialForm(instance=special)
+    return render(request, "app/partials/special_form.html", {"form": form, "special":special})
+
+@login_required
+def special_card_partial(request, special_id):
+    special = get_object_or_404(Special, id=special_id, user=request.user)
+    return render(request, "app/partials/special_card.html", {"special": special})
 
 
 @login_required

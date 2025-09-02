@@ -16,12 +16,15 @@
             </div>
             <div class="flex items-center space-x-2">
                 {% include 'app/partials/view_toggle.html' %}
-                <a href="{% url 'create_special' %}" class="btn-primary" data-testid="button-create-special">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                    </svg>
-                    Create Special
-                </a>
+                    <a href="{% url 'create_special' %}" 
+                    class="btn bg-[#f08000] text-white font-semibold px-4 py-2 rounded-md
+                            shadow-md transition transform duration-200 ease-in-out
+                            hover:bg-[#ff9933] hover:scale-105 hover:shadow-lg
+                            focus:outline-none focus:ring-2 focus:ring-[#f08000]/50"
+                    data-testid="button-create-first-special">
+                    Create your first special
+                    </a>
+
             </div>
         </div>
 
@@ -39,12 +42,15 @@
                 <h3 class="mt-2 text-sm font-medium text-slate-900">No specials yet</h3>
                 <p class="mt-1 text-sm text-slate-500">Get started by creating your first special.</p>
                 <div class="mt-6">
-                    <a href="{% url 'create_special' %}" class="btn-primary" data-testid="button-create-first-special">
-                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                        </svg>
+                        <a href="{% url 'create_special' %}" 
+                        class="btn bg-[#f08000] text-white font-semibold px-4 py-2 rounded-md
+                                shadow-md transition transform duration-200 ease-in-out
+                                hover:bg-[#ff9933] hover:scale-105 hover:shadow-lg
+                                focus:outline-none focus:ring-2 focus:ring-[#f08000]/50"
+                        data-testid="button-create-first-special">
                         Create your first special
-                    </a>
+                        </a>
+
                 </div>
             </div>
         {% endif %}
@@ -75,23 +81,5 @@
         </div>
     </div>
 </div>
-<script>
-const modal=document.getElementById('edit-modal');
-const form=document.getElementById('edit-form');
-document.querySelectorAll('[data-testid="button-edit-special"]').forEach(btn=>{
-  btn.addEventListener('click',()=>{
-    form.action=`/specials/${btn.dataset.id}/edit/`;
-    document.getElementById('edit-title').value=btn.dataset.title;
-    document.getElementById('edit-description').value=btn.dataset.description;
-    document.getElementById('edit-price').value=btn.dataset.price;
-    document.getElementById('edit-start_date').value=btn.dataset.startDate;
-    document.getElementById('edit_end_date').value=btn.dataset.endDate;
-    document.getElementById('edit-cta_type').value=btn.dataset.ctaType;
-    document.getElementById('edit-cta_url').value=btn.dataset.ctaUrl;
-    document.getElementById('edit-cta_phone').value=btn.dataset.ctaPhone;
-    modal.classList.remove('hidden');
-  });
-});
-document.getElementById('edit-cancel').addEventListener('click',()=>modal.classList.add('hidden'));
-</script>
+
 {% endblock %}
