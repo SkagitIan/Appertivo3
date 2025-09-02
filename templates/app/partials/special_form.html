@@ -151,32 +151,27 @@
                 </select>
             </div>
             <div>
-                    <input
-                        type="url"
-                        id="cta_url"
-                        name="cta_url"
-                        class="w-full px-3 py-2 mb-2 border border-slate-300 rounded-lg 
-                            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent 
-                            {% if special and special.cta_type != 'web' %}hidden{% endif %}"
-                        placeholder="https://your-website.com/order"
-                        value="{% if special %}{{ special.cta_url }}{% endif %}"
-                        {% if special and special.cta_type == 'web' %}required{% endif %}
-                        data-testid="input-cta-url"
-                    />
+                   <input
+  type="url"
+  id="cta_url"
+  name="cta_url"
+  class="... {% if special and special.cta_type != 'web' %}hidden{% endif %}"
+  placeholder="https://your-website.com/order"
+  value="{% if special %}{{ special.cta_url }}{% endif %}"
+  {% if not special or special.cta_type == 'web' %}required{% endif %}
+/>
 
-                    <input
-                        type="tel"
-                        id="cta_phone"
-                        name="cta_phone"
-                        class="w-full px-3 py-2 border border-slate-300 rounded-lg 
-                            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent 
-                            {% if not special or special.cta_type != 'call' %}hidden{% endif %}"
-                        placeholder="+1 (555) 123-4567"
-                        value="{% if special %}{{ special.cta_phone }}{% endif %}"
-                        {% if special and special.cta_type == 'call' %}required{% endif %}
-                        data-testid="input-cta-phone"
-                        pattern="^\+?1?\d{9,15}$"
-                    />
+<input
+  type="tel"
+  id="cta_phone"
+  name="cta_phone"
+  class="... {% if not special or special.cta_type != 'call' %}hidden{% endif %}"
+  placeholder="+1 (555) 123-4567"
+  value="{% if special and special.cta_phone %}{{ special.cta_phone }}{% endif %}"
+  {% if special and special.cta_type == 'call' %}required{% endif %}
+  pattern="^\+?1?\d{9,15}$"
+/>
+
 
             </div>
         </div>
