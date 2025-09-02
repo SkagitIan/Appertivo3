@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_POST
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
@@ -30,6 +30,7 @@ except ImportError:  # pragma: no cover
 load_dotenv()
 
 from django.utils import timezone
+from datetime import date
 from .models import (
     Special,
     Restaurant,
@@ -42,13 +43,7 @@ from .models import (
 )
 from .forms import SpecialForm
 from app.integrations.google import *
-from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse
-from django.shortcuts import redirect, render
-from django.urls import reverse
-from django.utils import timezone
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods, require_POST
+from .utils import month_cells
 
 logger = logging.getLogger(__name__)
 
@@ -400,9 +395,40 @@ def cancel_subscription(request):
 
 @login_required
 def specials_list(request):
-    """List all specials"""
+    """List specials in list or calendar view."""
+    profile = getattr(request.user, "profile", None)
+    view = request.GET.get("view")
+    if profile:
+        if view in {"list", "calendar"}:
+            if profile.default_view != view:
+                profile.default_view = view
+                profile.save(update_fields=["default_view"])
+        else:
+            view = profile.default_view
+    else:
+        view = "list"
+
     specials = Special.objects.filter(user=request.user)
-    return render(request, 'app/list.html', {'specials': specials})
+    if view == "calendar":
+        today = timezone.localdate()
+        year = int(request.GET.get("year", today.year))
+        month = int(request.GET.get("month", today.month))
+        cells = month_cells(year, month, specials)
+        current_month = date(year, month, 1)
+        prev_month = date(year - 1, 12, 1) if month == 1 else date(year, month - 1, 1)
+        next_month = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
+        context = {
+            "cells": cells,
+            "current_month": current_month,
+            "prev_month": prev_month,
+            "next_month": next_month,
+            "current_view": "calendar",
+        }
+        template = "app/calendar.html"
+    else:
+        context = {"specials": specials, "current_view": "list"}
+        template = "app/list.html"
+    return render(request, template, context)
 
 
 @login_required

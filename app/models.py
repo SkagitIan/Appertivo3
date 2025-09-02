@@ -108,6 +108,11 @@ class UserProfile(models.Model):
         choices=[('free', 'Free'), ('pro', 'Pro'), ('enterprise', 'Enterprise')],
         default='free'
     )
+    default_view = models.CharField(
+        max_length=10,
+        choices=[('list', 'List'), ('calendar', 'Calendar')],
+        default='list',
+    )
 
     def __str__(self):
         return f"{self.user.username} - {self.restaurant_name}"
