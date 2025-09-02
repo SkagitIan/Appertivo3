@@ -152,6 +152,24 @@ function bindCTA(root){
   sync(false);
 }
 
+function toggleCtaField(value) {
+  const urlField = document.getElementById('cta_url');
+  const phoneField = document.getElementById('cta_phone');
+
+  if (value === 'web') {
+    urlField.classList.remove('hidden');
+    urlField.required = true;
+
+    phoneField.classList.add('hidden');
+    phoneField.required = false;
+  } else if (value === 'call') {
+    phoneField.classList.remove('hidden');
+    phoneField.required = true;
+
+    urlField.classList.add('hidden');
+    urlField.required = false;
+  }
+}
 
   // -------------------------------
   // Date helpers

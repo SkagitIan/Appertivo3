@@ -1,4 +1,31 @@
 <div class="flex space-x-2">
-    <a href="?view=list" class="{% if current_view == 'list' %}btn-primary{% else %}btn-outline{% endif %}">List</a>
-    <a href="?view=calendar" class="{% if current_view == 'calendar' %}btn-primary{% else %}btn-outline{% endif %}">Calendar</a>
+    <a href="?view=list"
+       class="{% if current_view == 'list' %}
+                 btn-primary bg-[#f08000] text-white px-4 py-2 rounded-md shadow-md
+                 transition transform duration-200 ease-in-out
+                 hover:bg-[#ff9933] hover:scale-105 hover:shadow-lg
+                 focus:outline-none focus:ring-2 focus:ring-[#f08000]/50
+              {% else %}
+                 btn-outline bg-white text-[#49475B] border border-[#49475B] px-4 py-2 rounded-md
+                 transition transform duration-200 ease-in-out
+                 hover:bg-[#f0f0f0] hover:scale-105 hover:shadow-sm
+                 focus:outline-none focus:ring-2 focus:ring-[#49475B]/50
+              {% endif %}">
+       List
+    </a>
+
+    <a href="?view=calendar"
+       class="{% if current_view == 'calendar' %}
+                 btn-primary bg-[#f08000] text-white px-4 py-2 rounded-md shadow-md
+                 transition transform duration-200 ease-in-out
+                 hover:bg-[#ff9933] hover:scale-105 hover:shadow-lg
+                 focus:outline-none focus:ring-2 focus:ring-[#f08000]/50
+              {% else %}
+                 btn-outline bg-white text-[#49475B] border border-[#49475B] px-4 py-2 rounded-md
+                 transition transform duration-200 ease-in-out
+                 hover:bg-[#f0f0f0] hover:scale-105 hover:shadow-sm
+                 focus:outline-none focus:ring-2 focus:ring-[#49475B]/50
+              {% endif %}">
+       Calendar
+    </a>
 </div>

@@ -27,6 +27,10 @@ urlpatterns = [
     path('specials/<uuid:special_id>/publish/', views.special_publish, name='special_publish'),
     path('specials/<uuid:special_id>/delete/', views.special_delete, name='special_delete'),
     path('specials/<uuid:special_id>/edit/', views.special_edit, name='special_edit'),
+    path('specials/partial/create/', views.special_form_partial, name='special_form_create_partial'),
+    path('specials/<uuid:special_id>/partial/edit/', views.special_form_partial, name='special_form_edit_partial'),
+    path('specials/<uuid:special_id>/partial/card/', views.special_card_partial, name='special_card_partial'),
+
     path('connections/', views.connections, name='connections'),
     path('connections/google/connect/', views.google_connect, name='google_connect'),
     path('connections/google/callback/', views.google_callback, name='google_callback'),
