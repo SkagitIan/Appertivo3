@@ -1,4 +1,6 @@
-<form method="post" enctype="multipart/form-data" class="p-6 space-y-6">
+<form method="post"
+      action="{% if special %}{% url 'special_edit' special.id %}{% else %}{% url 'create_special' %}{% endif %}"
+      enctype="multipart/form-data" class="p-6 space-y-6">
     {% csrf_token %}
 
     <!-- Image Upload -->
