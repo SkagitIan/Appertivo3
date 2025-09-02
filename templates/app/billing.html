@@ -4,54 +4,89 @@
 
 {% block content %}
 <div class="min-h-screen bg-slate-50">
-{% include 'base/dashboard_nav.html' %}
+    {% include 'base/dashboard_nav.html' %}
 
     <main class="max-w-3xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <h1 class="text-2xl font-bold text-slate-900 mb-6">Billing</h1>
+
+        <!-- Current Plan -->
         <div class="mb-6">
-            <p class="text-slate-700">Current Plan: {{ profile.subscription_tier|capfirst }}</p>
+            <p class="text-slate-700">
+                Current Plan:
+                <span class="inline-block px-3 py-1 rounded-full text-sm font-semibold 
+                             bg-[#f08000] text-white">
+                    {{ profile.subscription_tier|capfirst }}
+                </span>
+            </p>
 
             {% if subscription %}
-            <p class="text-sm text-slate-500">
+            <p class="text-sm text-slate-500 mt-1">
                 Started: {{ subscription.started_at|date:"Y-m-d" }}
-                {% if subscription.canceled_at %}| Cancelled: {{ subscription.canceled_at|date:"Y-m-d" }}{% endif %}
+                {% if subscription.canceled_at %}
+                | Cancelled: {{ subscription.canceled_at|date:"Y-m-d" }}
+                {% endif %}
             </p>
             {% endif %}
 
             {% if profile.subscription_tier != 'free' %}
-  <form method="get" action="{% url 'billing_portal' %}" class="mt-2">
-    <button type="submit" class="btn-outline">Manage Billing</button>
-  </form>
-{% endif %}
-
+            <form method="get" action="{% url 'billing_portal' %}" class="mt-3">
+                <button type="submit"
+                        class="w-full sm:w-auto inline-block px-5 py-2 text-sm font-semibold text-white 
+                               bg-[#f08000] rounded-md shadow-md text-center
+                               transition transform duration-200 ease-in-out
+                               hover:bg-[#ff9933] hover:scale-105 hover:shadow-lg
+                               focus:outline-none focus:ring-2 focus:ring-[#f08000]/50">
+                    Manage Billing
+                </button>
+            </form>
+            {% endif %}
         </div>
 
+        <!-- Available Plans -->
         {% if profile.subscription_tier == 'free' %}
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
             {% for plan in plans %}
-            <div class="card border-2 {{ plan.border }} p-6">
-                <h2 class="text-xl font-semibold mb-2">{{ plan.name }}</h2>
-                <p class="text-2xl font-bold mb-4">${{ plan.price }}<span class="text-sm font-medium text-slate-500">/mo</span></p>
-                <ul class="mb-4 list-disc list-inside text-slate-700">
-                    {% for feat in plan.features %}
-                    <li>{{ feat }}</li>
-                    {% endfor %}
-                </ul>
+            <div class="card border-2 {{ plan.border }} p-6 flex flex-col justify-between">
+                <div>
+                    <h2 class="text-xl font-semibold mb-2">{{ plan.name }}</h2>
+                    <p class="text-2xl font-bold mb-4">
+                        ${{ plan.price }}
+                        <span class="text-sm font-medium text-slate-500">/mo</span>
+                    </p>
+                    <ul class="mb-4 list-disc list-inside text-slate-700 space-y-1">
+                        {% for feat in plan.features %}
+                        <li>{{ feat }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
                 <form method="post" action="{% url 'subscribe' %}">
                     {% csrf_token %}
                     <input type="hidden" name="plan" value="{{ plan.tier }}" />
-                    <button type="submit" class="btn-primary w-full">Choose {{ plan.name }}</button>
+                    <button type="submit"
+                            class="w-full inline-block px-5 py-2 text-sm font-semibold text-white 
+                                   bg-[#f08000] rounded-md shadow-md text-center
+                                   transition transform duration-200 ease-in-out
+                                   hover:bg-[#ff9933] hover:scale-105 hover:shadow-lg
+                                   focus:outline-none focus:ring-2 focus:ring-[#f08000]/50">
+                        Choose {{ plan.name }}
+                    </button>
                 </form>
             </div>
             {% endfor %}
         </div>
         {% endif %}
 
+        <!-- Transaction History -->
         <h2 class="text-lg font-semibold mb-4">Transaction History</h2>
-        <div class="bg-white stripe-shadow rounded-lg p-4">
-            <table class="w-full text-left">
+        <div class="bg-white stripe-shadow rounded-lg p-4 overflow-x-auto">
+            <table class="w-full text-left text-sm">
                 <thead>
-                    <tr><th class="py-2">Date</th><th>Plan</th><th>Amount</th><th>Status</th></tr>
+                    <tr class="text-slate-600">
+                        <th class="py-2">Date</th>
+                        <th>Plan</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                    </tr>
                 </thead>
                 <tbody>
                     {% for tx in transactions %}
@@ -63,9 +98,10 @@
                     </tr>
                     {% empty %}
                     <tr class="border-t">
-                        <td colspan="4" class="py-2 text-center text-slate-500">No transactions found.</td>
+                        <td colspan="4" class="py-2 text-center text-slate-500">
+                            No transactions found.
+                        </td>
                     </tr>
-
                     {% endfor %}
                 </tbody>
             </table>
