@@ -30,7 +30,6 @@ except ImportError:  # pragma: no cover
 load_dotenv()
 
 from django.utils import timezone
-from datetime import date
 from .models import (
     Special,
     Restaurant,
@@ -43,7 +42,6 @@ from .models import (
 )
 from .forms import SpecialForm
 from app.integrations.google import *
-from .utils import month_cells
 
 logger = logging.getLogger(__name__)
 
@@ -410,18 +408,22 @@ def specials_list(request):
 
     specials = Special.objects.filter(user=request.user)
     if view == "calendar":
-        today = timezone.localdate()
-        year = int(request.GET.get("year", today.year))
-        month = int(request.GET.get("month", today.month))
-        cells = month_cells(year, month, specials)
-        current_month = date(year, month, 1)
-        prev_month = date(year - 1, 12, 1) if month == 1 else date(year, month - 1, 1)
-        next_month = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
+        events = []
+        for s in specials:
+            color = "#22c55e" if s.status == "active" else "#6b7280"
+            events.append(
+                {
+                    "id": str(s.id),
+                    "title": s.title,
+                    "start": s.start_date.isoformat(),
+                    "end": s.end_date.isoformat(),
+                    "color": color,
+                    "edit_url": reverse("special_edit", args=[s.id]),
+                }
+            )
         context = {
-            "cells": cells,
-            "current_month": current_month,
-            "prev_month": prev_month,
-            "next_month": next_month,
+            "events": events,
+            "create_url": reverse("create_special"),
             "current_view": "calendar",
         }
         template = "app/calendar.html"
