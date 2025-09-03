@@ -59,6 +59,7 @@ class Special(models.Model):
     email_signups = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    rrule = models.CharField(max_length=255, blank=True, null=True)
 
     def __str__(self):
         return f"{self.title} - {self.user.username}"
