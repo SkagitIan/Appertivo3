@@ -11,3 +11,4 @@ python-dotenv  # to manage env vars locally
 requests
 stripe
 whitenoise
+celery
