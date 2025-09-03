@@ -1,0 +1,28 @@
+{% extends 'base/base.html' %}
+{% block content %}
+<div class="min-h-screen bg-white" id="top">
+    {% include 'base/public_nav.html' %}
+    <section class="pt-20 pb-16 max-w-3xl mx-auto px-4">
+        <h1 class="text-3xl font-bold mb-4">Contact Us</h1>
+        {% if success %}
+            <p class="mb-4 text-green-600">Thanks for reaching out! I'll get back to you soon.</p>
+        {% endif %}
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+            <div>
+                {{ form.name.label_tag }}
+                {{ form.name }}
+            </div>
+            <div>
+                {{ form.email.label_tag }}
+                {{ form.email }}
+            </div>
+            <div>
+                {{ form.message.label_tag }}
+                {{ form.message }}
+            </div>
+            <button type="submit" class="btn-primary">Send</button>
+        </form>
+    </section>
+</div>
+{% endblock %}
