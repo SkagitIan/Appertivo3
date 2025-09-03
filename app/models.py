@@ -98,25 +98,41 @@ class Integration(models.Model):
         app_label = 'app'
 
 # Extend User model
+
+
 class UserProfile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
     restaurant_name = models.CharField(max_length=255)
     location = models.CharField(max_length=255, blank=True, default="")
+    
+    # Verification & billing
     is_email_verified = models.BooleanField(default=False)
     verification_token = models.UUIDField(default=uuid.uuid4, blank=True, null=True)
     stripe_customer_id = models.CharField(max_length=64, blank=True, null=True)
+
+    # Google / Outscraper details
     google_place_id = models.CharField(max_length=128, blank=True, null=True)
     formatted_address = models.CharField(max_length=255, blank=True, null=True)
     phone_number = models.CharField(max_length=32, blank=True, null=True)
+    website = models.URLField(max_length=255, blank=True, null=True)
+    category = models.CharField(max_length=128, blank=True, null=True)
+    rating = models.DecimalField(max_digits=3, decimal_places=1, blank=True, null=True)
+    reviews = models.PositiveIntegerField(blank=True, null=True)
+    photo_url = models.URLField(max_length=500, blank=True, null=True)
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
+    hours = models.JSONField(blank=True, null=True)  # store structured hours
+
+    # App-specific
     subscription_tier = models.CharField(
         max_length=20,
-        choices=[('free', 'Free'), ('pro', 'Pro'), ('enterprise', 'Enterprise')],
-        default='free'
+        choices=[("free", "Free"), ("pro", "Pro"), ("enterprise", "Enterprise")],
+        default="free",
     )
     default_view = models.CharField(
         max_length=10,
-        choices=[('list', 'List'), ('calendar', 'Calendar')],
-        default='list',
+        choices=[("list", "List"), ("calendar", "Calendar")],
+        default="list",
     )
 
     def __str__(self):

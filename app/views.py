@@ -17,7 +17,7 @@ import openai
 import requests
 import stripe
 
-import logging
+
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -36,7 +36,7 @@ from .forms import SpecialForm, ContactForm
 from app.integrations.google import *
 from app.integrations.outscraper import fetch_place_details
 import threading
-
+import logging
 logger = logging.getLogger(__name__)
 
 
@@ -115,13 +115,29 @@ def register_view(request):
         profile.save()
         
         def update_profile():
-            data = fetch_place_details(restaurant_name, location)
-            if data:
+            try:
+                data = fetch_place_details(restaurant_name, location)
+                if not data:
+                    logger.info("No place details found for profile=%s", profile.pk)
+                    return
+
                 UserProfile.objects.filter(pk=profile.pk).update(
-                    google_place_id=data.get('google_place_id', ''),
-                    formatted_address=data.get('formatted_address', ''),
-                    phone_number=data.get('phone_number', ''),
+                    google_place_id=data.get("google_place_id", ""),
+                    formatted_address=data.get("formatted_address", ""),
+                    phone_number=data.get("phone_number", ""),
+                    website=data.get("website", ""),
+                    category=data.get("category", ""),
+                    rating=data.get("rating", ""),
+                    reviews=data.get("reviews", ""),
+                    photo_url=data.get("photo_url", ""),
+                    latitude=data.get("latitude", ""),
+                    longitude=data.get("longitude", ""),
+                    hours=data.get("hours", {}),
                 )
+                logger.info("Updated profile=%s with place details", profile.pk)
+
+            except Exception as e:
+                logger.exception("Failed to update profile=%s: %s", profile.pk, e)
 
         threading.Thread(target=update_profile, daemon=True).start()
 
