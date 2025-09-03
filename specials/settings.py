@@ -12,21 +12,12 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
-try:
-    from dotenv import load_dotenv, find_dotenv
-except (ImportError, ModuleNotFoundError):
-    def load_dotenv(*args, **kwargs):
-        return False
-    def find_dotenv(*args, **kwargs):
-        return ""
-
+from dotenv import load_dotenv
 load_dotenv()
+
 from django.contrib.messages import constants as message_constants
 
-print(find_dotenv())
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(BASE_DIR / ".env")
-
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
@@ -38,7 +29,7 @@ GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
 SECRET_KEY = 'django-insecure-9p1o@*d)+lij5nyyv6=8i*m^r_gmn&2(2ol-twbzpyf9#v&f4w'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = [
     "appertivo.com", "www.appertivo.com",
@@ -60,6 +51,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'django_crontab',
     'app.apps.AppConfig',
+    'contentgen',
     'anymail',
 ]
 
@@ -199,6 +191,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Celery configuration
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "memory://")
+CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "cache+memory://")
+CELERY_TASK_ALWAYS_EAGER = os.getenv("CELERY_TASK_ALWAYS_EAGER", "True") == "True"
 
 
 LOGGING = {
