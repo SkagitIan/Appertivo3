@@ -5,8 +5,6 @@ from django.conf.urls.static import static
 from app import views
 from django.contrib.auth import views as auth_views
 
-from app import views
-
 urlpatterns = [
     path("admin/", admin.site.urls),
     path('', views.home, name='home'),
@@ -53,6 +51,7 @@ urlpatterns = [
     path('demo-widget/special/', views.demo_widget, name='demo_widget'),
     path('demo-widget/signup/', views.demo_widget_signup, name='demo_widget_signup'),
     path('demo-widget/js/', views.demo_widget_js, name='demo_widget_js'),
+    path('content/', include(('contentgen.urls', 'contentgen'), namespace='contentgen')),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
