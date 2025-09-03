@@ -3,6 +3,8 @@ from .models import Special
 
 
 class SpecialForm(forms.ModelForm):
+    """Form for creating and editing specials."""
+
     class Meta:
         model = Special
         fields = [
@@ -16,3 +18,11 @@ class SpecialForm(forms.ModelForm):
             "cta_url",
             "cta_phone",
         ]
+
+
+class ContactForm(forms.Form):
+    """Simple contact form."""
+
+    name = forms.CharField(max_length=100)
+    email = forms.EmailField()
+    message = forms.CharField(widget=forms.Textarea)
