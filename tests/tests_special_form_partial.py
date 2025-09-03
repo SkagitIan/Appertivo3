@@ -38,3 +38,8 @@ class SpecialFormPartialTests(TestCase):
         url = reverse("special_form_edit_partial", args=[special.id])
         response = self.client.get(url)
         self.assertContains(response, f'action="{reverse("special_edit", args=[special.id])}"')
+
+    def test_create_partial_has_recurrence_fields(self):
+        url = reverse("special_form_create_partial")
+        response = self.client.get(url)
+        self.assertContains(response, 'name="byday"')

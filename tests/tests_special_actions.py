@@ -67,6 +67,24 @@ class SpecialsListActionsTests(TestCase):
         special.refresh_from_db()
         self.assertEqual(special.title, "New")
 
+    def test_create_special_with_recurrence(self):
+        start = timezone.now() - timedelta(days=1)
+        end = timezone.now() + timedelta(days=1)
+        data = {
+            "title": "Taco Tuesday",
+            "description": "Desc",
+            "price": "10.00",
+            "start_date": start.strftime("%Y-%m-%d %H:%M:%S"),
+            "end_date": end.strftime("%Y-%m-%d %H:%M:%S"),
+            "cta_type": "web",
+            "cta_url": "",
+            "cta_phone": "",
+            "byday": ["TU"],
+        }
+        self.client.post(reverse("create_special"), data)
+        special = Special.objects.get(title="Taco Tuesday")
+        self.assertEqual(special.rrule, "FREQ=WEEKLY;BYDAY=TU")
+
     def test_delete_special(self):
         special = self._create_special()
         self.client.post(reverse("special_delete", args=[special.id]))

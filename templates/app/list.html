@@ -10,6 +10,7 @@
     <!-- Main Content -->
     <main class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
      <div class="mb-8">
+        <!--- top row section -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <!-- Title / Subtitle -->
         <div>
@@ -19,38 +20,6 @@
 
         <!-- Action Buttons -->
         <div class="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
-            <!-- List Button -->
-            <a href="?view=list"
-               class="{% if current_view == 'list' %}
-                  bg-[#f08000] text-white px-4 py-2 rounded-md shadow-md text-center font-semibold
-                  transition transform duration-200 ease-in-out
-                  hover:bg-[#ff9933] hover:scale-105 hover:shadow-lg
-                  focus:outline-none focus:ring-2 focus:ring-[#f08000]/50
-               {% else %}
-                  bg-white text-[#49475B] border border-[#49475B] px-4 py-2 rounded-md text-center font-semibold
-                  transition transform duration-200 ease-in-out
-                  hover:bg-slate-100 hover:scale-105 hover:shadow-sm
-                  focus:outline-none focus:ring-2 focus:ring-[#49475B]/50
-               {% endif %}">
-                List
-            </a>
-
-            <!-- Calendar Button -->
-            <a href="?view=calendar"
-               class="{% if current_view == 'calendar' %}
-                  bg-[#f08000] text-white px-4 py-2 rounded-md shadow-md text-center font-semibold
-                  transition transform duration-200 ease-in-out
-                  hover:bg-[#ff9933] hover:scale-105 hover:shadow-lg
-                  focus:outline-none focus:ring-2 focus:ring-[#f08000]/50
-               {% else %}
-                  bg-white text-[#49475B] border border-[#49475B] px-4 py-2 rounded-md text-center font-semibold
-                  transition transform duration-200 ease-in-out
-                  hover:bg-slate-100 hover:scale-105 hover:shadow-sm
-                  focus:outline-none focus:ring-2 focus:ring-[#49475B]/50
-               {% endif %}">
-                Calendar
-            </a>
-
             <!-- Create Special Button -->
             <a href="{% url 'create_special' %}"
                class="bg-[#f08000] text-white font-semibold px-4 py-2 rounded-md text-center
@@ -61,6 +30,17 @@
                 + Create Special
             </a>
         </div>
+    </div>
+</div>
+
+<div class="flex justify-end mb-4">
+    <div class="flex space-x-4 text-xl">
+        <a href="?view=list" class="{% if current_view == 'list' %}text-[#f08000]{% else %}text-slate-500{% endif %}">
+            <i class="fa-solid fa-list"></i>
+        </a>
+        <a href="?view=calendar" class="{% if current_view == 'calendar' %}text-[#f08000]{% else %}text-slate-500{% endif %}">
+            <i class="fa-solid fa-calendar"></i>
+        </a>
     </div>
 </div>
 

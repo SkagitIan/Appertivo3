@@ -48,6 +48,12 @@ class SpecialsListToggleTests(TestCase):
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.default_view, "calendar")
 
+    def test_list_view_has_toggle_icons(self):
+        response = self.client.get(reverse("specials_list"))
+        html = response.content.decode()
+        self.assertIn("fa-list", html)
+        self.assertIn("fa-calendar", html)
+
 
 class CalendarEventsTests(TestCase):
     def setUp(self):
