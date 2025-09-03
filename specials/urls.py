@@ -43,15 +43,11 @@ urlpatterns = [
     path('widget/<int:user_id>/js/', views.widget_js, name='widget_js'),
     path('widget/', views.widget_setup, name='widget_setup'),
     path('analytics/email/', views.email_analytics, name='email_analytics'),
-    
-    
-
 
     # Demo widget endpoints
     path('demo-widget/special/', views.demo_widget, name='demo_widget'),
     path('demo-widget/signup/', views.demo_widget_signup, name='demo_widget_signup'),
     path('demo-widget/js/', views.demo_widget_js, name='demo_widget_js'),
-    path('content/', include(('contentgen.urls', 'contentgen'), namespace='contentgen')),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

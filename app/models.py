@@ -222,3 +222,45 @@ class Article(models.Model):
     def get_absolute_url(self):
         return reverse("article_detail", args=[self.slug])
 
+class PipelineSession(models.Model):
+    STATUS_CHOICES = [
+        ("drafting", "Drafting"),
+        ("completed", "Completed"),
+        ("failed", "Failed"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    topic_hint = models.CharField(max_length=255)
+
+    # step outputs as plain text
+    ideas = models.TextField(blank=True, null=True)
+    picked = models.TextField(blank=True, null=True)
+    brief = models.TextField(blank=True, null=True)
+    research = models.TextField(blank=True, null=True)
+    draft = models.TextField(blank=True, null=True)
+    edited = models.TextField(blank=True, null=True)
+    seo = models.TextField(blank=True, null=True)
+    html = models.TextField(blank=True, null=True)
+
+    current_step = models.CharField(
+        max_length=20,
+        choices=[
+            ("ideas", "Ideas"),
+            ("pick", "Pick"),
+            ("brief", "Brief"),
+            ("research", "Research"),
+            ("draft", "Draft"),
+            ("edit", "Edit"),
+            ("seo", "SEO"),
+            ("html", "HTML"),
+        ],
+        default="ideas",
+    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="drafting")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Pipeline {self.topic_hint} ({self.current_step})"

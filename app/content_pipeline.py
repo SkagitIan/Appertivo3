@@ -1,5 +1,5 @@
 # app/services/content_pipeline.py
-import os, json, re
+import os, json, re, logging
 from datetime import date
 from typing import Any, Dict, List, Optional, TypedDict
 
@@ -11,15 +11,15 @@ from django.utils.text import slugify
 
 from openai import OpenAI
 
+# ---------- Logging ----------
+logger = logging.getLogger(__name__)
+
 # ---------- OpenAI client & model choices ----------
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"), timeout=3600)
-print(client)
-MODEL = os.getenv("OPENAI_MODEL", "gpt-5-nano-2025-08-07")               # main writer/editor
-DEEP_MODEL = os.getenv("OPENAI_DEEP_MODEL", "o4-mini-deep-research")     # or "o3-deep-research"
+MODEL = "gpt-5-nano-2025-08-07"
+DEEP_MODEL = "o4-mini-deep-research"
 
-# ---------- Optional price config (set in .env if you want $) ----------
-# PRICE_IN_PER_1K=gpt-5-nano-2025-08-07:0.15
-# PRICE_OUT_PER_1K=gpt-5-nano-2025-08-07:0.60
+# ---------- Optional price config ----------
 def _price_from_env(key: str, model: str) -> Optional[float]:
     raw = os.getenv(key, "")
     if ":" in raw:
@@ -27,7 +27,6 @@ def _price_from_env(key: str, model: str) -> Optional[float]:
         if m.strip() == model and re.match(r"^\d+(\.\d+)?$", p.strip()):
             return float(p.strip())
     return None
-
 class CostMeter:
     def __init__(self, model: str):
         self.model = model
@@ -36,13 +35,24 @@ class CostMeter:
         self.in_price = _price_from_env("PRICE_IN_PER_1K", model)
         self.out_price = _price_from_env("PRICE_OUT_PER_1K", model)
 
-    def add(self, usage: Optional[Dict[str, Any]]):
+    def add(self, usage: Optional[Any]):
         if not usage:
             return
-        self.input_tokens += int(usage.get("input_tokens", 0))
-        self.output_tokens += int(usage.get("output_tokens", 0))
+        try:
+            # Handles OpenAI ResponseUsage object
+            in_tokens = getattr(usage, "input_tokens", None)
+            out_tokens = getattr(usage, "output_tokens", None)
+            if in_tokens is not None:
+                self.input_tokens += int(in_tokens)
+            if out_tokens is not None:
+                self.output_tokens += int(out_tokens)
+        except Exception:
+            # Fallback if dict-like
+            self.input_tokens += int(usage.get("input_tokens", 0))
+            self.output_tokens += int(usage.get("output_tokens", 0))
 
     def dollars(self) -> Optional[float]:
+        """Return total USD cost if PRICE_IN_PER_1K and PRICE_OUT_PER_1K are set in .env"""
         if self.in_price is None or self.out_price is None:
             return None
         return round(
@@ -51,19 +61,23 @@ class CostMeter:
             2,
         )
 
+
 # ---------- Schemas ----------
 class Idea(BaseModel):
     title: str
     angle: str
     audience: str = "restaurateurs"
 
+
 class IdeaSet(BaseModel):
     ideas: List[Idea] = Field(..., min_items=6, max_items=12)
+
 
 class ScoredIdea(BaseModel):
     title: str
     score: float = Field(..., ge=0, le=10)
     rationale: str
+
 
 class Brief(BaseModel):
     working_title: str
@@ -72,14 +86,17 @@ class Brief(BaseModel):
     voice_notes: str
     sources_needed: List[str]
 
+
 class ResearchNote(BaseModel):
     source: str
     key_facts: List[str]
     url: Optional[str] = None
 
+
 class Draft(BaseModel):
     h1: str
-    sections: List[Dict[str, str]]  # [{"h2": "...", "body": "..."}]
+    sections: List[Dict[str, str]]
+
 
 class SeoMeta(BaseModel):
     slug: str
@@ -88,6 +105,7 @@ class SeoMeta(BaseModel):
     keywords: List[str]
     og_image_hint: str
 
+
 class PipelineResult(BaseModel):
     picked: ScoredIdea
     brief: Brief
@@ -95,31 +113,43 @@ class PipelineResult(BaseModel):
     draft: Draft
     edited: Draft
     seo: SeoMeta
-    html: str  # Tailwind formatted
+    html: str
+
+def ask_text(sys: str, user: str, cost: CostMeter) -> str:
+    """Ask the model for plain text. Tracks token usage in 'cost'."""
+    logger.info("ask_text called with sys='%s...'", sys[:40])
+    kwargs: Dict[str, Any] = {
+        "model": MODEL,
+        "instructions": sys,
+        "input": user,
+    }
+    try:
+        resp = client.responses.create(**kwargs)
+        cost.add(getattr(resp, "usage", None))
+        raw = getattr(resp, "output_text", None) or resp.output[0].content[0].text
+        logger.debug("ask_text raw response: %s", raw[:200])
+        return raw.strip()
+    except Exception as e:
+        logger.exception("ask_text failed: %s", e)
+        raise
+
 
 # ---------- Low-ceremony JSON helper ----------
 def ask_json(sys: str, user: str, schema_model: Any, cost: CostMeter) -> Any:
-    """
-    Responses API call that asks for strict JSON matching 'schema_model'.
-    Tracks token usage in 'cost'.
-    """
+    logger.info("ask_json called with sys='%s...'", sys[:40])
     schema = schema_model.model_json_schema() if hasattr(schema_model, "model_json_schema") else None
 
     kwargs: Dict[str, Any] = {
         "model": MODEL,
-        "instructions": sys,   # Responses API: 'instructions' for system/developer
-        "input": user,         # string input is fine
+        "instructions": sys,
+        "input": user,
     }
 
     if schema:
         kwargs["text"] = {
             "format": {
-                "type": "json_schema",
-                "json_schema": {
-                    "name": schema_model.__name__,
-                    "schema": schema,
-                    "strict": True
-                }
+                "text": "json_schema",
+                "json_schema": {"name": schema_model.__name__, "schema": schema, "strict": True},
             }
         }
 
@@ -127,11 +157,12 @@ def ask_json(sys: str, user: str, schema_model: Any, cost: CostMeter) -> Any:
         resp = client.responses.create(**kwargs)
         cost.add(getattr(resp, "usage", None))
         raw = getattr(resp, "output_text", None) or resp.output[0].content[0].text
+        logger.debug("ask_json raw response: %s", raw[:200])
         data = json.loads(raw)
         return schema_model.model_validate(data) if schema else data
 
-    except (json.JSONDecodeError, ValidationError):
-        # one retry with slightly higher temperature
+    except (json.JSONDecodeError, ValidationError) as e:
+        logger.warning("ask_json validation/JSON error, retrying: %s", e)
         kwargs["temperature"] = 0.7
         resp2 = client.responses.create(**kwargs)
         cost.add(getattr(resp2, "usage", None))
@@ -140,12 +171,12 @@ def ask_json(sys: str, user: str, schema_model: Any, cost: CostMeter) -> Any:
         return schema_model.model_validate(data2) if schema else data2
 
     except Exception as e:
-        # If your SDK/model doesn’t support structured outputs on this route,
-        # drop the 'text' block and ask the model to return JSON by instruction.
+        logger.exception("ask_json failed: %s", e)
         if schema and "text.format" in str(e):
             kwargs.pop("text", None)
-            kwargs["instructions"] = (sys + "\nReturn STRICT JSON only, matching this schema:\n"
-                                      + json.dumps(schema))
+            kwargs["instructions"] = (
+                sys + "\nReturn STRICT JSON only, matching this schema:\n" + json.dumps(schema)
+            )
             resp3 = client.responses.create(**kwargs)
             cost.add(getattr(resp3, "usage", None))
             raw3 = getattr(resp3, "output_text", None) or resp3.output[0].content[0].text
@@ -153,176 +184,78 @@ def ask_json(sys: str, user: str, schema_model: Any, cost: CostMeter) -> Any:
             return schema_model.model_validate(data3)
         raise
 
-# ---------- Deep Research via Responses API ----------
-def deep_research(topic_hint: str, cost: CostMeter) -> List[ResearchNote]:
-    """
-    Runs Deep Research using a deep-research model + web search tool.
-    Returns List[ResearchNote] validated by Pydantic.
-    """
-    schema = {
-        "type": "array",
-        "minItems": 4,
-        "maxItems": 8,
-        "items": {
-            "type": "object",
-            "required": ["source", "key_facts"],
-            "additionalProperties": False,
-            "properties": {
-                "source": {"type": "string"},
-                "url": {"type": "string"},
-                "key_facts": {
-                    "type": "array",
-                    "minItems": 3,
-                    "maxItems": 6,
-                    "items": {"type": "string"},
-                },
-            },
-        },
-    }
+def brainstorm_ideas(topic_hint: str, cost: CostMeter) -> str:
+    sys = "You are a senior content strategist for the restaurant industry."
+    user = f"Brainstorm 10 article ideas for restaurateurs. Hint: {topic_hint}"
+    return ask_text(sys, user, cost)
 
-    instructions = (
-        "You are doing web research for restaurateurs. Find recent, citable facts from high-quality sources "
-        "(official docs, trade orgs, .gov, primary data). Return strict JSON only matching the schema. "
-        "Each note must include 3–6 concise facts. Prefer official docs for Google Business Profile, email, POS, etc."
-    )
 
-    user = (
-        f"Research topic: {topic_hint}\n"
-        "Output: JSON array of notes. Each note has {source, url, key_facts[]}."
-    )
+def score_and_pick(ideas_text: str, cost: CostMeter) -> str:
+    sys = "You are an editorial director choosing the strongest angle."
+    user = f"Here are the ideas:\n{ideas_text}\nPick the best one and explain why."
+    return ask_text(sys, user, cost)
 
+
+def make_brief(picked_text: str, cost: CostMeter) -> str:
+    sys = "You are a professional managing editor writing briefs."
+    user = f"Create a brief for this idea:\n{picked_text}"
+    return ask_text(sys, user, cost)
+
+
+def deep_research(topic_hint: str, cost: CostMeter) -> str:
+    logger.info("Starting deep research for topic='%s'", topic_hint)
+    sys = "You are doing web research for restaurateurs. Return concise notes."
+    user = f"Research topic: {topic_hint}"
     kwargs = {
-        "model": DEEP_MODEL,                # e.g. "o4-mini-deep-research" or "o3-deep-research"
-        "instructions": instructions,
+        "model": DEEP_MODEL,
+        "instructions": sys,
         "input": user,
-        "tools": [
-            {"type": "web_search"},  # required for deep-research models
-            # {"type": "code_interpreter", "container": {"type": "auto"}},
-        ],
+        "tools": [{"type": "web_search"}],
         "max_tool_calls": 40,
-        "text": {
-        "format": {
-            "type": "json_schema",
-            "json_schema": {
-                "name": "ResearchNotes",
-                "schema": schema,
-                "strict": True
-            }
-        }
-    },
     }
-
-    try:
-        resp = client.responses.create(**kwargs)
-
-    except Exception as e:
-        # Fallback if this SDK/model build rejects structured outputs under 'text'
-        if "text.format" in str(e):
-            kwargs.pop("text", None)
-            kwargs["instructions"] = (instructions + "\nReturn STRICT JSON only, matching this schema:\n"
-                                      + json.dumps(schema))
-            resp = client.responses.create(**kwargs)
-        else:
-            raise
-
+    resp = client.responses.create(**kwargs)
     cost.add(getattr(resp, "usage", None))
     raw = getattr(resp, "output_text", None) or resp.output[0].content[0].text
-    data = json.loads(raw)
-    return [ResearchNote.model_validate(n) for n in data]
+    return raw.strip()
 
-# ---------- (1-7) Core pipeline steps ----------
-def brainstorm_ideas(topic_hint: str, cost: CostMeter) -> IdeaSet:
-    sys = "You are a senior content strategist for a restaurant-tech blog."
-    user = (
-        "Brainstorm 10 article ideas for restaurateurs. Mix how-tos, playbooks, and cultural analysis. "
-        f"Use this hint: {topic_hint}. Each idea needs a title and angle."
-    )
-    return ask_json(sys, user, IdeaSet, cost)
 
-def score_and_pick(ideas: IdeaSet, cost: CostMeter) -> ScoredIdea:
-    sys = "You evaluate topics by relevance to restaurateurs, novelty, and 90-day search demand."
-    bullets = "\n".join([f"- {i.title}: {i.angle}" for i in ideas.ideas])
-    user = (
-        "Score each idea 0-10 and pick the best one for impact. "
-        "Return only the winner with score and rationale.\nIdeas:\n" + bullets
-    )
-    return ask_json(sys, user, ScoredIdea, cost)
+def draft_article(brief_text: str, research_text: str, cost: CostMeter) -> str:
+    sys = "You are a trade journalist writing for restaurant operators."
+    user = f"Brief:\n{brief_text}\nResearch:\n{research_text}"
+    return ask_text(sys, user, cost)
 
-def make_brief(picked: ScoredIdea, prior_notes: List[ResearchNote], cost: CostMeter) -> Brief:
-    sys = "You write tight article briefs for senior writers."
-    user = (
-        f"Create a brief for the idea '{picked.title}'. Promise must be specific and valuable to restaurateurs. "
-        "Outline should be 5-8 sections. Include 3-6 sources needed and voice notes (tone, POV). "
-        f"Consider these preliminary notes:\n{json.dumps([n.model_dump() for n in prior_notes])}"
-    )
-    return ask_json(sys, user, Brief, cost)
 
-def draft_article(brief: Brief, research: List[ResearchNote], cost: CostMeter) -> Draft:
-    sys = "Expert writer for restaurateurs. Clear, example-rich, non-sales tone. ~1200 words."
-    user = (
-        f"Write the article with an H1 and several H2 sections.\n"
-        f"Brief:\n{brief.model_dump_json()}\n"
-        f"Research:\n{json.dumps([r.model_dump() for r in research])}"
-    )
-    return ask_json(sys, user, Draft, cost)
+def edit_article(draft_text: str, cost: CostMeter) -> str:
+    sys = "You are a sharp editor polishing a professional article."
+    user = f"Edit this draft:\n{draft_text}"
+    return ask_text(sys, user, cost)
 
-def edit_article(draft: Draft, cost: CostMeter) -> Draft:
-    sys = "Sharp editor. Improve clarity, tighten sentences, add specificity, keep structure, preserve voice."
-    user = f"Edit this draft for flow and specificity.\nDraft:\n{draft.model_dump_json()}"
-    return ask_json(sys, user, Draft, cost)
 
-def make_seo(edited: Draft, cost: CostMeter) -> SeoMeta:
-    sys = "SEO editor for B2B content."
-    user = (
-        "Create slug, meta title (<=60), meta description (<=155), 6-10 keywords, and an OG image hint. "
-        f"Base it on this edited draft:\n{edited.model_dump_json()}"
-    )
-    data = ask_json(sys, user, SeoMeta, cost)
-    data.slug = slugify(data.slug)[:80]
-    return data
+def make_seo(edited_text: str, cost: CostMeter) -> str:
+    sys = "You are an SEO specialist optimizing professional articles."
+    user = f"Generate slug, meta title, description, keywords for this article:\n{edited_text}"
+    return ask_text(sys, user, cost)
 
-# ---------- (8) Tailwind formatter (Appertivo palette) ----------
-PALETTE = {
-    "purple": "#B993D6",
-    "orange": "#f08000",
-    "green":  "#58B09C",
-    "ink":    "#49475B",
-    "black":  "#14080E",
-}
+# ---------- Tailwind formatter ----------
+PALETTE = {"purple": "#B993D6", "orange": "#f08000", "green": "#58B09C", "ink": "#49475B", "black": "#14080E"}
 
-def format_tailwind_html(edited: Draft) -> str:
-    parts = []
-    parts.append(f"""
-<section class="max-w-3xl mx-auto py-10 px-4">
-  <header class="mb-8">
-    <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight" style="color:{PALETTE['ink']}">{edited.h1}</h1>
-    <div class="mt-3 h-1.5 w-24 rounded-full" style="background:linear-gradient(90deg,{PALETTE['orange']}, {PALETTE['purple']});"></div>
-  </header>
-""")
-    for sec in edited.sections:
-        h2 = sec.get("h2","").strip()
-        body = sec.get("body","").strip()
-        if not h2 and not body:
-            continue
-        parts.append(f"""
-  <article class="mb-8 p-6 rounded-2xl shadow-sm bg-white border border-slate-100">
-    <h2 class="text-xl md:text-2xl font-semibold mb-3" style="color:{PALETTE['black']}">{h2}</h2>
-    <div class="prose prose-slate max-w-none leading-7">
-      <p class="text-slate-700">{body}</p>
-    </div>
-  </article>
-""")
-    parts.append(f"""
-  <footer class="mt-10">
-    <a href="/resources" class="inline-flex items-center gap-2 px-5 py-3 rounded-xl text-white font-semibold"
-       style="background:{PALETTE['orange']}; box-shadow:0 6px 24px rgba(240,128,0,.25)">
-      Explore more guides
-      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none"><path d="M9 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </a>
-  </footer>
-</section>
-""")
-    return "\n".join(parts)
+
+def format_tailwind_html(edited_text: str) -> str:
+    logger.info("Formatting article into Tailwind HTML")
+    return f"""
+            <section class="max-w-3xl mx-auto py-10 px-4">
+            <header class="mb-8">
+                <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight" style="color:{PALETTE['ink']}">
+                Article
+                </h1>
+                <div class="prose prose-slate max-w-none leading-7">
+                <p>{edited_text}</p>
+                </div>
+            </header>
+            </section>
+            """.strip()
+
+
 
 # ---------- Orchestrator ----------
 class RunResult(TypedDict):
@@ -331,32 +264,34 @@ class RunResult(TypedDict):
     tokens_output: int
     usd_cost: Optional[float]
 
+
 def run_pipeline(topic_hint: str) -> RunResult:
+    logger.info("Running pipeline for topic='%s'", topic_hint)
     cost = CostMeter(MODEL)
 
-    # 0) Deep Research (seed notes early)
-    prelim_notes = deep_research(topic_hint, cost)
-    if not prelim_notes:
-        prelim_notes = []
-
-    # 1..7
     ideas = brainstorm_ideas(topic_hint, cost)
     picked = score_and_pick(ideas, cost)
-    brief = make_brief(picked, prelim_notes, cost)
-
-    # Optionally add a second pass here using brief.working_title
-    research = prelim_notes
-
+    brief = make_brief(picked, cost)
+    research = deep_research(topic_hint, cost)
     draft = draft_article(brief, research, cost)
     edited = edit_article(draft, cost)
     seo = make_seo(edited, cost)
-
-    # 8) Tailwind HTML
     html = format_tailwind_html(edited)
 
-    pipeline = PipelineResult(
-        picked=picked, brief=brief, research=research, draft=draft, edited=edited, seo=seo, html=html
-    ).model_dump()
+    pipeline = {
+        "picked": picked,
+        "brief": brief,
+        "research": research,
+        "draft": draft,
+        "edited": edited,
+        "seo": seo,
+        "html": html,
+    }
+
+    logger.info(
+        "Pipeline complete for topic='%s'. tokens_in=%s, tokens_out=%s, usd_cost=%s",
+        topic_hint, cost.input_tokens, cost.output_tokens, cost.dollars()
+    )
 
     return {
         "pipeline": pipeline,
@@ -365,29 +300,21 @@ def run_pipeline(topic_hint: str) -> RunResult:
         "usd_cost": cost.dollars(),
     }
 
-# ---------- Save helper (Django) ----------
-def save_article(topic_hint: str):
-    """
-    Runs the pipeline and saves to DB. Returns the Article instance and the cost dict.
-    """
-    from app.models import Article  # avoid circular import
 
+def save_article(topic_hint: str):
+    from app.models import Article
     result = run_pipeline(topic_hint)
     pr = result["pipeline"]
-
-    html = pr["html"]
-    working_title = pr["brief"]["working_title"]
-    slug = pr["seo"]["slug"] or slugify(working_title)
 
     a = Article.objects.create(
         status="draft",
         topic_hint=topic_hint,
-        title=working_title,
-        slug=slug,
-        html=html,
-        seo_title=pr["seo"]["meta_title"],
-        seo_description=pr["seo"]["meta_description"],
-        keywords=pr["seo"]["keywords"],
+        title=pr["brief"][:120],  # crude: first line of brief as title
+        slug=slugify(pr["picked"].split()[0:5]),  # crude: first 5 words
+        html=pr["html"],
+        seo_title=pr["seo"][:60],
+        seo_description=pr["seo"][:155],
+        keywords="",  # you could parse from pr["seo"] if wanted
         pipeline_json=pr,
         tokens_input=result["tokens_input"],
         tokens_output=result["tokens_output"],
