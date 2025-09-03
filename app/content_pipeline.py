@@ -13,6 +13,7 @@ from openai import OpenAI
 
 # ---------- OpenAI client & model choices ----------
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"), timeout=3600)
+print(client)
 MODEL = os.getenv("OPENAI_MODEL", "gpt-5-nano-2025-08-07")               # main writer/editor
 DEEP_MODEL = os.getenv("OPENAI_DEEP_MODEL", "o4-mini-deep-research")     # or "o3-deep-research"
 
