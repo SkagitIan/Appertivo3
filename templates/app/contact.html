@@ -1,27 +1,41 @@
 {% extends 'base/base.html' %}
+{% load form_tags %}
 {% block content %}
 <div class="min-h-screen bg-white" id="top">
     {% include 'base/public_nav.html' %}
-    <section class="pt-20 pb-16 max-w-3xl mx-auto px-4">
-        <h1 class="text-3xl font-bold mb-4">Contact Us</h1>
+
+    <!-- Contact Section -->
+    <section class="pt-20 pb-24 max-w-2xl mx-auto px-4">
+        <h1 class="text-3xl font-extrabold text-slate-900 mb-6">Contact Us</h1>
+        
         {% if success %}
-            <p class="mb-4 text-green-600">Thanks for reaching out! I'll get back to you soon.</p>
+            <div class="mb-6 rounded-lg bg-green-50 border border-green-200 p-4 text-green-700">
+                Thanks for reaching out! I'll get back to you soon.
+            </div>
         {% endif %}
-        <form method="post" class="space-y-4">
+
+        <form method="post" class="space-y-6 bg-white p-6 rounded-2xl shadow-md border border-slate-200">
             {% csrf_token %}
+
             <div>
                 {{ form.name.label_tag }}
-                {{ form.name }}
+                {{ form.name|add_class:"w-full mt-1 px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#B993D6] focus:outline-none" }}
             </div>
+
             <div>
                 {{ form.email.label_tag }}
-                {{ form.email }}
+                {{ form.email|add_class:"w-full mt-1 px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#58B09C] focus:outline-none" }}
             </div>
+
             <div>
                 {{ form.message.label_tag }}
-                {{ form.message }}
+                {{ form.message|add_class:"w-full mt-1 px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#f08000] focus:outline-none h-32" }}
             </div>
-            <button type="submit" class="btn-primary">Send</button>
+
+            <button type="submit" 
+                class="w-full bg-[#f08000] text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-200 ease-in-out transform hover:bg-[#ff9933] hover:scale-[1.02]">
+                Send Message
+            </button>
         </form>
     </section>
 </div>
