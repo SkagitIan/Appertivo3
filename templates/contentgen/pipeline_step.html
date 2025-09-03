@@ -1,0 +1,16 @@
+{% extends "base/base.html" %}
+{% block content %}
+<h1>{{ step_title }}</h1>
+{% if list_data %}
+<ul>
+  {% for item in list_data %}<li>{{ item }}</li>{% endfor %}
+</ul>
+{% elif text_data %}
+<pre>{{ text_data }}</pre>
+{% endif %}
+<form method="post">
+  {% csrf_token %}
+  <input type="hidden" name="step" value="{{ next_step }}">
+  <button type="submit">Continue</button>
+</form>
+{% endblock %}
