@@ -15,7 +15,36 @@ logger = logging.getLogger(__name__)
 
 from .models import Article
 from app.content_pipeline import save_article  # uses the code we wrote earlier
+from django.utils.html import format_html
 
+from .models import PipelineSession
+from app.pipeline_runner import run_next_step
+
+@admin.register(PipelineSession)
+class PipelineSessionAdmin(admin.ModelAdmin):
+    list_display = ("topic_hint", "current_step", "status", "created_at")
+    readonly_fields = (
+        "ideas", "picked", "brief", "research", "draft", "edited", "seo", "html"
+    )
+
+    change_form_template = "admin/pipeline_session_changeform.html"
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                "<path:pk>/continue/",
+                self.admin_site.admin_view(self.continue_view),
+                name="pipeline-continue",
+            ),
+        ]
+        return custom_urls + urls
+
+    def continue_view(self, request, pk):
+        session = PipelineSession.objects.get(pk=pk)
+        run_next_step(session)
+        self.message_user(request, f"Ran step, now at {session.current_step}")
+        return redirect(f"../../{pk}/change/")
 
 class GenerateArticleForm(forms.Form):
     """Simple admin form to kick off the pipeline."""

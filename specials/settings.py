@@ -51,7 +51,6 @@ INSTALLED_APPS = [
     'corsheaders',
     'django_crontab',
     'app.apps.AppConfig',
-    'contentgen',
     'anymail',
 ]
 
