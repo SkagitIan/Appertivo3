@@ -14,7 +14,7 @@ from pathlib import Path
 import os
 try:
     from dotenv import load_dotenv, find_dotenv
-except ModuleNotFoundError:
+except (ImportError, ModuleNotFoundError):
     def load_dotenv(*args, **kwargs):
         return False
     def find_dotenv(*args, **kwargs):

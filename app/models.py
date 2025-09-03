@@ -101,9 +101,13 @@ class Integration(models.Model):
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     restaurant_name = models.CharField(max_length=255)
+    location = models.CharField(max_length=255, blank=True, default="")
     is_email_verified = models.BooleanField(default=False)
     verification_token = models.UUIDField(default=uuid.uuid4, blank=True, null=True)
     stripe_customer_id = models.CharField(max_length=64, blank=True, null=True)
+    google_place_id = models.CharField(max_length=128, blank=True, null=True)
+    formatted_address = models.CharField(max_length=255, blank=True, null=True)
+    phone_number = models.CharField(max_length=32, blank=True, null=True)
     subscription_tier = models.CharField(
         max_length=20,
         choices=[('free', 'Free'), ('pro', 'Pro'), ('enterprise', 'Enterprise')],
