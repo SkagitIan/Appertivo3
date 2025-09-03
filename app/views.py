@@ -16,11 +16,9 @@ import os
 import openai
 import requests
 import stripe
-try:
-    from dotenv import load_dotenv
-except (ModuleNotFoundError, ImportError):
-    def load_dotenv(*args, **kwargs):
-        return False
+
+import logging
+from dotenv import load_dotenv
 load_dotenv()
 
 from django.utils import timezone
@@ -36,6 +34,8 @@ from .models import (
 )
 from .forms import SpecialForm, ContactForm
 from app.integrations.google import *
+from app.integrations.outscraper import fetch_place_details
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +85,11 @@ def register_view(request):
         email = request.POST.get('email')
         password = request.POST.get('password')
         restaurant_name = request.POST.get('restaurant_name')
+        location = request.POST.get('location')
+
+        if not location:
+            messages.error(request, 'Location is required.')
+            return render(request, 'registration/register.html')
         
         if User.objects.filter(email=email).exists():
             messages.error(request, 'User with this email already exists.')
@@ -101,6 +106,7 @@ def register_view(request):
         profile = UserProfile.objects.create(
             user=user,
             restaurant_name=restaurant_name,
+            location=location,
             is_email_verified=False
         )
         
@@ -108,6 +114,17 @@ def register_view(request):
         profile.is_email_verified = True
         profile.save()
         
+        def update_profile():
+            data = fetch_place_details(restaurant_name, location)
+            if data:
+                UserProfile.objects.filter(pk=profile.pk).update(
+                    google_place_id=data.get('google_place_id', ''),
+                    formatted_address=data.get('formatted_address', ''),
+                    phone_number=data.get('phone_number', ''),
+                )
+
+        threading.Thread(target=update_profile, daemon=True).start()
+
         messages.success(request, 'Account created successfully! You can now sign in.')
         return redirect('login')
     
@@ -248,7 +265,6 @@ def billing_portal(request):
     )
     return redirect(portal.url, permanent=False)
 
-import logging
 logger = logging.getLogger(__name__)
 
 @csrf_exempt
