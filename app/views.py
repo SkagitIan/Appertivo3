@@ -497,7 +497,10 @@ def special_edit(request, special_id):
     special = get_object_or_404(Special, id=special_id, user=request.user)
     form = SpecialForm(request.POST, request.FILES, instance=special)
     if form.is_valid():
-        form.save()
+        special = form.save(commit=False)
+        byday = request.POST.getlist("byday")
+        special.rrule = f"FREQ=WEEKLY;BYDAY={','.join(byday)}" if byday else ""
+        special.save()
     return redirect("specials_list")
 
 @login_required
@@ -513,7 +516,9 @@ def create_special(request):
         cta_url = request.POST.get('cta_url', '') if cta_type == 'web' else None
         cta_phone = request.POST.get('cta_phone', '') if cta_type == 'call' else None
         image = request.FILES.get('image')
-        
+        byday = request.POST.getlist('byday')
+        rrule = f"FREQ=WEEKLY;BYDAY={','.join(byday)}" if byday else ''
+
         special = Special.objects.create(
             user=request.user,
             title=title,
@@ -525,7 +530,8 @@ def create_special(request):
             cta_url=cta_url,
             cta_phone=cta_phone,
             image=image,
-            status='active'
+            status='active',
+            rrule=rrule,
         )
         # Send email notifications to subscribers
         send_special_notification(special)
