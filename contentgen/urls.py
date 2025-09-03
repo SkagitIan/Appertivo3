@@ -1,7 +1,7 @@
 """URL patterns for the content generation blog."""
 from django.urls import path
 
-from .views import ArticleDetailView, ArticleListView, TagFilteredView
+from .views import ArticleDetailView, ArticleListView, TagFilteredView, pipeline_view
 
 app_name = "contentgen"
 
@@ -9,4 +9,5 @@ urlpatterns = [
     path("blog/", ArticleListView.as_view(), name="article_list"),
     path("blog/tag/<str:tag>/", TagFilteredView.as_view(), name="article_by_tag"),
     path("blog/<slug:slug>/", ArticleDetailView.as_view(), name="article_detail"),
+    path("pipeline/", pipeline_view, name="pipeline"),
 ]

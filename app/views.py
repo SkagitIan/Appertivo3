@@ -16,7 +16,11 @@ import os
 import openai
 import requests
 import stripe
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+except (ModuleNotFoundError, ImportError):
+    def load_dotenv(*args, **kwargs):
+        return False
 load_dotenv()
 
 from django.utils import timezone
