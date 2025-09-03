@@ -1,0 +1,26 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block content %}
+  <div id="content" class="app-article">
+    <h1>Generate article with Deep Research</h1>
+    <p class="help">Runs the pipeline (Deep Research → Draft → Edit → SEO → Tailwind) and saves a draft.</p>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+      <fieldset class="module aligned">
+        <div class="form-row">
+          {{ form.topic_hint.errors }}
+          <label for="{{ form.topic_hint.id_for_label }}">{{ form.topic_hint.label }}:</label>
+          {{ form.topic_hint }}
+          <div class="help">{{ form.topic_hint.help_text }}</div>
+        </div>
+      </fieldset>
+
+      <div class="submit-row">
+        <input type="submit" value="Generate & Save Draft" class="default">
+        <a href="{% url 'admin:app_article_changelist' %}" class="button cancel-link">Cancel</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}
