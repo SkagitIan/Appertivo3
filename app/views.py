@@ -30,7 +30,7 @@ from .models import (
     Subscription,
     Transaction,
 )
-from .forms import SpecialForm
+from .forms import SpecialForm, ContactForm
 from app.integrations.google import *
 
 logger = logging.getLogger(__name__)
@@ -52,6 +52,28 @@ def article_detail(request, slug):
     """Display a single article."""
     article = get_object_or_404(Article, slug=slug)
     return render(request, "app/article_detail.html", {"article": article})
+
+
+def about(request):
+    """Public About page."""
+    return render(request, "app/about.html")
+
+
+def contact(request):
+    """Handle contact form submissions."""
+    if request.method == "POST":
+        form = ContactForm(request.POST)
+        if form.is_valid():
+            send_mail(
+                f"Message from {form.cleaned_data['name']}",
+                form.cleaned_data["message"],
+                form.cleaned_data["email"],
+                ["ian.larsen.1976@gmail.com"],
+            )
+            return render(request, "app/contact.html", {"form": ContactForm(), "success": True})
+    else:
+        form = ContactForm()
+    return render(request, "app/contact.html", {"form": form})
 
 def register_view(request):
     """Registration page"""
