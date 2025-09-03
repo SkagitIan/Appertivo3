@@ -9,12 +9,12 @@ from django.contrib import admin, messages
 from django.urls import path, reverse
 from django.shortcuts import render, redirect
 from django import forms
-# add at top
+from django.http import JsonResponse
+from threading import Thread
 import logging
 logger = logging.getLogger(__name__)
 
 from .models import Article
-from app.content_pipeline import save_article  # uses the code we wrote earlier
 from django.utils.html import format_html
 
 from .models import PipelineSession
@@ -37,14 +37,32 @@ class PipelineSessionAdmin(admin.ModelAdmin):
                 self.admin_site.admin_view(self.continue_view),
                 name="pipeline-continue",
             ),
+            path(
+                "<path:pk>/status/",
+                self.admin_site.admin_view(self.status_view),
+                name="pipeline-status",
+            ),
         ]
         return custom_urls + urls
 
     def continue_view(self, request, pk):
+        """Run the next step, handling research asynchronously."""
         session = PipelineSession.objects.get(pk=pk)
+        if (
+            session.current_step == "research"
+            and request.headers.get("x-requested-with") == "XMLHttpRequest"
+        ):
+            Thread(target=run_next_step, args=(session,)).start()
+            return JsonResponse({"status": "started"})
         run_next_step(session)
-        self.message_user(request, f"Ran step, now at {session.current_step}")
         return redirect(f"../../{pk}/change/")
+
+    def status_view(self, request, pk):
+        """Return current step status as JSON for polling."""
+        session = PipelineSession.objects.get(pk=pk)
+        return JsonResponse(
+            {"current_step": session.current_step, "status": session.status}
+        )
 
 class GenerateArticleForm(forms.Form):
     """Simple admin form to kick off the pipeline."""
@@ -89,19 +107,13 @@ class ArticleAdmin(admin.ModelAdmin):
             if form.is_valid():
                 topic_hint = form.cleaned_data["topic_hint"]
                 logger.info(f"[ArticleAdmin] Starting pipeline for: {topic_hint!r}")
-                try:
-                    article, result = save_article(topic_hint)
-                    dollars = result.get("usd_cost")
-                    cost_str = f"${dollars:.2f}" if dollars is not None else \
-                            f"{result.get('tokens_input',0)} in / {result.get('tokens_output',0)} out"
-                    self.message_user(request, f"Article generated. Cost: {cost_str}", level=messages.SUCCESS)
-                    change_url = reverse("admin:app_article_change", args=[article.pk])
-                    logger.info(f"[ArticleAdmin] Success. Redirecting to change page id={article.pk}")
-                    return redirect(change_url)
-                except Exception as e:
-                    logger.exception("[ArticleAdmin] Generation failed")
-                    self.message_user(request, f"Generation failed: {e}", level=messages.ERROR)
-                    # fall through to re-render form
+                session = PipelineSession.objects.create(
+                    user=request.user, topic_hint=topic_hint
+                )
+                change_url = reverse(
+                    "admin:app_pipelinesession_change", args=[session.pk]
+                )
+                return redirect(change_url)
             else:
                 logger.warning(f"[ArticleAdmin] Form invalid: {form.errors.as_json()}")
                 self.message_user(request, "Form invalid. Provide a topic hint.", level=messages.ERROR)
