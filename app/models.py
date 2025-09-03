@@ -165,10 +165,18 @@ class EmailSignup(models.Model):
 class Article(models.Model):
     """SEO-optimized article for resources section."""
 
-    title = models.CharField(max_length=255)
-    slug = models.SlugField(max_length=255, unique=True, blank=True)
-    description = models.TextField(help_text="SEO description")
-    content = models.TextField()
+    status = models.CharField(max_length=20, default="draft")
+    topic_hint = models.CharField(max_length=200, blank=True)
+    title = models.CharField(max_length=200)
+    slug = models.SlugField(unique=True)
+    html = models.TextField()                  # Tailwind-formatted body
+    seo_title = models.CharField(max_length=70)
+    seo_description = models.CharField(max_length=160)
+    keywords = models.JSONField(default=list)
+    pipeline_json = models.JSONField()         # full structured pipeline output
+    tokens_input = models.IntegerField(default=0)
+    tokens_output = models.IntegerField(default=0)
+    usd_cost = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
     published_at = models.DateTimeField(default=timezone.now)
     tags = models.CharField(
         max_length=255, blank=True, help_text="Comma-separated list of tags"
