@@ -28,6 +28,43 @@
     </a>
 </div>
 
+
+        <!-- Active Specials -->
+        <div class="bg-none stripe-shadow rounded-lg mx-3 mb-3">
+
+
+            {% if specials %}
+                <div class="p-6">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                        {% for special in specials %}
+                            {% include 'app/partials/special_card.html' %}
+                        {% endfor %}
+                    </div>
+                </div>
+            {% else %}
+                <div class="p-12 text-center">
+<i class="fa-solid fa-utensils fs-2 text-slate-400"></i>
+                    <h3 class="mt-2 text-sm font-medium text-slate-900">No active specials</h3>
+                    <div class="mt-6">
+                        <a href="{% url 'create_special' %}" 
+                        class="inline-flex items-center justify-center px-5 py-2.5 text-sm font-semibold text-white 
+                                rounded-md shadow-md bg-[#f08000]
+                                transition transform duration-200 ease-in-out
+                                hover:bg-[#ff9933] hover:scale-105 hover:shadow-lg
+                                focus:outline-none focus:ring-2 focus:ring-[#f08000]/50"
+                        data-testid="button-create-first-special">
+
+                            Create a special
+                        </a>
+
+                    </div>
+                </div>
+            {% endif %}
+                        <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                <a href="{% url 'specials_list' %}" class="btn-outline text-sm" data-testid="button-view-all-specials">View All Specials</a>
+            </div>
+        </div>
+        
 <!-- Stats row -->
 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 mx-3">
     <div class="card stripe-shadow p-6">
@@ -81,41 +118,6 @@
 </div>
 
 
-
-        <!-- Active Specials -->
-        <div class="bg-none stripe-shadow rounded-lg mx-3">
-            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-                <a href="{% url 'specials_list' %}" class="btn-outline text-sm" data-testid="button-view-all-specials">View All Specials</a>
-            </div>
-
-            {% if specials %}
-                <div class="p-6">
-                    <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                        {% for special in specials %}
-                            {% include 'app/partials/special_card.html' %}
-                        {% endfor %}
-                    </div>
-                </div>
-            {% else %}
-                <div class="p-12 text-center">
-<i class="fa-solid fa-utensils fs-2 text-slate-400"></i>
-                    <h3 class="mt-2 text-sm font-medium text-slate-900">No active specials</h3>
-                    <div class="mt-6">
-                        <a href="{% url 'create_special' %}" 
-                        class="inline-flex items-center justify-center px-5 py-2.5 text-sm font-semibold text-white 
-                                rounded-md shadow-md bg-[#f08000]
-                                transition transform duration-200 ease-in-out
-                                hover:bg-[#ff9933] hover:scale-105 hover:shadow-lg
-                                focus:outline-none focus:ring-2 focus:ring-[#f08000]/50"
-                        data-testid="button-create-first-special">
-
-                            Create a special
-                        </a>
-
-                    </div>
-                </div>
-            {% endif %}
-        </div>
     </main>
  </div>
 {% if show_location_modal %}

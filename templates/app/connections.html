@@ -1,184 +1,106 @@
-{% extends 'base/base.html' %} {% block title %}Connections - Appertivo{%endblock %} {% block content %}
+{% extends 'base/base.html' %}
+{% block title %}Connections - Appertivo{% endblock %}
+{% block content %}
 <div class="min-h-screen bg-slate-50">
-{% include 'base/dashboard_nav.html' %}
-
+    {% include 'base/dashboard_nav.html' %}
 
     <!-- Main Content -->
     <main class="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        <!-- Header -->
         <div class="mb-8">
-            <h1 class="text-2xl font-bold text-slate-900">
-                Platform Connections
-            </h1>
+            <h1 class="text-2xl font-bold text-slate-900">Platform Connections</h1>
             <p class="mt-2 text-slate-600">
-                Connect your accounts to automatically publish specials across
-                all platforms.
+                Connect your accounts to automatically publish specials across all platforms.
             </p>
         </div>
 
+        <!-- Connections -->
         <div class="space-y-6">
             {% for connection in connections %}
-            <div
-                class="card stripe-shadow p-6"
-                data-testid="card-connection-{{ connection.platform }}"
-            >
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center">
-                        <div
-                            class="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center mr-4"
-                        >
+            <div class="card stripe-shadow p-6" data-testid="card-connection-{{ connection.platform }}">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <!-- Icon + Info -->
+                    <div class="flex items-start sm:items-center">
+                        <div class="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center mr-4 shrink-0">
                             {% if connection.platform == 'website' %}
-                            <svg
-                                class="w-6 h-6 text-slate-600"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0-9v9"
-                                ></path>
-                            </svg>
+                                <!-- Website Icon -->
+                                <svg class="w-6 h-6 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0-9v9"></path>
+                                </svg>
                             {% elif connection.platform == 'google_business' %}
-                            <svg class="w-6 h-6" viewBox="0 0 24 24">
-                                <path
-                                    fill="#EA4335"
-                                    d="M12 11.5v3h5.2c-.2 1.1-.8 2.1-1.7 2.7v2.2h2.7c1.6-1.5 2.5-3.7 2.5-6 0-.7-.1-1.4-.2-2H12z"
-                                />
-                                <path
-                                    fill="#34A853"
-                                    d="M6.5 14.5l-.9 2.2 2.8 2c1.3.8 2.9 1.3 4.6 1.3 2.5 0 4.7-.9 6.2-2.4l-2.7-2.2c-.7.5-1.6.8-2.5.8-1.9 0-3.5-1.3-4.1-3h-2.8z"
-                                />
-                                <path
-                                    fill="#FBBC05"
-                                    d="M5.6 11.5c0-.6.1-1.2.2-1.7v-2.2H3.1c-.7 1.3-1.1 2.8-1.1 4.4s.4 3.1 1.1 4.4l2.5-2c-.3-.7-.5-1.4-.5-2.1z"
-                                />
-                                <path
-                                    fill="#4285F4"
-                                    d="M12 5.5c1.1 0 2.1.4 2.8 1l2.1-2.1C15.3 3.1 13.2 2.2 11 2.2c-1.7 0-3.3.5-4.6 1.3l2.5 2c.7-.7 1.6-1 2.5-1z"
-                                />
-                            </svg>
+                                <!-- Google Icon -->
+                                <svg class="w-6 h-6" viewBox="0 0 24 24">
+                                    <path fill="#EA4335" d="M12 11.5v3h5.2c..."></path>
+                                    <path fill="#34A853" d="M6.5 14.5l-.9..."></path>
+                                    <path fill="#FBBC05" d="M5.6 11.5c0-..."></path>
+                                    <path fill="#4285F4" d="M12 5.5c1.1..."></path>
+                                </svg>
                             {% elif connection.platform == 'pos' %}
-                            <svg
-                                class="w-6 h-6 text-slate-600"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"
-                                ></path>
-                            </svg>
+                                <!-- POS Icon -->
+                                <svg class="w-6 h-6 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M12 8c-1.657 0-3 .895-3 2s1.343..."></path>
+                                </svg>
                             {% else %}
-                            <svg
-                                class="w-6 h-6 text-slate-600"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-                                ></path>
-                            </svg>
+                                <!-- Default Delivery Icon -->
+                                <svg class="w-6 h-6 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M20 7l-8-4-8 4m16 0l-8 4m8-4v..."></path>
+                                </svg>
                             {% endif %}
                         </div>
                         <div>
-                            <h3
-                                class="text-lg font-medium text-slate-900"
-                                data-testid="text-platform-name"
-                            >
-                                {{ connection.get_platform_display }}
-                            </h3>
+                            <h3 class="text-lg font-medium text-slate-900">{{ connection.get_platform_display }}</h3>
                             <p class="text-sm text-slate-500">
-                                {% if connection.platform == 'website' %} Embed
-                                specials directly on your website {% elif
-                                connection.platform == 'google_business' %} Post
-                                specials to your Google My Business listing {%
-                                elif connection.platform == 'pos' %} Sync with
-                                your point-of-sale system {% else %} Distribute
-                                to delivery platforms {% endif %}
+                                {% if connection.platform == 'website' %}
+                                    Embed specials directly on your website
+                                {% elif connection.platform == 'google_business' %}
+                                    Post specials to your Google My Business listing
+                                {% elif connection.platform == 'pos' %}
+                                    Sync with your point-of-sale system
+                                {% else %}
+                                    Distribute to delivery platforms
+                                {% endif %}
                             </p>
                         </div>
                     </div>
 
-                    <div class="flex items-center space-x-4">
+                    <!-- Status + Actions -->
+                    <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
                         {% if connection.platform == 'google_business' %}
-                        {% if connection.is_connected and connection.settings.access_token %}
-                        <span class="bg-teal-500 text-white text-sm py-2 px-4 rounded">
-                            Connected
-                        </span>
+                            {% if connection.is_connected and connection.settings.access_token %}
+                                <span class="bg-teal-500 text-white text-sm py-2 px-4 rounded text-center">Connected</span>
+                            {% else %}
+                                <a href="{% url 'google_connect' %}" class="btn-primary text-sm py-2 px-4 text-center">
+                                    Connect
+                                </a>
+                            {% endif %}
                         {% else %}
-                        <a
-                            href="{% url 'google_connect' %}"
-                            class="btn-primary text-sm py-2 px-4"
-                            data-testid="button-connect"
-                        >
-                            Connect
-                        </a>
-                        {% endif %}
-                        {% else %}
-                        {% if connection.is_connected %}
-                        <div class="flex items-center text-green-600">
-                            <svg
-                                class="w-5 h-5 mr-2"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M5 13l4 4L19 7"
-                                ></path>
-                            </svg>
-                            <span class="text-sm font-medium" data-testid="status-connected">
-                                Connected
-                            </span>
-                        </div>
-                        <button
-                            class="btn-outline text-sm py-2 px-4"
-                            data-testid="button-disconnect"
-                        >
-                            Disconnect
-                        </button>
-                        {% else %}
-                        <div class="flex items-center text-slate-400">
-                            <svg
-                                class="w-5 h-5 mr-2"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M6 18L18 6M6 6l12 12"
-                                ></path>
-                            </svg>
-                            <span class="text-sm font-medium" data-testid="status-disconnected">
-                                Not connected
-                            </span>
-                        </div>
-                        <button
-                            class="btn-primary text-sm py-2 px-4"
-                            data-testid="button-connect"
-                        >
-                            Connect
-                        </button>
-                        {% endif %}
+                            {% if connection.is_connected %}
+                                <div class="flex items-center text-green-600">
+                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                              d="M5 13l4 4L19 7"></path>
+                                    </svg>
+                                    <span class="text-sm font-medium">Connected</span>
+                                </div>
+                                <button class="btn-outline text-sm py-2 px-4">Disconnect</button>
+                            {% else %}
+                                <div class="flex items-center text-slate-400">
+                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                              d="M6 18L18 6M6 6l12 12"></path>
+                                    </svg>
+                                    <span class="text-sm font-medium">Not connected</span>
+                                </div>
+                                <button class="btn-primary text-sm py-2 px-4">Connect</button>
+                            {% endif %}
                         {% endif %}
                     </div>
                 </div>
 
+                <!-- Google Extra Form -->
                 {% if connection.platform == 'google_business' and connection.is_connected and connection.settings.access_token %}
                 <form method="post" class="mt-4 space-y-4">
                     {% csrf_token %}
@@ -186,48 +108,32 @@
                     <div>
                         <label class="block text-sm font-medium text-slate-700">Location</label>
                         {% if connection.settings.location_name %}
-                        <p class="mt-1 text-sm text-slate-900">
-                            {{ connection.settings.location_name }}
-                        </p>
+                            <p class="mt-1 text-sm text-slate-900">{{ connection.settings.location_name }}</p>
                         {% else %}
-                        <p class="mt-1 text-sm text-slate-500">No location selected</p>
+                            <p class="mt-1 text-sm text-slate-500">No location selected</p>
                         {% endif %}
                     </div>
                     <div class="flex items-center">
-                        <input
-                            type="checkbox"
-                            name="delete_when_expired"
-                            id="delete_when_expired"
-                            class="mr-2"
-                            {% if connection.settings.delete_when_expired|default:True %}checked{% endif %}
-                        />
-                        <label for="delete_when_expired" class="text-sm text-slate-700"
-                            >Delete when expired</label
-                        >
+                        <input type="checkbox" name="delete_when_expired" id="delete_when_expired"
+                               class="mr-2" {% if connection.settings.delete_when_expired|default:True %}checked{% endif %}>
+                        <label for="delete_when_expired" class="text-sm text-slate-700">Delete when expired</label>
                     </div>
-                    <button
-                        type="submit"
-                        class="bg-teal-500 hover:bg-teal-600 text-white text-sm py-2 px-4 rounded"
-                    >
+                    <button type="submit" class="bg-teal-500 hover:bg-teal-600 text-white text-sm py-2 px-4 rounded">
                         Save
                     </button>
                 </form>
                 {% endif %}
 
+                <!-- Website Extra Widget -->
                 {% if connection.is_connected and connection.platform == 'website' %}
                 <div class="mt-4 p-4 bg-slate-50 rounded-lg">
-                    <h4 class="text-sm font-medium text-slate-900 mb-2">
-                        Website Widget Code
-                    </h4>
-                    <div
-                        class="bg-slate-800 text-green-400 p-3 rounded font-mono text-sm"
-                    >
+                    <h4 class="text-sm font-medium text-slate-900 mb-2">Website Widget Code</h4>
+                    <div class="bg-slate-800 text-green-400 p-3 rounded font-mono text-sm overflow-x-auto">
                         &lt;script src="https://appertivo.com/widget.js"
                         data-restaurant-id="{{ user.id }}"&gt;&lt;/script&gt;
                     </div>
                     <p class="text-xs text-slate-500 mt-2">
-                        Copy this code and paste it into your website where you
-                        want specials to appear.
+                        Copy this code and paste it into your website where you want specials to appear.
                     </p>
                 </div>
                 {% endif %}
@@ -237,37 +143,17 @@
 
         <!-- Integration Guide -->
         <div class="mt-12 card stripe-shadow p-6">
-            <h3 class="text-lg font-medium text-slate-900 mb-4">
-                Integration Guide
-            </h3>
+            <h3 class="text-lg font-medium text-slate-900 mb-4">Integration Guide</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <h4 class="text-sm font-medium text-slate-900 mb-2">
-                        Website Integration
-                    </h4>
-                    <p class="text-sm text-slate-600 mb-3">
-                        Add our widget to display specials on your website
-                        automatically.
-                    </p>
-                    <a
-                        href="#"
-                        class="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                        >View documentation →</a
-                    >
+                    <h4 class="text-sm font-medium text-slate-900 mb-2">Website Integration</h4>
+                    <p class="text-sm text-slate-600 mb-3">Add our widget to display specials on your website automatically.</p>
+                    <a href="#" class="text-blue-600 hover:text-blue-700 text-sm font-medium">View documentation →</a>
                 </div>
                 <div>
-                    <h4 class="text-sm font-medium text-slate-900 mb-2">
-                        Google My Business
-                    </h4>
-                    <p class="text-sm text-slate-600 mb-3">
-                        Automatically post specials as updates on your Google
-                        listing.
-                    </p>
-                    <a
-                        href="#"
-                        class="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                        >Setup guide →</a
-                    >
+                    <h4 class="text-sm font-medium text-slate-900 mb-2">Google My Business</h4>
+                    <p class="text-sm text-slate-600 mb-3">Automatically post specials as updates on your Google listing.</p>
+                    <a href="#" class="text-blue-600 hover:text-blue-700 text-sm font-medium">Setup guide →</a>
                 </div>
             </div>
         </div>

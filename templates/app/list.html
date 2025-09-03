@@ -4,55 +4,93 @@
 
 {% block content %}
 <div class="min-h-screen bg-slate-50">
-{% include 'base/dashboard_nav.html' %}
+    {% include 'base/dashboard_nav.html' %}
 
 
     <!-- Main Content -->
     <main class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        <div class="mb-8 flex items-center justify-between">
-            <div>
-                <h1 class="text-2xl font-bold text-slate-900">All Specials</h1>
-                <p class="mt-2 text-slate-600">Manage your restaurant's daily specials and promotions.</p>
-            </div>
-            <div class="flex items-center space-x-2">
-                {% include 'app/partials/view_toggle.html' %}
-                    <a href="{% url 'create_special' %}" 
-                    class="btn bg-[#f08000] text-white font-semibold px-4 py-2 rounded-md
-                            shadow-md transition transform duration-200 ease-in-out
-                            hover:bg-[#ff9933] hover:scale-105 hover:shadow-lg
-                            focus:outline-none focus:ring-2 focus:ring-[#f08000]/50"
-                    data-testid="button-create-first-special">
-                    Create your first special
-                    </a>
-
-            </div>
+     <div class="mb-8">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <!-- Title / Subtitle -->
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900">All Specials</h1>
+            <p class="mt-2 text-slate-600">Manage your restaurant's daily specials and promotions.</p>
         </div>
 
+        <!-- Action Buttons -->
+        <div class="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
+            <!-- List Button -->
+            <a href="?view=list"
+               class="{% if current_view == 'list' %}
+                  bg-[#f08000] text-white px-4 py-2 rounded-md shadow-md text-center font-semibold
+                  transition transform duration-200 ease-in-out
+                  hover:bg-[#ff9933] hover:scale-105 hover:shadow-lg
+                  focus:outline-none focus:ring-2 focus:ring-[#f08000]/50
+               {% else %}
+                  bg-white text-[#49475B] border border-[#49475B] px-4 py-2 rounded-md text-center font-semibold
+                  transition transform duration-200 ease-in-out
+                  hover:bg-slate-100 hover:scale-105 hover:shadow-sm
+                  focus:outline-none focus:ring-2 focus:ring-[#49475B]/50
+               {% endif %}">
+                List
+            </a>
+
+            <!-- Calendar Button -->
+            <a href="?view=calendar"
+               class="{% if current_view == 'calendar' %}
+                  bg-[#f08000] text-white px-4 py-2 rounded-md shadow-md text-center font-semibold
+                  transition transform duration-200 ease-in-out
+                  hover:bg-[#ff9933] hover:scale-105 hover:shadow-lg
+                  focus:outline-none focus:ring-2 focus:ring-[#f08000]/50
+               {% else %}
+                  bg-white text-[#49475B] border border-[#49475B] px-4 py-2 rounded-md text-center font-semibold
+                  transition transform duration-200 ease-in-out
+                  hover:bg-slate-100 hover:scale-105 hover:shadow-sm
+                  focus:outline-none focus:ring-2 focus:ring-[#49475B]/50
+               {% endif %}">
+                Calendar
+            </a>
+
+            <!-- Create Special Button -->
+            <a href="{% url 'create_special' %}"
+               class="bg-[#f08000] text-white font-semibold px-4 py-2 rounded-md text-center
+                      shadow-md transition transform duration-200 ease-in-out
+                      hover:bg-[#ff9933] hover:scale-105 hover:shadow-lg
+                      focus:outline-none focus:ring-2 focus:ring-[#f08000]/50"
+               data-testid="button-create-first-special">
+                + Create Special
+            </a>
+        </div>
+    </div>
+</div>
+
+
         {% if specials %}
-            <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                {% for special in specials %}
-                    {% include 'app/partials/special_card.html' %}
-                {% endfor %}
-            </div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            {% for special in specials %}
+            {% include 'app/partials/special_card.html' %}
+            {% endfor %}
+        </div>
         {% else %}
-            <div class="text-center py-12">
-                <svg class="mx-auto h-12 w-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4"></path>
-                </svg>
-                <h3 class="mt-2 text-sm font-medium text-slate-900">No specials yet</h3>
-                <p class="mt-1 text-sm text-slate-500">Get started by creating your first special.</p>
-                <div class="mt-6">
-                        <a href="{% url 'create_special' %}" 
-                        class="btn bg-[#f08000] text-white font-semibold px-4 py-2 rounded-md
+        <div class="text-center py-12">
+            <svg class="mx-auto h-12 w-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4">
+                </path>
+            </svg>
+            <h3 class="mt-2 text-sm font-medium text-slate-900">No specials yet</h3>
+            <p class="mt-1 text-sm text-slate-500">Get started by creating your first special.</p>
+            <div class="mt-6">
+                <a href="{% url 'create_special' %}" class="btn bg-[#f08000] text-white font-semibold px-4 py-2 rounded-md
                                 shadow-md transition transform duration-200 ease-in-out
                                 hover:bg-[#ff9933] hover:scale-105 hover:shadow-lg
                                 focus:outline-none focus:ring-2 focus:ring-[#f08000]/50"
-                        data-testid="button-create-first-special">
-                        Create your first special
-                        </a>
+                    data-testid="button-create-first-special">
+                    Create your first special
+                </a>
 
-                </div>
             </div>
+        </div>
         {% endif %}
     </main>
     <div id="edit-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
@@ -63,7 +101,8 @@
                     <input type="text" name="title" id="edit-title" class="w-full border rounded p-2" />
                     <textarea name="description" id="edit-description" class="w-full border rounded p-2"></textarea>
                     <input type="text" name="price" id="edit-price" class="w-full border rounded p-2" />
-                    <input type="datetime-local" name="start_date" id="edit-start_date" class="w-full border rounded p-2" />
+                    <input type="datetime-local" name="start_date" id="edit-start_date"
+                        class="w-full border rounded p-2" />
                     <input type="datetime-local" name="end_date" id="edit_end_date" class="w-full border rounded p-2" />
                     <select name="cta_type" id="edit-cta_type" class="w-full border rounded p-2">
                         <option value="web">Web Order</option>
