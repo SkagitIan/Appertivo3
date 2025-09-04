@@ -67,6 +67,18 @@ class Special(models.Model):
     class Meta:
         ordering = ['-created_at']
 
+
+class SpecialMetrics(models.Model):
+    """Stores historical metrics for a Special."""
+
+    special = models.ForeignKey(Special, on_delete=models.CASCADE, related_name="metrics")
+    timestamp = models.DateTimeField(auto_now_add=True)
+    views = models.IntegerField(default=0)
+    cta_clicks = models.IntegerField(default=0)
+
+    def __str__(self):
+        return f"Metrics for {self.special} at {self.timestamp}"
+
 class Connection(models.Model):
     PLATFORM_CHOICES = [
         ('website', 'Website'),

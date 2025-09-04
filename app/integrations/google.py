@@ -18,7 +18,7 @@ except ImportError:  # pragma: no cover
 
 load_dotenv()
 
-from app.models import Connection
+from app.models import Connection, Special, SpecialMetrics
 
 
 logger = logging.getLogger(__name__)
@@ -312,3 +312,61 @@ def remove_special(special: Any, connection: Optional[Connection] = None) -> Non
             logger.info("Removed Google post %s", post_name)
     except Exception as exc:
         logger.exception("Failed to remove special from Google: %s", exc)
+
+
+def fetch_post_metrics(specials: List[Special]) -> None:
+    """Fetch metrics for given specials using Google's reportInsights endpoint."""
+    groups: Dict[Tuple[str, str, str], List[Tuple[Special, str]]] = {}
+    for special in specials:
+        try:
+            connection = Connection.objects.get(
+                user=special.user, platform="google_business", is_connected=True
+            )
+        except Connection.DoesNotExist:
+            continue
+        settings_data = connection.settings or {}
+        access_token = settings_data.get("access_token")
+        account_id = settings_data.get("account_id")
+        location_id = settings_data.get("location_id")
+        post_name = getattr(special, "google_post_name", None)
+        if not (access_token and account_id and location_id and post_name):
+            continue
+        key = (access_token, account_id, location_id)
+        groups.setdefault(key, []).append((special, post_name))
+
+    for (access_token, account_id, location_id), items in groups.items():
+        url = (
+            f"{API_BASE_URL}/accounts/{account_id}/locations/{location_id}/localPosts:reportInsights"
+        )
+        headers = {"Authorization": f"Bearer {access_token}"}
+        for i in range(0, len(items), 100):
+            batch = items[i : i + 100]
+            names = [name for _, name in batch]
+            body = {
+                "localPostNames": names,
+                "basicRequest": {"metricRequests": [{"metric": "ALL"}]},
+            }
+            try:
+                response = requests.post(url, headers=headers, json=body, timeout=10)
+                if response.status_code >= 400:
+                    logger.error(
+                        "Google metrics fetch failed %s: %s", response.status_code, response.text
+                    )
+                    continue
+                data = response.json()
+                for metrics in data.get("localPostMetrics", []):
+                    name = metrics.get("localPostName")
+                    special = next((s for s, n in batch if n == name), None)
+                    if not special:
+                        continue
+                    values = {
+                        mv.get("metric"): int(mv.get("value", 0))
+                        for mv in metrics.get("metricValues", [])
+                    }
+                    SpecialMetrics.objects.create(
+                        special=special,
+                        views=values.get("LOCAL_POST_VIEWS", 0),
+                        cta_clicks=values.get("CALL_TO_ACTION_CLICKS", 0),
+                    )
+            except Exception as exc:
+                logger.exception("Failed to fetch metrics from Google: %s", exc)
