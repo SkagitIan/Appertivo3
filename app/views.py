@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.contrib.auth.forms import UserCreationForm
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
 from django.views.decorators.csrf import csrf_exempt
@@ -31,6 +32,7 @@ from .models import (
     Article,
     Subscription,
     Transaction,
+    SubUserProfile,
 )
 from .forms import SpecialForm, ContactForm
 from app.integrations.google import *
@@ -205,6 +207,20 @@ def dashboard(request):
         'google_locations': locations,
     }
     return render(request, 'app/dashboard.html', context)
+
+
+@login_required
+def add_subuser(request):
+    """Create a subuser tied to the current user."""
+    if request.method == "POST":
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            subuser = form.save()
+            SubUserProfile.objects.create(owner=request.user, user=subuser)
+            return redirect("dashboard")
+    else:
+        form = UserCreationForm()
+    return render(request, "app/add_subuser.html", {"form": form})
 
 # views.py
 import stripe
