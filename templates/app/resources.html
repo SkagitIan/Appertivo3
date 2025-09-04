@@ -10,25 +10,125 @@
         </div>
         <div id="searchResults" class="mb-12"></div>
 
-        <section class="mb-12">
-            <h2 class="text-2xl font-semibold mb-4">FAQs</h2>
-            <div class="space-y-4">
-                <div class="border rounded-md p-4 searchable">
-                    <button class="faq-question w-full text-left flex justify-between items-center font-medium">
-                        <span>What is Appertivo?</span>
-                        <span>+</span>
-                    </button>
-                    <div class="faq-answer mt-2 text-slate-600 hidden">Appertivo helps restaurants manage daily specials.</div>
-                </div>
-                <div class="border rounded-md p-4 searchable">
-                    <button class="faq-question w-full text-left flex justify-between items-center font-medium">
-                        <span>How do I create a special?</span>
-                        <span>+</span>
-                    </button>
-                    <div class="faq-answer mt-2 text-slate-600 hidden">Use the dashboard to create and publish specials.</div>
-                </div>
-            </div>
-        </section>
+<section class="mb-12" id="faqs">
+  <h2 class="text-3xl font-bold mb-6 text-slate-900 text-center">Frequently Asked Questions</h2>
+  <div class="space-y-4 max-w-3xl mx-auto">
+
+    <!-- FAQ Item -->
+    <div class="border rounded-md p-4">
+      <button class="faq-question w-full text-left flex justify-between items-center font-medium">
+        <span>How hard is it to set up?</span>
+        <span class="toggle-icon">+</span>
+      </button>
+      <div class="faq-answer mt-2 text-slate-600 hidden">
+        Setup takes just minutes. Snap a photo, enter your special, and Appertivo handles the rest. No design, coding, or marketing skills required—your team can start posting on day one.
+      </div>
+    </div>
+
+    <div class="border rounded-md p-4">
+      <button class="faq-question w-full text-left flex justify-between items-center font-medium">
+        <span>Do I need special equipment or high-quality photos?</span>
+        <span class="toggle-icon">+</span>
+      </button>
+      <div class="faq-answer mt-2 text-slate-600 hidden">
+        Nope. Our AI image enhancer makes even quick phone photos look polished. You don’t need professional lighting or a DSLR—just your dish and your phone.
+      </div>
+    </div>
+
+    <div class="border rounded-md p-4">
+      <button class="faq-question w-full text-left flex justify-between items-center font-medium">
+        <span>Can my staff use it, or do I have to manage everything myself?</span>
+        <span class="toggle-icon">+</span>
+      </button>
+      <div class="faq-answer mt-2 text-slate-600 hidden">
+        Appertivo is built so anyone on your team can post. Whether it’s a chef, server, or manager, if they can take a photo and type a few words, they can use the system.
+      </div>
+    </div>
+
+    <div class="border rounded-md p-4">
+      <button class="faq-question w-full text-left flex justify-between items-center font-medium">
+        <span>Will this work if I already use a POS or delivery platform?</span>
+        <span class="toggle-icon">+</span>
+      </button>
+      <div class="faq-answer mt-2 text-slate-600 hidden">
+        Yes. We integrate directly with platforms like DoorDash, Grubhub, and Uber Eats so your specials appear (and disappear) in your menu automatically. No double entry.
+      </div>
+    </div>
+
+    <div class="border rounded-md p-4">
+      <button class="faq-question w-full text-left flex justify-between items-center font-medium">
+        <span>What about my website?</span>
+        <span class="toggle-icon">+</span>
+      </button>
+      <div class="faq-answer mt-2 text-slate-600 hidden">
+        Every plan comes with the Appertivo widget, which updates your site in real time and captures diner emails. No need for a redesign or developer—it’s a quick embed.
+      </div>
+    </div>
+
+    <div class="border rounded-md p-4">
+      <button class="faq-question w-full text-left flex justify-between items-center font-medium">
+        <span>Do I have to write all the copy myself?</span>
+        <span class="toggle-icon">+</span>
+      </button>
+      <div class="faq-answer mt-2 text-slate-600 hidden">
+        Not at all. Just enter the basics—“Fried chicken dinner, $24.99”—and Appertivo writes a crave-worthy description. Unlike generic AI tools, our copy uses your menus, reviews, and diner feedback as context, so it feels authentic to your restaurant.
+      </div>
+    </div>
+
+    <div class="border rounded-md p-4">
+      <button class="faq-question w-full text-left flex justify-between items-center font-medium">
+        <span>How do emails work?</span>
+        <span class="toggle-icon">+</span>
+      </button>
+      <div class="faq-answer mt-2 text-slate-600 hidden">
+        Every new special automatically triggers an email blast to your subscriber list, keeping your regulars in the loop. And with the widget, your list grows while you cook. Future integrations with Mailchimp and Zapier make it even easier to manage.
+      </div>
+    </div>
+
+    <div class="border rounded-md p-4">
+      <button class="faq-question w-full text-left flex justify-between items-center font-medium">
+        <span>How do I know if it’s working?</span>
+        <span class="toggle-icon">+</span>
+      </button>
+      <div class="faq-answer mt-2 text-slate-600 hidden">
+        You’ll see every special’s performance in your live dashboard: views, clicks, and sign-ups across all platforms. You’ll know exactly what resonates with diners—no guessing.
+      </div>
+    </div>
+
+    <div class="border rounded-md p-4">
+      <button class="faq-question w-full text-left flex justify-between items-center font-medium">
+        <span>Is it really just one plan?</span>
+        <span class="toggle-icon">+</span>
+      </button>
+      <div class="faq-answer mt-2 text-slate-600 hidden">
+        Yes. No hidden tiers, no upsells. For $199/month, you get the full platform: planning tools, promotion across all channels, and performance tracking. Simple and predictable.
+      </div>
+    </div>
+
+    <div class="border rounded-md p-4">
+      <button class="faq-question w-full text-left flex justify-between items-center font-medium">
+        <span>Can I cancel anytime?</span>
+        <span class="toggle-icon">+</span>
+      </button>
+      <div class="faq-answer mt-2 text-slate-600 hidden">
+        Absolutely. There are no long-term contracts. If it’s not working for you, you can cancel with a click. But our goal is to make sure you stick around because your specials sell out.
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<script>
+  document.querySelectorAll('.faq-question').forEach(button => {
+    button.addEventListener('click', () => {
+      const answer = button.nextElementSibling;
+      const icon = button.querySelector('.toggle-icon');
+      answer.classList.toggle('hidden');
+      icon.textContent = answer.classList.contains('hidden') ? '+' : '–';
+    });
+  });
+</script>
+
 
         <section>
             <h2 class="text-2xl font-semibold mb-4">Articles</h2>
@@ -49,12 +149,6 @@
 
 {% block extra_scripts %}
 <script>
-document.querySelectorAll('.faq-question').forEach(btn => {
-    btn.addEventListener('click', () => {
-        const answer = btn.nextElementSibling;
-        answer.classList.toggle('hidden');
-    });
-});
 
 const searchInput = document.getElementById('searchInput');
 const searchResults = document.getElementById('searchResults');
