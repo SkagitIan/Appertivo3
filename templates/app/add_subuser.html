@@ -1,0 +1,14 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Add Subuser - Appertivo{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto py-8">
+    <h1 class="text-2xl font-semibold mb-4">Add Subuser</h1>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn-primary">Create Subuser</button>
+    </form>
+</div>
+{% endblock %}
