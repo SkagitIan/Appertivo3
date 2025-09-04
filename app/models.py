@@ -139,6 +139,16 @@ class UserProfile(models.Model):
         return f"{self.user.username} - {self.restaurant_name}"
 
 
+class SubUserProfile(models.Model):
+    """Links a subuser account to its owner."""
+
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="subusers")
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="subuser_profile")
+
+    def __str__(self) -> str:
+        return f"{self.user.username} (subuser of {self.owner.username})"
+
+
 class Subscription(models.Model):
     """Stores a user's subscription details."""
 
