@@ -152,24 +152,29 @@ class SubUserProfile(models.Model):
 class Subscription(models.Model):
     """Stores a user's subscription details."""
 
-    PLAN_CHOICES = [('pro', 'Pro'), ('enterprise', 'Enterprise')]
+    STATUS_CHOICES = [
+        ("trialing", "Trialing"),
+        ("active", "Active"),
+        ("expired", "Expired"),
+        ("cancelled", "Cancelled"),
+    ]
 
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='subscription')
-    stripe_subscription_id = models.CharField(max_length=100)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="subscription")
+    stripe_subscription_id = models.CharField(max_length=100, blank=True, null=True)
     stripe_customer_id = models.CharField(max_length=64, blank=True, null=True)
-    plan = models.CharField(max_length=20, choices=PLAN_CHOICES)
-    started_at = models.DateTimeField(default=timezone.now)
+    signup_date = models.DateTimeField(default=timezone.now)
+    trial_end_date = models.DateTimeField()
+    subscription_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="trialing")
     canceled_at = models.DateTimeField(blank=True, null=True)
 
     def __str__(self):
-        return f"{self.user.username} - {self.plan}"
+        return f"{self.user.username} - {self.subscription_status}"
 
 
 class Transaction(models.Model):
     """Individual subscription transactions."""
 
-    subscription = models.ForeignKey(Subscription, on_delete=models.CASCADE, related_name='transactions')
-    plan = models.CharField(max_length=20, choices=Subscription.PLAN_CHOICES)
+    subscription = models.ForeignKey(Subscription, on_delete=models.CASCADE, related_name="transactions")
     amount = models.DecimalField(max_digits=7, decimal_places=2)
     status = models.CharField(max_length=20)
     occurred_at = models.DateTimeField(default=timezone.now)

@@ -38,6 +38,7 @@ from .forms import SpecialForm, ContactForm
 from app.integrations.google import *
 from app.integrations.outscraper import fetch_place_details
 import threading
+from datetime import timedelta
 import logging
 logger = logging.getLogger(__name__)
 
@@ -111,10 +112,28 @@ def register_view(request):
             location=location,
             is_email_verified=False
         )
-        
+
         # Send verification email (for now, just mark as verified)
         profile.is_email_verified = True
         profile.save()
+
+        # Create Stripe customer and subscription with 14-day trial
+        customer = stripe.Customer.create(email=email)
+        profile.stripe_customer_id = customer["id"]
+        profile.save(update_fields=["stripe_customer_id"])
+
+        trial_days = 14
+        subscription_obj = stripe.Subscription.create(
+            customer=customer["id"], trial_period_days=trial_days
+        )
+        Subscription.objects.create(
+            user=user,
+            stripe_customer_id=customer["id"],
+            stripe_subscription_id=subscription_obj["id"],
+            signup_date=timezone.now(),
+            trial_end_date=timezone.now() + timedelta(days=trial_days),
+            subscription_status="trialing",
+        )
         
         def update_profile():
             try:
@@ -180,6 +199,19 @@ def dashboard(request):
     conn = Connection.objects.filter(
         user=request.user, platform="google_business", is_connected=True
     ).first()
+    subscription = getattr(request.user, "subscription", None)
+    if subscription:
+        if (
+            subscription.trial_end_date <= timezone.now()
+            and subscription.subscription_status != "active"
+        ):
+            subscription.subscription_status = "expired"
+            subscription.save(update_fields=["subscription_status"])
+            messages.error(
+                request,
+                "Your trial has expired—please subscribe to continue.",
+            )
+            return redirect("billing")
     show_location_modal = False
     locations = []
     if conn:
@@ -230,10 +262,7 @@ from django.urls import reverse
 
 stripe.api_key = os.getenv("STRIPE_TEST_KEY")
 
-PRICE_IDS = {
-    "pro": os.getenv("STRIPE_TEST_PRO"),           # e.g. price_123
-    "enterprise": os.getenv("STRIPE_TEST_ENTERPRISE"),
-}
+PRICE_ID = os.getenv("STRIPE_TEST_PRICE")
 
 @login_required
 @require_POST
@@ -241,22 +270,13 @@ def subscribe(request):
     try:
         """Create a Stripe Checkout Session for a subscription."""
         logger.info(f"Subscribe:  {request}")
-        plan = request.POST.get("plan")
-        price_id = PRICE_IDS.get(plan)
-        if not price_id:
-            logger.info(f"Invalid Plan Selected:  {request}")
-            messages.error(request, "Invalid plan selected.")
-            return redirect("billing")
 
         profile = request.user.profile
         if not profile.stripe_customer_id:
-            # Create a Stripe Customer for this user
-            customer = stripe.Customer.create(
-                email=request.user.email,
-                name=(request.user.get_full_name() or request.user.username),
-                metadata={"django_user_id": str(request.user.id)},
-            )
+            customer = stripe.Customer.create(email=request.user.email)
             customer_id = customer["id"]
+            profile.stripe_customer_id = customer_id
+            profile.save(update_fields=["stripe_customer_id"])
         else:
             customer_id = profile.stripe_customer_id
 
@@ -267,14 +287,10 @@ def subscribe(request):
         session = stripe.checkout.Session.create(
             customer=customer_id,
             mode="subscription",
-            line_items=[{"price": price_id, "quantity": 1}],
-            allow_promotion_codes=True,
+            line_items=[{"price": PRICE_ID, "quantity": 1}],
             billing_address_collection="auto",
             client_reference_id=str(request.user.id),
-            metadata={"plan": plan, "django_user_id": str(request.user.id)},
-            subscription_data={
-                "metadata": {"plan": plan, "django_user_id": str(request.user.id)},
-            },
+            subscription_data={"trial_period_days": 14},
             success_url=success_url,
             cancel_url=cancel_url,
         )
@@ -408,29 +424,17 @@ def billing(request):
 
     subscription = getattr(request.user, "subscription", None)
     transactions = subscription.transactions.order_by("-occurred_at") if subscription else []
-
-    plans = [
-        {
-            "tier": "pro",
-            "name": "Pro",
-            "price": 99,
-            "features": ["Unlimited specials", "Priority support"],
-            "border": "border-blue-500",
-        },
-        {
-            "tier": "enterprise",
-            "name": "Enterprise",
-            "price": 299,
-            "features": ["Unlimited specials", "Dedicated support", "Custom integrations"],
-            "border": "border-green-500",
-        },
-    ]
+    days_left = None
+    if subscription and subscription.subscription_status == "trialing":
+        days_left = max(
+            (subscription.trial_end_date.date() - timezone.now().date()).days, 0
+        )
 
     context = {
         "profile": profile,
         "subscription": subscription,
-        "plans": plans,
         "transactions": transactions,
+        "days_left": days_left,
     }
 
     return render(request, "app/billing.html", context)
@@ -448,7 +452,8 @@ def cancel_subscription(request):
         except Exception:
             pass
         subscription.canceled_at = timezone.now()
-        subscription.save(update_fields=["canceled_at"])
+        subscription.subscription_status = "cancelled"
+        subscription.save(update_fields=["canceled_at", "subscription_status"])
 
     profile.subscription_tier = "free"
     profile.save(update_fields=["subscription_tier"])
