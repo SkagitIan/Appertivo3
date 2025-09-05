@@ -17,6 +17,17 @@
         {% endif %}
       </div>
 
+      <!-- Email -->
+      <div>
+        <label for="{{ subuserform.email.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+          {{ subuserform.email.label }}
+        </label>
+        {{ subuserform.email }}
+        {% if subuserform.email.errors %}
+          <p class="mt-1 text-sm text-red-600">{{ subuserform.email.errors }}</p>
+        {% endif %}
+      </div>
+
       <!-- Password -->
       <div>
         <label for="{{ subuserform.password1.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
