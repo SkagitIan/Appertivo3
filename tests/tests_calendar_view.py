@@ -3,6 +3,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.contrib.auth.models import User
 from django.utils import timezone
+from django.core.files.uploadedfile import SimpleUploadedFile
 
 from app.models import Special, UserProfile
 from app.utils import month_cells
@@ -91,3 +92,24 @@ class CalendarEventsTests(TestCase):
         colors = {e["id"]: e["color"] for e in events}
         self.assertEqual(colors[str(active.id)], "#22c55e")
         self.assertEqual(colors[str(expired.id)], "#6b7280")
+
+    def test_calendar_view_includes_image_urls(self):
+        start = timezone.now()
+        end = start + timedelta(hours=1)
+        image = SimpleUploadedFile("test.jpg", b"filecontent", content_type="image/jpeg")
+        special = Special.objects.create(
+            user=self.user,
+            title="With Image",
+            description="desc",
+            price=5,
+            start_date=start,
+            end_date=end,
+            status="active",
+            cta_type="web",
+            cta_url="",
+            image=image,
+        )
+        response = self.client.get(reverse("specials_list") + "?view=calendar")
+        events = response.context["events"]
+        images = {e["id"]: e.get("image") for e in events}
+        self.assertEqual(images[str(special.id)], special.image.url)
