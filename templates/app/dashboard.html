@@ -124,7 +124,7 @@
 <ul class="divide-y divide-gray-200 mb-3">
   {% for sub in subusers %}
     <li class="flex justify-between items-center py-3 my-2 space-x-3" id="subuser-listitem-{{ sub.id}}">
-      <span class="text-gray-800 text-2xl">{{ sub.user.username }}</span>
+      <span class="text-gray-800 text-2xl">{{ sub.user.username }} ({{ sub.user.email }})</span>
       <div class="flex items-center space-x-2">
         <!-- Reset password badge -->
         <button
