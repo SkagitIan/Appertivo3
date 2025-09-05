@@ -32,14 +32,12 @@
 
 /* Has special */
 .fc-event {
-  background: #58B09C !important;  /* seafoam green */
-  border-radius: 0.5rem;
+  background: transparent !important;
   border: none;
   text-align: center;
   font-size: 0.9rem;
   font-weight: 600;
   color: white;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
 }
 
 </style>
@@ -175,6 +173,14 @@ document.addEventListener('DOMContentLoaded', function() {
         'duration-150',
         'hover:scale-105'
       );
+      const dateStr = arg.date.toISOString().slice(0, 10);
+      const dayEvents = events.filter(e => e.start.slice(0, 10) === dateStr && e.image);
+      if (dayEvents.length > 0) {
+        arg.el.style.backgroundImage = `url('${dayEvents[0].image}')`;
+        arg.el.style.backgroundSize = 'cover';
+        arg.el.style.backgroundPosition = 'center';
+        arg.el.style.color = 'white';
+      }
     }
   });
 
