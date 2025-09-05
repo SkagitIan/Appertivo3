@@ -144,4 +144,13 @@
         </div>
     </footer>
 </body>
+<script>
+  document.body.addEventListener("htmx:configRequest", function (event) {
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+    if (csrfToken) {
+      event.detail.headers['X-CSRFToken'] = csrfToken;
+    }
+  });
+</script>
+
 </html>

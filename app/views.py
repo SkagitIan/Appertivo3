@@ -17,6 +17,7 @@ import os
 import openai
 import requests
 import stripe
+from django.contrib.auth.forms import SetPasswordForm
 
 
 from dotenv import load_dotenv
@@ -231,34 +232,97 @@ def dashboard(request):
         'clicks': sum(special.clicks for special in active_specials),
         'email_signups': total_email_signups,
     }
+    subusers = SubUserProfile.objects.filter(owner=request.user).select_related("user")
 
     context = {
         'specials': active_specials[:3],  # Latest 3 active specials
         'stats': stats,
         'show_location_modal': show_location_modal,
         'google_locations': locations,
+        'subuserform': UserCreationForm(),
+        "subusers": subusers,
     }
     return render(request, 'app/dashboard.html', context)
-
 
 @login_required
 def add_subuser(request):
     """Create a subuser tied to the current user."""
     if request.method == "POST":
-        form = UserCreationForm(request.POST)
-        if form.is_valid():
-            subuser = form.save()
+        logger.debug("POST received for add_subuser by %s", request.user)
+        subuserform = UserCreationForm(request.POST)
+        if subuserform.is_valid():
+            logger.debug("Form is valid. Cleaned data: %s", subuserform.cleaned_data)
+            subuser = subuserform.save()
+            logger.info(
+                "Created subuser %s (id=%s) for owner %s",
+                subuser.username, subuser.id, request.user
+            )
             SubUserProfile.objects.create(owner=request.user, user=subuser)
-            return redirect("dashboard")
+            logger.info("SubUserProfile created for subuser %s", subuser.username)
+            # tell HTMX to refresh dashboard
+            response = HttpResponse(status=204)
+            response["HX-Redirect"] = redirect("dashboard").url
+            return response
+        else:
+            logger.warning(
+                "UserCreationForm invalid. Errors: %s", subuserform.errors.as_json()
+            )
+            return render(
+                request,
+                "app/partials/add_subuser.html",
+                {"subuserform": subuserform},
+                status=400
+            )
     else:
-        form = UserCreationForm()
-    return render(request, "app/add_subuser.html", {"form": form})
+        logger.debug("GET request for add_subuser form by %s", request.user)
+        subuserform = UserCreationForm()
 
-# views.py
-import stripe
-from django.conf import settings
-from django.shortcuts import redirect
-from django.urls import reverse
+    return render(request, "app/partials/add_subuser.html", {"subuserform": subuserform})
+
+@login_required
+def reset_subuser_password(request, subuser_id):
+    sub = get_object_or_404(SubUserProfile, id=subuser_id, owner=request.user)
+    user = sub.user
+
+    if request.method == "POST":
+        form = SetPasswordForm(user, request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Password reset for {user.username}")
+            return HttpResponse("<div class='text-green-600 text-sm mt-2'>Password updated.</div>")
+    else:
+        form = SetPasswordForm(user)
+
+    return render(
+        request,
+        "app/partials/reset_subuser_password.html",
+        {"form": form, "subuser": sub},
+    )
+
+
+@login_required
+def delete_subuser(request, subuser_id):
+    """Delete a subuser if the current user owns it."""
+    if request.method != "POST":
+        logger.warning("Invalid method %s used on delete_subuser by %s", request.method, request.user)
+        return HttpResponseForbidden("Invalid request method.")
+
+    subprofile = get_object_or_404(SubUserProfile, id=subuser_id)
+
+    if subprofile.owner != request.user:
+        logger.warning(
+            "User %s attempted to delete subuser %s they do not own",
+            request.user, subprofile.user.username
+        )
+        return HttpResponseForbidden("You do not have permission to delete this subuser.")
+
+    username = subprofile.user.username
+    subprofile.user.delete()   # deletes both User and profile
+    logger.info("Subuser %s deleted by owner %s", username, request.user)
+
+    # HTMX expects something back, but since you already use hx-swap="outerHTML remove",
+    # we can just return an empty 204 to confirm deletion.
+    return HttpResponse("")
 
 stripe.api_key = os.getenv("STRIPE_TEST_KEY")
 
