@@ -49,6 +49,16 @@ urlpatterns = [
     path('demo-widget/special/', views.demo_widget, name='demo_widget'),
     path('demo-widget/signup/', views.demo_widget_signup, name='demo_widget_signup'),
     path('demo-widget/js/', views.demo_widget_js, name='demo_widget_js'),
+    path(
+        "subusers/<int:subuser_id>/reset-password/",
+        views.reset_subuser_password,
+        name="reset_subuser_password",
+    ),
+    path(
+        "subusers/<int:subuser_id>/delete/",
+        views.delete_subuser,   # you'll define this if not already
+        name="delete_subuser",
+    ),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
