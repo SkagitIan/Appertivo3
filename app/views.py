@@ -2,7 +2,6 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from django.contrib.auth.forms import UserCreationForm
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
 from django.views.decorators.csrf import csrf_exempt
@@ -35,7 +34,7 @@ from .models import (
     Transaction,
     SubUserProfile,
 )
-from .forms import SpecialForm, ContactForm
+from .forms import SpecialForm, ContactForm, SubUserCreationForm
 from app.integrations.google import *
 from app.integrations.outscraper import fetch_place_details
 import threading
@@ -239,7 +238,7 @@ def dashboard(request):
         'stats': stats,
         'show_location_modal': show_location_modal,
         'google_locations': locations,
-        'subuserform': UserCreationForm(),
+        'subuserform': SubUserCreationForm(),
         "subusers": subusers,
     }
     return render(request, 'app/dashboard.html', context)
@@ -249,7 +248,7 @@ def add_subuser(request):
     """Create a subuser tied to the current user."""
     if request.method == "POST":
         logger.debug("POST received for add_subuser by %s", request.user)
-        subuserform = UserCreationForm(request.POST)
+        subuserform = SubUserCreationForm(request.POST)
         if subuserform.is_valid():
             logger.debug("Form is valid. Cleaned data: %s", subuserform.cleaned_data)
             subuser = subuserform.save()
@@ -275,7 +274,7 @@ def add_subuser(request):
             )
     else:
         logger.debug("GET request for add_subuser form by %s", request.user)
-        subuserform = UserCreationForm()
+        subuserform = SubUserCreationForm()
 
     return render(request, "app/partials/add_subuser.html", {"subuserform": subuserform})
 
