@@ -552,6 +552,7 @@ def specials_list(request):
                     "color": color,
                     "edit_url": reverse("special_edit", args=[s.id]),
                     "card_url": reverse("special_card_partial", args=[s.id]),
+                    "image": s.image.url if s.image else "",
                 }
             )
         context = {
