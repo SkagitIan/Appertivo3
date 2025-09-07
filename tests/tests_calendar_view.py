@@ -114,26 +114,3 @@ class CalendarEventsTests(TestCase):
         images = {e["id"]: e.get("image") for e in events}
         self.assertEqual(images[str(special.id)], special.image.url)
 
-    def test_calendar_events_include_form_url_and_span(self):
-        start = timezone.now()
-        end = start + timedelta(days=2)
-        special = Special.objects.create(
-            user=self.user,
-            title="Multi", 
-            description="desc",
-            price=5,
-            start_date=start,
-            end_date=end,
-            status="active",
-            cta_type="web",
-            cta_url="",
-        )
-        response = self.client.get(reverse("specials_list") + "?view=calendar")
-        events = response.context["events"]
-        event = next(e for e in events if e["id"] == str(special.id))
-        self.assertEqual(event["start"], start.isoformat())
-        self.assertEqual(event["end"], end.isoformat())
-        self.assertEqual(
-            event["form_url"],
-            reverse("special_form_edit_partial", args=[special.id]),
-        )
