@@ -32,14 +32,12 @@
 
 /* Has special */
 .fc-event {
-  background: #58B09C !important;  /* seafoam green */
-  border-radius: 0.5rem;
+  background: transparent !important;
   border: none;
   text-align: center;
   font-size: 0.9rem;
   font-weight: 600;
   color: white;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
 }
 
 </style>
@@ -129,6 +127,11 @@ document.addEventListener('DOMContentLoaded', function() {
   const calendarEl = document.getElementById('calendar');  // <-- define it here
   const createUrl = "{{ create_url }}";
 
+  function dateInRange(dateStr, startStr, endStr) {
+    const day = new Date(dateStr);
+    return day >= new Date(startStr) && day <= new Date(endStr);
+  }
+
   function openModal(url) {
     const modal = document.getElementById('modal');
     const body = document.getElementById('modal-body');
@@ -150,13 +153,11 @@ document.addEventListener('DOMContentLoaded', function() {
     events: events,
     selectable: true,
     dateClick: function(info) {
-      const dayEvents = calendar.getEvents().filter(e => e.startStr === info.dateStr);
+      const dayEvents = events.filter(e => dateInRange(info.dateStr, e.start, e.end));
       if (dayEvents.length > 0) {
-        const url = dayEvents[0].extendedProps.card_url;
-        openModal(url);
+        openModal(dayEvents[0].form_url);
       } else {
-        const url = "{% url 'special_form_create_partial' %}?date=" + info.dateStr;
-        openModal(url);
+        openModal(`${createUrl}?date=${info.dateStr}`);
       }
     },
     eventContent: function(arg) {
@@ -175,6 +176,14 @@ document.addEventListener('DOMContentLoaded', function() {
         'duration-150',
         'hover:scale-105'
       );
+      const dateStr = arg.date.toISOString().slice(0, 10);
+      const dayEvents = events.filter(e => dateInRange(dateStr, e.start, e.end) && e.image);
+      if (dayEvents.length > 0) {
+        arg.el.style.backgroundImage = `url('${dayEvents[0].image}')`;
+        arg.el.style.backgroundSize = 'cover';
+        arg.el.style.backgroundPosition = 'center';
+        arg.el.style.color = 'white';
+      }
     }
   });
 
