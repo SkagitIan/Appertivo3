@@ -178,6 +178,7 @@ document.addEventListener('DOMContentLoaded', function() {
       );
       const dateStr = arg.date.toISOString().slice(0, 10);
       const dayEvents = events.filter(e => dateInRange(dateStr, e.start, e.end) && e.image);
+      const dayEvents = events.filter(e => e.start.slice(0, 10) === dateStr && e.image);
       if (dayEvents.length > 0) {
         arg.el.style.backgroundImage = `url('${dayEvents[0].image}')`;
         arg.el.style.backgroundSize = 'cover';
