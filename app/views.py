@@ -551,15 +551,14 @@ def specials_list(request):
                     "end": s.end_date.isoformat(),
                     "color": color,
                     "edit_url": reverse("special_edit", args=[s.id]),
-                    "card_url": reverse("special_card_partial", args=[s.id]),
+                    "form_url": reverse("special_form_edit_partial", args=[s.id]),
+                    "image": s.image.url if s.image else "",
                 }
             )
         context = {
             "events": events,
             "create_url": reverse("create_special"),
             "current_view": "calendar",
-            "edit_partial_url": reverse("special_form_edit_partial", args=[s.id]),
-
         }
         template = "app/calendar.html"
     else:
