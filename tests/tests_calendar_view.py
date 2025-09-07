@@ -113,3 +113,4 @@ class CalendarEventsTests(TestCase):
         events = response.context["events"]
         images = {e["id"]: e.get("image") for e in events}
         self.assertEqual(images[str(special.id)], special.image.url)
+
