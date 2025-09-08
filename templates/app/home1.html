@@ -1,0 +1,246 @@
+{% extends 'base/base.html' %}
+
+{% block content %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@700;900&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --font-sans: 'Inter', sans-serif;
+    --font-display: 'Figtree', sans-serif;
+  }
+
+  body {
+    background-color: #0F172A; /* slate-900 */
+    color: #cbd5e1; /* slate-300 */
+    font-family: var(--font-sans);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+  }
+  
+  /* Animated Gradient Background */
+  .animated-gradient {
+    background: radial-gradient(circle at 10% 20%, rgba(240, 128, 0, 0.2), transparent 40%),
+                radial-gradient(circle at 80% 90%, rgba(185, 147, 214, 0.2), transparent 40%);
+    animation: move-gradient 15s ease-in-out infinite;
+    will-change: background-position;
+  }
+
+  @keyframes move-gradient {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+
+  /* Glassmorphism Card Style */
+  .glass-card {
+    background: rgba(30, 41, 59, 0.5); /* slate-800 with 50% opacity */
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(51, 65, 85, 0.7); /* slate-700 with 70% opacity */
+    transition: all 0.3s ease;
+  }
+  .glass-card:hover {
+    transform: translateY(-8px);
+    border-color: rgba(240, 128, 0, 0.5);
+    box-shadow: 0 0 30px rgba(240, 128, 0, 0.2);
+  }
+  
+  /* Scroll-reveal Animations */
+  .reveal {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+  }
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+</style>
+
+<div class="min-h-screen bg-slate-900 text-slate-300" id="top">
+  
+  {% include 'base/public_nav.html' %}
+
+  <section class="relative pt-24 pb-32 overflow-hidden" id="hero">
+    <div class="absolute inset-0 animated-gradient pointer-events-none"></div>
+    <div class="absolute inset-0 bg-grid-slate-800 [mask-image:linear-gradient(to_bottom,white,transparent)]"></div>
+    
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      <div class="text-center">
+        <h1 class="text-5xl sm:text-6xl lg:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-slate-100 to-slate-400 leading-tight tracking-tight mt-5">
+          Your Daily Sell-Out
+        </h1>
+        <p class="mt-8 text-xl text-slate-400 leading-relaxed max-w-3xl mx-auto">
+          From prep to promotion to proof—your specials managed start to finish.
+        </p>
+        <div class="mt-12 flex flex-col sm:flex-row gap-4 justify-center">
+          <a href="{% url 'register' %}"
+             class="inline-flex items-center justify-center px-8 py-4 rounded-xl font-semibold text-white text-xl
+                    bg-gradient-to-r from-[#f08000] via-[#d4781b] to-[#b9612c]
+                    shadow-[0_0_20px_rgba(240,128,0,0.5)]
+                    hover:scale-105 hover:shadow-[0_0_30px_rgba(240,128,0,0.7)]
+                    transition-all duration-300 ease-in-out"
+             data-cta="hero-start">
+            Start free – no card needed
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="w-full bg-[#c2ccd0] flex justify-center">
+  <img 
+    src="https://res.cloudinary.com/dfz4bhlzs/image/upload/v1757090297/Image_fx_trgp2y.png"
+    class="max-w-full h-auto"
+    alt="Product showcase">
+</section>
+<section class="py-24" id="features">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-24">
+
+    <!-- Plan Smarter -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+      <!-- Text -->
+      <div class="glass-card p-8 rounded-2xl reveal">
+        <h3 class="text-3xl font-bold text-white mb-4">Plan Smarter</h3>
+        <p class="text-slate-400 mb-6">
+          Your specials, organized and ready to shine.
+        </p>
+        <ul class="space-y-3 text-slate-300">
+          <li><span class="text-orange-400 mr-2">📅</span> Calendar view to see your month at a glance</li>
+          <li><span class="text-orange-400 mr-2">🔁</span> Recurring events like Taco Tuesday set once and done</li>
+          <li><span class="text-orange-400 mr-2">✍️</span> Drop in quick notes and let AI create full descriptions</li>
+          <li><span class="text-orange-400 mr-2">🖼️</span> AI image optimization for pro-quality photos</li>
+          <li><span class="text-orange-400 mr-2">🤖</span> AI tuned with your menus, reviews, and diner feedback</li>
+          <li><span class="text-orange-400 mr-2">⏱️</span> Schedule ahead so staff can focus on service</li>
+        </ul>
+      </div>
+      <!-- Image -->
+      <div class="reveal">
+        <img src="https://res.cloudinary.com/dfz4bhlzs/image/upload/v1757092939/Image_fx_1_mpboqi.png" alt="Plan Smarter dashboard"
+             class="rounded-xl shadow-lg w-full h-auto object-cover">
+      </div>
+    </div>
+
+    <!-- Promote Everywhere -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+      <!-- On large screens, flip image/text order -->
+      <div class="order-2 md:order-1 reveal">
+        <img src="/static/img/promote-everywhere.png" alt="Promote Everywhere mockup"
+             class="rounded-xl shadow-lg w-full h-auto object-cover">
+      </div>
+      <div class="glass-card p-8 rounded-2xl reveal order-1 md:order-2">
+        <h3 class="text-3xl font-bold text-white mb-4">Promote Everywhere</h3>
+        <p class="text-slate-400 mb-6">
+          One special, perfectly packaged for every channel.
+        </p>
+        <ul class="space-y-3 text-slate-300">
+          <li><span class="text-orange-400 mr-2">🌐</span> Appertivo widget keeps your site fresh & captures diner emails</li>
+          <li><span class="text-orange-400 mr-2">📧</span> Automated email blasts keep your list engaged</li>
+          <li><span class="text-orange-400 mr-2">📱</span> Social posts styled for Instagram, Facebook, and X</li>
+          <li><span class="text-orange-400 mr-2">🍽️</span> POS & delivery menu updates (DoorDash, Grubhub, Uber Eats)</li>
+          <li><span class="text-orange-400 mr-2">⚡</span> Future-ready: Mailchimp, Zapier, and more</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Track What Works -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+      <div class="glass-card p-8 rounded-2xl reveal">
+        <h3 class="text-3xl font-bold text-white mb-4">Track What Works</h3>
+        <p class="text-slate-400 mb-6">
+          From insights to action, all in one place.
+        </p>
+        <ul class="space-y-3 text-slate-300">
+          <li><span class="text-orange-400 mr-2">📊</span> Live dashboards show views, clicks, and sign-ups</li>
+          <li><span class="text-orange-400 mr-2">👥</span> Manage email subscribers and track engagement</li>
+          <li><span class="text-orange-400 mr-2">🥘</span> Break down performance by dish to know what resonates</li>
+          <li><span class="text-orange-400 mr-2">🔎</span> Connect the dots across website, email, and socials</li>
+        </ul>
+      </div>
+      <div class="reveal">
+        <img src="/static/img/track-what-works.png" alt="Analytics dashboard"
+             class="rounded-xl shadow-lg w-full h-auto object-cover">
+      </div>
+    </div>
+
+  </div>
+</section>
+
+
+  <section class="py-24 bg-slate-900/50" id="pricing">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <div class="reveal">
+        <h2 class="text-4xl font-bold text-white mb-6">Pricing</h2>
+        <p class="text-xl text-slate-400 mb-12">One plan. Everything included.</p>
+      </div>
+
+      <div class="glass-card p-10 rounded-3xl reveal" style="border-color: rgba(240, 128, 0, 0.7); box-shadow: 0 0 40px rgba(240, 128, 0, 0.25);">
+        <h3 class="text-2xl font-semibold text-white mb-4">All-Inclusive Plan</h3>
+        <p class="text-5xl font-bold text-[#f08000] mb-6">$199 <span class="text-xl font-medium text-slate-400">/month</span></p>
+        <ul class="space-y-4 text-slate-300 mb-10 text-left max-w-md mx-auto">
+          <li class="flex items-center"><svg class="w-5 h-5 mr-3 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>Unlimited specials with calendar & recurring events</li>
+          <li class="flex items-center"><svg class="w-5 h-5 mr-3 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>AI-enhanced content powered by menus, reviews, and diner data</li>
+          <li class="flex items-center"><svg class="w-5 h-5 mr-3 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>AI image optimization for polished photos</li>
+          <li class="flex items-center"><svg class="w-5 h-5 mr-3 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>Real-time website widget with built-in email capture</li>
+          <li class="flex items-center"><svg class="w-5 h-5 mr-3 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>Automated email blasts to subscribers</li>
+          <li class="flex items-center"><svg class="w-5 h-5 mr-3 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>Social-ready formatting for Instagram, Facebook, and X</li>
+          <li class="flex items-center"><svg class="w-5 h-5 mr-3 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>POS & delivery integrations (DoorDash, Grubhub, Uber Eats)</li>
+          <li class="flex items-center"><svg class="w-5 h-5 mr-3 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>Performance dashboards: views, clicks, and sign-ups</li>
+          <li class="flex items-center"><svg class="w-5 h-5 mr-3 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>Future integrations: Mailchimp, Zapier, and more</li>
+        </ul>
+        <a href="{% url 'register' %}"
+           class="inline-flex items-center justify-center px-8 py-4 rounded-xl font-semibold text-white text-xl
+                  bg-gradient-to-r from-[#f08000] via-[#d4781b] to-[#b9612c]
+                  shadow-[0_0_20px_rgba(240,128,0,0.5)]
+                  hover:scale-105 hover:shadow-[0_0_30px_rgba(240,128,0,0.7)]
+                  transition-all duration-300 ease-in-out">
+          Get Started
+        </a>
+        <p class="mt-6 text-slate-500 text-sm">Secure payments handled by <span class="font-semibold text-slate-400">Stripe</span>.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="py-16" id="logos">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-12 reveal">
+        <p class="text-slate-500 font-medium">Trusted by restaurants using</p>
+      </div>
+      <div class="grid grid-cols-3 md:grid-cols-6 gap-8 items-center text-slate-500 reveal">
+        <div class="text-xl font-semibold text-center transition hover:text-white">Square</div>
+        <div class="text-xl font-semibold text-center transition hover:text-white">Toast</div>
+        <div class="text-xl font-semibold text-center transition hover:text-white">DoorDash</div>
+        <div class="text-xl font-semibold text-center transition hover:text-white">Uber</div>
+        <div class="text-xl font-semibold text-center transition hover:text-white">Grubhub</div>
+        <div class="text-xl font-semibold text-center transition hover:text-white">Google</div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+  // Scroll-reveal Animation Logic
+  const revealElements = document.querySelectorAll('.reveal');
+  
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        // Optional: unobserve after revealing to save resources
+        // observer.unobserve(entry.target); 
+      }
+    });
+  }, {
+    threshold: 0.1 // Trigger when 10% of the element is visible
+  });
+
+  revealElements.forEach(el => {
+    observer.observe(el);
+  });
+</script>
+
+
+
+{% endblock %}
