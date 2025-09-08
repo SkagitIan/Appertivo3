@@ -79,6 +79,45 @@ class SpecialMetrics(models.Model):
     def __str__(self):
         return f"Metrics for {self.special} at {self.timestamp}"
 
+
+class SpecialDraft(models.Model):
+    RAW_STATUSES = [
+        ("uploaded", "uploaded"),
+        ("processing", "processing"),
+        ("ready", "ready"),
+        ("failed", "failed"),
+    ]
+    DESC_STATUSES = [
+        ("idle", "idle"),
+        ("generating", "generating"),
+        ("ready", "ready"),
+        ("failed", "failed"),
+    ]
+    RECURRENCE_CHOICES = [
+        ("once", "once"),
+        ("daily", "daily"),
+        ("weekly", "weekly"),
+        ("monthly", "monthly"),
+    ]
+
+    raw_image = models.ImageField(upload_to="drafts/", blank=True, null=True)
+    enhanced_image_url = models.URLField(blank=True)
+    image_status = models.CharField(max_length=20, choices=RAW_STATUSES, default="uploaded")
+    image_ai_enabled = models.BooleanField(default=True)
+    title = models.CharField(max_length=255, blank=True)
+    description_user = models.TextField(blank=True)
+    description_ai = models.TextField(blank=True)
+    desc_status = models.CharField(max_length=20, choices=DESC_STATUSES, default="idle")
+    desc_ai_enabled = models.BooleanField(default=True)
+    start_at = models.DateTimeField(blank=True, null=True)
+    end_at = models.DateTimeField(blank=True, null=True)
+    recurrence_type = models.CharField(max_length=10, choices=RECURRENCE_CHOICES, default="once")
+    concept = models.CharField(max_length=255, blank=True, default="")
+    current_step = models.PositiveSmallIntegerField(default=0)
+
+    def __str__(self) -> str:  # pragma: no cover - simple repr
+        return self.title or f"Draft {self.pk}"
+
 class Connection(models.Model):
     PLATFORM_CHOICES = [
         ('website', 'Website'),

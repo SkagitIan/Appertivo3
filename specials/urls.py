@@ -3,6 +3,11 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from app import views
+from app.special_draft_views import (
+    special_draft_step,
+    special_draft_ideas,
+    special_draft_select,
+)
 from django.contrib.auth import views as auth_views
 
 urlpatterns = [
@@ -31,6 +36,9 @@ urlpatterns = [
     path('specials/partial/create/', views.special_form_partial, name='special_form_create_partial'),
     path('specials/<uuid:special_id>/partial/edit/', views.special_form_partial, name='special_form_edit_partial'),
     path('specials/<uuid:special_id>/partial/card/', views.special_card_partial, name='special_card_partial'),
+    path('specials/draft/step/<int:step>/', special_draft_step, name='special_draft_step'),
+    path('specials/draft/ideas/', special_draft_ideas, name='special_draft_ideas'),
+    path('specials/draft/<int:draft_id>/select/', special_draft_select, name='special_draft_select'),
 
     path('connections/', views.connections, name='connections'),
     path('connections/google/connect/', views.google_connect, name='google_connect'),
