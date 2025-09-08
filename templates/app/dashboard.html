@@ -17,15 +17,14 @@
     <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <!-- Create Special button row -->
 <div class="mb-6 mx-3">
-    <a href="{% url 'create_special' %}"
-       class="inline-block px-6 py-3 text-xl font-semibold text-white 
-              rounded-xl shadow-lg bg-gradient-to-r from-[#f08000] to-[#f08000]
-              hover:scale-105 hover:shadow-xl hover:from-[#ff9933] hover:to-[#a47fca]
-              focus:outline-none focus:ring-4 focus:ring-[#f08000]/50 
-              transition transform duration-200 ease-in-out"
-       data-testid="button-create-special">
-       <i class="fa-solid fa-circle-plus me-1 text-white"></i>Create Special
-    </a>
+    <button 
+    hx-get="{% url 'special_draft_step' 0 %}" 
+    hx-target="#modal-container"
+    hx-trigger="click">
+    New Special
+</button>
+<div id="modal-container"></div>
+
 </div>
 
 
