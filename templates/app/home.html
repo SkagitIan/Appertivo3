@@ -32,57 +32,9 @@
   </section>
 
   <!-- Features Funnel -->
-  <section class="py-24 bg-white" id="features">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-12">
+{% include 'app/partials/idea_partial.html' %}
+    {% include 'app/partials/planning_partial.html' %}
 
-        <!-- Plan Smarter -->
-        <div class="p-8 bg-gradient-to-b from-blue-50 to-white rounded-xl border border-blue-100 shadow hover:shadow-lg transition">
-          <h3 class="text-3xl font-bold text-slate-900 mb-4">Plan Smarter</h3>
-          <p class="text-slate-600 mb-6">
-            Your specials, organized and ready to shine.
-          </p>
-          <ul class="space-y-3 text-slate-700">
-            <li>📅 Calendar view to see your month at a glance</li>
-            <li>🔁 Recurring events like Taco Tuesday set once and done</li>
-            <li>✍️ Drop in quick notes and let AI create full descriptions</li>
-            <li>🖼️ AI image optimization for pro-quality photos</li>
-            <li>🤖 AI tuned with your menus, reviews, and diner feedback</li>
-            <li>⏱️ Schedule ahead so staff can focus on service</li>
-          </ul>
-        </div>
-
-        <!-- Promote Everywhere -->
-        <div class="p-8 bg-gradient-to-b from-violet-50 to-white rounded-xl border border-violet-100 shadow hover:shadow-lg transition">
-          <h3 class="text-3xl font-bold text-slate-900 mb-4">Promote Everywhere</h3>
-          <p class="text-slate-600 mb-6">
-            One special, perfectly packaged for every channel.
-          </p>
-          <ul class="space-y-3 text-slate-700">
-            <li>🌐 Appertivo widget keeps your site fresh & captures diner emails</li>
-            <li>📧 Automated email blasts keep your list engaged</li>
-            <li>📱 Social posts styled for Instagram, Facebook, and X</li>
-            <li>🍽️ POS & delivery menu updates (DoorDash, Grubhub, Uber Eats)</li>
-            <li>⚡ Future-ready: Mailchimp, Zapier, and more</li>
-          </ul>
-        </div>
-
-        <!-- Track What Works -->
-        <div class="p-8 bg-gradient-to-b from-green-50 to-white rounded-xl border border-green-100 shadow hover:shadow-lg transition">
-          <h3 class="text-3xl font-bold text-slate-900 mb-4">Track What Works</h3>
-          <p class="text-slate-600 mb-6">
-            From insights to action, all in one place.
-          </p>
-          <ul class="space-y-3 text-slate-700">
-            <li>📊 Live dashboards show views, clicks, and sign-ups</li>
-            <li>👥 Manage email subscribers and track engagement</li>
-            <li>🥘 Break down performance by dish to know what resonates</li>
-            <li>🔎 Connect the dots across website, email, and socials</li>
-          </ul>
-        </div>
-      </div>
-    </div>
-  </section>
 
   <!-- Pricing -->
   <section class="py-24 bg-slate-50" id="pricing">
@@ -134,6 +86,64 @@
       </div>
     </div>
   </section>
+  <section>
+    <div class="bg-white rounded-2xl shadow-lg p-6 w-80">
+  <div class="flex justify-between items-center mb-4">
+    <h3 class="text-lg font-semibold">October 2024</h3>
+    <div class="flex space-x-2">
+      <button class="text-gray-500 hover:text-gray-700">&lt;</button>
+      <button class="text-gray-500 hover:text-gray-700">&gt;</button>
+    </div>
+  </div>
+  <div class="grid grid-cols-7 gap-2 text-center text-sm">
+    <span class="text-gray-400">Sun</span>
+    <span class="text-gray-400">Mon</span>
+    <span class="text-gray-400">Tue</span>
+    <span class="text-gray-400">Wed</span>
+    <span class="text-gray-400">Thu</span>
+    <span class="text-gray-400">Fri</span>
+    <span class="text-gray-400">Sat</span>
+
+    <!-- Days -->
+    <span></span><span></span><span class="p-2 rounded bg-purple-100 text-purple-700 font-bold">1</span>
+    <span class="p-2 rounded hover:bg-gray-100">2</span>
+    <span class="p-2 rounded hover:bg-gray-100">3</span>
+    <span class="p-2 rounded bg-green-100 text-green-700 font-bold">4</span>
+    <span class="p-2 rounded hover:bg-gray-100">5</span>
+    <!-- ...repeat days -->
+  </div>
+</div>
+ </section>
+ <section>
+  <div class="bg-white rounded-2xl shadow-lg p-6 w-96">
+  <h3 class="text-lg font-semibold mb-4">Performance Overview</h3>
+  <div class="flex justify-between items-center mb-6">
+    <div>
+      <p class="text-2xl font-bold text-indigo-600">1.2k</p>
+      <p class="text-sm text-gray-500">Total Views</p>
+    </div>
+    <div>
+      <p class="text-2xl font-bold text-green-600">340</p>
+      <p class="text-sm text-gray-500">Clicks</p>
+    </div>
+    <div>
+      <p class="text-2xl font-bold text-orange-600">28</p>
+      <p class="text-sm text-gray-500">Sign-ups</p>
+    </div>
+  </div>
+  <div>
+    <p class="text-sm font-medium">Taco Tuesday Special</p>
+    <div class="w-full bg-gray-200 rounded-full h-2 mb-2">
+      <div class="bg-indigo-600 h-2 rounded-full" style="width: 67%"></div>
+    </div>
+    <p class="text-sm font-medium">Fish Friday</p>
+    <div class="w-full bg-gray-200 rounded-full h-2">
+      <div class="bg-green-600 h-2 rounded-full" style="width: 45%"></div>
+    </div>
+  </div>
+</div>
+
+ </section>
 </div>
 
 </div>
