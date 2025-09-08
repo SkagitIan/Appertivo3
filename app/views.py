@@ -551,7 +551,7 @@ def specials_list(request):
                     "end": s.end_date.isoformat(),
                     "color": color,
                     "edit_url": reverse("special_edit", args=[s.id]),
-                    "form_url": reverse("special_form_edit_partial", args=[s.id])
+                    "form_url": reverse("special_form_edit_partial", args=[s.id]),
                     "card_url": reverse("special_card_partial", args=[s.id]),
                     "image": s.image.url if s.image else "",
                 }
