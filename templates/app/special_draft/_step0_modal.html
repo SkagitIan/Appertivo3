@@ -1,0 +1,11 @@
+<div class="p-4">
+  <h2 class="text-xl mb-4">Pick a concept</h2>
+  <div class="grid grid-cols-2 gap-2">
+    {% for concept in concepts %}
+    <div class="p-4 bg-blue-200 rounded">{{ concept }}</div>
+    {% endfor %}
+  </div>
+  <div class="mt-4">
+    <a href="{% url 'special_draft_step' 1 %}" class="text-sm underline">Skip</a>
+  </div>
+</div>
