@@ -82,6 +82,39 @@ def contact(request):
         form = ContactForm()
     return render(request, "app/contact.html", {"form": form})
 
+from django.views.decorators.csrf import ensure_csrf_cookie
+
+
+def create_special_from_idea(request):
+    title = (request.POST.get('title') or '').strip()
+    description = (request.POST.get('description') or '').strip()
+
+    if not title or not description:
+        return HttpResponseBadRequest("Missing title or description.")
+
+    # Minimal defaults so the model validates; user edits these in the modal
+    now = timezone.now()
+    default_end = now + timezone.timedelta(hours=4)
+
+    special = Special.objects.create(
+        user=request.user,
+        title=title,
+        description=description,
+        original_description=description,
+        price=Decimal('0.00'),
+        start_date=now,
+        end_date=default_end,
+        cta_type='web',
+        status='draft',
+    )
+
+    html = render_to_string(
+        "app/partials/_step3_modal.html",
+        {"special": special},
+        request=request,  # ensures csrf and request context
+    )
+    return HttpResponse(html)
+
 def register_view(request):
     """Registration page"""
     if request.method == 'POST':

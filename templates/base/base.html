@@ -93,6 +93,15 @@
         .card:hover {
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.04);
         }
+
+  /* Indicator visibility rules */
+  .htmx-indicator { display: none; }
+  .htmx-request.htmx-indicator { display: grid; } /* htmx adds .htmx-request to the indicator */
+
+  /* Optional: smoother spin if you want slower than Tailwind's default */
+  @keyframes spin-slow { to { transform: rotate(360deg); } }
+  .animate-spin-slow { animation: spin-slow 1.25s linear infinite; }
+
     </style>
     
     {% block extra_head %}{% endblock %}
@@ -144,6 +153,62 @@
             </div>
         </div>
     </footer>
+    <div id="global-spinner"
+     class="htmx-indicator fixed inset-0 z-[100] hidden place-items-center bg-black/60">
+  <!-- Modal card -->
+  <div class="rounded-2xl p-8 bg-white/90 backdrop-blur-md shadow-2xl ring-1 ring-white/30 flex flex-col items-center">
+    <!-- Branded SVG spinner -->
+    <svg width="96" height="96" viewBox="0 0 100 100" class="animate-spin-slow">
+      <defs>
+        <!-- Appertivo gradient -->
+        <linearGradient id="appertivoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%"   stop-color="#B993D6"/>
+          <stop offset="40%"  stop-color="#58B09C"/>
+          <stop offset="75%"  stop-color="#f08000"/>
+          <stop offset="100%" stop-color="#14080E"/>
+        </linearGradient>
+        <!-- Soft glow -->
+        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+          <feMerge>
+            <feMergeNode in="coloredBlur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+      </defs>
+
+      <!-- Outer track (subtle) -->
+      <circle cx="50" cy="50" r="36"
+              fill="none"
+              stroke="#e6e8ee"
+              stroke-width="8"/>
+
+      <!-- Animated arc -->
+      <circle cx="50" cy="50" r="36"
+              fill="none"
+              stroke="url(#appertivoGrad)"
+              stroke-width="8"
+              stroke-linecap="round"
+              stroke-dasharray="80 180"
+              transform="rotate(-90 50 50)"
+              filter="url(#glow)"/>
+      
+      <!-- Center badge (fork/spoon mark) -->
+      <g transform="translate(50 50) scale(0.9)">
+        <!-- Plate -->
+        <circle r="16" fill="white" stroke="#f1f5f9" stroke-width="2"/>
+        <!-- Fork -->
+        <path d="M -5,-10 v6 M -2,-10 v6 M 1,-10 v6 M -3,-4 v16"
+              stroke="#49475B" stroke-width="2" stroke-linecap="round"/>
+        <!-- Spoon -->
+        <path d="M 8,-7 a4,4 0 1 1 -8,0 a4,4 0 1 1 8,0 M 4,-3 v15"
+              fill="none" stroke="#49475B" stroke-width="2" stroke-linecap="round"/>
+      </g>
+    </svg>
+
+    <p class="mt-4 text-[#49475B] font-semibold">Cooking up your special…</p>
+  </div>
+</div>
 </body>
 <script>
   document.body.addEventListener("htmx:configRequest", function (event) {
@@ -152,6 +217,10 @@
       event.detail.headers['X-CSRFToken'] = csrfToken;
     }
   });
+</script>
+<script>
+  document.body.addEventListener('htmx:beforeRequest', () => document.documentElement.style.overflow = 'hidden');
+  document.body.addEventListener('htmx:afterRequest',  () => document.documentElement.style.overflow = '');
 </script>
 
 </html>

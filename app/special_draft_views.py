@@ -2,13 +2,27 @@
 from django.http import Http404, JsonResponse, HttpResponseRedirect
 from django.shortcuts import render, get_object_or_404
 from django.urls import reverse
-
+from app.ai import *
 from app.models import SpecialDraft
 
 
-def get_concepts_for_today():
-    """Stub concept generator."""
-    return ["Seasonal", "Comfort", "Fusion"]
+def get_concepts_for_today(request):
+    """Fetches concepts and renders a template."""
+    # Get the JsonResponse object from the function
+    concepts_response = get_special_concepts()
+
+    # Get the JSON content as a string
+    json_string = concepts_response.content.decode('utf-8')
+
+    # Convert the JSON string to a Python dictionary
+    concepts_data = json.loads(json_string)
+
+    # Pass the 'names' list from the dictionary to the template context
+    context = {
+        'concepts': concepts_data['names']
+    }
+    
+    return render(request, 'app/special_draft/_step0_modal.html', context)
 
 def generate_special_ideas(concept: str):
     """Stub idea generator."""

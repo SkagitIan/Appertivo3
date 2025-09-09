@@ -1,0 +1,64 @@
+{# templates/partials/ideas_list.html #}
+<!-- Keep once, e.g., base.html -->
+<style>
+  .htmx-indicator{display:none}
+  .htmx-request .htmx-indicator{display:grid}
+</style>
+<div class="rounded-2xl border border-slate-200 p-4 md:p-6">
+  <h3 class="text-2xl font-bold text-[#14080E] mb-4">
+    10 Ideas for <span class="text-[#B993D6]">{{ concept }}</span>
+  </h3>
+
+<ul id="ideas-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+  {% for idea in ideas %}
+    <li>
+      <button
+        type="button"
+        class="relative w-full text-left p-4 rounded-xl bg-white shadow-sm border border-slate-100 hover:shadow-md transition
+               focus:outline-none focus:ring-4 focus:ring-[#58B09C]/30"
+        data-title="{{ idea.title|escapejs }}"
+        data-description="{{ idea.description|escapejs }}"
+
+        hx-post="{% url 'create_special_from_idea' %}"
+        hx-vals='js:{"title": this.dataset.title, "description": this.dataset.description}'
+        hx-target="#modal-body"
+        hx-swap="innerHTML"
+        hx-indicator=".idea-indicator"
+        onclick="openSpecialModalAndLoad()">
+        <h4 class="font-semibold text-[#49475B] text-lg pr-8">{{ idea.title }}</h4>
+        <p class="mt-1 text-slate-700">{{ idea.description }}</p>
+
+        {% if idea.tags %}
+          <div class="mt-3 flex flex-wrap gap-2">
+            {% for tag in idea.tags %}
+              <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs border border-slate-200">
+                {{ tag }}
+              </span>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        <!-- Per-tile spinner -->
+        <span class="idea-indicator htmx-indicator hidden absolute inset-0 grid place-items-center rounded-xl bg-black/5">
+          <span class="h-6 w-6 animate-spin rounded-full border-2 border-[#B993D6]/80 border-t-transparent"></span>
+        </span>
+      </button>
+    </li>
+  {% endfor %}
+</ul>
+
+</div>
+
+
+<script>
+  // Add CSRF header to all HTMX requests
+  document.body.addEventListener('htmx:configRequest', (e) => {
+    const token = getCookie('csrftoken');
+    if (token) e.detail.headers['X-CSRFToken'] = token;
+  });
+  function getCookie(name){
+    const v = `; ${document.cookie}`.split(`; ${name}=`);
+    if (v.length === 2) return decodeURIComponent(v.pop().split(';').shift());
+  }
+</script>
+
