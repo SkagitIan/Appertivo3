@@ -3,6 +3,11 @@
 {% block title %}Dashboard - Appertivo{% endblock %}
 
 {% block content %}
+<style>
+  /* Show .htmx-indicator whenever its parent is making an HTMX request */
+  .htmx-indicator { display: none; }
+  .htmx-request .htmx-indicator { display: grid; }
+</style>
 <div class="min-h-screen bg-slate-50">
 {% include 'base/dashboard_nav.html' %}
 {% if messages %}
@@ -14,56 +19,7 @@
 {% endif %}
 
     <!-- Main Content -->
-    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <!-- Create Special button row -->
-<div class="mb-6 mx-3">
-    <button 
-    hx-get="{% url 'special_draft_step' 0 %}" 
-    hx-target="#modal-container"
-    hx-trigger="click">
-    New Special
-</button>
-<div id="modal-container"></div>
-
-</div>
-
-
-        <!-- Active Specials -->
-        <div class="bg-none stripe-shadow rounded-lg mx-3 mb-3">
-
-
-            {% if specials %}
-                <div class="p-6">
-                    <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                        {% for special in specials %}
-                            {% include 'app/partials/special_card.html' %}
-                        {% endfor %}
-                    </div>
-                </div>
-            {% else %}
-                <div class="p-12 text-center">
-<i class="fa-solid fa-utensils fs-2 text-slate-400"></i>
-                    <h3 class="mt-2 text-sm font-medium text-slate-900">No active specials</h3>
-                    <div class="mt-6">
-                        <a href="{% url 'create_special' %}" 
-                        class="inline-flex items-center justify-center px-5 py-2.5 text-sm font-semibold text-white 
-                                rounded-md shadow-md bg-[#f08000]
-                                transition transform duration-200 ease-in-out
-                                hover:bg-[#ff9933] hover:scale-105 hover:shadow-lg
-                                focus:outline-none focus:ring-2 focus:ring-[#f08000]/50"
-                        data-testid="button-create-first-special">
-
-                            Create a special
-                        </a>
-
-                    </div>
-                </div>
-            {% endif %}
-                        <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-                <a href="{% url 'specials_list' %}" class="btn-outline text-sm" data-testid="button-view-all-specials">View All Specials</a>
-            </div>
-        </div>
-        
+    <main class="max-w-5xl mx-auto py-8 sm:py-6 sm:px-6 lg:px-8">
 <!-- Stats row -->
 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 mx-3">
     <div class="card stripe-shadow p-6">
@@ -115,6 +71,32 @@
         </div>
     </div>
 </div>
+
+<script>
+  document.body.addEventListener('htmx:beforeRequest', e => {
+    console.log('HTMX request started', e.detail);
+  });
+</script>
+
+<!-- Create Special button row -->
+<div class="mb-6 mx-3" id="special-box" data-endpoint="{% url 'special_draft_concepts' %}">
+  <button
+    type="button"
+    hx-get="{% url 'special_draft_concepts' %}"
+    hx-target="#special-box"
+    hx-swap="innerHTML"
+    hx-indicator="#global-spinner"
+    class="relative inline-flex items-center gap-2 px-4 my-4 py-2 rounded-lg bg-[#f08000] text-white font-semibold hover:brightness-95 transition">
+    New Special
+    <!-- spinner, pinned by the button's 'relative' -->
+    <span id="new-special-spinner" class="htmx-indicator absolute inset-0 place-items-center rounded-lg bg-black/10">
+      <span class="h-6 w-6 animate-spin rounded-full border-2 border-white/70 border-t-transparent"></span>
+    </span>
+  </button>
+  <br/>
+
+
+
 {% if not user.subuser_profile %}
 <div class="card stripe-shadow p-6 mb-8 mx-3" id="add_subuser">
     <div class="card-header"><h3 class="text-lg font-semibold mb-4">Team Member</h3></div>
@@ -213,4 +195,63 @@
     </div>
 </div>
 {% endif %}
+<script>
+
+
+  // Delegate clicks that open/close modals to toggle body scroll-lock.
+  document.addEventListener('click', (e) => {
+    const target = e.target;
+    if (!(target instanceof HTMLElement)) return;
+    // If a label toggles a modal checkbox, wait a tick to read its state.
+    if (target.tagName === 'LABEL' && target.getAttribute('for')) {
+      const id = target.getAttribute('for');
+      const cb = document.getElementById(id);
+      if (cb && cb.matches('input[type="checkbox"].peer')) {
+        setTimeout(() => {
+          document.documentElement.classList.toggle('overflow-hidden', cb.checked);
+        }, 0);
+      }
+    }
+  });
+</script>
+<script>
+  // Open the checkbox-driven modal and prep UX
+  function openSpecialModalAndLoad() {
+    const cb = document.getElementById('modal-hx');
+    if (!cb) return;
+    cb.checked = true;
+    document.documentElement.classList.add('overflow-hidden'); // lock scroll
+  }
+
+  // Unlock scroll when modal closes
+  document.addEventListener('change', (e) => {
+    if (e.target && e.target.id === 'modal-hx') {
+      document.documentElement.classList.toggle('overflow-hidden', e.target.checked);
+    }
+  });
+
+  // After HTMX loads the scheduling partial, focus the first input
+  document.body.addEventListener('htmx:afterSwap', (e) => {
+    const target = e.detail.target;
+    if (!target) return;
+
+    // Only react when we swapped into the modal body
+    if (target.id === 'modal-body') {
+      // Try the start_date first; fall back to first focusable
+      const first = target.querySelector('#start_date, input, select, textarea, button');
+      if (first) first.focus({ preventScroll: true });
+    }
+  });
+
+  // Optional: close on Escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const cb = document.getElementById('modal-hx');
+    if (cb && cb.checked) {
+      cb.checked = false;
+      document.documentElement.classList.remove('overflow-hidden');
+    }
+  });
+</script>
+
 {% endblock %}

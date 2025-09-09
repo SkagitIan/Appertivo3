@@ -1,16 +1,3 @@
-<style>
-    /* These can break aspect-ratio: */
-.flip-face {
-  height: auto; /* Overrides aspect-ratio */
-  min-height: 200px; /* Forces minimum height */
-  flex: 1; /* In flex containers */
-}
-
-/* Parent container issues */
-.flip-card {
-  display: flex;
-  flex-direction: column; /* Can stretch children */
-}</style>
 
 <!-- IDEA STAGE — Brainstorm Board -->
 <section class="py-28 bg-white" id="ideas">
@@ -50,24 +37,7 @@
         </ul>
 
         <div class="mt-10 flex flex-wrap gap-4">
-          <button
-            class="inline-flex items-center px-6 py-3 rounded-xl font-semibold text-white text-lg bg-[#f08000] hover:bg-[#d96f00] shadow-md"
-            hx-get="/demo/ideas/concepts"
-            hx-target="#concept-grid"
-            hx-swap="innerHTML"
-            hx-on::afterSwap="window.ConceptBoard.stagger()"
-          >
-            ✨ Generate Concepts
-          </button>
-          <button
-            class="inline-flex items-center px-6 py-3 rounded-xl font-semibold text-[#14080E] text-lg bg-slate-100 hover:bg-slate-200"
-            hx-get="/demo/ideas/concepts?shuffle=1"
-            hx-target="#concept-grid"
-            hx-swap="innerHTML"
-            hx-on::afterSwap="window.ConceptBoard.stagger()"
-          >
-            🔀 Shuffle Board
-          </button>
+         
         </div>
       </div>
 
@@ -106,7 +76,7 @@
             <p class="mt-1 text-sm text-slate-600">Trends + reviews + seasonality.</p>
           </div>
           <button class="mt-4 text-sm font-medium text-[#58B09C] hover:underline"
-                  hx-get="/demo/ideas/suggestions?concept_id={{ i }}"
+                  hx-get="{% url 'special_draft_concepts' %}"
                   hx-target="#card-{{ i }}-back"
                   hx-swap="innerHTML"
                   onclick="flipCard(this)"

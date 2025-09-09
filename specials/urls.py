@@ -7,7 +7,9 @@ from app.special_draft_views import (
     special_draft_step,
     special_draft_ideas,
     special_draft_select,
+    get_concepts_for_today,
 )
+from app.ai import *
 from django.contrib.auth import views as auth_views
 
 urlpatterns = [
@@ -28,6 +30,7 @@ urlpatterns = [
     path("billing/cancel/", views.cancel_subscription, name="cancel_subscription"),
     path("stripe/webhook/", views.stripe_webhook, name="stripe_webhook"),
     path('specials/', views.specials_list, name='specials_list'),
+    path('specials/concepts/',get_concepts_for_today,name="special_draft_concepts"),
     path('specials/create/', views.create_special, name='create_special'),
     path('specials/<uuid:special_id>/unpublish/', views.special_unpublish, name='special_unpublish'),
     path('specials/<uuid:special_id>/publish/', views.special_publish, name='special_publish'),
@@ -39,6 +42,8 @@ urlpatterns = [
     path('specials/draft/step/<int:step>/', special_draft_step, name='special_draft_step'),
     path('specials/draft/ideas/', special_draft_ideas, name='special_draft_ideas'),
     path('specials/draft/<int:draft_id>/select/', special_draft_select, name='special_draft_select'),
+    path("concept/ideas/", get_concept_ideas, name="concept_ideas"),
+    path("specials/create-from-idea/", views.create_special_from_idea, name="create_special_from_idea"),
 
     path('connections/', views.connections, name='connections'),
     path('connections/google/connect/', views.google_connect, name='google_connect'),
