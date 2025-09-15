@@ -385,15 +385,24 @@ def update_creativity(request, restaurant_id):
 @require_POST
 def rescrape_menu(request, restaurant_id):
     restaurant = get_object_or_404(models.Restaurant, id=restaurant_id)
+    menu_url = (request.POST.get("menu_url") or "").strip()
+    if menu_url and menu_url != restaurant.primary_menu_url:
+        restaurant.primary_menu_url = menu_url
+        restaurant.save(update_fields=["primary_menu_url"])
+    menu_url = restaurant.primary_menu_url
+
+    if not menu_url:
+        return JsonResponse({"error": "missing_menu_url"}, status=400)
+
     mv = models.MenuVersion.objects.create(
         restaurant=restaurant,
-        source_url=restaurant.primary_menu_url,
+        source_url=menu_url,
         source_kind=models.MenuVersion.SourceKind.URL_SCRAPE,
         raw_markdown="",
         status=models.MenuVersion.Status.QUEUED,
     )
     scrape_menu.delay(str(mv.id))
-    return redirect("settings")
+    return JsonResponse({"rescrape_complete": True, "menu_version_id": str(mv.id)})
 
 
 @login_required
