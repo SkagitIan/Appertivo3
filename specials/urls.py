@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.urls import path
+from django.contrib.auth import views as auth_views
 
 from app import views as app_views
 
@@ -7,6 +8,8 @@ urlpatterns = [
     path("", app_views.home_view, name="home"),
     path("signup/", app_views.signup_view, name="signup"),
     path("login/", app_views.login_view, name="login"),
+    path("logout/", auth_views.LogoutView.as_view(), name="logout"),
+    path("dashboard/", app_views.dashboard_view, name="dashboard"),
     path("onboarding/", app_views.onboarding_view, name="onboarding"),
     path("onboarding/status/", app_views.onboarding_status_view, name="onboarding-status"),
     path("onboarding/manual_menu/", app_views.manual_menu_view, name="manual-menu"),
@@ -18,6 +21,7 @@ urlpatterns = [
     path("dishes/favorite/<uuid:dish_id>/", app_views.dish_favorite_view, name="dish-favorite"),
     path("dishes/variation/<uuid:dish_id>/", app_views.dish_variation_view, name="dish-variation"),
     path("favorites/", app_views.favorites_view, name="favorites"),
+    path("menus/", app_views.menus_view, name="menus"),
     path("favorites/remove/<str:type>/<uuid:id>/", app_views.favorite_remove_view, name="favorite-remove"),
     path("menus/create/", app_views.menu_collection_create_view, name="menu-collection-create"),
     path("menus/add/<uuid:dish_id>/<uuid:collection_id>/", app_views.menu_item_add_view, name="menu-item-add"),
