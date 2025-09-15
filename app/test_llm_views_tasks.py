@@ -21,16 +21,34 @@ class LLMGenerationTests(TestCase):
 class ConceptGridViewTests(TestCase):
     """Ensure concept grid renders nine cards."""
 
+    def setUp(self):
+        account = models.Account.objects.create(name="Acc")
+        restaurant = models.Restaurant.objects.create(
+            account=account, name="R", location_text="City"
+        )
+        run = models.IdeationRun.objects.create(
+            restaurant=restaurant,
+            initiated_by_user=None,
+            type=models.IdeationRun.RunType.CONCEPTS,
+            model_name="m",
+            temperature=0,
+            classic_creative=50,
+            context_snapshot={},
+            status=models.IdeationRun.Status.SUCCEEDED,
+        )
+        for i in range(9):
+            models.Concept.objects.create(
+                restaurant=restaurant, ideation_run=run, name=f"Concept {i}", rank_order=i
+            )
+
     def test_concept_grid_renders_nine_cards(self):
-        response = self.client.get(reverse("concept-grid"))
+        response = self.client.get(reverse("concepts"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "concept-card", count=9)
-
 
 @override_settings(SECURE_SSL_REDIRECT=False)
 class TaskExecutionTests(TestCase):
     """Tests for external API tasks."""
-
     def setUp(self):
         self.user = User.objects.create_user("u@example.com")
         self.account = models.Account.objects.create(name="Acc")
