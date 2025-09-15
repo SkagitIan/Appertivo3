@@ -27,9 +27,26 @@ class MembershipAdmin(TimestampedAdmin):
 
 # Restaurant + data
 @admin.register(models.Restaurant)
-class RestaurantAdmin(TimestampedAdmin):
-    list_display = ("id", "name", "account", "location_text", "created_at")
+class RestaurantAdmin(admin.ModelAdmin):
+    list_display = ("name", "location_text", "phone", "rating", "review_count")
+    search_fields = ("name", "location_text", "phone")
+    readonly_fields = ("context_json",)
 
+    fieldsets = (
+        ("Core Info", {
+            "fields": ("account", "name", "location_text", "primary_menu_url")
+        }),
+        ("Outscraper Data", {
+            "fields": (
+                "phone", "website", "google_place_id",
+                "description", "rating", "review_count",
+                "hours_json", "about_json", "context_json"
+            )
+        }),
+        ("Menu", {
+            "fields": ("active_menu_version",)
+        }),
+    )
 
 @admin.register(models.RestaurantSettings)
 class RestaurantSettingsAdmin(TimestampedAdmin):

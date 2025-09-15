@@ -12,49 +12,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from .tasks import run_outscraper_search, scrape_menu
-
+from django.urls import reverse
 from app import llm, models
-
-
-@csrf_exempt
-@require_POST
-def signup(request):
-    """Handle user signup and initial restaurant creation."""
-    data = json.loads(request.body.decode("utf-8"))
-    email = data["email"]
-    password = data["password"]
-    restaurant_name = data["restaurant_name"]
-    location = data["location"]
-    menu_url = data.get("menu_url")
-
-    with transaction.atomic():
-        user = User.objects.create_user(username=email, email=email, password=password)
-        models.UserProfile.objects.create(user=user)
-        account = models.Account.objects.create(name=restaurant_name)
-        models.Membership.objects.create(
-            account=account, user=user, role=models.Membership.Role.OWNER
-        )
-        restaurant = models.Restaurant.objects.create(
-            account=account,
-            name=restaurant_name,
-            location_text=location,
-        )
-
-        # Always Outscraper query
-        payload = models.OutscraperPayload.objects.create(
-            restaurant=restaurant,
-            status=models.OutscraperPayload.Status.QUEUED,
-            request_params={"query": f"{restaurant_name} {location}",
-                            "async":"false",
-                            "limit":1,
-                            },
-        )
-        transaction.on_commit(
-            lambda: run_outscraper_search.delay(str(payload.id))
-        )
-
-    return JsonResponse({"status": "queued"})
-
 
 def concept_grid(request):
     """Render a 3x3 grid of concept names."""
@@ -116,12 +75,17 @@ def signup_view(request):
                 payload = models.OutscraperPayload.objects.create(
                     restaurant=restaurant,
                     status=models.OutscraperPayload.Status.QUEUED,
-                    request_params={"query": f"{restaurant_name} {location}"},
+                    request_params={"query": f"{restaurant_name} {location}",
+                            "async": "false",
+                            "limit":1,
+                            },
                 )
-                run_outscraper_search.delay(str(payload.id))
+                transaction.on_commit(
+                    lambda: run_outscraper_search.delay(str(payload.id))
+                )
 
         login(request, user)
-        return redirect("/onboarding/")
+        return redirect(reverse("dashboard", args=[restaurant.id]))
 
     return render(request, "auth/signup.html")
 
@@ -141,10 +105,9 @@ def login_view(request):
     return render(request, "auth/login.html")
 
 
-@login_required
-def dashboard_view(request):
-    """Render user dashboard."""
-    return render(request, "dashboard.html")
+def dashboard(request, restaurant_id):
+    restaurant = get_object_or_404(models.Restaurant, id=restaurant_id)
+    return render(request, "dashboard.html", {"restaurant": restaurant})
 
 
 @login_required
@@ -412,3 +375,65 @@ def notification_list_view(request):
     """Render notification list."""
     notes = models.Notification.objects.filter(user=request.user)
     return render(request, "notifications/list.html", {"notifications": notes})
+
+def restaurant_status(request, restaurant_id):
+    """HTMX endpoint that returns current status widget."""
+    restaurant = get_object_or_404(models.Restaurant, id=restaurant_id)
+
+    # Case 1: Active menu exists
+    if restaurant.active_menu_version and restaurant.active_menu_version.status == models.MenuVersion.Status.SUCCEEDED:
+        return render(request, "_partials/status_ready.html", {"restaurant": restaurant})
+
+    # Case 2: Outscraper finished but no menu_url → prompt user
+    latest_payload = models.OutscraperPayload.objects.filter(restaurant=restaurant).order_by("-created_at").first()
+    if latest_payload and latest_payload.status == models.OutscraperPayload.Status.SUCCEEDED and not latest_payload.discovered_menu_url:
+        return render(request, "_partials/status_need_menu.html", {"restaurant": restaurant})
+
+    # Default: still working
+    return render(request, "_partials/status_pending.html", {"restaurant": restaurant})
+
+def show_menu_modal(request, restaurant_id):
+    restaurant = get_object_or_404(models.Restaurant, id=restaurant_id)
+    return render(request, "partials/menu_modal.html", {"restaurant": restaurant})
+
+
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
+
+def upload_menu(request, restaurant_id):
+    restaurant = get_object_or_404(models.Restaurant, id=restaurant_id)
+
+    if request.method == "POST":
+        if "menu_url" in request.POST and request.POST["menu_url"]:
+            mv = models.MenuVersion.objects.create(
+                restaurant=restaurant,
+                source_url=request.POST["menu_url"],
+                source_kind=models.MenuVersion.SourceKind.URL_SCRAPE,
+                raw_markdown="",
+                status=models.MenuVersion.Status.QUEUED,
+            )
+            scrape_menu.delay(str(mv.id))
+
+        elif "menu_text" in request.POST and request.POST["menu_text"].strip():
+            models.MenuVersion.objects.create(
+                restaurant=restaurant,
+                source_kind=models.MenuVersion.SourceKind.PASTED_TEXT,
+                raw_markdown=request.POST["menu_text"].strip(),
+                status=models.MenuVersion.Status.SUCCEEDED,
+            )
+
+        elif "menu_pdf" in request.FILES:
+            pdf_file = request.FILES["menu_pdf"]
+            # Store temporarily in media storage
+            path = default_storage.save(f"menus/{restaurant.id}/{pdf_file.name}", ContentFile(pdf_file.read()))
+
+            mv = models.MenuVersion.objects.create(
+                restaurant=restaurant,
+                source_url=path,  # stored location
+                source_kind=models.MenuVersion.SourceKind.IMAGE_OCR,
+                raw_markdown="",
+                status=models.MenuVersion.Status.QUEUED,
+            )
+            parse_pdf_menu.delay(str(mv.id), path)
+
+    return JsonResponse({"status": "queued"})

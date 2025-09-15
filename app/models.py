@@ -47,18 +47,35 @@ class Membership(TimestampedModel):
 
 
 class Restaurant(TimestampedModel):
-    """Restaurant belonging to an account."""
     account = models.ForeignKey(Account, on_delete=models.CASCADE)
     name = models.TextField()
     location_text = models.TextField()
     primary_menu_url = models.TextField(null=True, blank=True)
+
+    # Outscraper context fields
+    phone = models.TextField(null=True, blank=True)
+    website = models.TextField(null=True, blank=True)
+    google_place_id = models.TextField(null=True, blank=True)
+    description = models.TextField(null=True, blank=True)
+    rating = models.DecimalField(max_digits=3, decimal_places=1, null=True, blank=True)
+    review_count = models.IntegerField(null=True, blank=True)
+    hours_json = models.JSONField(null=True, blank=True)     # working_hours
+    about_json = models.JSONField(null=True, blank=True)     # amenities, offerings, etc.
+    context_json = models.JSONField(null=True, blank=True)   # full Outscraper snapshot
+
     active_menu_version = models.ForeignKey(
-        "MenuVersion", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+        "MenuVersion",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
     )
 
     class Meta:
         indexes = [models.Index(fields=["account", "name"])]
 
+    def __str__(self):
+        return self.name
 
 class OutscraperPayload(TimestampedModel):
     """Tracks Outscraper requests for a restaurant."""
