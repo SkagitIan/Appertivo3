@@ -135,9 +135,15 @@ def login_view(request):
         username = request.POST.get("username")
         password = request.POST.get("password")
         user = authenticate(request, username=username, password=password)
-        print(user)
         if user:
             login(request, user)
+            restaurant_id = (
+                models.Restaurant.objects.filter(account__membership__user=user)
+                .values_list("id", flat=True)
+                .first()
+            )
+            if restaurant_id:
+                return redirect("dashboard", restaurant_id=restaurant_id)
             return redirect("/dashboard/")
         return render(request, "auth/login.html", {"error": "invalid"})
     return render(request, "auth/login.html")
@@ -146,6 +152,19 @@ def login_view(request):
 def dashboard(request, restaurant_id):
     restaurant = get_object_or_404(models.Restaurant, id=restaurant_id)
     return render(request, "dashboard.html", {"restaurant": restaurant})
+
+
+@login_required
+def dashboard_redirect(request):
+    """Send the user to their first restaurant dashboard."""
+    restaurant_id = (
+        models.Restaurant.objects.filter(account__membership__user=request.user)
+        .values_list("id", flat=True)
+        .first()
+    )
+    if restaurant_id:
+        return redirect("dashboard", restaurant_id=restaurant_id)
+    return redirect("home")
 
 
 @login_required

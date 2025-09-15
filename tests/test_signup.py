@@ -111,3 +111,4 @@ class SignupViewTests(TestCase):
         mock_outscraper.delay.assert_not_called()
         restaurant.refresh_from_db()
         self.assertEqual(restaurant.primary_menu_url, "http://example.com/menu")
+

@@ -9,6 +9,7 @@ urlpatterns = [
     path("signup/", app_views.signup_view, name="signup"),
     path("login/", app_views.login_view, name="login"),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
+    path("dashboard/", app_views.dashboard_redirect, name="dashboard-redirect"),
     path("dashboard/<uuid:restaurant_id>/", app_views.dashboard, name="dashboard"),
 
 
