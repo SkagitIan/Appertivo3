@@ -1,7 +1,13 @@
 <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
   <div class="bg-white rounded-xl shadow-lg w-full max-w-lg p-6 space-y-4">
     <h2 class="text-xl font-bold text-gray-800">Provide Your Menu</h2>
-    <form hx-post="{% url 'upload_menu' restaurant.id %}" hx-target="#restaurant-status" hx-swap="outerHTML">
+    <form
+      hx-post="{% url 'upload_menu' restaurant.id %}"
+      hx-target="#restaurant-status"
+      hx-swap="outerHTML"
+      hx-encoding="multipart/form-data"
+      hx-on::after-request="document.getElementById('menu-modal').innerHTML=''"
+    >
       <label class="block text-sm font-medium">Menu URL</label>
       <input type="url" name="menu_url" class="w-full border rounded p-2 mb-3">
       

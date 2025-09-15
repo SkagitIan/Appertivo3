@@ -1,5 +1,7 @@
 from unittest.mock import patch
 
+from unittest.mock import patch
+
 from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -56,11 +58,28 @@ class TaskExecutionTests(TestCase):
             account=self.account, name="R", location_text="City"
         )
 
+    @patch("app.tasks.scrape_menu")
     @patch("app.tasks.requests.get")
-    def test_run_outscraper_search_updates_payload(self, mock_get):
+    def test_run_outscraper_search_updates_payload(self, mock_get, mock_scrape):
+        """If Outscraper finds a menu URL we queue a scrape and persist context."""
         mock_get.return_value.json.return_value = {
-            "data": [],
-            "menu_link": "http://example.com/menu",
+            "data": [
+                [
+                    {
+                        "name": "Ristorante Uno",
+                        "full_address": "City, ST",
+                        "menu_link": "http://example.com/menu",
+                        "phone": "123",
+                        "site": "http://example.com",
+                        "place_id": "abc",
+                        "description": "Great food",
+                        "rating": 4.7,
+                        "reviews": 12,
+                        "working_hours": {"mon": "9-5"},
+                        "about": {"service": "Takeout"},
+                    }
+                ]
+            ]
         }
         mock_get.return_value.status_code = 200
         payload = models.OutscraperPayload.objects.create(
@@ -68,13 +87,40 @@ class TaskExecutionTests(TestCase):
             status=models.OutscraperPayload.Status.QUEUED,
             request_params={"q": "pizza"},
         )
-        tasks.run_outscraper_search(payload.id)
+
+        tasks.run_outscraper_search(str(payload.id))
+
         payload.refresh_from_db()
-        self.assertEqual(
-            payload.status, models.OutscraperPayload.Status.SUCCEEDED
-        )
-        self.assertEqual(payload.response_json["data"], [])
+        self.restaurant.refresh_from_db()
+        self.assertEqual(payload.status, models.OutscraperPayload.Status.SUCCEEDED)
         self.assertEqual(payload.discovered_menu_url, "http://example.com/menu")
+        self.assertEqual(self.restaurant.primary_menu_url, "http://example.com/menu")
+        self.assertEqual(models.MenuVersion.objects.count(), 1)
+        menu_version = models.MenuVersion.objects.get()
+        self.assertEqual(menu_version.status, models.MenuVersion.Status.QUEUED)
+        self.assertEqual(menu_version.source_url, "http://example.com/menu")
+        mock_scrape.delay.assert_called_once_with(str(menu_version.id))
+
+    @patch("app.tasks.scrape_menu")
+    @patch("app.tasks.requests.get")
+    def test_run_outscraper_without_menu_link(self, mock_get, mock_scrape):
+        """When no menu is found we still store context but do not queue a scrape."""
+        mock_get.return_value.json.return_value = {
+            "data": [[{"name": "No Menu", "full_address": "City"}]]
+        }
+        payload = models.OutscraperPayload.objects.create(
+            restaurant=self.restaurant,
+            status=models.OutscraperPayload.Status.QUEUED,
+            request_params={"q": "pizza"},
+        )
+
+        tasks.run_outscraper_search(str(payload.id))
+
+        payload.refresh_from_db()
+        self.assertEqual(payload.status, models.OutscraperPayload.Status.SUCCEEDED)
+        self.assertIsNone(payload.discovered_menu_url)
+        self.assertEqual(models.MenuVersion.objects.count(), 0)
+        mock_scrape.delay.assert_not_called()
 
     @patch("app.tasks.requests.get")
     def test_scrape_menu_updates_menu_version(self, mock_get):
@@ -86,7 +132,12 @@ class TaskExecutionTests(TestCase):
             raw_markdown="",
             status=models.MenuVersion.Status.QUEUED,
         )
-        tasks.scrape_menu(mv.id)
+
+        tasks.scrape_menu(str(mv.id))
+
         mv.refresh_from_db()
+        self.restaurant.refresh_from_db()
         self.assertEqual(mv.status, models.MenuVersion.Status.SUCCEEDED)
         self.assertEqual(mv.raw_markdown, "menu markdown")
+        self.assertIsNotNone(mv.parsed_at)
+        self.assertEqual(self.restaurant.active_menu_version, mv)
