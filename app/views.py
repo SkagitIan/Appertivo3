@@ -11,6 +11,7 @@ from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
+from .tasks import run_outscraper_search, scrape_menu
 
 from app import llm, models
 
@@ -37,15 +38,20 @@ def signup(request):
             account=account,
             name=restaurant_name,
             location_text=location,
-            primary_menu_url=menu_url,
         )
-        if menu_url:
-            models.OutscraperPayload.objects.create(
-                restaurant=restaurant,
-                status=models.OutscraperPayload.Status.QUEUED,
-                request_params={"menu_url": menu_url},
-                discovered_menu_url=menu_url,
-            )
+
+        # Always Outscraper query
+        payload = models.OutscraperPayload.objects.create(
+            restaurant=restaurant,
+            status=models.OutscraperPayload.Status.QUEUED,
+            request_params={"query": f"{restaurant_name} {location}",
+                            "async":"false",
+                            "limit":1,
+                            },
+        )
+        transaction.on_commit(
+            lambda: run_outscraper_search.delay(str(payload.id))
+        )
 
     return JsonResponse({"status": "queued"})
 
@@ -67,15 +73,21 @@ def home_view(request):
     """Landing page with signup/login links."""
     return render(request, "home.html")
 
-
-@csrf_exempt
 def signup_view(request):
     """Register a new user and restaurant."""
     if request.method == "POST":
         email = request.POST["email"]
-        password = request.POST["password"]
+        password1 = request.POST.get("password1")
+        password2 = request.POST.get("password2")
+
+        if password1 != password2:
+            return render(request, "auth/signup.html", {"error": "Passwords do not match"})
+
+        password = password1  # safe to use now
         restaurant_name = request.POST["restaurant_name"]
         location = request.POST["location"]
+        menu_url = request.POST.get("menu_url")  # optional
+
         with transaction.atomic():
             user = User.objects.create_user(
                 username=email, email=email, password=password
@@ -85,11 +97,34 @@ def signup_view(request):
             models.Membership.objects.create(
                 account=account, user=user, role=models.Membership.Role.OWNER
             )
-            models.Restaurant.objects.create(
+            restaurant = models.Restaurant.objects.create(
                 account=account, name=restaurant_name, location_text=location
             )
+
+            # If user provided menu_url, queue it immediately
+            if menu_url:
+                mv = models.MenuVersion.objects.create(
+                    restaurant=restaurant,
+                    source_url=menu_url,
+                    source_kind=models.MenuVersion.SourceKind.URL_SCRAPE,
+                    raw_markdown="",  # will be filled later
+                    status=models.MenuVersion.Status.QUEUED,
+                )
+                scrape_menu.delay(str(mv.id))
+            else:
+                # Otherwise, run Outscraper to discover menu_url
+                payload = models.OutscraperPayload.objects.create(
+                    restaurant=restaurant,
+                    status=models.OutscraperPayload.Status.QUEUED,
+                    request_params={"query": f"{restaurant_name} {location}"},
+                )
+                run_outscraper_search.delay(str(payload.id))
+
+        login(request, user)
         return redirect("/onboarding/")
+
     return render(request, "auth/signup.html")
+
 
 
 def login_view(request):
@@ -98,9 +133,10 @@ def login_view(request):
         username = request.POST.get("username")
         password = request.POST.get("password")
         user = authenticate(request, username=username, password=password)
+        print(user)
         if user:
             login(request, user)
-            return redirect("/concepts/")
+            return redirect("/dashboard/")
         return render(request, "auth/login.html", {"error": "invalid"})
     return render(request, "auth/login.html")
 
@@ -276,28 +312,79 @@ def menu_item_add_view(request, dish_id, collection_id):
     return JsonResponse({"added": True})
 
 
+@login_required
 def settings_view(request):
-    """Display settings page."""
-    restaurant = models.Restaurant.objects.first()
-    settings = models.RestaurantSettings.objects.filter(restaurant=restaurant).first()
-    ingredients = models.Ingredient.objects.filter(restaurant=restaurant)
-    ctx = {"restaurant": restaurant, "settings": settings, "ingredients": ingredients}
-    return render(request, "settings/main.html", ctx)
+    restaurant = models.Restaurant.objects.filter(account__membership__user=request.user).first()
+    ingredients = list(
+        models.Ingredient.objects.filter(restaurant=restaurant).values_list("name", flat=True)
+    )
+    prefs = getattr(request.user, "notificationpref", None)
+    return render(request, "settings/main.html", {
+        "restaurant": restaurant,
+        "ingredients": ingredients,
+        "prefs": prefs,
+    })
 
 
-def settings_rescrape_menu_view(request):
-    """Trigger a menu rescrape."""
-    return JsonResponse({"status": "queued"})
+@login_required
+@require_POST
+def update_restaurant_info(request):
+    restaurant = models.Restaurant.objects.filter(account__membership__user=request.user).first()
+    restaurant.primary_menu_url = request.POST.get("menu_url")
+    restaurant.save(update_fields=["primary_menu_url"])
+
+    ingredient_names = request.POST.get("ingredients", "").split(",")
+    for name in ingredient_names:
+        models.Ingredient.objects.get_or_create(restaurant=restaurant, name=name.strip())
+
+    return redirect("settings")
 
 
-def settings_slider_update_view(request):
-    """Update creative slider."""
-    restaurant = models.Restaurant.objects.first()
-    settings = models.RestaurantSettings.objects.get(restaurant=restaurant)
-    value = int(request.POST.get("value", settings.classic_creative_slider))
-    settings.classic_creative_slider = value
-    settings.save()
-    return JsonResponse({"value": settings.classic_creative_slider})
+@require_POST
+def rescrape_restaurant(request, restaurant_id):
+    restaurant = get_object_or_404(models.Restaurant, id=restaurant_id)
+    payload = models.OutscraperPayload.objects.create(
+        restaurant=restaurant,
+        status=models.OutscraperPayload.Status.QUEUED,
+        request_params={"query": restaurant.name, "limit": 1, "async": "false"},
+    )
+    run_outscraper_search.delay(str(payload.id))
+    return JsonResponse({"rescrape_complete": True})
+
+@require_POST
+def update_creativity(request, restaurant_id):
+    restaurant = get_object_or_404(models.Restaurant, id=restaurant_id)
+    slider_value = request.POST.get("classic_creative_slider")
+    if slider_value is not None:
+        restaurant.restaurantsettings.classic_creative_slider = int(slider_value)
+        restaurant.restaurantsettings.save(update_fields=["classic_creative_slider"])
+    return JsonResponse({"status": "ok"})
+
+
+@login_required
+@require_POST
+def rescrape_menu(request, restaurant_id):
+    restaurant = get_object_or_404(models.Restaurant, id=restaurant_id)
+    mv = models.MenuVersion.objects.create(
+        restaurant=restaurant,
+        source_url=restaurant.primary_menu_url,
+        source_kind=models.MenuVersion.SourceKind.URL_SCRAPE,
+        raw_markdown="",
+        status=models.MenuVersion.Status.QUEUED,
+    )
+    scrape_menu.delay(str(mv.id))
+    return redirect("settings")
+
+
+@login_required
+@require_POST
+def update_notifications(request):
+    prefs, _ = models.NotificationPref.objects.get_or_create(user=request.user)
+    prefs.on_background_complete_email = "on_background_complete_email" in request.POST
+    prefs.on_new_menu_version_email = "on_new_menu_version_email" in request.POST
+    prefs.save()
+    return redirect("settings")
+
 
 
 def billing_view(request):
