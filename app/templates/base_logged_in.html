@@ -5,6 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{% block title %}Appertivo{% endblock %}</title>
   <script src="https://cdn.tailwindcss.com"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    document.body.addEventListener("htmx:configRequest", (event) => {
+      event.detail.headers["X-CSRFToken"] = "{{ csrf_token }}";
+    });
+  });
+</script>
+
 </head>
 <body class="bg-gray-50 text-[#14080E] min-h-screen flex flex-col">
 
@@ -82,8 +90,63 @@
   <footer class="bg-gray-100 text-center py-4 text-sm text-gray-500">
     © 2025 Appertivo — All rights reserved
   </footer>
+<!-- TOAST CONTAINER -->
+<div id="toast-container" class="fixed bottom-4 right-4 space-y-2 z-50"></div>
+
 
   <!-- Script: toggle mobile menu -->
-  <script>
-    document.getElementById("mobile-menu-toggle").addEventListener("click", function() {
-      document.getElementById("mobile-menu").classList.toggle("hidden
+<!-- Script: handle rescrape form -->
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const form = document.getElementById("rescrape-form");
+    const btn = document.getElementById("rescrape-btn");
+    const label = btn ? btn.querySelector(".label") : null;
+    const spinner = btn ? btn.querySelector(".spinner") : null;
+
+    if (!form || !btn || !label || !spinner) {
+      console.warn("Rescrape form or elements not found on page.");
+      return;
+    }
+
+    // Show loading spinner before request
+    document.body.addEventListener("htmx:beforeRequest", function (evt) {
+      if (evt.detail.elt === form) {
+        label.textContent = "Refreshing…";
+        spinner.classList.remove("hidden");
+        btn.disabled = true;
+        btn.classList.add("opacity-70", "cursor-not-allowed");
+      }
+    });
+
+    // Reset button + show toast after request
+    document.body.addEventListener("htmx:afterRequest", function (evt) {
+      if (evt.detail.elt === form) {
+        label.textContent = "Rescrape Restaurant Data";
+        spinner.classList.add("hidden");
+        btn.disabled = false;
+        btn.classList.remove("opacity-70", "cursor-not-allowed");
+
+        if (evt.detail.xhr.responseText.includes("rescrape_complete")) {
+          showToast("Restaurant data refreshed successfully!");
+        }
+
+        } else if (!evt.detail.successful) {
+          const responseText = evt.detail.xhr ? evt.detail.xhr.responseText : "";
+          const message = responseText.includes("missing_menu_url")
+            ? "Add a menu URL before refreshing."
+            : "Unable to refresh the menu right now.";
+          showToast(message);
+        }
+      }
+    });
+
+    function showToast(message) {
+      const container = document.getElementById("toast-container");
+      const toast = document.createElement("div");
+      toast.className = "bg-[#58B09C] text-white px-4 py-2 rounded-lg shadow";
+      toast.textContent = message;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 4000);
+    }
+  });
+</script>

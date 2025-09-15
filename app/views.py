@@ -369,7 +369,8 @@ def rescrape_restaurant(request, restaurant_id):
         request_params={"query": restaurant.name, "limit": 1, "async": "false"},
     )
     run_outscraper_search.delay(str(payload.id))
-    return JsonResponse({"rescrape_complete": True})
+    return HttpResponse("rescrape_complete", content_type="text/plain")
+
 
 @require_POST
 def update_creativity(request, restaurant_id):
@@ -381,28 +382,38 @@ def update_creativity(request, restaurant_id):
     return JsonResponse({"status": "ok"})
 
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 @login_required
 @require_POST
 def rescrape_menu(request, restaurant_id):
     restaurant = get_object_or_404(models.Restaurant, id=restaurant_id)
-    menu_url = (request.POST.get("menu_url") or "").strip()
-    if menu_url and menu_url != restaurant.primary_menu_url:
-        restaurant.primary_menu_url = menu_url
-        restaurant.save(update_fields=["primary_menu_url"])
-    menu_url = restaurant.primary_menu_url
+    logger.info("Rescrape requested by user=%s for restaurant=%s (%s)",
+                request.user.id, restaurant.name, restaurant.id)
 
-    if not menu_url:
+    if not restaurant.primary_menu_url:
+        logger.warning("Restaurant %s (%s) has no primary_menu_url set. Cannot rescrape.",
+                       restaurant.name, restaurant.id)
         return JsonResponse({"error": "missing_menu_url"}, status=400)
 
     mv = models.MenuVersion.objects.create(
         restaurant=restaurant,
-        source_url=menu_url,
+        source_url=restaurant.primary_menu_url,
         source_kind=models.MenuVersion.SourceKind.URL_SCRAPE,
         raw_markdown="",
         status=models.MenuVersion.Status.QUEUED,
     )
+    logger.info("Created MenuVersion id=%s for restaurant=%s (%s)",
+                mv.id, restaurant.name, restaurant.id)
+
+    # Queue Celery task
     scrape_menu.delay(str(mv.id))
-    return JsonResponse({"rescrape_complete": True, "menu_version_id": str(mv.id)})
+    logger.info("Dispatched scrape_menu task for MenuVersion id=%s", mv.id)
+
+    return JsonResponse({"rescrape_complete": True})
+
 
 
 @login_required

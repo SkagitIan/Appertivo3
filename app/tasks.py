@@ -8,6 +8,13 @@ from django.utils import timezone
 from app import llm, models
 from dotenv import load_dotenv
 load_dotenv()
+import logging
+logger = logging.getLogger(__name__)
+
+from openai import OpenAI
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
 
 
 @shared_task
@@ -81,6 +88,15 @@ def run_outscraper_search(payload_id: str) -> dict:
 
 
 
+def validate_menu_text(raw_markdown: str) -> bool:
+    resp = client.responses.create(
+        model="gpt-4.1-mini",  # cheap, fast
+        input=f"Does the following text contain a food or restaurant menu? Reply only 'yes' or 'no'.\n\n{raw_markdown[:3000]}"
+    )
+    answer = resp.output_text.strip().lower()
+    logger.info(answer)
+    return answer.startswith("y")
+
 @shared_task
 def scrape_menu(menu_version_id: str) -> str:
     """Use ScraperAPI to fetch a menu in markdown format."""
@@ -96,8 +112,15 @@ def scrape_menu(menu_version_id: str) -> str:
     }
     response = requests.get("https://api.scraperapi.com/", params=params)
     mv.raw_markdown = response.text
+    logger.info(mv.raw_markdown)
     mv.status = models.MenuVersion.Status.SUCCEEDED
     mv.parsed_at = timezone.now()
+    if validate_menu_text(response.text):
+        mv.raw_markdown = response.text
+        mv.status = models.MenuVersion.Status.SUCCEEDED
+        mv.parsed_at = timezone.now()
+    else:
+        mv.status = models.MenuVersion.Status.FAILED
     mv.save(update_fields=["raw_markdown", "status", "parsed_at"])
 
     restaurant = mv.restaurant

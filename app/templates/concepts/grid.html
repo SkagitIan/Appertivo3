@@ -1,5 +1,60 @@
-<div id="concept-grid">
-{% for concept in concepts %}
-<div class="concept-card">{{ concept.name }}</div>
-{% endfor %}
+{# templates/concepts/grid.html #}
+{% extends "base_logged_in.html" %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-10">
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-3xl font-bold text-[#2E005D]">Concepts</h1>
+    <button 
+      hx-get="{% url 'concepts-generate' %}" 
+      hx-target="#concepts-grid"
+      hx-swap="outerHTML"
+      class="bg-gradient-to-r from-[#FF8300] to-[#FF5C00] text-white font-semibold px-6 py-2 rounded-xl shadow hover:scale-105 transition">
+      Generate New Concepts
+    </button>
+  </div>
+
+  <div id="concepts-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+    {% for concept in concepts %}
+      <div class="p-6 rounded-2xl shadow-md bg-white border border-slate-200 hover:shadow-lg transition">
+        <h2 class="text-xl font-bold text-[#49475B]">{{ concept.name }}</h2>
+        <div class="mt-4 flex justify-between items-center">
+          <span class="text-sm text-slate-500">Rank: {{ concept.rank_order }}</span>
+          <button 
+            hx-post="{% url 'concept-favorite' concept.id %}" 
+            hx-swap="none"
+            class="favorite-btn text-sm px-3 py-1 rounded-lg font-medium {% if concept.favoriteconcept_set.filter(user=request.user).exists %}bg-[#B993D6] text-white{% else %}bg-slate-100 text-slate-600{% endif %}">
+            {% if concept.favoriteconcept_set.filter(user=request.user).exists %}
+              ★ Favorited
+            {% else %}
+              ☆ Favorite
+            {% endif %}
+          </button>
+        </div>
+      </div>
+    {% empty %}
+      <p class="text-slate-600">No concepts yet. Try generating some!</p>
+    {% endfor %}
+  </div>
 </div>
+<script>
+document.addEventListener("htmx:afterRequest", function (evt) {
+  if (evt.detail.xhr.responseType === "json" || evt.detail.successful) {
+    let btn = evt.target;
+    if (evt.detail.successful) {
+      const data = JSON.parse(evt.detail.xhr.responseText);
+      if (data.favorited) {
+        btn.textContent = "★ Favorited";
+        btn.classList.remove("bg-slate-100", "text-slate-600");
+        btn.classList.add("bg-[#B993D6]", "text-white");
+      } else {
+        btn.textContent = "☆ Favorite";
+        btn.classList.remove("bg-[#B993D6]", "text-white");
+        btn.classList.add("bg-slate-100", "text-slate-600");
+      }
+    }
+  }
+});
+</script>
+
+{% endblock %}
