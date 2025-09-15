@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -172,10 +174,40 @@ class ViewSmokeTests(TestCase):
     def test_settings_views(self):
         resp = self.client.get(reverse("settings"))
         self.assertEqual(resp.status_code, 200)
-        rescrape = self.client.post(reverse("settings-rescrape-menu"))
+        self.restaurant.primary_menu_url = "https://example.com/menu"
+        self.restaurant.save(update_fields=["primary_menu_url"])
+        with patch("app.views.scrape_menu.delay") as mock_delay:
+            rescrape = self.client.post(
+                reverse("settings-rescrape-menu", args=[self.restaurant.id])
+            )
         self.assertEqual(rescrape.status_code, 200)
-        slider = self.client.post(reverse("settings-slider-update"), {"value": 60})
-        self.assertEqual(slider.json()["value"], 60)
+        self.assertTrue(rescrape.json()["rescrape_complete"])
+        mv = models.MenuVersion.objects.get(restaurant=self.restaurant)
+        self.assertEqual(mv.source_url, "https://example.com/menu")
+        self.assertEqual(mv.status, models.MenuVersion.Status.QUEUED)
+        mock_delay.assert_called_once_with(str(mv.id))
+        slider = self.client.post(
+            reverse("update_creativity", args=[self.restaurant.id]),
+            {"classic_creative_slider": 60},
+        )
+        self.assertEqual(slider.json()["status"], "ok")
+        self.restaurant.refresh_from_db()
+        self.assertEqual(
+            self.restaurant.restaurantsettings.classic_creative_slider,
+            60,
+        )
+
+    def test_rescrape_menu_requires_url(self):
+        self.restaurant.primary_menu_url = None
+        self.restaurant.save(update_fields=["primary_menu_url"])
+        with patch("app.views.scrape_menu.delay") as mock_delay:
+            resp = self.client.post(
+                reverse("settings-rescrape-menu", args=[self.restaurant.id])
+            )
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.json()["error"], "missing_menu_url")
+        self.assertFalse(models.MenuVersion.objects.exists())
+        mock_delay.assert_not_called()
 
     def test_billing_views(self):
         resp = self.client.get(reverse("billing"))

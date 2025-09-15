@@ -49,6 +49,11 @@ urlpatterns = [
     path("settings/", app_views.settings_view, name="settings"),
     path("settings/info/", app_views.update_restaurant_info, name="update_restaurant_info"),
     path("settings/<uuid:restaurant_id>/rescrape/", app_views.rescrape_restaurant, name="rescrape_restaurant"),
+    path(
+        "settings/<uuid:restaurant_id>/rescrape-menu/",
+        app_views.rescrape_menu,
+        name="settings-rescrape-menu",
+    ),
     path("settings/<uuid:restaurant_id>/update-creativity/", app_views.update_creativity, name="update_creativity"),
     path("settings/notifications/", app_views.update_notifications, name="update_notifications"),
 
