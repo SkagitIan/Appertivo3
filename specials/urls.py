@@ -25,9 +25,13 @@ urlpatterns = [
     path("favorites/remove/<str:type>/<uuid:id>/", app_views.favorite_remove_view, name="favorite-remove"),
     path("menus/create/", app_views.menu_collection_create_view, name="menu-collection-create"),
     path("menus/add/<uuid:dish_id>/<uuid:collection_id>/", app_views.menu_item_add_view, name="menu-item-add"),
+    ##settings page
     path("settings/", app_views.settings_view, name="settings"),
-    path("settings/rescrape_menu/", app_views.settings_rescrape_menu_view, name="settings-rescrape-menu"),
-    path("settings/slider/", app_views.settings_slider_update_view, name="settings-slider-update"),
+    path("settings/info/", app_views.update_restaurant_info, name="update_restaurant_info"),
+    path("settings/<uuid:restaurant_id>/rescrape/", app_views.rescrape_restaurant, name="rescrape_restaurant"),
+    path("settings/<uuid:restaurant_id>/update-creativity/", app_views.update_creativity, name="update_creativity"),
+    path("settings/notifications/", app_views.update_notifications, name="update_notifications"),
+
     path("billing/", app_views.billing_view, name="billing"),
     path("billing/upgrade/", app_views.billing_upgrade_view, name="billing-upgrade"),
     path("billing/cancel/", app_views.billing_cancel_view, name="billing-cancel"),

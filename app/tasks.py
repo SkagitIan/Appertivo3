@@ -1,11 +1,13 @@
 """Celery task definitions for external service calls."""
 
-import requests
+import requests, os
 from celery import shared_task
 from django.conf import settings
 from django.utils import timezone
-
 from app import llm, models
+from dotenv import load_dotenv
+load_dotenv()
+
 
 
 @shared_task
@@ -16,25 +18,44 @@ def run_outscraper_search(payload_id: str) -> dict:
     payload.started_at = timezone.now()
     payload.save(update_fields=["status", "started_at"])
 
-    headers = {"X-API-KEY": getattr(settings, "OUTSCRAPER_API_KEY", "")}
+    headers = {"X-API-KEY": os.getenv("OUTSCRAPER_API_KEY")}
     response = requests.get(
         "https://api.app.outscraper.com/maps/search-v3",
         params=payload.request_params,
         headers=headers,
     )
-    payload.response_json = response.json()
-    payload.discovered_menu_url = payload.response_json.get("menu_link")
+    data = response.json()
+    payload.response_json = data
+
+    # Outscraper usually returns a list; try to grab menu link
+    businesses = data.get("data", [])
+    menu_url = None
+    if businesses and "menu_link" in businesses[0]:
+        menu_url = businesses[0]["menu_link"]
+
+    payload.discovered_menu_url = menu_url
     payload.status = models.OutscraperPayload.Status.SUCCEEDED
     payload.finished_at = timezone.now()
     payload.save(
         update_fields=[
-            "response_json",
-            "discovered_menu_url",
-            "status",
-            "finished_at",
+            "response_json", "discovered_menu_url",
+            "status", "finished_at"
         ]
     )
-    return payload.response_json
+
+    # If menu_url discovered → queue scrape
+    if menu_url:
+        mv = models.MenuVersion.objects.create(
+            restaurant=payload.restaurant,
+            source_url=menu_url,
+            source_kind=models.MenuVersion.SourceKind.URL_SCRAPE,
+            raw_markdown="",
+            status=models.MenuVersion.Status.QUEUED,
+        )
+        scrape_menu.delay(str(mv.id))
+
+    return data
+
 
 
 @shared_task
@@ -45,7 +66,7 @@ def scrape_menu(menu_version_id: str) -> str:
     mv.save(update_fields=["status"])
 
     params = {
-        "api_key": getattr(settings, "SCRAPERAPI_API_KEY", ""),
+        "api_key": os.getenv('SCRAPERAPI_API_KEY'),
         "url": mv.source_url,
         "render": "true",
         "output_format": "markdown",

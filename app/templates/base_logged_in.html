@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Appertivo{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-[#14080E] min-h-screen flex flex-col">
+
+  <!-- NAVBAR -->
+  <header class="bg-white shadow-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center h-16">
+        
+        <!-- Left: Logo -->
+        <div class="flex-shrink-0">
+          <a href="{% url 'dashboard' %}" class="text-2xl font-bold text-[#B993D6]">
+            Appertivo
+          </a>
+        </div>
+
+        <!-- Desktop Nav -->
+        <nav class="hidden md:flex space-x-6">
+          <a href="{% url 'dashboard' %}" class="hover:text-[#B993D6]">Dashboard</a>
+          <a href="{% url 'concepts' %}" class="hover:text-[#B993D6]">Concepts</a>
+          <a href="{% url 'favorites' %}" class="hover:text-[#B993D6]">Favorites</a>
+          <a href="{% url 'settings' %}" class="hover:text-[#B993D6]">Settings</a>
+        </nav>
+
+        <!-- Right: User dropdown (optional) -->
+        <div class="hidden md:flex items-center space-x-4">
+          <span class="text-sm text-slate-600">{{ request.user.email }}</span>
+          <a href="{% url 'logout' %}"
+             class="bg-[#f08000] text-white px-3 py-1 rounded-lg hover:bg-[#d96f00]">
+            Logout
+          </a>
+        </div>
+
+        <!-- Mobile toggle -->
+        <div class="md:hidden">
+          <button id="mobile-menu-toggle" class="text-gray-600 focus:outline-none">
+            <!-- Hamburger -->
+            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile Nav -->
+    <div id="mobile-menu" class="hidden md:hidden bg-white border-t border-gray-200">
+      <nav class="px-2 py-3 space-y-1">
+        <a href="{% url 'dashboard' %}" class="block px-3 py-2 rounded hover:bg-gray-100">Dashboard</a>
+        <a href="{% url 'concepts' %}" class="block px-3 py-2 rounded hover:bg-gray-100">Concepts</a>
+        <a href="{% url 'favorites' %}" class="block px-3 py-2 rounded hover:bg-gray-100">Favorites</a>
+        <a href="{% url 'settings' %}" class="block px-3 py-2 rounded hover:bg-gray-100">Settings</a>
+        <a href="{% url 'logout' %}" class="block px-3 py-2 rounded hover:bg-gray-100 text-[#f08000]">Logout</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT -->
+  <main class="flex-1">
+    <div class="max-w-7xl mx-auto p-6">
+      {% block content %}
+      <!-- Child templates inject content here -->
+      {% endblock %}
+    </div>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="bg-gray-100 text-center py-4 text-sm text-gray-500">
+    © 2025 Appertivo — All rights reserved
+  </footer>
+
+  <!-- Script: toggle mobile menu -->
+  <script>
+    document.getElementById("mobile-menu-toggle").addEventListener("click", function() {
+      document.getElementById("mobile-menu").classList.toggle("hidden
