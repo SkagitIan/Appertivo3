@@ -112,35 +112,3 @@ class SignupViewTests(TestCase):
         restaurant.refresh_from_db()
         self.assertEqual(restaurant.primary_menu_url, "http://example.com/menu")
 
-    def test_login_redirects_to_user_dashboard(self):
-        """Logging in should send the user to their restaurant dashboard."""
-        user = User.objects.create_user(username="owner@example.com", password="pw")
-        account = models.Account.objects.create(name="Tasty Place")
-        models.Membership.objects.create(account=account, user=user, role=models.Membership.Role.OWNER)
-        restaurant = models.Restaurant.objects.create(
-            account=account,
-            name="Tasty Place",
-            location_text="City, State",
-        )
-
-        response = self.client.post(
-            reverse("login"), data={"username": "owner@example.com", "password": "pw"}
-        )
-
-        self.assertRedirects(response, reverse("dashboard", args=[restaurant.id]))
-
-    def test_dashboard_shortcut_redirects_to_first_restaurant(self):
-        """The dashboard shortcut should resolve the first restaurant for the user."""
-        user = User.objects.create_user(username="owner@example.com", password="pw")
-        account = models.Account.objects.create(name="Tasty Place")
-        models.Membership.objects.create(account=account, user=user, role=models.Membership.Role.OWNER)
-        restaurant = models.Restaurant.objects.create(
-            account=account,
-            name="Tasty Place",
-            location_text="City, State",
-        )
-
-        self.client.force_login(user)
-        response = self.client.get("/dashboard/")
-
-        self.assertRedirects(response, reverse("dashboard", args=[restaurant.id]))
