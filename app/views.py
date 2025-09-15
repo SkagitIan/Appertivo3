@@ -4,6 +4,7 @@ import json
 
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login
+from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from django.db import transaction
 from django.http import JsonResponse
@@ -102,6 +103,18 @@ def login_view(request):
             return redirect("/concepts/")
         return render(request, "auth/login.html", {"error": "invalid"})
     return render(request, "auth/login.html")
+
+
+@login_required
+def dashboard_view(request):
+    """Render user dashboard."""
+    return render(request, "dashboard.html")
+
+
+@login_required
+def menus_view(request):
+    """Render menus page."""
+    return render(request, "menus/main.html")
 
 
 def onboarding_view(request):

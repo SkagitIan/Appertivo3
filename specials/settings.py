@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from django.contrib.messages import constants as message_constants
+from django.urls import reverse_lazy
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
@@ -219,9 +220,9 @@ LOGGING = {
 }
 SERVER_EMAIL = 'ian.larsen.1976@gmail.com'
 DEFAULT_FROM_EMAIL = 'ian@appertivo.com'
-LOGIN_REDIRECT_URL = '/dashboard/'
-LOGOUT_REDIRECT_URL = '/dashboard/'
-LOGIN_URL = "/login/"
+LOGIN_URL = reverse_lazy("login")
+LOGIN_REDIRECT_URL = reverse_lazy("dashboard")
+LOGOUT_REDIRECT_URL = reverse_lazy("login")
 SITE_ID=1
 BREVO_API_KEY = os.getenv('BREVO_API_KEY')
 print(f"BREVO_API_KEY: {BREVO_API_KEY}")  # Debugging line to check if the key is loaded
