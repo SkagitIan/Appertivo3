@@ -39,21 +39,27 @@
 
 <!-- Rescrape Button -->
 <div class="mt-6">
-  <button
-    id="rescrape-btn"
-    hx-post=""
-    hx-trigger="click"
+  <form
+    id="rescrape-form"
+    hx-post="{% url 'settings-rescrape-menu' restaurant.id %}"
     hx-swap="none"
-    class="px-4 py-2 bg-[#f08000] text-white font-semibold rounded-lg shadow hover:bg-[#d96f00]"
+    class="inline-block"
   >
-    <span class="label">Rescrape Restaurant Data</span>
-    <span class="spinner hidden ml-2">
-      <svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-      </svg>
-    </span>
-  </button>
+    {% csrf_token %}
+    <button
+      type="submit"
+      id="rescrape-btn"
+      class="px-4 py-2 bg-[#f08000] text-white font-semibold rounded-lg shadow hover:bg-[#d96f00]"
+    >
+      <span class="label">Rescrape Restaurant Data</span>
+      <span class="spinner hidden ml-2">
+        <svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+        </svg>
+      </span>
+    </button>
+  </form>
 </div>
 
 
@@ -85,13 +91,14 @@
 <!-- TOAST CONTAINER -->
 <div id="toast-container" class="fixed bottom-4 right-4 space-y-2 z-50"></div>
 <script>
+  const form = document.getElementById("rescrape-form");
   const btn = document.getElementById("rescrape-btn");
-  const label = btn.querySelector(".label");
-  const spinner = btn.querySelector(".spinner");
+  const label = btn ? btn.querySelector(".label") : null;
+  const spinner = btn ? btn.querySelector(".spinner") : null;
 
   // Show loading spinner before request
   document.body.addEventListener("htmx:beforeRequest", function(evt) {
-    if (evt.detail.elt === btn) {
+    if (evt.detail.elt === form && btn && label && spinner) {
       label.textContent = "Refreshing…";
       spinner.classList.remove("hidden");
       btn.disabled = true;
@@ -101,14 +108,20 @@
 
   // Reset button + show toast after request
   document.body.addEventListener("htmx:afterRequest", function(evt) {
-    if (evt.detail.elt === btn) {
+    if (evt.detail.elt === form && btn && label && spinner) {
       label.textContent = "Rescrape Restaurant Data";
       spinner.classList.add("hidden");
       btn.disabled = false;
       btn.classList.remove("opacity-70", "cursor-not-allowed");
 
-      if (evt.detail.xhr && evt.detail.xhr.responseText.includes("rescrape_complete")) {
+      if (evt.detail.successful && evt.detail.xhr && evt.detail.xhr.responseText.includes("rescrape_complete")) {
         showToast("Restaurant data refreshed successfully!");
+      } else if (!evt.detail.successful) {
+        const responseText = evt.detail.xhr ? evt.detail.xhr.responseText : "";
+        const message = responseText.includes("missing_menu_url")
+          ? "Add a menu URL before refreshing."
+          : "Unable to refresh the menu right now.";
+        showToast(message);
       }
     }
   });
