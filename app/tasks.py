@@ -13,7 +13,8 @@ logger = logging.getLogger(__name__)
 
 from openai import OpenAI
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+_openai_api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=_openai_api_key) if _openai_api_key else None
 
 
 
@@ -89,12 +90,25 @@ def run_outscraper_search(payload_id: str) -> dict:
 
 
 def validate_menu_text(raw_markdown: str) -> bool:
-    resp = client.responses.create(
-        model="gpt-4.1-mini",  # cheap, fast
-        input=f"Does the following text contain a food or restaurant menu? Reply only 'yes' or 'no'.\n\n{raw_markdown[:3000]}"
-    )
+    """Return True when the scraped markdown looks like a menu."""
+
+    if not client or not raw_markdown or not raw_markdown.strip():
+        return False
+
+    try:
+        resp = client.responses.create(
+            model="gpt-4.1-mini",  # inexpensive "nano" style check
+            input=(
+                "You are checking if text belongs to a food or restaurant menu. "
+                "Answer only 'yes' or 'no'.\n\n"
+                f"Text:\n{raw_markdown[:3000]}"
+            ),
+        )
+    except Exception as exc:  # pragma: no cover - defensive guard
+        logger.warning("Menu validation request failed: %s", exc, exc_info=True)
+        return False
+
     answer = resp.output_text.strip().lower()
-    logger.info(answer)
     return answer.startswith("y")
 
 @shared_task
@@ -111,17 +125,26 @@ def scrape_menu(menu_version_id: str) -> str:
         "output_format": "markdown",
     }
     response = requests.get("https://api.scraperapi.com/", params=params)
-    mv.raw_markdown = response.text
-    logger.info(mv.raw_markdown)
-    mv.status = models.MenuVersion.Status.SUCCEEDED
-    mv.parsed_at = timezone.now()
-    if validate_menu_text(response.text):
-        mv.raw_markdown = response.text
+    candidate_markdown = response.text or ""
+
+    is_valid_menu = False
+    try:
+        is_valid_menu = validate_menu_text(candidate_markdown)
+    except Exception as exc:  # pragma: no cover - defensive guard
+        logger.warning("Menu validation crashed for MenuVersion %s: %s", mv.id, exc, exc_info=True)
+
+    if is_valid_menu:
+        mv.raw_markdown = candidate_markdown
         mv.status = models.MenuVersion.Status.SUCCEEDED
         mv.parsed_at = timezone.now()
+        mv.error_message = ""
     else:
+        mv.raw_markdown = ""
         mv.status = models.MenuVersion.Status.FAILED
-    mv.save(update_fields=["raw_markdown", "status", "parsed_at"])
+        mv.parsed_at = None
+        mv.error_message = "Scraped page did not look like a menu."
+
+    mv.save(update_fields=["raw_markdown", "status", "parsed_at", "error_message"])
 
     restaurant = mv.restaurant
     restaurant.active_menu_version = mv

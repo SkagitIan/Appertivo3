@@ -122,8 +122,9 @@ class TaskExecutionTests(TestCase):
         self.assertEqual(models.MenuVersion.objects.count(), 0)
         mock_scrape.delay.assert_not_called()
 
+    @patch("app.tasks.validate_menu_text", return_value=True)
     @patch("app.tasks.requests.get")
-    def test_scrape_menu_updates_menu_version(self, mock_get):
+    def test_scrape_menu_updates_menu_version(self, mock_get, mock_validate):
         mock_get.return_value.text = "menu markdown"
         mv = models.MenuVersion.objects.create(
             restaurant=self.restaurant,
@@ -140,4 +141,29 @@ class TaskExecutionTests(TestCase):
         self.assertEqual(mv.status, models.MenuVersion.Status.SUCCEEDED)
         self.assertEqual(mv.raw_markdown, "menu markdown")
         self.assertIsNotNone(mv.parsed_at)
+        self.assertEqual(self.restaurant.active_menu_version, mv)
+
+    @patch("app.tasks.validate_menu_text", return_value=False)
+    @patch("app.tasks.requests.get")
+    def test_scrape_menu_marks_failed_when_no_menu(self, mock_get, mock_validate):
+        mock_get.return_value.text = "Welcome to our homepage"
+        mv = models.MenuVersion.objects.create(
+            restaurant=self.restaurant,
+            source_url="http://example.com/menu",
+            source_kind=models.MenuVersion.SourceKind.URL_SCRAPE,
+            raw_markdown="",
+            status=models.MenuVersion.Status.QUEUED,
+        )
+
+        tasks.scrape_menu(str(mv.id))
+
+        mv.refresh_from_db()
+        self.restaurant.refresh_from_db()
+        self.assertEqual(mv.status, models.MenuVersion.Status.FAILED)
+        self.assertEqual(mv.raw_markdown, "")
+        self.assertIsNone(mv.parsed_at)
+        self.assertEqual(
+            mv.error_message,
+            "Scraped page did not look like a menu.",
+        )
         self.assertEqual(self.restaurant.active_menu_version, mv)
