@@ -1,0 +1,13 @@
+<div id="dish-grid" class="grid grid-cols-3 gap-4">
+  {% for dish in dishes %}
+  <div class="dish-card p-4 border rounded">
+    <h3 class="font-bold">{{ dish.title }}</h3>
+    <p class="text-sm">{{ dish.description }}</p>
+    <div>
+      {% for tag in dish.category_tags %}
+      <span class="tag bg-orange-100 text-orange-800 px-1 mr-1">{{ tag }}</span>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
