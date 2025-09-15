@@ -9,7 +9,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-
 @shared_task
 def run_outscraper_search(payload_id: str) -> dict:
     """Call the Outscraper API and store the response."""
@@ -27,11 +26,32 @@ def run_outscraper_search(payload_id: str) -> dict:
     data = response.json()
     payload.response_json = data
 
-    # Outscraper usually returns a list; try to grab menu link
-    businesses = data.get("data", [])
+    # Outscraper response: {"data": [[{...business...}]]}
+    businesses = (
+        data.get("data", [])[0]
+        if data.get("data") and isinstance(data["data"][0], list)
+        else []
+    )
+    business = businesses[0] if businesses else None
+
     menu_url = None
-    if businesses and "menu_link" in businesses[0]:
-        menu_url = businesses[0]["menu_link"]
+
+    if business:
+        restaurant = payload.restaurant
+        restaurant.name = business.get("name", restaurant.name)
+        restaurant.location_text = business.get("full_address", restaurant.location_text)
+        restaurant.primary_menu_url = business.get("menu_link") or restaurant.primary_menu_url
+        restaurant.phone = business.get("phone")
+        restaurant.website = business.get("site")
+        restaurant.google_place_id = business.get("place_id")
+        restaurant.description = business.get("description")
+        restaurant.rating = business.get("rating")
+        restaurant.review_count = business.get("reviews")
+        restaurant.hours_json = business.get("working_hours")
+        restaurant.about_json = business.get("about")
+        restaurant.context_json = business  # raw snapshot
+        restaurant.save()
+
 
     payload.discovered_menu_url = menu_url
     payload.status = models.OutscraperPayload.Status.SUCCEEDED
@@ -43,7 +63,6 @@ def run_outscraper_search(payload_id: str) -> dict:
         ]
     )
 
-    # If menu_url discovered → queue scrape
     if menu_url:
         mv = models.MenuVersion.objects.create(
             restaurant=payload.restaurant,
@@ -55,6 +74,7 @@ def run_outscraper_search(payload_id: str) -> dict:
         scrape_menu.delay(str(mv.id))
 
     return data
+
 
 
 
@@ -95,3 +115,45 @@ def generate_dishes_task(concept: str) -> list:
 def enhance_dish_task(title: str) -> dict:
     """Wrapper task around dish enhancement."""
     return llm.enhance_dish(title)
+
+
+@shared_task
+def parse_pdf_menu(menu_version_id: str, storage_path: str):
+    """Send PDF to OpenAI to parse into Markdown."""
+    mv = models.MenuVersion.objects.get(id=menu_version_id)
+    mv.status = models.MenuVersion.Status.RUNNING
+    mv.save(update_fields=["status"])
+
+    try:
+        # Load file from storage
+        with default_storage.open(storage_path, "rb") as f:
+            files = {"file": (os.path.basename(storage_path), f, "application/pdf")}
+            headers = {"Authorization": f"Bearer {settings.OPENAI_API_KEY}"}
+
+            response = requests.post(
+                "https://api.openai.com/v1/files",  # upload
+                headers=headers,
+                files=files
+            )
+            file_id = response.json()["id"]
+
+        # Use Assistants or Responses API with file input
+        payload = {
+            "model": "gpt-4.1-mini",  # or `gpt-4o-mini`
+            "input": [
+                {"role": "system", "content": "You are an expert at extracting restaurant menus into clean Markdown."},
+                {"role": "user", "content": f"Extract the full menu in Markdown from file {file_id}."}
+            ]
+        }
+        resp = requests.post("https://api.openai.com/v1/responses", json=payload, headers=headers)
+        markdown_text = resp.json()["output_text"]
+
+        mv.raw_markdown = markdown_text
+        mv.status = models.MenuVersion.Status.SUCCEEDED
+        mv.parsed_at = timezone.now()
+        mv.save(update_fields=["raw_markdown", "status", "parsed_at"])
+
+    except Exception as e:
+        mv.status = models.MenuVersion.Status.FAILED
+        mv.error_message = str(e)
+        mv.save(update_fields=["status", "error_message"])

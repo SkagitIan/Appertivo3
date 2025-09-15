@@ -9,10 +9,15 @@ urlpatterns = [
     path("signup/", app_views.signup_view, name="signup"),
     path("login/", app_views.login_view, name="login"),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
-    path("dashboard/", app_views.dashboard_view, name="dashboard"),
+    path("dashboard/<uuid:restaurant_id>/", app_views.dashboard, name="dashboard"),
+
+
+    ## onboarding
     path("onboarding/", app_views.onboarding_view, name="onboarding"),
     path("onboarding/status/", app_views.onboarding_status_view, name="onboarding-status"),
     path("onboarding/manual_menu/", app_views.manual_menu_view, name="manual-menu"),
+    path("restaurants/<uuid:restaurant_id>/status/",app_views.restaurant_status,name="restaurant_status",),
+
     path("concepts/", app_views.concepts_view, name="concepts"),
     path("concepts/generate/", app_views.concepts_generate_view, name="concepts-generate"),
     path("concepts/<uuid:concept_id>/favorite/", app_views.concept_favorite_view, name="concept-favorite"),
@@ -38,7 +43,7 @@ urlpatterns = [
     path("jobs/<uuid:job_id>/", app_views.job_status_view, name="job-status"),
     path("notifications/", app_views.notification_list_view, name="notification-list"),
     # Existing API and sample views
-    path("api/signup/", app_views.signup, name="api-signup"),
+    path("api/signup/", app_views.signup_view, name="api-signup"),
     path("concepts-old/", app_views.concept_grid, name="concept-grid"),
     path("concepts-old/<str:concept_name>/dishes/", app_views.dish_grid, name="dish-grid"),
     path("admin/", admin.site.urls),

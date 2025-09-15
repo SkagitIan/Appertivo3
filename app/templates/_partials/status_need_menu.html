@@ -1,0 +1,7 @@
+<div class="bg-red-100 text-red-800 p-3 rounded">
+  ⚠️ We couldn’t find your menu automatically.
+  <button hx-get="{% url 'show_menu_modal' restaurant.id %}"
+          hx-target="#menu-modal"
+          hx-swap="innerHTML"
+          class="ml-2 underline text-blue-600">Provide menu</button>
+</div>
