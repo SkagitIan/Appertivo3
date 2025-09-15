@@ -3,6 +3,7 @@
 import requests, os
 from celery import shared_task
 from django.conf import settings
+from django.core.files.storage import default_storage
 from django.utils import timezone
 from app import llm, models
 from dotenv import load_dotenv
@@ -26,7 +27,6 @@ def run_outscraper_search(payload_id: str) -> dict:
     data = response.json()
     payload.response_json = data
 
-    # Outscraper response: {"data": [[{...business...}]]}
     businesses = (
         data.get("data", [])[0]
         if data.get("data") and isinstance(data["data"][0], list)
@@ -40,7 +40,9 @@ def run_outscraper_search(payload_id: str) -> dict:
         restaurant = payload.restaurant
         restaurant.name = business.get("name", restaurant.name)
         restaurant.location_text = business.get("full_address", restaurant.location_text)
-        restaurant.primary_menu_url = business.get("menu_link") or restaurant.primary_menu_url
+        menu_url = business.get("menu_link") or business.get("menu_url")
+        if menu_url:
+            restaurant.primary_menu_url = menu_url
         restaurant.phone = business.get("phone")
         restaurant.website = business.get("site")
         restaurant.google_place_id = business.get("place_id")
@@ -49,17 +51,18 @@ def run_outscraper_search(payload_id: str) -> dict:
         restaurant.review_count = business.get("reviews")
         restaurant.hours_json = business.get("working_hours")
         restaurant.about_json = business.get("about")
-        restaurant.context_json = business  # raw snapshot
+        restaurant.context_json = business
         restaurant.save()
-
 
     payload.discovered_menu_url = menu_url
     payload.status = models.OutscraperPayload.Status.SUCCEEDED
     payload.finished_at = timezone.now()
     payload.save(
         update_fields=[
-            "response_json", "discovered_menu_url",
-            "status", "finished_at"
+            "response_json",
+            "discovered_menu_url",
+            "status",
+            "finished_at",
         ]
     )
 
@@ -96,6 +99,12 @@ def scrape_menu(menu_version_id: str) -> str:
     mv.status = models.MenuVersion.Status.SUCCEEDED
     mv.parsed_at = timezone.now()
     mv.save(update_fields=["raw_markdown", "status", "parsed_at"])
+
+    restaurant = mv.restaurant
+    restaurant.active_menu_version = mv
+    if mv.source_url and not restaurant.primary_menu_url:
+        restaurant.primary_menu_url = mv.source_url
+    restaurant.save(update_fields=["active_menu_version", "primary_menu_url"])
     return mv.raw_markdown
 
 
@@ -125,35 +134,45 @@ def parse_pdf_menu(menu_version_id: str, storage_path: str):
     mv.save(update_fields=["status"])
 
     try:
-        # Load file from storage
         with default_storage.open(storage_path, "rb") as f:
             files = {"file": (os.path.basename(storage_path), f, "application/pdf")}
             headers = {"Authorization": f"Bearer {settings.OPENAI_API_KEY}"}
 
             response = requests.post(
-                "https://api.openai.com/v1/files",  # upload
+                "https://api.openai.com/v1/files",
                 headers=headers,
-                files=files
+                files=files,
             )
             file_id = response.json()["id"]
 
-        # Use Assistants or Responses API with file input
         payload = {
-            "model": "gpt-4.1-mini",  # or `gpt-4o-mini`
+            "model": "gpt-4.1-mini",
             "input": [
-                {"role": "system", "content": "You are an expert at extracting restaurant menus into clean Markdown."},
-                {"role": "user", "content": f"Extract the full menu in Markdown from file {file_id}."}
-            ]
+                {
+                    "role": "system",
+                    "content": "You are an expert at extracting restaurant menus into clean Markdown.",
+                },
+                {
+                    "role": "user",
+                    "content": f"Extract the full menu in Markdown from file {file_id}.",
+                },
+            ],
         }
         resp = requests.post("https://api.openai.com/v1/responses", json=payload, headers=headers)
-        markdown_text = resp.json()["output_text"]
+        markdown_text = resp.json().get("output_text", "")
 
         mv.raw_markdown = markdown_text
         mv.status = models.MenuVersion.Status.SUCCEEDED
         mv.parsed_at = timezone.now()
         mv.save(update_fields=["raw_markdown", "status", "parsed_at"])
 
+        restaurant = mv.restaurant
+        restaurant.active_menu_version = mv
+        restaurant.save(update_fields=["active_menu_version"])
+
     except Exception as e:
         mv.status = models.MenuVersion.Status.FAILED
         mv.error_message = str(e)
         mv.save(update_fields=["status", "error_message"])
+
+    return mv.raw_markdown
