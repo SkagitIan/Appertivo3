@@ -6,11 +6,21 @@ developed and tested without external dependencies.
 """
 
 from typing import Dict, List
+from pydantic import BaseModel
+from typing import List
+import logging, os
+logger = logging.getLogger(__name__)
+from django.db import transaction
+from . import models
+from openai import OpenAI
 
+from dotenv import load_dotenv
+load_dotenv()
+_openai_api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=_openai_api_key) if _openai_api_key else None
 
-def generate_concepts() -> List[str]:
-    """Return nine placeholder concept names."""
-    return [f"Concept {i}" for i in range(1, 10)]
+class ConceptList(BaseModel):
+    concepts: List[str]
 
 
 def generate_dishes(concept: str) -> List[Dict]:

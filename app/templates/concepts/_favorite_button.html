@@ -1,0 +1,8 @@
+<button 
+  hx-post="{% url 'concept-favorite' concept.id %}" 
+  hx-target="this"
+  hx-swap="outerHTML"
+  class="text-xl transition duration-200 {% if favorited %}text-red-500{% else %}text-slate-400{% endif %}">
+  {% if favorited %}♥{% else %}♡{% endif %}
+</button>
+

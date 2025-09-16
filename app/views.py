@@ -1,7 +1,6 @@
 """Application views."""
 
-import json
-
+import json, os
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
@@ -13,6 +12,19 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
+from . import models
+from django.template.loader import render_to_string
+from pydantic import BaseModel
+from typing import List
+
+from openai import OpenAI
+from dotenv import load_dotenv
+load_dotenv()
+_openai_api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=_openai_api_key) if _openai_api_key else None
+
+class ConceptList(BaseModel):
+    concepts: List[str]
 
 from app import llm, models
 from .tasks import parse_pdf_menu, run_outscraper_search, scrape_menu
@@ -182,7 +194,7 @@ def login_view(request):
             )
             if restaurant_id:
                 return redirect("dashboard", restaurant_id=restaurant_id)
-            return redirect("/dashboard/")
+            
         return render(
             request,
             "auth/login.html",
@@ -283,83 +295,185 @@ def concepts_view(request):
 
 @login_required
 def concepts_generate_view(request):
-    """Generate new concepts via mock LLM."""
-    names = llm.generate_concepts()
+    """Generate 9 new concepts via OpenAI."""
     restaurant = models.Restaurant.objects.first()
+
+    # Build context (menu, outscraper, etc.)
+    context = f"Restaurant: {restaurant.name}, {restaurant.location_text}"
+    if restaurant.active_menu_version:
+        context += f"\nMenu:\n{restaurant.active_menu_version.raw_markdown[:2000]}"
+
+    # Schema definition for structured output
+    schema = {
+        "name": "concept_list",
+        "type": "json_schema",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "concepts": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "minItems": 9,
+                    "maxItems": 9,
+                }
+            },
+            "required": ["concepts"],
+            "additionalProperties": False,
+        },
+        "strict": True,
+    }
+
+    response = client.responses.create(
+        model="gpt-4.1-mini",
+        input=[
+            {
+                "role": "system",
+                "content": (
+                    "You are a seasoned restaurant marketing consultant. "
+                    "Generate exactly 9 unique, theme-based concepts for daily specials. "
+                    "Concepts are themes like 'Taco Tuesday', 'Family Feast', 'Game Night', "
+                    "'Seasonal Harvest Dinner'. They are NOT individual dishes."
+                ),
+            },
+            {"role": "user", "content": context},
+        ],
+        text={"format": schema},
+    )
+
+    # 👇 Extract raw text and parse
+    raw_text = response.output[0].content[0].text
+    try:
+        data = json.loads(raw_text)
+    except json.JSONDecodeError:
+        data = {"concepts": []}  # fallback if model didn’t follow schema
+
+    names = data.get("concepts", [])
+
+
+    # Save ideation run
     run = models.IdeationRun.objects.create(
         restaurant=restaurant,
-        initiated_by_user=request.user if request.user.is_authenticated else None,
+        initiated_by_user=request.user,
         type=models.IdeationRun.RunType.CONCEPTS,
-        model_name="mock",
+        model_name="gpt-4.1-mini",
         temperature=0.5,
         classic_creative=50,
-        context_snapshot={},
+        context_snapshot={"context": context},
         status=models.IdeationRun.Status.SUCCEEDED,
     )
-    concepts = []
-    for idx, name in enumerate(names, start=1):
-        concepts.append(
-            models.Concept.objects.create(
-                restaurant=restaurant,
-                ideation_run=run,
-                name=name,
-                rank_order=idx,
-            )
+
+    concepts = [
+        models.Concept.objects.create(
+            restaurant=restaurant, ideation_run=run, name=name, rank_order=idx
         )
+        for idx, name in enumerate(names, start=1)
+    ]
+
     concepts = _with_favorite_flags(concepts, request.user)
     return render(request, "concepts/grid.html", {"concepts": concepts})
 
-
 @login_required
 def concept_favorite_view(request, concept_id):
-    """Toggle favorite on a concept."""
     concept = get_object_or_404(models.Concept, id=concept_id)
     fav, created = models.FavoriteConcept.objects.get_or_create(
         user=request.user, concept=concept, defaults={"favorited_at": timezone.now()}
     )
+    favorited = created
     if not created:
         fav.delete()
         favorited = False
-    else:
-        favorited = True
-    return JsonResponse({"favorited": favorited})
+
+    html = render_to_string(
+        "concepts/_favorite_button.html",
+        {"concept": concept, "favorited": favorited},
+        request=request,
+    )
+    return HttpResponse(html)
+
+
+@login_required
+def dishes_generate_view(request, concept_id):
+    concept = get_object_or_404(models.Concept, id=concept_id)
+    restaurant = concept.restaurant
+
+    # Gather restaurant context
+    context = {
+        "restaurant": {
+            "name": restaurant.name,
+            "location": restaurant.location_text,
+        },
+        "menu": restaurant.active_menu_version.raw_markdown if restaurant.active_menu_version else "",
+        "outscraper": (
+            models.OutscraperPayload.objects
+            .filter(restaurant=restaurant, status=models.OutscraperPayload.Status.SUCCEEDED)
+            .order_by("-created_at")
+            .first()
+        ),
+    }
+
+    # Call OpenAI for dish generation
+    response = client.responses.create(
+        model="gpt-4.1-mini",
+        input=[
+            {"role": "system", "content": "You are a professional menu developer."},
+            {"role": "user", "content": f"""
+                    Given the restaurant context and menu below, generate 9 saleable dish ideas for the concept: '{concept.name}'.
+                    Each dish should have: title, description, ingredient_overlap (list), category_tags (list).
+                    Return strictly as JSON array.
+                    Restaurant Context:
+                    {json.dumps(context, indent=2)}
+                    """}
+        ],
+        text={"format": {"type": "json_schema", "name": "dish_list", "schema": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string"},
+                    "description": {"type": "string"},
+                    "ingredient_overlap": {"type": "array", "items": {"type": "string"}},
+                    "category_tags": {"type": "array", "items": {"type": "string"}},
+                },
+                "required": ["title", "description", "ingredient_overlap", "category_tags"],
+            },
+            "minItems": 9,
+            "maxItems": 9
+        }}}
+    )
+    dishes = response.output[0].content[0].text
+    parsed_dishes = json.loads(dishes)
+
+    # Save run + dishes
+    run = models.IdeationRun.objects.create(
+        restaurant=restaurant,
+        initiated_by_user=request.user,
+        type=models.IdeationRun.RunType.DISHES,
+        model_name="gpt-4.1-mini",
+        temperature=0.5,
+        classic_creative=50,
+        context_snapshot=context,
+        parent_concept=concept,
+        status=models.IdeationRun.Status.SUCCEEDED,
+    )
+
+    for dish in parsed_dishes:
+        models.DishIdea.objects.create(
+            restaurant=restaurant,
+            ideation_run=run,
+            parent_concept=concept,
+            title=dish["title"],
+            description=dish["description"],
+            ingredient_names=dish["ingredient_overlap"],
+            category_tags=dish["category_tags"],
+        )
+
+    # Render a new grid with dishes
+    return render(request, "dishes/grid.html", {"dishes": parsed_dishes})
 
 
 def dishes_view(request, concept_id):
     """Show dishes for a concept."""
     dishes = models.DishIdea.objects.filter(parent_concept_id=concept_id)[:9]
-    return render(request, "dishes/grid.html", {"dishes": dishes})
-
-
-def dish_generate_view(request, concept_id):
-    """Generate dishes for a concept."""
-    concept = get_object_or_404(models.Concept, id=concept_id)
-    ideas = llm.generate_dishes(concept.name)
-    restaurant = models.Restaurant.objects.first()
-    run = models.IdeationRun.objects.create(
-        restaurant=restaurant,
-        initiated_by_user=request.user if request.user.is_authenticated else None,
-        type=models.IdeationRun.RunType.DISHES,
-        model_name="mock",
-        temperature=0.5,
-        classic_creative=50,
-        context_snapshot={},
-        parent_concept=concept,
-        status=models.IdeationRun.Status.SUCCEEDED,
-    )
-    dishes = []
-    for idea in ideas:
-        dishes.append(
-            models.DishIdea.objects.create(
-                restaurant=restaurant,
-                ideation_run=run,
-                parent_concept=concept,
-                title=idea["title"],
-                description=idea["description"],
-                ingredient_names=idea["ingredient_overlap"],
-                category_tags=idea["category_tags"],
-            )
-        )
     return render(request, "dishes/grid.html", {"dishes": dishes})
 
 
