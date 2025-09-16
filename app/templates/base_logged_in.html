@@ -128,7 +128,7 @@
 
         if (evt.detail.xhr.responseText.includes("rescrape_complete")) {
           showToast("Restaurant data refreshed successfully!");
-        }
+        
 
         } else if (!evt.detail.successful) {
           const responseText = evt.detail.xhr ? evt.detail.xhr.responseText : "";
