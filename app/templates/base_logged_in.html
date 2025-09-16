@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{% block title %}Appertivo{% endblock %}</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+
 <script>
   document.addEventListener("DOMContentLoaded", function () {
     document.body.addEventListener("htmx:configRequest", (event) => {
@@ -37,7 +39,7 @@
 
         <!-- Desktop Nav -->
         <nav class="hidden md:flex space-x-6">
-          <a href="{{ dashboard_url }}" class="hover:text-[#B993D6]">Dashboard</a>
+          <a href="" class="hover:text-[#B993D6]">Dashboard</a>
           <a href="{% url 'concepts' %}" class="hover:text-[#B993D6]">Concepts</a>
           <a href="{% url 'favorites' %}" class="hover:text-[#B993D6]">Favorites</a>
           <a href="{% url 'settings' %}" class="hover:text-[#B993D6]">Settings</a>
