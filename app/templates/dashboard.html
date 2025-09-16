@@ -67,4 +67,22 @@
     </ul>
   </div>
 </div>
+{% if prompt_for_menu %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const modalTarget = document.getElementById('menu-modal');
+  if (!modalTarget) {
+    return;
+  }
+  fetch('{% url 'show_menu_modal' restaurant.id %}', {
+    headers: {
+      'X-Requested-With': 'XMLHttpRequest'
+    }
+  })
+    .then(function (response) { return response.text(); })
+    .then(function (html) { modalTarget.innerHTML = html; })
+    .catch(function () {});
+});
+</script>
+{% endif %}
 {% endblock %}
