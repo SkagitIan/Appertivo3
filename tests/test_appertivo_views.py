@@ -111,6 +111,16 @@ class ViewSmokeTests(TestCase):
         resp = self.client.post(reverse("concept-favorite", args=[concept.id]))
         self.assertTrue(resp.json()["favorited"])
 
+    def test_concepts_page_marks_existing_favorites(self):
+        self._create_concepts()
+        concept = models.Concept.objects.first()
+        models.FavoriteConcept.objects.create(
+            user=self.user, concept=concept, favorited_at=timezone.now()
+        )
+
+        response = self.client.get(reverse("concepts"))
+        self.assertContains(response, "★ Favorited")
+
     def test_dishes_and_generation(self):
         self._create_concepts()
         concept = models.Concept.objects.first()
@@ -172,8 +182,30 @@ class ViewSmokeTests(TestCase):
         self.assertEqual(add_resp.status_code, 200)
 
     def test_settings_views(self):
+        self.restaurant.context_json = {"story": "Farm-to-table"}
+        self.restaurant.save(update_fields=["context_json"])
+        menu_version = models.MenuVersion.objects.create(
+            restaurant=self.restaurant,
+            source_kind=models.MenuVersion.SourceKind.PASTED_TEXT,
+            raw_markdown="Specials\n- Dish",
+            status=models.MenuVersion.Status.SUCCEEDED,
+        )
+        self.restaurant.active_menu_version = menu_version
+        self.restaurant.save(update_fields=["active_menu_version"])
+
         resp = self.client.get(reverse("settings"))
         self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Farm-to-table")
+        self.assertContains(resp, "Specials")
+
+        update_resp = self.client.post(
+            reverse("update_restaurant_info"),
+            {"menu_url": "https://example.com/new-menu"},
+        )
+        self.assertEqual(update_resp.status_code, 302)
+        self.restaurant.refresh_from_db()
+        self.assertEqual(self.restaurant.primary_menu_url, "https://example.com/new-menu")
+
         self.restaurant.primary_menu_url = "https://example.com/menu"
         self.restaurant.save(update_fields=["primary_menu_url"])
         with patch("app.views.scrape_menu.delay") as mock_delay:
@@ -182,10 +214,10 @@ class ViewSmokeTests(TestCase):
             )
         self.assertEqual(rescrape.status_code, 200)
         self.assertTrue(rescrape.json()["rescrape_complete"])
-        mv = models.MenuVersion.objects.get(restaurant=self.restaurant)
-        self.assertEqual(mv.source_url, "https://example.com/menu")
+        mv = models.MenuVersion.objects.get(restaurant=self.restaurant, source_url="https://example.com/menu")
         self.assertEqual(mv.status, models.MenuVersion.Status.QUEUED)
         mock_delay.assert_called_once_with(str(mv.id))
+
         slider = self.client.post(
             reverse("update_creativity", args=[self.restaurant.id]),
             {"classic_creative_slider": 60},
@@ -196,6 +228,25 @@ class ViewSmokeTests(TestCase):
             self.restaurant.restaurantsettings.classic_creative_slider,
             60,
         )
+
+    def test_dashboard_prompts_for_menu_when_missing(self):
+        self.restaurant.primary_menu_url = None
+        self.restaurant.save(update_fields=["primary_menu_url"])
+
+        response = self.client.get(reverse("dashboard", args=[self.restaurant.id]))
+        self.assertContains(response, "show_menu_modal")
+
+    def test_dashboard_does_not_prompt_when_menu_exists(self):
+        self.restaurant.primary_menu_url = "https://example.com/menu"
+        self.restaurant.save(update_fields=["primary_menu_url"])
+
+        response = self.client.get(reverse("dashboard", args=[self.restaurant.id]))
+        self.assertNotIn("show_menu_modal", response.content.decode())
+
+    def test_logout_via_get_redirects(self):
+        response = self.client.get(reverse("logout"))
+        self.assertEqual(response.status_code, 302)
+        self.assertNotIn("_auth_user_id", self.client.session)
 
     def test_rescrape_menu_requires_url(self):
         self.restaurant.primary_menu_url = None
