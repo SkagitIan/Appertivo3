@@ -10,13 +10,11 @@ from dotenv import load_dotenv
 load_dotenv()
 import logging
 logger = logging.getLogger(__name__)
-
+from django.db import transaction
+from . import models
 from openai import OpenAI
-
 _openai_api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=_openai_api_key) if _openai_api_key else None
-
-
 
 @shared_task
 def run_outscraper_search(payload_id: str) -> dict:
@@ -111,26 +109,55 @@ def validate_menu_text(raw_markdown: str) -> bool:
     answer = resp.output_text.strip().lower()
     return answer.startswith("y")
 
-@shared_task
-def scrape_menu(menu_version_id: str) -> str:
-    """Use ScraperAPI to fetch a menu in markdown format."""
-    mv = models.MenuVersion.objects.get(id=menu_version_id)
+
+
+@shared_task(bind=True, autoretry_for=(requests.RequestException,), retry_backoff=True, max_retries=3)
+def scrape_menu(self, menu_version_id: str) -> str:
+    """
+    Use ScraperAPI to fetch a menu in markdown format.
+    Validates that the result looks like a food menu.
+    Updates MenuVersion + Restaurant accordingly.
+    """
+    try:
+        mv = models.MenuVersion.objects.get(id=menu_version_id)
+    except models.MenuVersion.DoesNotExist:
+        logger.error("MenuVersion %s not found, aborting scrape.", menu_version_id)
+        return ""
+
+    logger.info("Starting scrape_menu for MenuVersion %s (restaurant=%s)", mv.id, mv.restaurant.id)
+
+    # Mark as running
     mv.status = models.MenuVersion.Status.RUNNING
-    mv.save(update_fields=["status"])
+    mv.error_message = ""
+    mv.save(update_fields=["status", "error_message"])
 
     params = {
-        "api_key": os.getenv('SCRAPERAPI_API_KEY'),
+        "api_key": os.getenv("SCRAPER_API_KEY", ""),
         "url": mv.source_url,
         "render": "true",
         "output_format": "markdown",
     }
-    response = requests.get("https://api.scraperapi.com/", params=params)
-    candidate_markdown = response.text or ""
 
+    try:
+        response = requests.get("https://api.scraperapi.com/", params=params, timeout=30)
+        response.raise_for_status()
+        candidate_markdown = response.text or ""
+        logger.debug("ScraperAPI returned %d chars for MenuVersion %s", len(candidate_markdown), mv.id)
+
+    except Exception as exc:
+        msg = f"ScraperAPI request failed: {exc}"
+        logger.exception(msg)
+        mv.status = models.MenuVersion.Status.FAILED
+        mv.error_message = msg[:500]
+        mv.save(update_fields=["status", "error_message"])
+        return ""
+
+    # Validate with LLM or simple heuristic
     is_valid_menu = False
     try:
         is_valid_menu = validate_menu_text(candidate_markdown)
-    except Exception as exc:  # pragma: no cover - defensive guard
+        logger.info("Validation result for MenuVersion %s: %s", mv.id, is_valid_menu)
+    except Exception as exc:
         logger.warning("Menu validation crashed for MenuVersion %s: %s", mv.id, exc, exc_info=True)
 
     if is_valid_menu:
@@ -146,12 +173,21 @@ def scrape_menu(menu_version_id: str) -> str:
 
     mv.save(update_fields=["raw_markdown", "status", "parsed_at", "error_message"])
 
-    restaurant = mv.restaurant
-    restaurant.active_menu_version = mv
-    if mv.source_url and not restaurant.primary_menu_url:
-        restaurant.primary_menu_url = mv.source_url
-    restaurant.save(update_fields=["active_menu_version", "primary_menu_url"])
-    return mv.raw_markdown
+    # Update restaurant’s active menu
+    try:
+        with transaction.atomic():
+            restaurant = mv.restaurant
+            restaurant.active_menu_version = mv
+            if mv.source_url and not restaurant.primary_menu_url:
+                restaurant.primary_menu_url = mv.source_url
+            restaurant.save(update_fields=["active_menu_version", "primary_menu_url"])
+        logger.info("Restaurant %s active_menu_version set to %s", restaurant.id, mv.id)
+    except Exception as exc:
+        logger.error("Failed to update restaurant %s with menu version %s: %s",
+                     mv.restaurant.id, mv.id, exc, exc_info=True)
+
+    return mv.raw_markdown if is_valid_menu else ""
+
 
 
 @shared_task
