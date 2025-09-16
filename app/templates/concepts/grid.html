@@ -23,8 +23,8 @@
           <button 
             hx-post="{% url 'concept-favorite' concept.id %}" 
             hx-swap="none"
-            class="favorite-btn text-sm px-3 py-1 rounded-lg font-medium {% if concept.favoriteconcept_set.filter(user=request.user).exists %}bg-[#B993D6] text-white{% else %}bg-slate-100 text-slate-600{% endif %}">
-            {% if concept.favoriteconcept_set.filter(user=request.user).exists %}
+            class="favorite-btn text-sm px-3 py-1 rounded-lg font-medium {% if concept.is_favorited %}bg-[#B993D6] text-white{% else %}bg-slate-100 text-slate-600{% endif %}">
+            {% if concept.is_favorited %}
               ★ Favorited
             {% else %}
               ☆ Favorite
