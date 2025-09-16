@@ -112,3 +112,31 @@ class SignupViewTests(TestCase):
         restaurant.refresh_from_db()
         self.assertEqual(restaurant.primary_menu_url, "http://example.com/menu")
 
+    def test_form_signup_with_existing_email_shows_error(self):
+        """Duplicate email addresses should not trigger a server error."""
+        User.objects.create_user("owner@example.com", password="pw")
+
+        form_data = {
+            "email": "owner@example.com",
+            "password1": "pw",
+            "password2": "pw",
+            "restaurant_name": "Tasty Place",
+            "location": "City, State",
+        }
+
+        response = self.client.post(reverse("signup"), data=form_data)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "already exists")
+        # Ensure no duplicate accounts were created.
+        self.assertEqual(User.objects.filter(username="owner@example.com").count(), 1)
+
+    def test_login_with_bad_credentials_returns_error(self):
+        """Failed logins should re-render the form with an error message."""
+        response = self.client.post(
+            reverse("login"), {"email": "missing@example.com", "password": "bad"}
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Double-check your email and password")
+

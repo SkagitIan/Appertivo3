@@ -2,18 +2,20 @@
 
 import json
 
-from django.contrib.auth.models import User
-from django.contrib.auth import authenticate, login
+from django.conf import settings
+from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-from django.utils import timezone
-from django.db import transaction
-from django.http import JsonResponse
-from django.shortcuts import render, redirect, get_object_or_404
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST
-from .tasks import run_outscraper_search, scrape_menu, parse_pdf_menu
+from django.contrib.auth.models import User
+from django.db import IntegrityError, transaction
+from django.db.models import Prefetch
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
+from django.views.decorators.http import require_http_methods, require_POST
+
 from app import llm, models
+from .tasks import parse_pdf_menu, run_outscraper_search, scrape_menu
 
 def concept_grid(request):
     """Render a 3x3 grid of concept names."""
@@ -32,6 +34,19 @@ def home_view(request):
     """Landing page with signup/login links."""
     return render(request, "home.html")
 
+
+def _with_favorite_flags(concepts, user):
+    """Annotate concept objects with a boolean for the current user."""
+    user_is_authenticated = getattr(user, "is_authenticated", False)
+    for concept in concepts:
+        if user_is_authenticated:
+            favorites = getattr(concept, "_favorites_for_request_user", [])
+            concept.is_favorited = bool(favorites)
+        else:
+            concept.is_favorited = False
+    return concepts
+
+
 def signup_view(request):
     """Register a new user and restaurant."""
     if request.method == "POST":
@@ -47,7 +62,14 @@ def signup_view(request):
         email = (data.get("email") or "").strip()
         restaurant_name = (data.get("restaurant_name") or "").strip()
         location = (data.get("location") or "").strip()
-        menu_url = (data.get("menu_url") or "").strip() or None
+        raw_menu_url = (data.get("menu_url") or "").strip()
+        menu_url = raw_menu_url or None
+        form_data = {
+            "email": email,
+            "restaurant_name": restaurant_name,
+            "location": location,
+            "menu_url": raw_menu_url,
+        }
 
         if is_json:
             password = data.get("password")
@@ -58,7 +80,9 @@ def signup_view(request):
             password2 = data.get("password2")
             if password1 != password2:
                 return render(
-                    request, "auth/signup.html", {"error": "Passwords do not match"}
+                    request,
+                    "auth/signup.html",
+                    {"error": "Passwords do not match", "form_data": form_data},
                 )
             password = password1
 
@@ -68,51 +92,61 @@ def signup_view(request):
             return render(
                 request,
                 "auth/signup.html",
-                {"error": "Please complete all fields."},
+                {"error": "Please complete all fields.", "form_data": form_data},
             )
 
-        with transaction.atomic():
-            user = User.objects.create_user(
-                username=email, email=email, password=password
-            )
-            models.UserProfile.objects.create(user=user)
-            account = models.Account.objects.create(name=restaurant_name)
-            models.Membership.objects.create(
-                account=account, user=user, role=models.Membership.Role.OWNER
-            )
-            restaurant = models.Restaurant.objects.create(
-                account=account,
-                name=restaurant_name,
-                location_text=location,
-                primary_menu_url=menu_url,
-            )
+        try:
+            with transaction.atomic():
+                user = User.objects.create_user(
+                    username=email, email=email, password=password
+                )
+                models.UserProfile.objects.create(user=user)
+                account = models.Account.objects.create(name=restaurant_name)
+                models.Membership.objects.create(
+                    account=account, user=user, role=models.Membership.Role.OWNER
+                )
+                restaurant = models.Restaurant.objects.create(
+                    account=account,
+                    name=restaurant_name,
+                    location_text=location,
+                    primary_menu_url=menu_url,
+                )
 
-            if menu_url:
-                mv = models.MenuVersion.objects.create(
-                    restaurant=restaurant,
-                    source_url=menu_url,
-                    source_kind=models.MenuVersion.SourceKind.URL_SCRAPE,
-                    raw_markdown="",
-                    status=models.MenuVersion.Status.QUEUED,
-                )
-                transaction.on_commit(
-                    lambda mv_id=str(mv.id): scrape_menu.delay(mv_id)
-                )
-            else:
-                payload = models.OutscraperPayload.objects.create(
-                    restaurant=restaurant,
-                    status=models.OutscraperPayload.Status.QUEUED,
-                    request_params={
-                        "query": f"{restaurant_name} {location}",
-                        "async": "false",
-                        "limit": 1,
-                    },
-                )
-                transaction.on_commit(
-                    lambda payload_id=str(payload.id): run_outscraper_search.delay(
-                        payload_id
+                if menu_url:
+                    mv = models.MenuVersion.objects.create(
+                        restaurant=restaurant,
+                        source_url=menu_url,
+                        source_kind=models.MenuVersion.SourceKind.URL_SCRAPE,
+                        raw_markdown="",
+                        status=models.MenuVersion.Status.QUEUED,
                     )
-                )
+                    transaction.on_commit(
+                        lambda mv_id=str(mv.id): scrape_menu.delay(mv_id)
+                    )
+                else:
+                    payload = models.OutscraperPayload.objects.create(
+                        restaurant=restaurant,
+                        status=models.OutscraperPayload.Status.QUEUED,
+                        request_params={
+                            "query": f"{restaurant_name} {location}",
+                            "async": "false",
+                            "limit": 1,
+                        },
+                    )
+                    transaction.on_commit(
+                        lambda payload_id=str(payload.id): run_outscraper_search.delay(
+                            payload_id
+                        )
+                    )
+        except IntegrityError:
+            error_message = "An account with that email already exists."
+            if is_json:
+                return JsonResponse({"error": "email_in_use"}, status=400)
+            return render(
+                request,
+                "auth/signup.html",
+                {"error": error_message, "form_data": form_data},
+            )
 
         login(request, user)
         redirect_url = reverse("dashboard", args=[restaurant.id])
@@ -132,7 +166,11 @@ def signup_view(request):
 def login_view(request):
     """Authenticate an existing user."""
     if request.method == "POST":
-        username = request.POST.get("username")
+        username = (
+            request.POST.get("username")
+            or request.POST.get("email")
+            or ""
+        ).strip()
         password = request.POST.get("password")
         user = authenticate(request, username=username, password=password)
         if user:
@@ -145,13 +183,48 @@ def login_view(request):
             if restaurant_id:
                 return redirect("dashboard", restaurant_id=restaurant_id)
             return redirect("/dashboard/")
-        return render(request, "auth/login.html", {"error": "invalid"})
+        return render(
+            request,
+            "auth/login.html",
+            {
+                "error": "We couldn't log you in. Double-check your email and password.",
+                "form_data": {"email": username},
+            },
+        )
     return render(request, "auth/login.html")
 
 
+@require_http_methods(["GET", "POST"])
+def logout_view(request):
+    """Log the user out and send them back to the login screen."""
+    logout(request)
+    redirect_target = getattr(settings, "LOGOUT_REDIRECT_URL", None) or reverse("login")
+    return redirect(redirect_target)
+
+
+@login_required
 def dashboard(request, restaurant_id):
-    restaurant = get_object_or_404(models.Restaurant, id=restaurant_id)
-    return render(request, "dashboard.html", {"restaurant": restaurant})
+    restaurant = get_object_or_404(
+        models.Restaurant.objects.select_related("account"),
+        id=restaurant_id,
+        account__membership__user=request.user,
+    )
+    recent_runs = (
+        models.IdeationRun.objects.filter(restaurant=restaurant)
+        .order_by("-created_at")[:5]
+    )
+    subscription = (
+        models.Subscription.objects.filter(account=restaurant.account)
+        .order_by("-created_at")
+        .first()
+    )
+    context = {
+        "restaurant": restaurant,
+        "recent_runs": recent_runs,
+        "subscription_status": getattr(subscription, "status", "free"),
+        "prompt_for_menu": not bool(restaurant.primary_menu_url),
+    }
+    return render(request, "dashboard.html", context)
 
 
 @login_required
@@ -191,12 +264,24 @@ def manual_menu_view(request):
     return render(request, "_partials/manual_menu.html")
 
 
+@login_required
 def concepts_view(request):
-    """Display latest concepts."""
-    concepts = models.Concept.objects.order_by("-created_at")[:9]
+    """Display latest concepts with favorite state for the user."""
+    concepts_qs = models.Concept.objects.order_by("-created_at")
+    if request.user.is_authenticated:
+        concepts_qs = concepts_qs.prefetch_related(
+            Prefetch(
+                "favoriteconcept_set",
+                queryset=models.FavoriteConcept.objects.filter(user=request.user),
+                to_attr="_favorites_for_request_user",
+            )
+        )
+    concepts = list(concepts_qs[:9])
+    concepts = _with_favorite_flags(concepts, request.user)
     return render(request, "concepts/grid.html", {"concepts": concepts})
 
 
+@login_required
 def concepts_generate_view(request):
     """Generate new concepts via mock LLM."""
     names = llm.generate_concepts()
@@ -221,9 +306,11 @@ def concepts_generate_view(request):
                 rank_order=idx,
             )
         )
+    concepts = _with_favorite_flags(concepts, request.user)
     return render(request, "concepts/grid.html", {"concepts": concepts})
 
 
+@login_required
 def concept_favorite_view(request, concept_id):
     """Toggle favorite on a concept."""
     concept = get_object_or_404(models.Concept, id=concept_id)
@@ -297,11 +384,29 @@ def dish_variation_view(request, dish_id):
     return JsonResponse({"title": variation["title"]})
 
 
+@login_required
 def favorites_view(request):
     """Render favorites dashboard."""
-    concepts = models.FavoriteConcept.objects.filter(user=request.user)
-    dishes = models.FavoriteDish.objects.filter(user=request.user)
-    ctx = {"concepts": concepts, "dishes": dishes}
+    restaurant = (
+        models.Restaurant.objects.filter(account__membership__user=request.user)
+        .select_related("account")
+        .first()
+    )
+    favorite_concepts = (
+        models.FavoriteConcept.objects.filter(user=request.user)
+        .select_related("concept__restaurant")
+        .order_by("-favorited_at")
+    )
+    favorite_dishes = (
+        models.FavoriteDish.objects.filter(user=request.user)
+        .select_related("dish__parent_concept", "dish__restaurant")
+        .order_by("-favorited_at")
+    )
+    ctx = {
+        "restaurant": restaurant,
+        "favorite_concepts": favorite_concepts,
+        "favorite_dishes": favorite_dishes,
+    }
     return render(request, "favorites/dashboard.html", ctx)
 
 
@@ -334,15 +439,22 @@ def menu_item_add_view(request, dish_id, collection_id):
 
 @login_required
 def settings_view(request):
-    restaurant = models.Restaurant.objects.filter(account__membership__user=request.user).first()
+    restaurant = (
+        models.Restaurant.objects.filter(account__membership__user=request.user)
+        .select_related("active_menu_version", "restaurantsettings")
+        .first()
+    )
     ingredients = list(
         models.Ingredient.objects.filter(restaurant=restaurant).values_list("name", flat=True)
     )
     prefs = getattr(request.user, "notificationpref", None)
+    active_menu = restaurant.active_menu_version if restaurant else None
     return render(request, "settings/main.html", {
         "restaurant": restaurant,
         "ingredients": ingredients,
         "prefs": prefs,
+        "restaurant_settings": getattr(restaurant, "restaurantsettings", None),
+        "active_menu_version": active_menu,
     })
 
 
@@ -350,12 +462,20 @@ def settings_view(request):
 @require_POST
 def update_restaurant_info(request):
     restaurant = models.Restaurant.objects.filter(account__membership__user=request.user).first()
-    restaurant.primary_menu_url = request.POST.get("menu_url")
+    if not restaurant:
+        return redirect("settings")
+
+    menu_url = (request.POST.get("menu_url") or "").strip() or None
+    restaurant.primary_menu_url = menu_url
     restaurant.save(update_fields=["primary_menu_url"])
 
-    ingredient_names = request.POST.get("ingredients", "").split(",")
+    ingredient_names = [
+        name.strip()
+        for name in (request.POST.get("ingredients", "") or "").split(",")
+        if name.strip()
+    ]
     for name in ingredient_names:
-        models.Ingredient.objects.get_or_create(restaurant=restaurant, name=name.strip())
+        models.Ingredient.objects.get_or_create(restaurant=restaurant, name=name)
 
     return redirect("settings")
 
