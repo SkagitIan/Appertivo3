@@ -7,7 +7,7 @@
   .flip-card {
     position: relative;
     width: 100%;
-    min-height: 280px;
+    min-height: 340px;
     transition: transform 0.6s;
     transform-style: preserve-3d;
   }
@@ -29,6 +29,7 @@
 
   .flip-face.front {
     transform: rotateY(0deg);
+    overflow: visible;
   }
 
   .flip-face.flip-back {
@@ -82,6 +83,113 @@
 
   .flip-face.front.enhanced {
     box-shadow: 0 20px 40px rgba(15, 23, 42, 0.25);
+  }
+
+  .card-footer {
+    position: relative;
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .card-action-tab {
+    position: absolute;
+    right: 1.5rem;
+    bottom: -1.5rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 9999px;
+    background: #ffffff;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    box-shadow: 0 12px 25px rgba(15, 23, 42, 0.18);
+    z-index: 2;
+  }
+
+  .card-action-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 9999px;
+    background: transparent;
+    border: none;
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: transform 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+  }
+
+  .card-action-button:hover {
+    transform: translateY(-1px);
+  }
+
+  .card-action-button:focus-visible {
+    outline: 2px solid #6366f1;
+    outline-offset: 2px;
+  }
+
+  .flip-face.front.enhanced .card-action-tab {
+    background: rgba(15, 23, 42, 0.85);
+    border-color: rgba(255, 255, 255, 0.25);
+    box-shadow: 0 18px 35px rgba(15, 23, 42, 0.5);
+  }
+
+  .flip-face.front.enhanced .card-action-button {
+    color: rgba(248, 250, 252, 0.95);
+  }
+
+  .flip-face.front.enhanced .card-action-button:hover {
+    color: #fca5a5;
+  }
+
+  .dish-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    background: rgba(73, 71, 91, 0.08);
+    color: #49475b;
+  }
+
+  .dish-tag--category {
+    background: rgba(185, 147, 214, 0.14);
+  }
+
+  .dish-tag--ingredient {
+    background: rgba(142, 0, 139, 0.12);
+  }
+
+  .dish-tag--price {
+    background: #dc2626;
+    color: #ffffff;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+
+  .flip-face.front.enhanced .dish-tag {
+    background: rgba(15, 23, 42, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: rgba(248, 250, 252, 0.95);
+  }
+
+  .flip-face.front.enhanced .dish-tag--category {
+    background: rgba(165, 180, 252, 0.35);
+    border-color: transparent;
+  }
+
+  .flip-face.front.enhanced .dish-tag--ingredient {
+    background: rgba(244, 114, 182, 0.35);
+    border-color: transparent;
+  }
+
+  .flip-face.front.enhanced .dish-tag--price {
+    background: rgba(248, 113, 113, 0.95);
+    border-color: transparent;
   }
 </style>
 
