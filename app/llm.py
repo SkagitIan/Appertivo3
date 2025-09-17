@@ -13,7 +13,8 @@ import logging
 import os
 import uuid
 from typing import Dict, List, Optional
-
+from google import genai
+from google.genai import types
 import requests
 from openai import OpenAI
 
@@ -27,9 +28,9 @@ load_dotenv()
 
 _openai_api_key = os.getenv("OPENAI_API_KEY")
 _gemini_api_key = os.getenv("GEMINI_API_KEY")
-
+logger.info(_gemini_api_key)
 client = OpenAI(api_key=_openai_api_key) if _openai_api_key else None
-
+gemini_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 DEFAULT_IMAGE_URL = "https://placehold.co/800x600?text=Dish"
 DEFAULT_PRICE_CENTS = 1500
 
@@ -48,54 +49,40 @@ def generate_dishes(concept: str) -> List[Dict]:
         )
     return dishes
 
-
 def _gemini_image_prompt(title: str, description: str) -> str:
     return (
         "Create a realistic professional photograph of the following dish. "
         "Use a hero restaurant plating style, natural lighting, and a soft focus background.\n"
         f"Title: {title}\nDescription: {description}"
     )
-
-
+    
 def _call_gemini_for_image(title: str, description: str) -> str:
-    """Return a data URL for the generated image or a placeholder."""
+    """Return a data URL for the generated image using the Gemini SDK."""
 
     if not _gemini_api_key:
         return DEFAULT_IMAGE_URL
 
-    url = (
-        "https://generativelanguage.googleapis.com/v1beta/models/"
-        "gemini-1.5-flash:generateContent"
-    )
-    payload = {
-        "contents": [
-            {
-                "parts": [
-                    {
-                        "text": _gemini_image_prompt(title, description),
-                    }
-                ]
-            }
-        ],
-        "generationConfig": {
-            "responseMimeType": "image/png",
-        },
-    }
-
     try:
-        response = requests.post(url, params={"key": _gemini_api_key}, json=payload, timeout=30)
-        response.raise_for_status()
-        data = response.json()
-        candidates = data.get("candidates") or []
-        for candidate in candidates:
-            parts = candidate.get("content", {}).get("parts", [])
-            for part in parts:
-                inline = part.get("inlineData")
-                if inline and inline.get("data"):
-                    image_bytes = base64.b64decode(inline["data"])
+        # Build the prompt
+        prompt = _gemini_image_prompt(title, description)
+
+        # Call the image preview model
+        response = gemini_client.models.generate_content(
+            model="gemini-2.5-flash-image-preview",
+            contents=[prompt],
+        )
+
+        # Look for inline image data
+        if response.candidates and response.candidates[0].content.parts:
+            for part in response.candidates[0].content.parts:
+                if part.inline_data is not None:
+                    image_bytes = part.inline_data.data
                     base64_data = base64.b64encode(image_bytes).decode("ascii")
                     return f"data:image/png;base64,{base64_data}"
-    except Exception as exc:  # pragma: no cover - network fallback
+
+        logger.warning("Gemini response did not include inline image data.")
+
+    except Exception as exc:
         logger.warning("Gemini image generation failed: %s", exc, exc_info=True)
 
     return DEFAULT_IMAGE_URL
