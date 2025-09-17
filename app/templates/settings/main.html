@@ -45,24 +45,39 @@
         class="space-y-3 md:flex md:items-end md:space-y-0 md:space-x-4"
       >
         {% csrf_token %}
+        <input type="hidden" name="form_type" value="urls">
         <div class="flex-1">
-          <label for="menu_url" class="block text-sm font-medium text-gray-600">Primary menu URL</label>
-          <input
-            id="menu_url"
-            type="url"
-            name="menu_url"
-            value="{{ restaurant.primary_menu_url }}"
-            placeholder="https://example.com/menu"
+          <label for="menu_urls" class="block text-sm font-medium text-gray-600">Menu URLs</label>
+          <textarea
+            id="menu_urls"
+            name="menu_urls"
+            rows="3"
+            placeholder="https://example.com/menu-one
+https://example.com/menu-two"
             class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-[#FF8300] focus:border-[#FF8300] outline-none"
-          >
+          >{{ restaurant.menu_urls|join:'\n' }}</textarea>
+          <p class="mt-1 text-xs text-slate-500">Enter one URL per line. We'll use the first as the primary menu link.</p>
         </div>
         <button
           type="submit"
           class="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-[#f08000] text-white font-semibold shadow transition hover:bg-[#d96f00]"
         >
-          Save Menu URL
+          Save Menu URLs
         </button>
       </form>
+
+      {% if restaurant.menu_urls %}
+        <div class="text-sm text-slate-600 space-y-1">
+          <p class="font-medium text-gray-600">Saved menu links</p>
+          <ul class="space-y-1">
+            {% for url in restaurant.menu_urls %}
+              <li>
+                <a href="{{ url }}" target="_blank" rel="noopener" class="text-[#5C008B] hover:underline">{{ url }}</a>
+              </li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
 
       <div class="flex flex-wrap items-center gap-3">
         <form
@@ -88,7 +103,7 @@
         </form>
         {% if restaurant.primary_menu_url %}
           <a href="{{ restaurant.primary_menu_url }}" target="_blank" rel="noopener"
-             class="text-sm text-[#5C008B] font-medium hover:underline">Open current menu</a>
+             class="text-sm text-[#5C008B] font-medium hover:underline">Open primary menu</a>
         {% endif %}
       </div>
     {% else %}
@@ -145,6 +160,43 @@
       <h2 class="text-xl font-bold text-[#49475B]">Menu content</h2>
       <p class="text-sm text-slate-500">Latest menu markdown from your uploads or scrapes.</p>
     </div>
+    <form
+      action="{% url 'update_restaurant_info' %}"
+      method="post"
+      enctype="multipart/form-data"
+      class="space-y-3"
+    >
+      {% csrf_token %}
+      <input type="hidden" name="form_type" value="content">
+      <div>
+        <label for="menu_text" class="block text-sm font-medium text-gray-600">Paste menu Markdown</label>
+        <textarea
+          id="menu_text"
+          name="menu_text"
+          rows="6"
+          placeholder="Appetizers\n- Charcuterie Board"
+          class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-[#FF8300] focus:border-[#FF8300] outline-none"
+        ></textarea>
+        <p class="mt-1 text-xs text-slate-500">Paste your menu content here to replace the current version.</p>
+      </div>
+      <div class="flex flex-col md:flex-row md:items-center md:gap-4">
+        <label class="text-sm font-medium text-gray-600" for="menu_pdf">Or upload a PDF</label>
+        <input
+          type="file"
+          id="menu_pdf"
+          name="menu_pdf"
+          accept="application/pdf"
+          class="mt-1 w-full md:w-auto"
+        >
+        <p class="text-xs text-slate-500 md:flex-1">We'll convert the PDF to Markdown using OpenAI.</p>
+      </div>
+      <button
+        type="submit"
+        class="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-[#f08000] text-white font-semibold shadow transition hover:bg-[#d96f00]"
+      >
+        Save Menu Content
+      </button>
+    </form>
     <div class="max-h-80 overflow-y-auto bg-slate-50 border border-slate-200 rounded-lg p-4 text-sm font-mono whitespace-pre-wrap">
       {% if active_menu_version and active_menu_version.raw_markdown %}
         {{ active_menu_version.raw_markdown|linebreaksbr }}

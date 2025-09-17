@@ -50,6 +50,7 @@ class SignupViewTests(TestCase):
         self.assertEqual(restaurant.name, "Tasty Place")
         self.assertEqual(restaurant.location_text, "City, State")
         self.assertIsNone(restaurant.primary_menu_url)
+        self.assertEqual(restaurant.menu_urls, [])
         self.assertEqual(body["redirect_url"], reverse("dashboard", args=[restaurant.id]))
 
         payload_obj = models.OutscraperPayload.objects.get()
@@ -111,6 +112,7 @@ class SignupViewTests(TestCase):
         mock_outscraper.delay.assert_not_called()
         restaurant.refresh_from_db()
         self.assertEqual(restaurant.primary_menu_url, "http://example.com/menu")
+        self.assertEqual(restaurant.menu_urls, ["http://example.com/menu"])
 
     def test_form_signup_with_existing_email_shows_error(self):
         """Duplicate email addresses should not trigger a server error."""
