@@ -1,26 +1,37 @@
-"""Mock LLM helper functions.
+"""Helpers for talking to LLM services.
 
-These stubs simulate calls to a large language model and return
-static but structured data so the rest of the system can be
-developed and tested without external dependencies.
+The helpers in this module call out to third party APIs when keys are
+configured and otherwise fall back to deterministic placeholder data so
+tests can run without network access.
 """
 
-from typing import Dict, List
-from pydantic import BaseModel
-from typing import List
-import logging, os
-logger = logging.getLogger(__name__)
-from django.db import transaction
-from . import models
+from __future__ import annotations
+
+import base64
+import json
+import logging
+import os
+import uuid
+from typing import Dict, List, Optional
+
+import requests
 from openai import OpenAI
 
 from dotenv import load_dotenv
+
+from . import models
+
+logger = logging.getLogger(__name__)
+
 load_dotenv()
+
 _openai_api_key = os.getenv("OPENAI_API_KEY")
+_gemini_api_key = os.getenv("GEMINI_API_KEY")
+
 client = OpenAI(api_key=_openai_api_key) if _openai_api_key else None
 
-class ConceptList(BaseModel):
-    concepts: List[str]
+DEFAULT_IMAGE_URL = "https://placehold.co/800x600?text=Dish"
+DEFAULT_PRICE_CENTS = 1500
 
 
 def generate_dishes(concept: str) -> List[Dict]:
@@ -38,7 +49,156 @@ def generate_dishes(concept: str) -> List[Dict]:
     return dishes
 
 
-def enhance_dish(title: str) -> Dict:
-    """Return placeholder enhancement data for a dish."""
-    slug = title.lower().replace(" ", "-")
-    return {"image_url": f"https://example.com/{slug}.jpg", "price": 12.0}
+def _gemini_image_prompt(title: str, description: str) -> str:
+    return (
+        "Create a realistic professional photograph of the following dish. "
+        "Use a hero restaurant plating style, natural lighting, and a soft focus background.\n"
+        f"Title: {title}\nDescription: {description}"
+    )
+
+
+def _call_gemini_for_image(title: str, description: str) -> str:
+    """Return a data URL for the generated image or a placeholder."""
+
+    if not _gemini_api_key:
+        return DEFAULT_IMAGE_URL
+
+    url = (
+        "https://generativelanguage.googleapis.com/v1beta/models/"
+        "gemini-1.5-flash:generateContent"
+    )
+    payload = {
+        "contents": [
+            {
+                "parts": [
+                    {
+                        "text": _gemini_image_prompt(title, description),
+                    }
+                ]
+            }
+        ],
+        "generationConfig": {
+            "responseMimeType": "image/png",
+        },
+    }
+
+    try:
+        response = requests.post(url, params={"key": _gemini_api_key}, json=payload, timeout=30)
+        response.raise_for_status()
+        data = response.json()
+        candidates = data.get("candidates") or []
+        for candidate in candidates:
+            parts = candidate.get("content", {}).get("parts", [])
+            for part in parts:
+                inline = part.get("inlineData")
+                if inline and inline.get("data"):
+                    image_bytes = base64.b64decode(inline["data"])
+                    base64_data = base64.b64encode(image_bytes).decode("ascii")
+                    return f"data:image/png;base64,{base64_data}"
+    except Exception as exc:  # pragma: no cover - network fallback
+        logger.warning("Gemini image generation failed: %s", exc, exc_info=True)
+
+    return DEFAULT_IMAGE_URL
+
+
+def _format_menu_snapshot(restaurant: models.Restaurant) -> Dict[str, Optional[str]]:
+    menu_markdown = ""
+    if restaurant.active_menu_version and restaurant.active_menu_version.raw_markdown:
+        menu_markdown = restaurant.active_menu_version.raw_markdown
+    return {
+        "restaurant": restaurant.context_json or {},
+        "menu_markdown": menu_markdown,
+    }
+
+
+def _call_openai_for_price(
+    dish: models.DishIdea, menu_snapshot: Dict[str, Optional[str]]
+) -> Dict[str, Optional[str]]:
+    """Return pricing info using OpenAI or deterministic fallback."""
+
+    fallback = {
+        "price_cents": DEFAULT_PRICE_CENTS,
+        "currency": "USD",
+        "rationale": "LLM unavailable, using baseline price.",
+    }
+
+    if not client:
+        return fallback
+
+    schema = {
+        "name": "enhanced_price",
+        "type": "json_schema",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "properties": {
+                "price_cents": {"type": "integer"},
+                "currency": {"type": "string"},
+                "rationale": {"type": "string"},
+            },
+            "required": ["price_cents", "currency", "rationale"],
+            "additionalProperties": False,
+        },
+    }
+
+    payload = {
+        "dish": {
+            "title": dish.title,
+            "description": dish.description,
+            "ingredients": list(dish.ingredient_names or []),
+            "categories": list(dish.category_tags or []),
+        },
+        "restaurant": menu_snapshot.get("restaurant", {}),
+        "menu_markdown": menu_snapshot.get("menu_markdown", ""),
+    }
+
+    try:
+        response = client.responses.create(
+            model="gpt-4.1-mini",
+            input=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a pricing analyst for a restaurant. "
+                        "Suggest a menu price in cents considering the context, menu, and ingredients."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": json.dumps(payload, indent=2),
+                },
+            ],
+            text={"format": schema},
+        )
+        raw_text = response.output[0].content[0].text
+        data = json.loads(raw_text)
+        price_cents = int(data.get("price_cents", fallback["price_cents"]))
+        currency = data.get("currency") or fallback["currency"]
+        rationale = data.get("rationale") or fallback["rationale"]
+        return {
+            "price_cents": price_cents,
+            "currency": currency,
+            "rationale": rationale,
+        }
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("OpenAI pricing request failed: %s", exc, exc_info=True)
+        return fallback
+
+
+def enhance_dish(dish: models.DishIdea, restaurant: models.Restaurant) -> Dict[str, Optional[str]]:
+    """Generate enhanced mode assets for a dish."""
+
+    image_url = _call_gemini_for_image(dish.title, dish.description)
+    snapshot = _format_menu_snapshot(restaurant)
+    price_info = _call_openai_for_price(dish, snapshot)
+
+    return {
+        "image_url": image_url,
+        "price_cents": price_info.get("price_cents"),
+        "currency": price_info.get("currency"),
+        "pricing_notes": price_info.get("rationale"),
+        "style_preset": "enhanced-mode-v1",
+        "model_name": "gemini+openai-enhanced",
+        "snapshot": snapshot,
+        "reference": str(uuid.uuid4()),
+    }

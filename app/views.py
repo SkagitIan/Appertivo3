@@ -1,6 +1,6 @@
 """Application views."""
 
-import json, os
+import json, logging, os, uuid
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
@@ -15,7 +15,7 @@ from django.views.decorators.http import require_http_methods, require_POST
 from . import models
 from django.template.loader import render_to_string
 from pydantic import BaseModel
-from typing import List
+from typing import Iterable, List, Optional
 
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -26,7 +26,7 @@ client = OpenAI(api_key=_openai_api_key) if _openai_api_key else None
 class ConceptList(BaseModel):
     concepts: List[str]
 
-from app import llm, models
+from app import llm
 from .tasks import parse_pdf_menu, run_outscraper_search, scrape_menu
 
 def dish_grid(request, concept_name: str):
@@ -407,6 +407,118 @@ def serialize_restaurant_context(restaurant_payload, menu_markdown, concept):
         },
     }
 
+
+CURRENCY_SYMBOLS = {"USD": "$", "EUR": "€", "GBP": "£"}
+
+
+def format_price_display(cents: Optional[int], currency: Optional[str]) -> str:
+    """Convert cents + currency into a printable price string."""
+
+    if cents is None:
+        return ""
+
+    currency = (currency or "USD").upper()
+    symbol = CURRENCY_SYMBOLS.get(currency)
+    amount = cents / 100
+    if symbol:
+        return f"{symbol}{amount:,.2f}"
+    return f"{currency} {amount:,.2f}"
+
+
+def decorate_dishes_with_enhancements(
+    dishes: Iterable[models.DishIdea],
+) -> List[models.DishIdea]:
+    """Attach enhancement metadata to dish objects for rendering."""
+
+    dish_list = list(dishes)
+    if not dish_list:
+        return dish_list
+
+    enhancements = (
+        models.Enhancement.objects.filter(dish__in=dish_list)
+        .select_related("image_asset")
+        .order_by("dish_id", "-created_at")
+    )
+
+    latest_by_dish = {}
+    for enhancement in enhancements:
+        latest_by_dish.setdefault(enhancement.dish_id, enhancement)
+
+    for dish in dish_list:
+        enhancement = latest_by_dish.get(dish.id)
+        dish.latest_enhancement = enhancement
+        dish.is_enhanced = enhancement is not None
+        names = getattr(dish, "ingredient_names", []) or []
+        dish.ingredient_overlap = list(names)
+        if enhancement and enhancement.image_asset:
+            dish.enhancement_image_url = enhancement.image_asset.public_url
+        else:
+            dish.enhancement_image_url = None
+        if enhancement and enhancement.suggested_price_cents is not None:
+            dish.enhancement_price_display = format_price_display(
+                enhancement.suggested_price_cents,
+                enhancement.currency,
+            )
+        else:
+            dish.enhancement_price_display = ""
+
+    return dish_list
+
+
+def ensure_dish_enhancement(
+    dish: models.DishIdea, user: Optional[User]
+) -> Optional[models.Enhancement]:
+    """Create an enhancement for the dish if one does not already exist."""
+
+    existing = (
+        models.Enhancement.objects.filter(
+            dish=dish, status=models.Enhancement.Status.SUCCEEDED
+        )
+        .select_related("image_asset")
+        .order_by("-created_at")
+        .first()
+    )
+    if existing:
+        return existing
+
+    try:
+        payload = llm.enhance_dish(dish, dish.restaurant)
+    except Exception as exc:  # pragma: no cover - defensive guard
+        logger.warning("Enhancement request failed: %s", exc, exc_info=True)
+        return None
+
+    image_url = payload.get("image_url") or llm.DEFAULT_IMAGE_URL
+    price_cents = payload.get("price_cents")
+    currency = payload.get("currency") or "USD"
+    pricing_notes = payload.get("pricing_notes")
+    style_preset = payload.get("style_preset") or "enhanced-mode-v1"
+    model_name = payload.get("model_name") or "enhanced-mode"
+
+    enhancement = models.Enhancement.objects.create(
+        dish=dish,
+        triggered_by_user=user,
+        status=models.Enhancement.Status.SUCCEEDED,
+        suggested_price_cents=price_cents,
+        currency=currency,
+        pricing_notes=pricing_notes,
+        style_preset=style_preset,
+        model_name=model_name,
+        started_at=timezone.now(),
+        finished_at=timezone.now(),
+    )
+
+    if image_url:
+        asset = models.Asset.objects.create(
+            kind=models.Asset.Kind.IMAGE,
+            storage_key=f"enhanced/{dish.id}/{uuid.uuid4()}",
+            public_url=image_url,
+        )
+        enhancement.image_asset = asset
+        enhancement.save(update_fields=["image_asset"])
+
+    return enhancement
+
+
 @login_required
 def dishes_generate_view(request, concept_id):
     concept = models.Concept.objects.get(id=concept_id)
@@ -545,6 +657,8 @@ def dishes_grid_view(request, concept_id):
         )
         dishes.append(dish_obj)
 
+    dishes = decorate_dishes_with_enhancements(dishes)
+
     # === mark favorites ===
     user_favs = set(
         models.FavoriteDish.objects.filter(user=request.user)
@@ -563,18 +677,37 @@ def dishes_grid_view(request, concept_id):
 def dish_favorite_view(request, dish_id):
     """Toggle favorite on a dish."""
     dish = get_object_or_404(models.DishIdea, id=dish_id)
+    card_context = request.POST.get("context") or request.GET.get("context") or "grid"
     fav, created = models.FavoriteDish.objects.get_or_create(
         user=request.user, dish=dish, defaults={"favorited_at": timezone.now()}
     )
     if not created:
         fav.delete()
         favorited = False
+        # Remove enhancement data when the dish is no longer favorited
+        enhancements = list(
+            models.Enhancement.objects.filter(dish=dish).select_related("image_asset")
+        )
+        asset_ids = [enh.image_asset_id for enh in enhancements if enh.image_asset_id]
+        if enhancements:
+            models.Enhancement.objects.filter(id__in=[enh.id for enh in enhancements]).delete()
+        if asset_ids:
+            models.Asset.objects.filter(id__in=asset_ids).delete()
     else:
         favorited = True
+        ensure_dish_enhancement(dish, request.user)
 
+    decorate_dishes_with_enhancements([dish])
     dish.is_favorited = favorited  # attach attribute for rendering
 
-    html = render_to_string("dishes/_favorite_button.html", {"dish": dish}, request=request)
+    if not favorited and card_context == "favorites":
+        return HttpResponse("")
+
+    html = render_to_string(
+        "dishes/_card.html",
+        {"dish": dish, "card_context": card_context},
+        request=request,
+    )
     return HttpResponse(html)
 
 
@@ -724,8 +857,10 @@ def dish_variation_view(request, dish_id):
     new_dish.is_favorited = False
     new_dish.ingredient_overlap = new_dish.ingredient_names
 
+    decorate_dishes_with_enhancements([new_dish])
+
     html = render_to_string(
-        "dishes/_dish_card.html", {"dish": new_dish}, request=request
+        "dishes/_card.html", {"dish": new_dish, "card_context": "grid"}, request=request
     )
     return HttpResponse(html)
 
@@ -743,11 +878,16 @@ def favorites_view(request):
         .select_related("concept__restaurant")
         .order_by("-favorited_at")
     )
-    favorite_dishes = (
+    favorite_dishes = list(
         models.FavoriteDish.objects.filter(user=request.user)
         .select_related("dish__parent_concept", "dish__restaurant")
         .order_by("-favorited_at")
     )
+
+    decorate_dishes_with_enhancements([fav.dish for fav in favorite_dishes])
+    for fav in favorite_dishes:
+        fav.dish.is_favorited = True
+
     ctx = {
         "restaurant": restaurant,
         "favorite_concepts": favorite_concepts,
@@ -847,8 +987,6 @@ def update_creativity(request, restaurant_id):
         restaurant.restaurantsettings.save(update_fields=["classic_creative_slider"])
     return JsonResponse({"status": "ok"})
 
-
-import logging
 
 logger = logging.getLogger(__name__)
 
