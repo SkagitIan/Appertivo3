@@ -376,21 +376,28 @@ def concept_favorite_view(request, concept_id):
         fav.delete()
         favorited = False
 
-    image_url = None
-    if favorited:
-        image_url = llm.generate_concept_sketch(concept)
-
+    # Always return the updated button immediately
     button_html = render_to_string(
         "concepts/_favorite_button.html",
         {"concept": concept, "favorited": favorited},
         request=request,
     )
-    background_html = render_to_string(
-        "concepts/_concept_background.html",
-        {"concept": concept, "image_url": image_url},
-        request=request,
-    )
-    return HttpResponse(button_html + background_html)
+
+    if favorited:
+        # Generate background HTML with OOB swap
+        background_html = render_to_string(
+            "concepts/_concept_background.html",
+            {"concept": concept, "image_url": llm.generate_concept_sketch(concept)},
+            request=request,
+        )
+        # Add `hx-swap-oob="true"` so it swaps separately
+        background_html = background_html.replace(
+            '<div', '<div hx-swap-oob="true"', 1
+        )
+        return HttpResponse(button_html + background_html)
+
+    return HttpResponse(button_html)
+
 
 
 @login_required
