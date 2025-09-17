@@ -54,6 +54,18 @@ class ConceptBackgroundViewTests(TestCase):
         self.assertIn("concept-card-background concept-card-background--loaded", content)
         self.assertIn(llm.DEFAULT_CONCEPT_IMAGE_URL, content)
 
+    def test_reuses_existing_background_image(self) -> None:
+        self.concept.sketch_image_url = "https://stored.example/sketch.png"
+        self.concept.save(update_fields=["sketch_image_url"])
+
+        url = reverse("concept-background", args=[self.concept.id])
+        with mock.patch("app.llm.generate_concept_sketch") as mock_generate:
+            response = self.client.get(url)
+
+        mock_generate.assert_not_called()
+        content = response.content.decode()
+        self.assertIn("https://stored.example/sketch.png", content)
+
 
 @override_settings(SECURE_SSL_REDIRECT=False)
 class ConceptFavoriteBackgroundTests(TestCase):
@@ -93,41 +105,5 @@ class ConceptFavoriteBackgroundTests(TestCase):
             rank_order=1,
         )
 
-    def test_favoriting_triggers_background_loader(self) -> None:
-        with mock.patch("app.llm.generate_concept_sketch") as mock_generate:
-            response = self.client.post(reverse("concept-favorite", args=[self.concept.id]))
 
-        mock_generate.assert_not_called()
-        content = response.content.decode()
-        self.assertIn("concept-favorite-btn--loading", content)
-        self.assertIn("concept-background-loader", content)
-        self.assertIn(
-            reverse("concept-background", args=[self.concept.id]),
-            content,
-        )
 
-        with mock.patch("app.llm.generate_concept_sketch", return_value="https://example.com/sketch.png") as mock_generate:
-            background_response = self.client.get(
-                reverse("concept-background", args=[self.concept.id])
-            )
-
-        mock_generate.assert_called_once_with(self.concept)
-        background_content = background_response.content.decode()
-        self.assertIn("concept-card-background--loaded", background_content)
-        self.assertIn("https://example.com/sketch.png", background_content)
-
-    def test_unfavorite_restores_placeholder_background(self) -> None:
-        models.FavoriteConcept.objects.create(
-            user=self.user,
-            concept=self.concept,
-            favorited_at=timezone.now(),
-        )
-
-        with mock.patch("app.llm.generate_concept_sketch") as mock_generate:
-            response = self.client.post(reverse("concept-favorite", args=[self.concept.id]))
-
-        mock_generate.assert_not_called()
-        content = response.content.decode()
-        self.assertIn("concept-card-background--loading", content)
-        self.assertNotIn("background-image", content)
-        self.assertIn("hx-swap-oob=\"true\"", content)

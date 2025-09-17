@@ -183,6 +183,7 @@ class Concept(TimestampedModel):
     name = models.CharField(max_length=100)
     subtitle = models.CharField(max_length=200)
     rank_order = models.SmallIntegerField()
+    sketch_image_url = models.TextField(null=True, blank=True)
 
     class Meta:
         indexes = [models.Index(fields=["restaurant", "-created_at"])]

@@ -237,10 +237,16 @@ class ViewSmokeTests(TestCase):
         models.FavoriteConcept.objects.create(
             user=self.user, concept=concept, favorited_at=timezone.now()
         )
+        concept.sketch_image_url = "https://example.com/favorite.png"
+        concept.save(update_fields=["sketch_image_url"])
         rem_resp = self.client.post(
-            reverse("favorite-remove", args=["concept", concept.id])
+            reverse("favorite-remove", args=["concept", concept.id]),
+            HTTP_HX_REQUEST="true",
         )
         self.assertEqual(rem_resp.status_code, 200)
+        self.assertEqual(rem_resp.content.decode(), "")
+        concept.refresh_from_db()
+        self.assertIsNone(concept.sketch_image_url)
 
     def test_menu_collection_and_item(self):
         create_resp = self.client.post(
