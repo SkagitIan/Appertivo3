@@ -140,6 +140,78 @@ class ViewSmokeTests(TestCase):
         var_resp = self.client.post(reverse("dish-variation", args=[dish.id]))
         self.assertEqual(var_resp.status_code, 200)
 
+    def test_dish_delete_removes_dish_and_assets(self):
+        self._create_concepts()
+        concept = models.Concept.objects.first()
+        self._create_dishes(concept)
+        dish = models.DishIdea.objects.first()
+
+        asset = models.Asset.objects.create(
+            kind=models.Asset.Kind.IMAGE,
+            storage_key="test/key",
+            public_url="https://example.com/image.jpg",
+        )
+        models.Enhancement.objects.create(
+            dish=dish,
+            triggered_by_user=self.user,
+            status=models.Enhancement.Status.SUCCEEDED,
+            image_asset=asset,
+            model_name="test-model",
+        )
+
+        resp = self.client.post(reverse("dish-delete", args=[dish.id]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.content, b"")
+        self.assertFalse(models.DishIdea.objects.filter(id=dish.id).exists())
+        self.assertFalse(models.Asset.objects.filter(id=asset.id).exists())
+
+    def test_dish_delete_requires_membership(self):
+        other_account = models.Account.objects.create(name="Other")
+        other_restaurant = models.Restaurant.objects.create(
+            account=other_account, name="Other R", location_text="Town"
+        )
+        concept_run = models.IdeationRun.objects.create(
+            restaurant=other_restaurant,
+            initiated_by_user=None,
+            type=models.IdeationRun.RunType.CONCEPTS,
+            model_name="m",
+            temperature=0,
+            classic_creative=50,
+            context_snapshot={},
+            status=models.IdeationRun.Status.SUCCEEDED,
+        )
+        other_concept = models.Concept.objects.create(
+            restaurant=other_restaurant,
+            ideation_run=concept_run,
+            name="Other Concept",
+            subtitle="Sub",
+            rank_order=0,
+        )
+        dish_run = models.IdeationRun.objects.create(
+            restaurant=other_restaurant,
+            initiated_by_user=None,
+            type=models.IdeationRun.RunType.DISHES,
+            model_name="m",
+            temperature=0,
+            classic_creative=50,
+            context_snapshot={},
+            parent_concept=other_concept,
+            status=models.IdeationRun.Status.SUCCEEDED,
+        )
+        other_dish = models.DishIdea.objects.create(
+            restaurant=other_restaurant,
+            ideation_run=dish_run,
+            parent_concept=other_concept,
+            title="Other Dish",
+            description="Desc",
+            ingredient_names=[],
+            category_tags=[],
+        )
+
+        resp = self.client.post(reverse("dish-delete", args=[other_dish.id]))
+        self.assertEqual(resp.status_code, 403)
+        self.assertTrue(models.DishIdea.objects.filter(id=other_dish.id).exists())
+
     def test_favorites_views(self):
         resp = self.client.get(reverse("favorites"))
         self.assertEqual(resp.status_code, 200)

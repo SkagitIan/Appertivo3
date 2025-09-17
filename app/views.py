@@ -7,7 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.db import IntegrityError, transaction
 from django.db.models import Prefetch
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -709,6 +709,35 @@ def dish_favorite_view(request, dish_id):
         request=request,
     )
     return HttpResponse(html)
+
+
+@login_required
+@require_POST
+def dish_delete_view(request, dish_id):
+    """Delete a dish and remove any associated enhancement assets."""
+
+    dish = get_object_or_404(
+        models.DishIdea.objects.select_related("restaurant"),
+        id=dish_id,
+    )
+
+    is_member = models.Membership.objects.filter(
+        account=dish.restaurant.account, user=request.user
+    ).exists()
+    if not is_member:
+        return HttpResponseForbidden()
+
+    enhancements = list(
+        models.Enhancement.objects.filter(dish=dish).select_related("image_asset")
+    )
+    asset_ids = [enh.image_asset_id for enh in enhancements if enh.image_asset_id]
+
+    dish.delete()
+
+    if asset_ids:
+        models.Asset.objects.filter(id__in=asset_ids).delete()
+
+    return HttpResponse("")
 
 
 @login_required
