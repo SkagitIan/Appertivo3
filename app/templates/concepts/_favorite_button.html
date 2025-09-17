@@ -1,11 +1,11 @@
 <button
   type="button"
-  hx-on:click="event.stopPropagation()"
   hx-post="{% url 'concept-favorite' concept.id %}"
   hx-target="this"
   hx-swap="outerHTML"
   class="concept-favorite-btn inline-flex items-center justify-center w-10 h-10 rounded-full border border-slate-200 bg-white/80 text-xl text-[#f08000] shadow-sm transition hover:scale-[1.02]"
   aria-label="{% if favorited %}Unfavorite{% else %}Favorite{% endif %} {{ concept.name }}"
+  onclick="event.stopPropagation();"
 >
   {% if favorited %}
     ❤️
@@ -13,4 +13,3 @@
     🤍
   {% endif %}
 </button>
-
