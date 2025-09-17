@@ -13,6 +13,46 @@
   <p class="text-slate-100 mt-4 max-w-2xl">Quickly revisit the concepts and dishes that inspired you. Everything you star lives here so it’s easy to plan your next menu update.</p>
 </section>
 
+<style>
+  .concept-card-background {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    filter: grayscale(100%);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .concept-card-background--loading {
+    background: radial-gradient(circle at center, rgba(226, 232, 240, 0.8), rgba(226, 232, 240, 0.4));
+    opacity: 1;
+  }
+
+  .concept-card-background--loaded {
+    opacity: 1;
+  }
+
+  .concept-card-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.95));
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  #favorites-dishes-loading {
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  #favorites-dishes-loading.htmx-request {
+    display: flex !important;
+  }
+</style>
+
 <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
   <!-- Concepts column -->
   <div class="xl:col-span-2 space-y-6">
@@ -25,22 +65,16 @@
         <a href="{% url 'concepts' %}" class="text-sm text-[#5C008B] font-medium hover:underline">Explore concepts</a>
       </div>
       {% if favorite_concepts %}
-        <ul class="space-y-4">
+        <div id="favorite-concepts-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {% for favorite in favorite_concepts %}
-            <li class="border border-slate-200 rounded-lg p-4 flex flex-col gap-2 bg-slate-50">
-              <div class="flex items-center justify-between gap-3">
-                <span class="text-lg font-semibold text-[#2E005D]">{{ favorite.concept.name }}</span>
-                <span class="text-xs text-slate-500 uppercase tracking-wide">Saved {{ favorite.favorited_at|date:"M d, Y" }}</span>
-              </div>
-              <div class="flex items-center justify-between text-sm text-slate-500">
-                <span>Rank: {{ favorite.concept.rank_order }}</span>
-                {% if favorite.concept.restaurant %}
-                  <span>{{ favorite.concept.restaurant.name }}</span>
-                {% endif %}
-              </div>
-            </li>
+            {% include "favorites/_concept_card.html" %}
           {% endfor %}
-        </ul>
+        </div>
+        <div id="favorites-dishes-loading" class="mt-6 text-sm font-medium text-slate-500" style="display: none;">
+          <i class="fa-solid fa-spinner fa-spin"></i>
+          <span>Generating dishes…</span>
+        </div>
+        <div id="favorites-generated-dishes" class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4"></div>
       {% else %}
         <p class="text-slate-600">You haven't saved any concepts yet. Visit the concepts tab to start collecting ideas.</p>
       {% endif %}
