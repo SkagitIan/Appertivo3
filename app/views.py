@@ -376,12 +376,21 @@ def concept_favorite_view(request, concept_id):
         fav.delete()
         favorited = False
 
-    html = render_to_string(
+    image_url = None
+    if favorited:
+        image_url = llm.generate_concept_sketch(concept)
+
+    button_html = render_to_string(
         "concepts/_favorite_button.html",
         {"concept": concept, "favorited": favorited},
         request=request,
     )
-    return HttpResponse(html)
+    background_html = render_to_string(
+        "concepts/_concept_background.html",
+        {"concept": concept, "image_url": image_url},
+        request=request,
+    )
+    return HttpResponse(button_html + background_html)
 
 
 @login_required
@@ -394,7 +403,7 @@ def concept_background_view(request, concept_id):
     return render(
         request,
         "concepts/_concept_background.html",
-        {"image_url": image_url},
+        {"concept": concept, "image_url": image_url},
     )
 
 def serialize_restaurant_context(restaurant_payload, menu_markdown, concept):
