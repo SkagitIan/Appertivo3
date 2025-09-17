@@ -10,7 +10,7 @@
     <h1 class="text-3xl font-bold">Welcome back, {{ request.user.first_name|default:"Chef" }}</h1>
     <p class="text-indigo-200 text-lg">Your AI-powered culinary partner</p>
   </header>
-
+{{restaurant}}
   <!-- STATUS WIDGET -->
   <div id="restaurant-status"
        hx-get="{% url 'restaurant_status' restaurant.id %}"

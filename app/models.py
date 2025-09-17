@@ -180,7 +180,8 @@ class Concept(TimestampedModel):
     """Concept produced by an ideation run."""
     restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE)
     ideation_run = models.ForeignKey(IdeationRun, on_delete=models.CASCADE)
-    name = models.TextField()
+    name = models.CharField(max_length=100)
+    subtitle = models.CharField(max_length=200)
     rank_order = models.SmallIntegerField()
 
     class Meta:

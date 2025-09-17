@@ -1,69 +1,76 @@
-{# templates/concepts/grid.html #}
 {% extends "base_logged_in.html" %}
 {% block content %}
-
 <style>
-.flip-scene { perspective: 1200px; }
-.flip-card { position: relative; width: 100%; transform-style: preserve-3d; transition: transform .6s; }
-.flip-card.flipped { transform: rotateY(180deg); }
-.flip-face { position: absolute; inset: 0; backface-visibility: hidden; }
-.flip-back { transform: rotateY(180deg); }
-</style>
+.flip-scene {
+perspective: 1200px;
+}
+.flip-card {
+position: relative;
+width: 100%;
+min-height: 200px;
+transition: transform 0.6s;
+transform-style: preserve-3d;
+}
+.flip-card.flipped {
+transform: rotateY(180deg);
+}
+.flip-face {
+position: absolute;
+top: 0;
+left: 0;
+width: 100%;
+height: 100%;
+backface-visibility: hidden;
+border-radius: 1rem;
+overflow: hidden;
+}
+/* Front */
+.flip-face.front {
+background: #fff;
+display: flex;
+flex-direction: column;
+justify-content: space-between;
+padding: 1.5rem;
+box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+border: 1px solid #e2e8f0;
+cursor: pointer;
+transform: rotateY(0deg);
+}
+/* Back */
+.flip-face.flip-back {
+background: #1e293b;
+color: #fff;
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+padding: 1.5rem;
+transform: rotateY(180deg);
+}
 
+#concepts-loading.htmx-request {
+    display: inline-block !important;
+}
+</style>
 <div class="max-w-7xl mx-auto px-4 py-10">
-  <div class="flex items-center justify-between mb-6">
-    <h1 class="text-3xl font-bold text-[#2E005D]">Concepts</h1>
-    <button 
-      hx-get="{% url 'concepts-generate' %}" 
-      hx-target="#concepts-grid"
-      hx-swap="outerHTML"
-      class="bg-gradient-to-r from-[#FF8300] to-[#FF5C00] text-white font-semibold px-6 py-2 rounded-xl shadow hover:scale-105 transition">
-      Generate New Concepts
+  <div class="flex items-end justify-between mb-6">
+    <button hx-get="{% url 'concepts-generate' %}" hx-target="#concepts-grid" hx-swap="innerHTML"
+      class="bg-gradient-to-r from-[#FF8300] to-[#FF5C00] text-white font-semibold px-6 py-2 rounded-xl shadow hover:scale-105 transition flex items-center gap-2"
+      hx-indicator="#concepts-loading">
+      <span>Generate New Concepts</span>
+      <i id="concepts-loading" class="fas fa-spinner fa-spin hidden"></i>
     </button>
   </div>
-
-  <div id="concepts-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-    {% for concept in concepts %}
-      <div class="flip-scene">
-        <div
-          class="flip-card cursor-pointer"
-          id="concept-{{ concept.id }}"
-          hx-post="{% url 'dishes-generate' concept.id %}"
-          hx-target="#concepts-grid"
-          hx-swap="outerHTML"
-          hx-trigger="click"
-        >
-          <!-- FRONT -->
-          <div class="flip-face bg-white p-6 rounded-2xl shadow-md border border-slate-200 transition cursor-pointer hover:shadow-lg">
-            <h2 class="text-xl font-bold text-[#49475B]">{{ concept.name }}</h2>
-            <div class="mt-4 flex justify-between items-center">
-              <span class="text-sm text-slate-500">Rank: {{ concept.rank_order }}</span>
-              {% include "concepts/_favorite_button.html" %}
-            </div>
-            <p class="mt-4 text-sm text-slate-500">Click to generate dish ideas.</p>
-          </div>
-
-          <!-- BACK (loading state) -->
-          <div class="flip-face flip-back bg-slate-800 text-white p-6 rounded-2xl flex flex-col items-center justify-center">
-            <svg class="animate-spin h-8 w-8 mb-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
-            </svg>
-            <p class="text-lg font-medium">Generating dish ideas…</p>
-          </div>
-        </div>
-      </div>
-    {% endfor %}
+  <div id="concepts-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+   {% include 'concepts/_concepts_grid.html' %}
   </div>
 </div>
-
 <script>
-document.body.addEventListener("htmx:beforeRequest", function(evt) {
-  if (evt.detail.elt.matches("[hx-post*='dishes-generate']")) {
+  document.body.addEventListener("htmx:beforeRequest", function (evt) {
     const card = evt.detail.elt.closest(".flip-card");
-    if (card) card.classList.add("flipped");
-  }
-});
+    if (card) {
+      card.classList.add("flipped");
+    }
+  });
 </script>
-
 {% endblock %}
