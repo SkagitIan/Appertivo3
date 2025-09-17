@@ -22,6 +22,11 @@ urlpatterns = [
     path("concepts/", app_views.concepts_view, name="concepts"),
     path("concepts/generate/", app_views.concepts_generate_view, name="concepts-generate"),
     path("concepts/<uuid:concept_id>/favorite/", app_views.concept_favorite_view, name="concept-favorite"),
+    path(
+        "concepts/<uuid:concept_id>/background/",
+        app_views.concept_background_view,
+        name="concept-background",
+    ),
     path("dishes/<uuid:concept_id>/generate/", app_views.dishes_generate_view, name="dishes-generate"),
 
     path("dishes/<uuid:dish_id>/favorite/", app_views.dish_favorite_view, name="dish_favorite"),

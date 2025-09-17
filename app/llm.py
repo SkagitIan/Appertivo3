@@ -13,9 +13,11 @@ import logging
 import os
 import uuid
 from typing import Dict, List, Optional
-from google import genai
-from google.genai import types
-import requests
+try:  # pragma: no cover - optional dependency
+    from google import genai
+except ImportError:  # pragma: no cover - optional dependency
+    genai = None
+
 from openai import OpenAI
 
 from dotenv import load_dotenv
@@ -30,8 +32,9 @@ _openai_api_key = os.getenv("OPENAI_API_KEY")
 _gemini_api_key = os.getenv("GEMINI_API_KEY")
 logger.info(_gemini_api_key)
 client = OpenAI(api_key=_openai_api_key) if _openai_api_key else None
-gemini_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+gemini_client = genai.Client(api_key=_gemini_api_key) if genai and _gemini_api_key else None
 DEFAULT_IMAGE_URL = "https://placehold.co/800x600?text=Dish"
+DEFAULT_CONCEPT_IMAGE_URL = "https://placehold.co/1200x800?text=Concept"
 DEFAULT_PRICE_CENTS = 1500
 
 
@@ -55,24 +58,34 @@ def _gemini_image_prompt(title: str, description: str) -> str:
         "Use a hero restaurant plating style, natural lighting, and a soft focus background.\n"
         f"Title: {title}\nDescription: {description}"
     )
-    
-def _call_gemini_for_image(title: str, description: str) -> str:
-    """Return a data URL for the generated image using the Gemini SDK."""
 
-    if not _gemini_api_key:
-        return DEFAULT_IMAGE_URL
+
+def _gemini_concept_sketch_prompt(name: str, subtitle: str) -> str:
+    """Describe a lightweight concept sketch request for Gemini."""
+
+    subtitle_text = subtitle or ""
+    return (
+        "Create a monochrome pencil sketch that could serve as background art for a "
+        "restaurant concept card. Keep the lines clean with minimal shading so the image "
+        "stays lightweight, but output it at a high-definition resolution. Avoid text, "
+        "logos, or color.\n"
+        f"Concept name: {name}\n"
+        f"Concept subtitle: {subtitle_text}"
+    )
+
+
+def _fetch_gemini_image(prompt: str, default_url: str) -> str:
+    """Return inline image data for the given prompt or a fallback URL."""
+
+    if not _gemini_api_key or not gemini_client:
+        return default_url
 
     try:
-        # Build the prompt
-        prompt = _gemini_image_prompt(title, description)
-
-        # Call the image preview model
         response = gemini_client.models.generate_content(
             model="gemini-2.5-flash-image-preview",
             contents=[prompt],
         )
 
-        # Look for inline image data
         if response.candidates and response.candidates[0].content.parts:
             for part in response.candidates[0].content.parts:
                 if part.inline_data is not None:
@@ -85,7 +98,21 @@ def _call_gemini_for_image(title: str, description: str) -> str:
     except Exception as exc:
         logger.warning("Gemini image generation failed: %s", exc, exc_info=True)
 
-    return DEFAULT_IMAGE_URL
+    return default_url
+
+
+def _call_gemini_for_image(title: str, description: str) -> str:
+    """Return a data URL for the generated dish image using the Gemini SDK."""
+
+    prompt = _gemini_image_prompt(title, description)
+    return _fetch_gemini_image(prompt, DEFAULT_IMAGE_URL)
+
+
+def _call_gemini_for_concept_sketch(name: str, subtitle: str) -> str:
+    """Return a Gemini generated concept sketch or a placeholder image."""
+
+    prompt = _gemini_concept_sketch_prompt(name, subtitle)
+    return _fetch_gemini_image(prompt, DEFAULT_CONCEPT_IMAGE_URL)
 
 
 def _format_menu_snapshot(restaurant: models.Restaurant) -> Dict[str, Optional[str]]:
@@ -189,3 +216,9 @@ def enhance_dish(dish: models.DishIdea, restaurant: models.Restaurant) -> Dict[s
         "snapshot": snapshot,
         "reference": str(uuid.uuid4()),
     }
+
+
+def generate_concept_sketch(concept: models.Concept) -> str:
+    """Return a concept background sketch for the provided concept."""
+
+    return _call_gemini_for_concept_sketch(concept.name, concept.subtitle)

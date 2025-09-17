@@ -36,6 +36,31 @@ border: 1px solid #e2e8f0;
 cursor: pointer;
 transform: rotateY(0deg);
 }
+.concept-card-background {
+position: absolute;
+inset: 0;
+background-size: cover;
+background-position: center;
+filter: grayscale(100%);
+opacity: 0;
+transition: opacity 0.4s ease;
+z-index: 1;
+pointer-events: none;
+}
+.concept-card-background--loading {
+background: radial-gradient(circle at center, rgba(226,232,240,0.8), rgba(226,232,240,0.4));
+opacity: 1;
+}
+.concept-card-background--loaded {
+opacity: 0.35;
+}
+.concept-card-overlay {
+position: absolute;
+inset: 0;
+background: linear-gradient(180deg, rgba(255,255,255,0.85), rgba(255,255,255,0.95));
+z-index: 5;
+pointer-events: none;
+}
 /* Back */
 .flip-face.flip-back {
 background: #1e293b;
