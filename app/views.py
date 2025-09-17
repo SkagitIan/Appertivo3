@@ -371,10 +371,21 @@ def concept_favorite_view(request, concept_id):
     fav, created = models.FavoriteConcept.objects.get_or_create(
         user=request.user, concept=concept, defaults={"favorited_at": timezone.now()}
     )
+    image_url = concept.sketch_image_url
     favorited = created
-    if not created:
+
+    if created:
+        if not image_url:
+            image_url = llm.generate_concept_sketch(concept)
+            concept.sketch_image_url = image_url
+            concept.save(update_fields=["sketch_image_url"])
+    else:
         fav.delete()
         favorited = False
+        if image_url:
+            concept.sketch_image_url = None
+            concept.save(update_fields=["sketch_image_url"])
+        image_url = None
 
     # Always return the updated button immediately
     button_html = render_to_string(
@@ -382,21 +393,13 @@ def concept_favorite_view(request, concept_id):
         {"concept": concept, "favorited": favorited},
         request=request,
     )
+    background_html = render_to_string(
+        "concepts/_concept_background.html",
+        {"concept": concept, "image_url": image_url},
+        request=request,
+    )
 
-    if favorited:
-        # Generate background HTML with OOB swap
-        background_html = render_to_string(
-            "concepts/_concept_background.html",
-            {"concept": concept, "image_url": llm.generate_concept_sketch(concept)},
-            request=request,
-        )
-        # Add `hx-swap-oob="true"` so it swaps separately
-        background_html = background_html.replace(
-            '<div', '<div hx-swap-oob="true"', 1
-        )
-        return HttpResponse(button_html + background_html)
-
-    return HttpResponse(button_html)
+    return HttpResponse(button_html + background_html)
 
 
 
@@ -406,7 +409,11 @@ def concept_background_view(request, concept_id):
     """Return the lazy-loaded background sketch for a concept card."""
 
     concept = get_object_or_404(models.Concept, id=concept_id)
-    image_url = llm.generate_concept_sketch(concept)
+    image_url = concept.sketch_image_url
+    if not image_url:
+        image_url = llm.generate_concept_sketch(concept)
+        concept.sketch_image_url = image_url
+        concept.save(update_fields=["sketch_image_url"])
     return render(
         request,
         "concepts/_concept_background.html",
@@ -934,7 +941,7 @@ def favorites_view(request):
     )
     favorite_concepts = (
         models.FavoriteConcept.objects.filter(user=request.user)
-        .select_related("concept__restaurant")
+        .select_related("concept", "concept__restaurant")
         .order_by("-favorited_at")
     )
     favorite_dishes = list(
@@ -955,12 +962,23 @@ def favorites_view(request):
     return render(request, "favorites/dashboard.html", ctx)
 
 
+@login_required
+@require_POST
 def favorite_remove_view(request, type, id):
     """Remove a favorite concept or dish."""
     if type == "concept":
-        models.FavoriteConcept.objects.filter(user=request.user, concept_id=id).delete()
+        favorite = get_object_or_404(
+            models.FavoriteConcept, user=request.user, concept_id=id
+        )
+        concept = favorite.concept
+        favorite.delete()
+        if concept.sketch_image_url:
+            concept.sketch_image_url = None
+            concept.save(update_fields=["sketch_image_url"])
     else:
         models.FavoriteDish.objects.filter(user=request.user, dish_id=id).delete()
+    if request.headers.get("HX-Request"):
+        return HttpResponse("")
     return JsonResponse({"removed": True})
 
 
