@@ -1,0 +1,130 @@
+{# Shared styles and scripts for dish cards #}
+<style>
+  .flip-scene {
+    perspective: 1200px;
+  }
+
+  .flip-card {
+    position: relative;
+    width: 100%;
+    min-height: 280px;
+    transition: transform 0.6s;
+    transform-style: preserve-3d;
+  }
+
+  .flip-card.flipped {
+    transform: rotateY(180deg);
+  }
+
+  .flip-face {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+    border-radius: 1rem;
+    overflow: hidden;
+  }
+
+  .flip-face.front {
+    transform: rotateY(0deg);
+  }
+
+  .flip-face.flip-back {
+    transform: rotateY(180deg);
+  }
+
+  .flip-face.front.enhanced {
+    background-size: cover;
+    background-position: center;
+    color: white;
+  }
+
+  .flip-face.front.enhanced::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+  }
+
+  .flip-face.front .card-inner {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+    z-index: 1;
+  }
+
+  .flip-face.front.enhanced .card-inner h3 {
+    color: #fff;
+  }
+
+  .flip-face.front.enhanced .card-inner p {
+    color: rgba(255, 255, 255, 0.85);
+  }
+
+  .flip-face.front.enhanced .card-inner .text-slate-600 {
+    color: rgba(255, 255, 255, 0.85);
+  }
+
+  .clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .dish-card-wrapper .flip-face.front {
+    box-shadow: 0 15px 35px rgba(15, 23, 42, 0.08);
+  }
+
+  .flip-face.front.enhanced {
+    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.25);
+  }
+</style>
+
+<script>
+  if (!window.__dishCardEnhancements) {
+    window.__dishCardEnhancements = true;
+
+    const shouldFlip = (elt) =>
+      elt && (elt.classList.contains("dish-variation-btn") || elt.classList.contains("favorite-btn"));
+
+    document.body.addEventListener("htmx:beforeRequest", function (evt) {
+      const trigger = evt.detail.elt;
+      if (shouldFlip(trigger)) {
+        const card = trigger.closest(".flip-card");
+        if (card) {
+          card.classList.add("flipped");
+        }
+      }
+    });
+
+    document.body.addEventListener("htmx:responseError", function (evt) {
+      const trigger = evt.detail.elt;
+      if (shouldFlip(trigger)) {
+        const card = trigger.closest(".flip-card");
+        if (card) {
+          card.classList.remove("flipped");
+        }
+      }
+    });
+
+    document.body.addEventListener("htmx:afterSwap", function (evt) {
+      const trigger = evt.detail.elt;
+      if (shouldFlip(trigger)) {
+        const target = evt.detail.target;
+        if (target) {
+          const card = target.classList.contains("flip-card")
+            ? target
+            : target.querySelector(".flip-card");
+          if (card) {
+            card.classList.remove("flipped");
+          }
+        }
+      }
+    });
+  }
+</script>
