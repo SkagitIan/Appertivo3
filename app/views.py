@@ -578,11 +578,156 @@ def dish_favorite_view(request, dish_id):
     return HttpResponse(html)
 
 
+@login_required
+@require_POST
 def dish_variation_view(request, dish_id):
-    """Return a variation of a dish."""
-    dish = get_object_or_404(models.DishIdea, id=dish_id)
-    variation = llm.generate_dishes(dish.title)[0]
-    return JsonResponse({"title": variation["title"]})
+    """Return a freshly generated variation of a dish."""
+    dish = get_object_or_404(
+        models.DishIdea.objects.select_related(
+            "restaurant", "parent_concept", "parent_dish", "ideation_run"
+        ),
+        id=dish_id,
+    )
+
+    base_dish = dish.parent_dish or dish
+    concept = dish.parent_concept
+    restaurant = dish.restaurant
+
+    restaurant_payload = restaurant.context_json or {}
+    menu_markdown = restaurant.primary_menu_url or ""
+    context = serialize_restaurant_context(restaurant_payload, menu_markdown, concept)
+
+    existing_variations = list(
+        models.DishIdea.objects.filter(parent_dish=base_dish).order_by("created_at")
+    )
+    previous_titles = [base_dish.title] + [v.title for v in existing_variations]
+    variation_number = len(existing_variations) + 1
+
+    schema = {
+        "name": "dish_variation",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "title": {"type": "string"},
+                "description": {"type": "string"},
+                "ingredient_overlap": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
+                "category_tags": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
+            },
+            "required": [
+                "title",
+                "description",
+                "ingredient_overlap",
+                "category_tags",
+            ],
+            "additionalProperties": False,
+        },
+        "type": "json_schema",
+        "strict": True,
+    }
+
+    variation_payload = {
+        "context": context,
+        "original_dish": {
+            "title": base_dish.title,
+            "description": base_dish.description,
+            "ingredient_overlap": getattr(base_dish, "ingredient_names", []),
+            "category_tags": base_dish.category_tags,
+        },
+        "previous_variations": [
+            {
+                "title": v.title,
+                "description": v.description,
+            }
+            for v in existing_variations
+        ],
+    }
+
+    result = None
+    max_attempts = 3
+
+    for attempt in range(max_attempts):
+        attempt_number = variation_number + attempt
+        prompt = (
+            "Generate a fresh culinary variation number {num} for the dish "
+            "'{title}' that fits the restaurant context and concept. Avoid repeating "
+            "any of these titles: {avoid}. Provide descriptive but concise copy."
+        ).format(
+            num=attempt_number,
+            title=base_dish.title,
+            avoid=", ".join(previous_titles) if previous_titles else "none",
+        )
+
+        try:
+            if client:
+                response = client.responses.create(
+                    model="gpt-4.1",
+                    input=[
+                        {"role": "user", "content": prompt},
+                        {"role": "user", "content": json.dumps(variation_payload, indent=2)},
+                    ],
+                    text={"format": schema},
+                )
+                raw_text = response.output[0].content[0].text
+                candidate = json.loads(raw_text)
+            else:
+                candidate = {
+                    "title": f"{base_dish.title} Variation {attempt_number}",
+                    "description": (
+                        f"A playful take on {base_dish.title} inspired by variation {attempt_number}."
+                    ),
+                    "ingredient_overlap": list(
+                        getattr(base_dish, "ingredient_names", [])[:3]
+                    ),
+                    "category_tags": list(base_dish.category_tags or []),
+                }
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.exception("Dish variation generation failed: %s", exc)
+            candidate = None
+
+        if candidate and candidate.get("title") not in previous_titles:
+            result = candidate
+            break
+
+        if candidate:
+            previous_titles.append(candidate.get("title"))
+
+    if not result:
+        result = {
+            "title": f"{base_dish.title} Variation {variation_number}",
+            "description": (
+                f"A creative riff on {base_dish.title} with new textures and flavors."
+            ),
+            "ingredient_overlap": list(getattr(base_dish, "ingredient_names", [])[:3]),
+            "category_tags": list(base_dish.category_tags or []),
+        }
+
+    ingredient_overlap = result.get("ingredient_overlap") or []
+    category_tags = result.get("category_tags") or []
+
+    new_dish = models.DishIdea.objects.create(
+        restaurant=restaurant,
+        ideation_run=dish.ideation_run,
+        parent_concept=concept,
+        parent_dish=base_dish,
+        title=result["title"],
+        description=result["description"],
+        ingredient_names=ingredient_overlap,
+        category_tags=category_tags,
+    )
+
+    new_dish.is_favorited = False
+    new_dish.ingredient_overlap = new_dish.ingredient_names
+
+    html = render_to_string(
+        "dishes/_dish_card.html", {"dish": new_dish}, request=request
+    )
+    return HttpResponse(html)
 
 
 @login_required
