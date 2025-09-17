@@ -48,6 +48,77 @@ class ConceptGridViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "concept-card", count=9)
 
+
+@override_settings(SECURE_SSL_REDIRECT=False)
+class DishVariationViewTests(TestCase):
+    """Ensure dish variations can be generated on demand."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="chef@example.com", password="pass1234"
+        )
+        account = models.Account.objects.create(name="Chef Co")
+        models.Membership.objects.create(
+            account=account, user=self.user, role=models.Membership.Role.OWNER
+        )
+        self.restaurant = models.Restaurant.objects.create(
+            account=account,
+            name="Flavor Town",
+            location_text="Somewhere",
+            context_json={"name": "Flavor Town"},
+        )
+        concept_run = models.IdeationRun.objects.create(
+            restaurant=self.restaurant,
+            initiated_by_user=self.user,
+            type=models.IdeationRun.RunType.CONCEPTS,
+            model_name="mock",
+            temperature=0,
+            classic_creative=50,
+            context_snapshot={},
+            status=models.IdeationRun.Status.SUCCEEDED,
+        )
+        self.concept = models.Concept.objects.create(
+            restaurant=self.restaurant,
+            ideation_run=concept_run,
+            name="Garden Fresh",
+            subtitle="",
+            rank_order=1,
+        )
+        dish_run = models.IdeationRun.objects.create(
+            restaurant=self.restaurant,
+            initiated_by_user=self.user,
+            type=models.IdeationRun.RunType.DISHES,
+            model_name="mock",
+            temperature=0,
+            classic_creative=50,
+            context_snapshot={},
+            parent_concept=self.concept,
+            status=models.IdeationRun.Status.SUCCEEDED,
+        )
+        self.dish = models.DishIdea.objects.create(
+            restaurant=self.restaurant,
+            ideation_run=dish_run,
+            parent_concept=self.concept,
+            title="Sunrise Salad",
+            description="Citrus-dressed greens.",
+            ingredient_names=["orange", "mint"],
+            category_tags=["salad"],
+        )
+
+    @patch("app.views.client", new=None)
+    def test_variation_request_creates_child_dish(self, _client=None):
+        self.client.login(username="chef@example.com", password="pass1234")
+        url = reverse("dish-variation", args=[self.dish.id])
+        response = self.client.post(url, HTTP_HX_REQUEST="true")
+
+        self.assertEqual(response.status_code, 200)
+        children = models.DishIdea.objects.filter(parent_dish=self.dish)
+        self.assertEqual(children.count(), 1)
+        new_dish = children.first()
+        self.assertIn(str(new_dish.id), response.content.decode())
+        self.assertTrue(new_dish.title.startswith(self.dish.title))
+
+
 @override_settings(SECURE_SSL_REDIRECT=False)
 class TaskExecutionTests(TestCase):
     """Tests for external API tasks."""
