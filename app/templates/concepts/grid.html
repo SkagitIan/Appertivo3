@@ -114,6 +114,7 @@ transform: rotateY(180deg);
   </div>
 </div>
 <script>
+
   document.body.addEventListener("htmx:beforeRequest", function (evt) {
     const trigger = evt.detail.elt;
     if (!trigger || trigger.classList.contains("concept-favorite-btn")) {
@@ -125,5 +126,6 @@ transform: rotateY(180deg);
       card.classList.add("flipped");
     }
   });
+
 </script>
 {% endblock %}
