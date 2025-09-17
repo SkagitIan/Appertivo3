@@ -11,7 +11,7 @@ from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_http_methods, require_POST
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 from . import models
 from django.template.loader import render_to_string
 from pydantic import BaseModel
@@ -382,6 +382,20 @@ def concept_favorite_view(request, concept_id):
         request=request,
     )
     return HttpResponse(html)
+
+
+@login_required
+@require_GET
+def concept_background_view(request, concept_id):
+    """Return the lazy-loaded background sketch for a concept card."""
+
+    concept = get_object_or_404(models.Concept, id=concept_id)
+    image_url = llm.generate_concept_sketch(concept)
+    return render(
+        request,
+        "concepts/_concept_background.html",
+        {"image_url": image_url},
+    )
 
 def serialize_restaurant_context(restaurant_payload, menu_markdown, concept):
     """Return a slim JSON-serializable context for dish generation."""

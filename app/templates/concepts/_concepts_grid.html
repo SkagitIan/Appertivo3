@@ -4,11 +4,17 @@
         hx-post="{% url 'dishes-generate' concept.id %}" hx-target="#concepts-grid" hx-swap="innerHTML"
         hx-trigger="click">
         <div
-          class="flip-face front bg-white p-6 rounded-2xl shadow-md border border-slate-200 transition cursor-pointer hover:shadow-lg">
-          <h2 class="text-xl font-bold text-[#49475B]">{{ concept.name }}</h2>
-          <p class="subtitle">{{ concept.subtitle }}</p>
-          <div class="mt-4 flex justify-between items-center">
-            {% include "concepts/_favorite_button.html" %}
+          class="flip-face front bg-white p-6 rounded-2xl shadow-md border border-slate-200 transition cursor-pointer hover:shadow-lg relative overflow-hidden">
+          <div class="concept-card-background concept-card-background--loading" aria-hidden="true"
+            hx-get="{% url 'concept-background' concept.id %}" hx-trigger="load" hx-target="this" hx-swap="outerHTML">
+          </div>
+          <div class="concept-card-overlay" aria-hidden="true"></div>
+          <div class="relative z-10 flex flex-col h-full">
+            <h2 class="text-xl font-bold text-[#49475B] drop-shadow-sm">{{ concept.name }}</h2>
+            <p class="subtitle mt-2 text-slate-700 drop-shadow-sm">{{ concept.subtitle }}</p>
+            <div class="mt-4 flex justify-between items-center">
+              {% include "concepts/_favorite_button.html" %}
+            </div>
           </div>
         </div>
         <div class="flip-face flip-back bg-slate-800 text-white p-6 rounded-2xl">
