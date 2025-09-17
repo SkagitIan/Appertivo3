@@ -270,6 +270,9 @@ def concepts_view(request):
             )
         )
     concepts = list(concepts_qs[:9])
+    for concept in concepts:
+        favorites = getattr(concept, "_favorites_for_request_user", [])
+        concept.is_favorited_for_user = bool(favorites)
     return render(request, "concepts/grid.html", {"concepts": concepts})
 
 
@@ -352,16 +355,18 @@ def concepts_generate_view(request):
     )
 
     concepts = [
-            models.Concept.objects.create(
-                restaurant=restaurant,
-                ideation_run=run,
-                name=item["title"],
-                subtitle=item["subtitle"],
-                rank_order=idx,
-            )
-            for idx, item in enumerate(names, start=1)
-        ]
+        models.Concept.objects.create(
+            restaurant=restaurant,
+            ideation_run=run,
+            name=item["title"],
+            subtitle=item["subtitle"],
+            rank_order=idx,
+        )
+        for idx, item in enumerate(names, start=1)
+    ]
 
+    for concept in concepts:
+        concept.is_favorited_for_user = False
 
     return render(request, "concepts/_concepts_grid.html", {"concepts": concepts})
 
@@ -376,25 +381,14 @@ def concept_favorite_view(request, concept_id):
         fav.delete()
         favorited = False
 
+    concept.is_favorited_for_user = favorited
+
     # Always return the updated button immediately
     button_html = render_to_string(
         "concepts/_favorite_button.html",
         {"concept": concept, "favorited": favorited},
         request=request,
     )
-
-    if favorited:
-        # Generate background HTML with OOB swap
-        background_html = render_to_string(
-            "concepts/_concept_background.html",
-            {"concept": concept, "image_url": llm.generate_concept_sketch(concept)},
-            request=request,
-        )
-        # Add `hx-swap-oob="true"` so it swaps separately
-        background_html = background_html.replace(
-            '<div', '<div hx-swap-oob="true"', 1
-        )
-        return HttpResponse(button_html + background_html)
 
     return HttpResponse(button_html)
 
