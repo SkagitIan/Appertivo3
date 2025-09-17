@@ -109,7 +109,11 @@ class ViewSmokeTests(TestCase):
         self._create_concepts()
         concept = models.Concept.objects.first()
         resp = self.client.post(reverse("concept-favorite", args=[concept.id]))
-        self.assertTrue(resp.json()["favorited"])
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(
+            models.FavoriteConcept.objects.filter(user=self.user, concept=concept).exists()
+        )
+        self.assertIn("hx-swap-oob=\"true\"", resp.content.decode())
 
     def test_concepts_page_marks_existing_favorites(self):
         self._create_concepts()

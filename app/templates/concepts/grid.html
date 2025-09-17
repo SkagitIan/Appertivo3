@@ -115,7 +115,14 @@ transform: rotateY(180deg);
 </div>
 <script>
   document.body.addEventListener("htmx:beforeRequest", function (evt) {
-    const card = evt.detail.elt.closest(".flip-card");
+    const trigger = evt.detail.elt;
+    if (!trigger) {
+      return;
+    }
+    if (trigger.classList.contains("concept-favorite-btn")) {
+      return;
+    }
+    const card = trigger.closest(".flip-card");
     if (card) {
       card.classList.add("flipped");
     }
