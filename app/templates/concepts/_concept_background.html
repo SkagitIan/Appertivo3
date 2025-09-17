@@ -1,1 +1,7 @@
-<div class="concept-card-background concept-card-background--loaded" style="background-image: url('{{ image_url }}');" aria-hidden="true"></div>
+<div
+  id="concept-{{ concept.id }}-background"
+  class="concept-card-background {% if image_url %}concept-card-background--loaded{% else %}concept-card-background--loading{% endif %}"
+  {% if image_url %}style="background-image: url('{{ image_url }}');"{% endif %}
+  aria-hidden="true"
+  hx-swap-oob="true"
+></div>
