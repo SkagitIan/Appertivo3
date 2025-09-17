@@ -296,7 +296,7 @@ def concepts_generate_view(request):
                             "type": "object",
                             "properties": {
                                 "title": {"type": "string", "maxLength": 30},
-                                "subtitle": {"type": "string", "maxLength": 50}
+                                "subtitle": {"type": "string", "maxLength": 80}
                             },
                             "required": ["title", "subtitle"],
                             "additionalProperties": False
