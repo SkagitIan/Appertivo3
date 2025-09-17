@@ -1,6 +1,6 @@
 <button
   type="button"
-  onclick="event.stopPropagation();"
+  hx-on::click="event.stopPropagation()"
   hx-post="{% url 'concept-favorite' concept.id %}"
   hx-target="this"
   hx-swap="outerHTML"
