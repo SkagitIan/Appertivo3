@@ -166,6 +166,7 @@ class TaskExecutionTests(TestCase):
         self.assertEqual(payload.status, models.OutscraperPayload.Status.SUCCEEDED)
         self.assertEqual(payload.discovered_menu_url, "http://example.com/menu")
         self.assertEqual(self.restaurant.primary_menu_url, "http://example.com/menu")
+        self.assertEqual(self.restaurant.menu_urls, ["http://example.com/menu"])
         self.assertEqual(models.MenuVersion.objects.count(), 1)
         menu_version = models.MenuVersion.objects.get()
         self.assertEqual(menu_version.status, models.MenuVersion.Status.QUEUED)

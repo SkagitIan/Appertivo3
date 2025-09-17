@@ -48,7 +48,7 @@ def run_outscraper_search(payload_id: str) -> dict:
         restaurant.location_text = business.get("full_address", restaurant.location_text)
         menu_url = business.get("menu_link") or business.get("menu_url")
         if menu_url:
-            restaurant.primary_menu_url = menu_url
+            restaurant.add_menu_url(menu_url)
         restaurant.phone = business.get("phone")
         restaurant.website = business.get("site")
         restaurant.google_place_id = business.get("place_id")
@@ -179,8 +179,8 @@ def scrape_menu(self, menu_version_id: str) -> str:
             restaurant = mv.restaurant
             restaurant.active_menu_version = mv
             if mv.source_url and not restaurant.primary_menu_url:
-                restaurant.primary_menu_url = mv.source_url
-            restaurant.save(update_fields=["active_menu_version", "primary_menu_url"])
+                restaurant.add_menu_url(mv.source_url)
+            restaurant.save(update_fields=["active_menu_version", "primary_menu_url", "menu_urls"])
         logger.info("Restaurant %s active_menu_version set to %s", restaurant.id, mv.id)
     except Exception as exc:
         logger.error("Failed to update restaurant %s with menu version %s: %s",
