@@ -203,9 +203,15 @@ def generate_dishes_task(concept: str) -> list:
 
 
 @shared_task
-def enhance_dish_task(title: str) -> dict:
-    """Wrapper task around dish enhancement."""
-    return llm.enhance_dish(title)
+def enhance_dish_task(dish_id: str) -> dict:
+    """Trigger dish enhancement via background worker."""
+    try:
+        dish = models.DishIdea.objects.select_related("restaurant").get(id=dish_id)
+    except models.DishIdea.DoesNotExist:  # pragma: no cover - defensive
+        logger.warning("Dish %s not found for enhancement", dish_id)
+        return {}
+
+    return llm.enhance_dish(dish, dish.restaurant)
 
 
 @shared_task
