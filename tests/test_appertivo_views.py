@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -282,14 +283,34 @@ class ViewSmokeTests(TestCase):
 
         update_resp = self.client.post(
             reverse("update_restaurant_info"),
-            {"menu_url": "https://example.com/new-menu"},
+            {
+                "form_type": "urls",
+                "menu_urls": "https://example.com/new-menu\nhttps://example.com/archive",
+            },
         )
         self.assertEqual(update_resp.status_code, 302)
         self.restaurant.refresh_from_db()
         self.assertEqual(self.restaurant.primary_menu_url, "https://example.com/new-menu")
+        self.assertEqual(
+            self.restaurant.menu_urls,
+            ["https://example.com/new-menu", "https://example.com/archive"],
+        )
 
-        self.restaurant.primary_menu_url = "https://example.com/menu"
-        self.restaurant.save(update_fields=["primary_menu_url"])
+        content_resp = self.client.post(
+            reverse("update_restaurant_info"),
+            {"form_type": "content", "menu_text": "Updated Menu"},
+        )
+        self.assertEqual(content_resp.status_code, 302)
+        self.restaurant.refresh_from_db()
+        latest_version = self.restaurant.active_menu_version
+        self.assertIsNotNone(latest_version)
+        self.assertEqual(latest_version.raw_markdown, "Updated Menu")
+        self.assertEqual(
+            latest_version.source_kind, models.MenuVersion.SourceKind.PASTED_TEXT
+        )
+
+        self.restaurant.set_menu_urls(["https://example.com/menu"])
+        self.restaurant.save(update_fields=["menu_urls", "primary_menu_url"])
         with patch("app.views.scrape_menu.delay") as mock_delay:
             rescrape = self.client.post(
                 reverse("settings-rescrape-menu", args=[self.restaurant.id])
@@ -312,15 +333,15 @@ class ViewSmokeTests(TestCase):
         )
 
     def test_dashboard_prompts_for_menu_when_missing(self):
-        self.restaurant.primary_menu_url = None
-        self.restaurant.save(update_fields=["primary_menu_url"])
+        self.restaurant.set_menu_urls([])
+        self.restaurant.save(update_fields=["menu_urls", "primary_menu_url"])
 
         response = self.client.get(reverse("dashboard", args=[self.restaurant.id]))
         self.assertContains(response, "show_menu_modal")
 
     def test_dashboard_does_not_prompt_when_menu_exists(self):
-        self.restaurant.primary_menu_url = "https://example.com/menu"
-        self.restaurant.save(update_fields=["primary_menu_url"])
+        self.restaurant.set_menu_urls(["https://example.com/menu"])
+        self.restaurant.save(update_fields=["menu_urls", "primary_menu_url"])
 
         response = self.client.get(reverse("dashboard", args=[self.restaurant.id]))
         self.assertNotIn("show_menu_modal", response.content.decode())
@@ -331,8 +352,8 @@ class ViewSmokeTests(TestCase):
         self.assertNotIn("_auth_user_id", self.client.session)
 
     def test_rescrape_menu_requires_url(self):
-        self.restaurant.primary_menu_url = None
-        self.restaurant.save(update_fields=["primary_menu_url"])
+        self.restaurant.set_menu_urls([])
+        self.restaurant.save(update_fields=["menu_urls", "primary_menu_url"])
         with patch("app.views.scrape_menu.delay") as mock_delay:
             resp = self.client.post(
                 reverse("settings-rescrape-menu", args=[self.restaurant.id])
@@ -341,6 +362,24 @@ class ViewSmokeTests(TestCase):
         self.assertEqual(resp.json()["error"], "missing_menu_url")
         self.assertFalse(models.MenuVersion.objects.exists())
         mock_delay.assert_not_called()
+
+    @patch("app.views.parse_pdf_menu.delay")
+    def test_settings_pdf_upload_queues_processing(self, mock_parse):
+        pdf_file = SimpleUploadedFile(
+            "menu.pdf", b"%PDF-1.4 test", content_type="application/pdf"
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            resp = self.client.post(
+                reverse("update_restaurant_info"),
+                {"form_type": "content", "menu_pdf": pdf_file},
+            )
+
+        self.assertEqual(resp.status_code, 302)
+        mv = models.MenuVersion.objects.latest("created_at")
+        self.assertEqual(mv.status, models.MenuVersion.Status.QUEUED)
+        self.assertEqual(mv.source_kind, models.MenuVersion.SourceKind.IMAGE_OCR)
+        mock_parse.assert_called_once()
 
     def test_billing_views(self):
         resp = self.client.get(reverse("billing"))

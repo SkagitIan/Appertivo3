@@ -34,7 +34,13 @@ class RestaurantAdmin(admin.ModelAdmin):
 
     fieldsets = (
         ("Core Info", {
-            "fields": ("account", "name", "location_text", "primary_menu_url")
+            "fields": (
+                "account",
+                "name",
+                "location_text",
+                "primary_menu_url",
+                "menu_urls",
+            )
         }),
         ("Outscraper Data", {
             "fields": (

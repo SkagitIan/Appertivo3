@@ -78,6 +78,7 @@ class RestaurantStatusViewTests(TestCase):
         self.assertContains(response, "We’re building your AI menu assistant")
         self.restaurant.refresh_from_db()
         self.assertEqual(self.restaurant.primary_menu_url, "http://example.com/menu")
+        self.assertEqual(self.restaurant.menu_urls, ["http://example.com/menu"])
 
     def test_upload_menu_with_text_marks_ready(self):
         url = reverse("upload_menu", args=[self.restaurant.id])
