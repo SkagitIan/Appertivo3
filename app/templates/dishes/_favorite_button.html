@@ -1,0 +1,13 @@
+<button
+  hx-post="{% url 'dish_favorite' dish.id %}"
+  hx-trigger="click"
+  hx-swap="outerHTML"
+  class="favorite-btn text-[#f08000] transition"
+  aria-label="Favorite {{ dish.title }}"
+>
+  {% if dish.is_favorited %}
+    ❤️
+  {% else %}
+    🤍
+  {% endif %}
+</button>

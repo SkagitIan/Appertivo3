@@ -9,7 +9,6 @@ urlpatterns = [
     path("signup/", app_views.signup_view, name="signup"),
     path("login/", app_views.login_view, name="login"),
     path("logout/", app_views.logout_view, name="logout"),
-    path("dashboard/", app_views.dashboard_redirect, name="dashboard-redirect"),
     path("dashboard/<uuid:restaurant_id>/", app_views.dashboard, name="dashboard"),
 
 
@@ -23,9 +22,9 @@ urlpatterns = [
     path("concepts/", app_views.concepts_view, name="concepts"),
     path("concepts/generate/", app_views.concepts_generate_view, name="concepts-generate"),
     path("concepts/<uuid:concept_id>/favorite/", app_views.concept_favorite_view, name="concept-favorite"),
-    path("dishes/<uuid:concept_id>/", app_views.dishes_view, name="dishes"),
     path("dishes/<uuid:concept_id>/generate/", app_views.dishes_generate_view, name="dishes-generate"),
-    path("dishes/favorite/<uuid:dish_id>/", app_views.dish_favorite_view, name="dish-favorite"),
+
+    path("dishes/<uuid:dish_id>/favorite/", app_views.dish_favorite_view, name="dish_favorite"),
     path("dishes/variation/<uuid:dish_id>/", app_views.dish_variation_view, name="dish-variation"),
     path("favorites/", app_views.favorites_view, name="favorites"),
     path("menus/", app_views.menus_view, name="menus"),
@@ -51,7 +50,5 @@ urlpatterns = [
     path("notifications/", app_views.notification_list_view, name="notification-list"),
     # Existing API and sample views
     path("api/signup/", app_views.signup_view, name="api-signup"),
-    path("concepts-old/", app_views.concept_grid, name="concept-grid"),
-    path("concepts-old/<str:concept_name>/dishes/", app_views.dish_grid, name="dish-grid"),
     path("admin/", admin.site.urls),
 ]

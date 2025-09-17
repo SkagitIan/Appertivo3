@@ -6,6 +6,7 @@
   <title>{% block title %}Appertivo{% endblock %}</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" />
 
 <script>
   document.addEventListener("DOMContentLoaded", function () {
@@ -39,7 +40,6 @@
 
         <!-- Desktop Nav -->
         <nav class="hidden md:flex space-x-6">
-          <a href="" class="hover:text-[#B993D6]">Dashboard</a>
           <a href="{% url 'concepts' %}" class="hover:text-[#B993D6]">Concepts</a>
           <a href="{% url 'favorites' %}" class="hover:text-[#B993D6]">Favorites</a>
           <a href="{% url 'settings' %}" class="hover:text-[#B993D6]">Settings</a>
@@ -47,7 +47,7 @@
 
         <!-- Right: User dropdown (optional) -->
         <div class="hidden md:flex items-center space-x-4">
-          <span class="text-sm text-slate-600">{{ request.user.email }}</span>
+          <span class="text-sm text-slate-600">{{restaurant}}</span>
           <a href="{% url 'logout' %}"
              class="bg-[#f08000] text-white px-3 py-1 rounded-lg hover:bg-[#d96f00]">
             Logout
@@ -81,7 +81,7 @@
 
   <!-- MAIN CONTENT -->
   <main class="flex-1">
-    <div class="max-w-7xl mx-auto p-6">
+    <div class="max-w-7xl mx-auto p-6" id="main_content">
       {% block content %}
       <!-- Child templates inject content here -->
       {% endblock %}
