@@ -8,43 +8,57 @@
         style="background-image: url('{{ dish.enhancement_image_url }}');"
       {% endif %}
     >
-      <div class="card-inner p-6 gap-4">
-        <div>
+      <div class="card-inner p-6 pb-14 gap-4">
+        <div class="card-content">
           <h3 class="text-lg font-bold text-[#49475B]">{{ dish.title }}</h3>
           {% if dish.description %}
             <p class="text-slate-600 mt-2 clamp-3">{{ dish.description }}</p>
           {% endif %}
           <div class="mt-3 flex flex-wrap gap-2">
             {% if dish.enhancement_price_display %}
-              <span class="px-2 py-1 rounded-full bg-red-600 text-white text-xs font-semibold">
+              <span class="dish-tag dish-tag--price">
                 {{ dish.enhancement_price_display }}
               </span>
             {% endif %}
             {% for tag in dish.category_tags %}
-              <span class="px-2 py-1 rounded-full bg-[#B993D6]/10 text-[#49475B] text-xs">{{ tag }}</span>
+              <span class="dish-tag dish-tag--category">{{ tag }}</span>
             {% endfor %}
             {% with ingredients=dish.ingredient_overlap %}
               {% if ingredients %}
                 {% for tag in ingredients %}
-                  <span class="px-2 py-1 rounded-full bg-[#8E008B]/10 text-[#49475B] text-xs">{{ tag }}</span>
+                  <span class="dish-tag dish-tag--ingredient">{{ tag }}</span>
                 {% endfor %}
               {% endif %}
             {% endwith %}
           </div>
         </div>
-        <div class="mt-4 flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            {% include "dishes/_favorite_button.html" with dish=dish card_context=context_name %}
-            <button
-              type="button"
-              class="dish-variation-btn text-slate-500 hover:text-slate-700 transition"
-              hx-post="{% url 'dish-variation' dish.id %}"
-              hx-trigger="click"
-              hx-target="closest .dish-card-wrapper"
-              hx-swap="outerHTML"
-              aria-label="Generate a variation of {{ dish.title }}"
-            >♻️</button>
-          </div>
+        <div class="card-footer mt-auto">
+          {% if dish.is_enhanced %}
+            <div class="card-action-tab">
+              <button
+                type="button"
+                class="dish-delete-btn card-action-button text-white transition"
+                hx-post="{% url 'dish-delete' dish.id %}"
+                hx-trigger="click"
+                hx-target="closest .dish-card-wrapper"
+                hx-swap="outerHTML"
+                aria-label="Delete {{ dish.title }}"
+              >🗑️</button>
+            </div>
+          {% else %}
+            <div class="card-action-tab">
+              {% include "dishes/_favorite_button.html" with dish=dish card_context=context_name %}
+              <button
+                type="button"
+                class="dish-variation-btn card-action-button text-slate-500 hover:text-slate-700 transition"
+                hx-post="{% url 'dish-variation' dish.id %}"
+                hx-trigger="click"
+                hx-target="closest .dish-card-wrapper"
+                hx-swap="outerHTML"
+                aria-label="Generate a variation of {{ dish.title }}"
+              >♻️</button>
+            </div>
+          {% endif %}
         </div>
       </div>
     </div>
