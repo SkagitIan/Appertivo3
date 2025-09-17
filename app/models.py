@@ -1,6 +1,7 @@
 """Database models for the app."""
 
 import uuid
+from typing import Iterable, List
 
 from django.conf import settings
 from django.db import models
@@ -51,6 +52,7 @@ class Restaurant(TimestampedModel):
     name = models.TextField()
     location_text = models.TextField()
     primary_menu_url = models.TextField(null=True, blank=True)
+    menu_urls = models.JSONField(default=list, blank=True)
 
     # Outscraper context fields
     phone = models.TextField(null=True, blank=True)
@@ -76,6 +78,27 @@ class Restaurant(TimestampedModel):
 
     def __str__(self):
         return self.name
+
+    def set_menu_urls(self, urls: Iterable[str]) -> None:
+        """Store a unique, ordered list of menu URLs."""
+
+        cleaned: List[str] = []
+        for url in urls:
+            normalized = (url or "").strip()
+            if not normalized:
+                continue
+            if normalized not in cleaned:
+                cleaned.append(normalized)
+
+        self.menu_urls = cleaned
+        self.primary_menu_url = cleaned[0] if cleaned else None
+
+    def add_menu_url(self, url: str) -> None:
+        """Append a URL to the stored list if missing."""
+
+        current = list(self.menu_urls or [])
+        current.insert(0, url)
+        self.set_menu_urls(current)
 
 class OutscraperPayload(TimestampedModel):
     """Tracks Outscraper requests for a restaurant."""
