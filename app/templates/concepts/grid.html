@@ -52,7 +52,7 @@ background: radial-gradient(circle at center, rgba(226,232,240,0.8), rgba(226,23
 opacity: 1;
 }
 .concept-card-background--loaded {
-opacity: 0.35;
+opacity:1;
 }
 .concept-card-overlay {
 position: absolute;
@@ -115,14 +115,7 @@ transform: rotateY(180deg);
 </div>
 <script>
   document.body.addEventListener("htmx:beforeRequest", function (evt) {
-    const trigger = evt.detail.elt;
-    if (!trigger) {
-      return;
-    }
-    if (trigger.classList.contains("concept-favorite-btn")) {
-      return;
-    }
-    const card = trigger.closest(".flip-card");
+    const card = evt.detail.elt.closest(".flip-card");
     if (card) {
       card.classList.add("flipped");
     }
