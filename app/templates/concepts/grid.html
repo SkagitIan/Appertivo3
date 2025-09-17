@@ -114,11 +114,25 @@ transform: rotateY(180deg);
   </div>
 </div>
 <script>
-  document.body.addEventListener("htmx:beforeRequest", function (evt) {
-    const card = evt.detail.elt.closest(".flip-card");
-    if (card) {
-      card.classList.add("flipped");
-    }
-  });
+document.body.addEventListener("htmx:beforeRequest", function (evt) {
+  const elt = evt.detail.elt;
+  if (elt.matches("[hx-post*='dishes-generate']")) {
+    const card = elt.closest(".flip-card");
+    if (card) card.classList.add("flipped");
+  }
+});
+
+document.body.addEventListener("htmx:afterSwap", function (evt) {
+  const elt = evt.detail.elt;
+  if (elt.matches("#concepts-grid")) {
+    // the grid was replaced with dishes; scroll into view
+    elt.scrollIntoView({ behavior: "smooth", block: "start" });
+  } else if (elt.matches("[hx-post*='dishes-generate']")) {
+    // reset the card flip after swap
+    const card = elt.closest(".flip-card");
+    if (card) card.classList.remove("flipped");
+  }
+});
+
 </script>
 {% endblock %}
