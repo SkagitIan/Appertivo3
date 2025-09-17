@@ -26,6 +26,7 @@ urlpatterns = [
 
     path("dishes/<uuid:dish_id>/favorite/", app_views.dish_favorite_view, name="dish_favorite"),
     path("dishes/variation/<uuid:dish_id>/", app_views.dish_variation_view, name="dish-variation"),
+    path("dishes/<uuid:dish_id>/delete/", app_views.dish_delete_view, name="dish-delete"),
     path("favorites/", app_views.favorites_view, name="favorites"),
     path("menus/", app_views.menus_view, name="menus"),
     path("favorites/remove/<str:type>/<uuid:id>/", app_views.favorite_remove_view, name="favorite-remove"),
