@@ -399,6 +399,8 @@ def concept_favorite_view(request, concept_id):
 
     concept.is_favorited_for_user = favorited
 
+    concept.is_favorited_for_user = favorited
+
     # Always return the updated button immediately
     button_html = render_to_string(
         "concepts/_favorite_button.html",
