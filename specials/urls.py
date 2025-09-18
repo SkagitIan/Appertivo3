@@ -37,6 +37,9 @@ urlpatterns = [
     path("favorites/remove/<str:type>/<uuid:id>/", app_views.favorite_remove_view, name="favorite-remove"),
     path("menus/create/", app_views.menu_collection_create_view, name="menu-collection-create"),
     path("menus/add/<uuid:dish_id>/<uuid:collection_id>/", app_views.menu_item_add_view, name="menu-item-add"),
+    path("menus/<uuid:collection_id>/rename/", app_views.menu_collection_update_view, name="menu-collection-rename"),
+    path("menus/<uuid:collection_id>/delete/", app_views.menu_collection_delete_view, name="menu-collection-delete"),
+    path("menus/item/move/", app_views.menu_item_move_view, name="menu-item-move"),
     ##settings page
     path("settings/", app_views.settings_view, name="settings"),
     path("settings/info/", app_views.update_restaurant_info, name="update_restaurant_info"),

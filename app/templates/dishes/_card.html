@@ -48,6 +48,17 @@
           {% else %}
             <div class="card-action-tab">
               {% include "dishes/_favorite_button.html" with dish=dish card_context=context_name %}
+              {% if context_name == 'favorites' %}
+                <button
+                  type="button"
+                  class="card-action-button text-slate-500 hover:text-slate-700 transition"
+                  data-menu-trigger
+                  title="Assign to menu"
+                >
+                  <i class="fa-solid fa-ellipsis"></i>
+                  <span class="sr-only">Assign {{ dish.title }} to a menu</span>
+                </button>
+              {% endif %}
               <button
                 type="button"
                 class="dish-variation-btn card-action-button text-slate-500 hover:text-slate-700 transition"
