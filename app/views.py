@@ -1,21 +1,25 @@
 """Application views."""
 
 import json, logging, os, uuid
+from typing import Iterable, List, Optional
+
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django.db import IntegrityError, transaction
 from django.db.models import Prefetch
 from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
-from . import models
-from django.template.loader import render_to_string
 from pydantic import BaseModel
-from typing import Iterable, List, Optional
+
+from . import models
 
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -104,6 +108,7 @@ def signup_view(request):
                     name=restaurant_name,
                     location_text=location,
                     primary_menu_url=menu_url,
+                    menu_urls=[menu_url] if menu_url else [],
                 )
 
                 if menu_url:
@@ -376,21 +381,41 @@ def concept_favorite_view(request, concept_id):
     fav, created = models.FavoriteConcept.objects.get_or_create(
         user=request.user, concept=concept, defaults={"favorited_at": timezone.now()}
     )
+    image_url = concept.sketch_image_url
     favorited = created
-    if not created:
+
+    if created:
+        if not image_url:
+            image_url = llm.generate_concept_sketch(concept)
+            concept.sketch_image_url = image_url
+            concept.save(update_fields=["sketch_image_url"])
+    else:
         fav.delete()
         favorited = False
+        if image_url:
+            concept.sketch_image_url = None
+            concept.save(update_fields=["sketch_image_url"])
+        image_url = None
+
+    concept.is_favorited_for_user = favorited
 
     concept.is_favorited_for_user = favorited
 
     # Always return the updated button immediately
     button_html = render_to_string(
         "concepts/_favorite_button.html",
-        {"concept": concept, "favorited": favorited},
+        {"concept": concept, "favorited": favorited, "trigger_loader": favorited},
         request=request,
     )
+    if favorited:
+        return HttpResponse(button_html)
 
-    return HttpResponse(button_html)
+    background_html = render_to_string(
+        "concepts/_concept_background.html",
+        {"concept": concept, "image_url": None, "swap_oob": True},
+        request=request,
+    )
+    return HttpResponse(button_html + background_html)
 
 
 
@@ -400,7 +425,11 @@ def concept_background_view(request, concept_id):
     """Return the lazy-loaded background sketch for a concept card."""
 
     concept = get_object_or_404(models.Concept, id=concept_id)
-    image_url = llm.generate_concept_sketch(concept)
+    image_url = concept.sketch_image_url
+    if not image_url:
+        image_url = llm.generate_concept_sketch(concept)
+        concept.sketch_image_url = image_url
+        concept.save(update_fields=["sketch_image_url"])
     return render(
         request,
         "concepts/_concept_background.html",
@@ -928,7 +957,7 @@ def favorites_view(request):
     )
     favorite_concepts = (
         models.FavoriteConcept.objects.filter(user=request.user)
-        .select_related("concept__restaurant")
+        .select_related("concept", "concept__restaurant")
         .order_by("-favorited_at")
     )
     favorite_dishes = list(
@@ -949,12 +978,23 @@ def favorites_view(request):
     return render(request, "favorites/dashboard.html", ctx)
 
 
+@login_required
+@require_POST
 def favorite_remove_view(request, type, id):
     """Remove a favorite concept or dish."""
     if type == "concept":
-        models.FavoriteConcept.objects.filter(user=request.user, concept_id=id).delete()
+        favorite = get_object_or_404(
+            models.FavoriteConcept, user=request.user, concept_id=id
+        )
+        concept = favorite.concept
+        favorite.delete()
+        if concept.sketch_image_url:
+            concept.sketch_image_url = None
+            concept.save(update_fields=["sketch_image_url"])
     else:
         models.FavoriteDish.objects.filter(user=request.user, dish_id=id).delete()
+    if request.headers.get("HX-Request"):
+        return HttpResponse("")
     return JsonResponse({"removed": True})
 
 
@@ -1004,9 +1044,25 @@ def update_restaurant_info(request):
     if not restaurant:
         return redirect("settings")
 
-    menu_url = (request.POST.get("menu_url") or "").strip() or None
-    restaurant.primary_menu_url = menu_url
-    restaurant.save(update_fields=["primary_menu_url"])
+    form_type = request.POST.get("form_type") or "urls"
+
+    if form_type == "content":
+        menu_text = (request.POST.get("menu_text") or "").strip()
+        menu_pdf = request.FILES.get("menu_pdf")
+        if menu_text or menu_pdf:
+            _process_menu_submission(restaurant, None, menu_text, menu_pdf)
+        return redirect("settings")
+
+    raw_urls = request.POST.get("menu_urls")
+    if raw_urls is None:
+        menu_url = (request.POST.get("menu_url") or "").strip()
+        urls = [menu_url] if menu_url else []
+    else:
+        normalized = raw_urls.replace("\r", "\n").replace(",", "\n")
+        urls = [line.strip() for line in normalized.split("\n") if line.strip()]
+
+    restaurant.set_menu_urls(urls)
+    restaurant.save(update_fields=["menu_urls", "primary_menu_url"])
 
     ingredient_names = [
         name.strip()
@@ -1131,8 +1187,64 @@ def show_menu_modal(request, restaurant_id):
     return render(request, "_partials/menu_modal.html", {"restaurant": restaurant})
 
 
-from django.core.files.storage import default_storage
-from django.core.files.base import ContentFile
+def _process_menu_submission(
+    restaurant: models.Restaurant,
+    menu_url: Optional[str],
+    menu_text: Optional[str],
+    menu_pdf,
+):
+    """Create a menu version from URL, pasted text, or uploaded PDF."""
+
+    if menu_url:
+        restaurant.add_menu_url(menu_url)
+        mv = models.MenuVersion.objects.create(
+            restaurant=restaurant,
+            source_url=menu_url,
+            source_kind=models.MenuVersion.SourceKind.URL_SCRAPE,
+            raw_markdown="",
+            status=models.MenuVersion.Status.QUEUED,
+        )
+        restaurant.active_menu_version = mv
+        restaurant.save(
+            update_fields=["menu_urls", "primary_menu_url", "active_menu_version"]
+        )
+        transaction.on_commit(lambda mv_id=str(mv.id): scrape_menu.delay(mv_id))
+        return mv
+
+    if menu_text:
+        mv = models.MenuVersion.objects.create(
+            restaurant=restaurant,
+            source_kind=models.MenuVersion.SourceKind.PASTED_TEXT,
+            raw_markdown=menu_text,
+            status=models.MenuVersion.Status.SUCCEEDED,
+        )
+        restaurant.active_menu_version = mv
+        restaurant.save(update_fields=["active_menu_version"])
+        return mv
+
+    if menu_pdf:
+        path = default_storage.save(
+            f"menus/{restaurant.id}/{menu_pdf.name}",
+            ContentFile(menu_pdf.read()),
+        )
+        mv = models.MenuVersion.objects.create(
+            restaurant=restaurant,
+            source_url=path,
+            source_kind=models.MenuVersion.SourceKind.IMAGE_OCR,
+            raw_markdown="",
+            status=models.MenuVersion.Status.QUEUED,
+        )
+        restaurant.active_menu_version = mv
+        restaurant.save(update_fields=["active_menu_version"])
+        transaction.on_commit(
+            lambda mv_id=str(mv.id), storage_path=path: parse_pdf_menu.delay(
+                mv_id, storage_path
+            )
+        )
+        return mv
+
+    return None
+
 
 def upload_menu(request, restaurant_id):
     restaurant = get_object_or_404(models.Restaurant, id=restaurant_id)
@@ -1142,44 +1254,6 @@ def upload_menu(request, restaurant_id):
         menu_text = (request.POST.get("menu_text") or "").strip()
         menu_pdf = request.FILES.get("menu_pdf")
 
-        if menu_url:
-            restaurant.primary_menu_url = menu_url
-            restaurant.save(update_fields=["primary_menu_url"])
-            mv = models.MenuVersion.objects.create(
-                restaurant=restaurant,
-                source_url=menu_url,
-                source_kind=models.MenuVersion.SourceKind.URL_SCRAPE,
-                raw_markdown="",
-                status=models.MenuVersion.Status.QUEUED,
-            )
-            transaction.on_commit(lambda mv_id=str(mv.id): scrape_menu.delay(mv_id))
-
-        elif menu_text:
-            mv = models.MenuVersion.objects.create(
-                restaurant=restaurant,
-                source_kind=models.MenuVersion.SourceKind.PASTED_TEXT,
-                raw_markdown=menu_text,
-                status=models.MenuVersion.Status.SUCCEEDED,
-            )
-            restaurant.active_menu_version = mv
-            restaurant.save(update_fields=["active_menu_version"])
-
-        elif menu_pdf:
-            path = default_storage.save(
-                f"menus/{restaurant.id}/{menu_pdf.name}",
-                ContentFile(menu_pdf.read()),
-            )
-            mv = models.MenuVersion.objects.create(
-                restaurant=restaurant,
-                source_url=path,
-                source_kind=models.MenuVersion.SourceKind.IMAGE_OCR,
-                raw_markdown="",
-                status=models.MenuVersion.Status.QUEUED,
-            )
-            transaction.on_commit(
-                lambda mv_id=str(mv.id), storage_path=path: parse_pdf_menu.delay(
-                    mv_id, storage_path
-                )
-            )
+        _process_menu_submission(restaurant, menu_url, menu_text, menu_pdf)
 
     return restaurant_status(request, restaurant_id)
