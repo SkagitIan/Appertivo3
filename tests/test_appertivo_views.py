@@ -1,3 +1,4 @@
+import json
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
@@ -219,18 +220,20 @@ class ViewSmokeTests(TestCase):
     def test_favorites_views(self):
         resp = self.client.get(reverse("favorites"))
         self.assertEqual(resp.status_code, 200)
+
+        concept_run = models.IdeationRun.objects.create(
+            restaurant=self.restaurant,
+            initiated_by_user=self.user,
+            type=models.IdeationRun.RunType.CONCEPTS,
+            model_name="m",
+            temperature=0,
+            classic_creative=50,
+            context_snapshot={},
+            status=models.IdeationRun.Status.SUCCEEDED,
+        )
         concept = models.Concept.objects.create(
             restaurant=self.restaurant,
-            ideation_run=models.IdeationRun.objects.create(
-                restaurant=self.restaurant,
-                initiated_by_user=self.user,
-                type=models.IdeationRun.RunType.CONCEPTS,
-                model_name="m",
-                temperature=0,
-                classic_creative=50,
-                context_snapshot={},
-                status=models.IdeationRun.Status.SUCCEEDED,
-            ),
+            ideation_run=concept_run,
             name="Fav",
             rank_order=1,
         )
@@ -239,6 +242,46 @@ class ViewSmokeTests(TestCase):
         )
         concept.sketch_image_url = "https://example.com/favorite.png"
         concept.save(update_fields=["sketch_image_url"])
+
+        dish_run = models.IdeationRun.objects.create(
+            restaurant=self.restaurant,
+            initiated_by_user=self.user,
+            type=models.IdeationRun.RunType.DISHES,
+            model_name="m",
+            temperature=0,
+            classic_creative=50,
+            context_snapshot={},
+            parent_concept=concept,
+            status=models.IdeationRun.Status.SUCCEEDED,
+        )
+        dish = models.DishIdea.objects.create(
+            restaurant=self.restaurant,
+            ideation_run=dish_run,
+            parent_concept=concept,
+            title="Favorite Dish",
+            description="Desc",
+            ingredient_names=[],
+            category_tags=[],
+        )
+        models.FavoriteDish.objects.create(
+            user=self.user, dish=dish, favorited_at=timezone.now()
+        )
+        menu = models.MenuCollection.objects.create(
+            restaurant=self.restaurant,
+            created_by_user=self.user,
+            name="Dinner",
+        )
+        models.MenuItem.objects.create(menu=menu, dish=dish, position=1)
+
+        resp = self.client.get(reverse("favorites"))
+        self.assertEqual(resp.status_code, 200)
+        menus = resp.context["menus"]
+        self.assertEqual(len(menus), 1)
+        self.assertEqual(menus[0].name, "Dinner")
+        self.assertEqual(len(menus[0].menu_items), 1)
+        self.assertEqual(str(menus[0].menu_items[0].dish.id), str(dish.id))
+        self.assertEqual(resp.context["uncategorized_favorites"], [])
+
         rem_resp = self.client.post(
             reverse("favorite-remove", args=["concept", concept.id]),
             HTTP_HX_REQUEST="true",
@@ -262,6 +305,63 @@ class ViewSmokeTests(TestCase):
             reverse("menu-item-add", args=[dish.id, collection_id])
         )
         self.assertEqual(add_resp.status_code, 200)
+        self.assertTrue(
+            models.MenuItem.objects.filter(menu_id=collection_id, dish=dish).exists()
+        )
+
+        second_resp = self.client.post(
+            reverse("menu-collection-create"), {"name": "Second"}
+        )
+        self.assertEqual(second_resp.status_code, 200)
+        second_id = second_resp.json()["id"]
+
+        move_resp = self.client.post(
+            reverse("menu-item-move"),
+            data=json.dumps(
+                {
+                    "dish_id": str(dish.id),
+                    "source_menu_id": collection_id,
+                    "target_menu_id": second_id,
+                }
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(move_resp.status_code, 200)
+        self.assertTrue(
+            models.MenuItem.objects.filter(menu_id=second_id, dish=dish).exists()
+        )
+        self.assertFalse(
+            models.MenuItem.objects.filter(menu_id=collection_id, dish=dish).exists()
+        )
+
+        remove_resp = self.client.post(
+            reverse("menu-item-move"),
+            data=json.dumps(
+                {
+                    "dish_id": str(dish.id),
+                    "source_menu_id": second_id,
+                    "target_menu_id": "",
+                }
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(remove_resp.status_code, 200)
+        self.assertFalse(
+            models.MenuItem.objects.filter(menu_id=second_id, dish=dish).exists()
+        )
+
+        rename_resp = self.client.post(
+            reverse("menu-collection-rename", args=[second_id]),
+            {"name": "Updated"},
+        )
+        self.assertEqual(rename_resp.status_code, 200)
+        self.assertEqual(rename_resp.json()["name"], "Updated")
+
+        delete_resp = self.client.post(
+            reverse("menu-collection-delete", args=[second_id])
+        )
+        self.assertEqual(delete_resp.status_code, 200)
+        self.assertFalse(models.MenuCollection.objects.filter(id=second_id).exists())
 
     def test_settings_views(self):
         self.restaurant.context_json = {"story": "Farm-to-table"}
