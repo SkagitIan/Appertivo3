@@ -68,8 +68,8 @@ class ConceptBackgroundViewTests(TestCase):
 
 
 @override_settings(SECURE_SSL_REDIRECT=False)
-class ConceptFavoriteBackgroundTests(TestCase):
-    """Ensure concept background images generate when favorited."""
+class ConceptFavoriteToggleTests(TestCase):
+    """Ensure concept favorites toggle without blocking the response."""
 
     def setUp(self) -> None:
         self.user = User.objects.create_user("user2@example.com", password="pw")
@@ -104,6 +104,3 @@ class ConceptFavoriteBackgroundTests(TestCase):
             subtitle="Botanical cocktails on a rooftop terrace.",
             rank_order=1,
         )
-
-
-
