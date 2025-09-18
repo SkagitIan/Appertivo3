@@ -10,7 +10,7 @@ from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.db import IntegrityError, transaction
-from django.db.models import Prefetch
+from django.db.models import Max, Prefetch
 from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
@@ -966,14 +966,55 @@ def favorites_view(request):
         .order_by("-favorited_at")
     )
 
-    decorate_dishes_with_enhancements([fav.dish for fav in favorite_dishes])
-    for fav in favorite_dishes:
-        fav.dish.is_favorited = True
+    menus = []
+    menu_dishes = []
+    if restaurant:
+        menus = list(
+            models.MenuCollection.objects.filter(restaurant=restaurant)
+            .prefetch_related(
+                Prefetch(
+                    "menuitem_set",
+                    queryset=models.MenuItem.objects.select_related(
+                        "dish",
+                        "dish__parent_concept",
+                        "dish__restaurant",
+                    ).order_by("position", "created_at"),
+                )
+            )
+            .order_by("created_at")
+        )
+        for menu in menus:
+            items = list(menu.menuitem_set.all())
+            menu.menu_items = items
+            for item in items:
+                menu_dishes.append(item.dish)
+
+    all_dishes = [fav.dish for fav in favorite_dishes] + menu_dishes
+    if all_dishes:
+        decorate_dishes_with_enhancements(all_dishes)
+    for dish in all_dishes:
+        dish.is_favorited = True
+
+    menu_dish_ids = {item.dish_id for menu in menus for item in getattr(menu, "menu_items", [])}
+    uncategorized_favorites = [
+        fav for fav in favorite_dishes if fav.dish_id not in menu_dish_ids
+    ]
+
+    menus_payload = [
+        {
+            "id": str(menu.id),
+            "name": menu.name,
+        }
+        for menu in menus
+    ]
 
     ctx = {
         "restaurant": restaurant,
         "favorite_concepts": favorite_concepts,
         "favorite_dishes": favorite_dishes,
+        "menus": menus,
+        "uncategorized_favorites": uncategorized_favorites,
+        "menus_payload_json": json.dumps(menus_payload),
     }
     return render(request, "favorites/dashboard.html", ctx)
 
@@ -998,22 +1039,132 @@ def favorite_remove_view(request, type, id):
     return JsonResponse({"removed": True})
 
 
+@login_required
+@require_POST
 def menu_collection_create_view(request):
     """Create a new menu collection."""
     name = request.POST.get("name", "Menu")
-    restaurant = models.Restaurant.objects.first()
+    restaurant = (
+        models.Restaurant.objects.filter(account__membership__user=request.user)
+        .select_related("account")
+        .first()
+    )
+    if not restaurant:
+        return JsonResponse({"error": "restaurant_missing"}, status=400)
     menu = models.MenuCollection.objects.create(
         restaurant=restaurant, created_by_user=request.user, name=name
     )
     return JsonResponse({"id": str(menu.id), "name": menu.name})
 
 
+@login_required
+@require_POST
 def menu_item_add_view(request, dish_id, collection_id):
     """Add a dish to a menu collection."""
     dish = get_object_or_404(models.DishIdea, id=dish_id)
-    menu = get_object_or_404(models.MenuCollection, id=collection_id)
-    models.MenuItem.objects.create(menu=menu, dish=dish, position=1)
+    menu = get_object_or_404(
+        models.MenuCollection,
+        id=collection_id,
+        restaurant__account__membership__user=request.user,
+    )
+    next_position = (
+        models.MenuItem.objects.filter(menu=menu).aggregate(Max("position"))["position__max"]
+        or 0
+    )
+    models.MenuItem.objects.get_or_create(
+        menu=menu, dish=dish, defaults={"position": next_position + 1}
+    )
     return JsonResponse({"added": True})
+
+
+@login_required
+@require_POST
+def menu_collection_update_view(request, collection_id):
+    """Rename a menu collection."""
+    menu = get_object_or_404(
+        models.MenuCollection,
+        id=collection_id,
+        restaurant__account__membership__user=request.user,
+    )
+    new_name = (request.POST.get("name") or "").strip() or "Menu"
+    menu.name = new_name
+    menu.save(update_fields=["name"])
+    return JsonResponse({"id": str(menu.id), "name": menu.name})
+
+
+@login_required
+@require_POST
+def menu_collection_delete_view(request, collection_id):
+    """Delete a menu collection."""
+    menu = get_object_or_404(
+        models.MenuCollection,
+        id=collection_id,
+        restaurant__account__membership__user=request.user,
+    )
+    menu.delete()
+    return JsonResponse({"deleted": True})
+
+
+@login_required
+@require_POST
+def menu_item_move_view(request):
+    """Move a dish between menu collections or into uncategorized."""
+    try:
+        payload = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "invalid_json"}, status=400)
+
+    dish_id = payload.get("dish_id")
+    target_menu_id = payload.get("target_menu_id") or None
+    source_menu_id = payload.get("source_menu_id") or None
+
+    if not dish_id:
+        return JsonResponse({"error": "dish_required"}, status=400)
+
+    restaurant = (
+        models.Restaurant.objects.filter(account__membership__user=request.user)
+        .select_related("account")
+        .first()
+    )
+    if not restaurant:
+        return JsonResponse({"error": "restaurant_missing"}, status=400)
+
+    dish = get_object_or_404(models.DishIdea, id=dish_id)
+
+    def _remove_from_menu(menu_id):
+        if not menu_id:
+            return
+        models.MenuItem.objects.filter(
+            menu_id=menu_id,
+            dish=dish,
+            menu__restaurant=restaurant,
+        ).delete()
+
+    # Remove from the source menu if provided
+    _remove_from_menu(source_menu_id)
+
+    created = False
+    if target_menu_id:
+        menu = get_object_or_404(
+            models.MenuCollection,
+            id=target_menu_id,
+            restaurant=restaurant,
+        )
+        next_position = (
+            models.MenuItem.objects.filter(menu=menu).aggregate(Max("position"))["position__max"]
+            or 0
+        )
+        menu_item, created = models.MenuItem.objects.get_or_create(
+            menu=menu,
+            dish=dish,
+            defaults={"position": next_position + 1},
+        )
+        if not created:
+            # Ensure position is at end when moving existing record
+            menu_item.position = next_position + 1
+            menu_item.save(update_fields=["position"])
+
+    return JsonResponse({"moved": True, "created": created})
 
 
 @login_required

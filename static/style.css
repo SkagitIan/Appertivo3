@@ -294,3 +294,98 @@ body {
         box-shadow: none !important;
     }
 }
+
+/* Favorites view custom styles */
+.concept-card-background {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    filter: grayscale(100%);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.concept-card-background--loading {
+    background: radial-gradient(circle at center, rgba(226, 232, 240, 0.85), rgba(226, 232, 240, 0.4));
+    opacity: 1;
+}
+
+.concept-card-background--loaded {
+    opacity: 1;
+}
+
+.concept-card-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.95));
+    pointer-events: none;
+    z-index: 5;
+}
+
+.favorite-dish-card {
+    cursor: grab;
+}
+
+.favorite-dish-card:active {
+    cursor: grabbing;
+}
+
+.favorite-dish-card.is-dragging {
+    opacity: 0.55;
+}
+
+.menu-dropzone.is-drop-target {
+    border-color: #5C008B;
+    background: rgba(92, 0, 139, 0.08);
+}
+
+.favorites-menu-sheet {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+
+.favorites-menu-sheet.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.favorites-menu-sheet__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+}
+
+.favorites-menu-sheet__panel {
+    position: relative;
+    width: min(420px, 100%);
+    background: white;
+    border-radius: 1.75rem 1.75rem 0 0;
+    padding: 1.75rem;
+    box-shadow: 0 -10px 30px rgba(15, 23, 42, 0.15);
+    max-height: 70vh;
+    overflow-y: auto;
+    transform: translateY(12px);
+    transition: transform 0.2s ease;
+}
+
+.favorites-menu-sheet.visible .favorites-menu-sheet__panel {
+    transform: translateY(0);
+}
+
+.favorites-menu-sheet.hidden {
+    display: none;
+}
+
+#favorites-dishes-loading.htmx-request {
+    display: flex !important;
+}
