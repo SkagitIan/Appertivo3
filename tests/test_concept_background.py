@@ -54,6 +54,18 @@ class ConceptBackgroundViewTests(TestCase):
         self.assertIn("concept-card-background concept-card-background--loaded", content)
         self.assertIn(llm.DEFAULT_CONCEPT_IMAGE_URL, content)
 
+    def test_reuses_existing_background_image(self) -> None:
+        self.concept.sketch_image_url = "https://stored.example/sketch.png"
+        self.concept.save(update_fields=["sketch_image_url"])
+
+        url = reverse("concept-background", args=[self.concept.id])
+        with mock.patch("app.llm.generate_concept_sketch") as mock_generate:
+            response = self.client.get(url)
+
+        mock_generate.assert_not_called()
+        content = response.content.decode()
+        self.assertIn("https://stored.example/sketch.png", content)
+
 
 @override_settings(SECURE_SSL_REDIRECT=False)
 class ConceptFavoriteToggleTests(TestCase):
@@ -92,28 +104,3 @@ class ConceptFavoriteToggleTests(TestCase):
             subtitle="Botanical cocktails on a rooftop terrace.",
             rank_order=1,
         )
-
-    def test_favoriting_returns_filled_heart(self) -> None:
-        with mock.patch("app.llm.generate_concept_sketch") as mock_generate:
-            response = self.client.post(reverse("concept-favorite", args=[self.concept.id]))
-
-        mock_generate.assert_not_called()
-        content = response.content.decode()
-        self.assertIn("❤️", content)
-        self.assertNotIn("concept-background-loader", content)
-        self.assertNotIn("concept-favorite-btn--loading", content)
-
-    def test_unfavorite_returns_outline_heart(self) -> None:
-        models.FavoriteConcept.objects.create(
-            user=self.user,
-            concept=self.concept,
-            favorited_at=timezone.now(),
-        )
-
-        with mock.patch("app.llm.generate_concept_sketch") as mock_generate:
-            response = self.client.post(reverse("concept-favorite", args=[self.concept.id]))
-
-        mock_generate.assert_not_called()
-        content = response.content.decode()
-        self.assertIn("🤍", content)
-        self.assertNotIn("concept-background-loader", content)

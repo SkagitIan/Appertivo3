@@ -61,6 +61,17 @@ background: linear-gradient(180deg, rgba(255,255,255,0.85), rgba(255,255,255,0.9
 z-index: 5;
 pointer-events: none;
 }
+.concept-favorite-btn--loading {
+animation: concept-heart-pulse 0.9s ease-in-out infinite;
+}
+@keyframes concept-heart-pulse {
+0%, 100% {
+  transform: scale(1);
+}
+50% {
+  transform: scale(1.12);
+}
+}
 /* Back */
 .flip-face.flip-back {
 background: #1e293b;
@@ -125,6 +136,34 @@ transform: rotateY(180deg);
     if (card) {
       card.classList.add("flipped");
     }
+  });
+
+  function clearConceptFavoriteLoading(elt) {
+    if (!elt || !elt.classList || !elt.classList.contains("concept-background-loader")) {
+      return;
+    }
+    const conceptId = elt.dataset.conceptId;
+    if (!conceptId) {
+      return;
+    }
+    const button = document.querySelector(
+      `.concept-favorite-btn[data-concept-id="${conceptId}"]`
+    );
+    if (button) {
+      button.classList.remove("concept-favorite-btn--loading");
+    }
+  }
+
+  document.body.addEventListener("htmx:afterSwap", function (evt) {
+    clearConceptFavoriteLoading(evt.detail.elt);
+  });
+
+  document.body.addEventListener("htmx:responseError", function (evt) {
+    clearConceptFavoriteLoading(evt.detail.elt);
+  });
+
+  document.body.addEventListener("htmx:sendError", function (evt) {
+    clearConceptFavoriteLoading(evt.detail.elt);
   });
 
 </script>
