@@ -30,6 +30,26 @@ client = OpenAI(api_key=_openai_api_key) if _openai_api_key else None
 class ConceptList(BaseModel):
     concepts: List[str]
 
+
+def _get_session_list(session, key: str) -> List[str]:
+    """Return a list of strings stored under the given session key."""
+
+    value = session.get(key, [])
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value if isinstance(item, str)]
+
+
+def _extend_session_list(session, key: str, new_items: Iterable[str]) -> None:
+    """Merge unique string items into a session-stored list."""
+
+    existing = _get_session_list(session, key)
+    for item in new_items:
+        if item and item not in existing:
+            existing.append(item)
+    session[key] = existing
+    session.modified = True
+
 from app import llm
 from .tasks import parse_pdf_menu, run_outscraper_search, scrape_menu
 
@@ -291,6 +311,19 @@ def concepts_generate_view(request):
     if restaurant.active_menu_version:
         context += f"\nMenu:\n{restaurant.active_menu_version.raw_markdown[:2000]}"
 
+    previous_concepts: List[str] = []
+    if request.user.is_authenticated:
+        previous_concepts = _get_session_list(request.session, "generated_concepts")
+
+    guidance_lines: List[str] = []
+    if previous_concepts:
+        guidance_lines.append(
+            "Previously generated concept names to avoid: "
+            + ", ".join(previous_concepts)
+        )
+    if guidance_lines:
+        context += "\n" + "\n".join(guidance_lines)
+
     # Schema definition for structured output
     schema = {
         "name": "concept_list",
@@ -328,20 +361,30 @@ def concepts_generate_view(request):
 
 
 
+    system_prompt = (
+        "You are a seasoned restaurant marketing consultant. "
+        "Generate exactly 9 unique, theme-based concepts for daily specials."
+        "Include a name no more than 30 characters & a subtitle no more than 80 characters. "
+        "Include a reasoning of why you chose this concept, what context and frame of mind were you in when you picked this concept.  1 sentance ender 80 characters"
+        "Include an array of tags that quickly relate the concept to the users context"
+        "Concepts are themes like 'Taco Tuesday', 'Family Feast', 'Game Night', "
+        "'Seasonal Harvest Dinner'. They are NOT individual dishes."
+    )
+
+    if previous_concepts:
+        system_prompt += (
+            " The user has already explored these concept names. Do not repeat or "
+            "closely duplicate them: "
+            + ", ".join(previous_concepts)
+            + "."
+        )
+
     response = client.responses.create(
         model="gpt-4.1-mini",
         input=[
             {
                 "role": "system",
-                "content": (
-                    "You are a seasoned restaurant marketing consultant. "
-                    "Generate exactly 9 unique, theme-based concepts for daily specials."
-                    "Include a name no more than 30 characters & a subtitle no more than 80 characters. "
-                    "Include a reasoning of why you chose this concept, what context and frame of mind were you in when you picked this concept.  1 sentance ender 80 characters"
-                    "Include an array of tags that quickly relate the concept to the users context"
-                    "Concepts are themes like 'Taco Tuesday', 'Family Feast', 'Game Night', "
-                    "'Seasonal Harvest Dinner'. They are NOT individual dishes."
-                ),
+                "content": system_prompt,
             },
             {"role": "user", "content": context},
         ],
@@ -386,6 +429,13 @@ def concepts_generate_view(request):
 
     for concept in concepts:
         concept.is_favorited_for_user = False
+
+    if request.user.is_authenticated:
+        _extend_session_list(
+            request.session,
+            "generated_concepts",
+            [concept.name for concept in concepts],
+        )
 
     return render(request, "concepts/_concepts_grid.html", {"concepts": concepts})
 
@@ -584,13 +634,20 @@ def ensure_dish_enhancement(
 @login_required
 def dishes_generate_view(request, concept_id):
     concept = models.Concept.objects.get(id=concept_id)
-    
+
     # Example: pull restaurant + menu from your DB relations
     restaurant = concept.restaurant
     restaurant_payload = restaurant.context_json  # assuming JSONField
     menu_markdown = restaurant.primary_menu_url or ""
 
     context = serialize_restaurant_context(restaurant_payload, menu_markdown, concept)
+
+    previous_dishes: List[str] = []
+    if request.user.is_authenticated:
+        previous_dishes = _get_session_list(request.session, "generated_dishes")
+
+    if previous_dishes:
+        context["session_history"] = {"dish_names": previous_dishes}
 
     logger.info("Generating dishes for concept=%s restaurant=%s", concept.name, restaurant.name)
 
@@ -631,16 +688,28 @@ def dishes_generate_view(request, concept_id):
             }
 
     try:
+        instruction_text = (
+            f"""
+                    Given the following restaurant context and menu, generate 9 saleable dish ideas
+                    for the concept: '{concept.name}'.
+                    Each dish must include: title, description, ingredient_overlap, category_tags.
+                    """
+        )
+
+        guidance_lines: List[str] = []
+        if previous_dishes:
+            guidance_lines.append(
+                "Avoid repeating these dish names: " + ", ".join(previous_dishes)
+            )
+        if guidance_lines:
+            instruction_text += "\n" + "\n".join(guidance_lines)
+
         response = client.responses.create(
             model="gpt-4.1",  # or gpt-4o-mini if you want faster
             input=[
                 {
                     "role": "user",
-                    "content": f"""
-                    Given the following restaurant context and menu, generate 9 saleable dish ideas
-                    for the concept: '{concept.name}'.
-                    Each dish must include: title, description, ingredient_overlap, category_tags.
-                    """,
+                    "content": instruction_text,
                 },
                 {
                     "role": "user",
@@ -686,6 +755,13 @@ def dishes_generate_view(request, concept_id):
         ideation_run.status = models.IdeationRun.Status.SUCCEEDED
         ideation_run.save(update_fields=["status"])
         dishes = dish_objects
+
+        if request.user.is_authenticated:
+            _extend_session_list(
+                request.session,
+                "generated_dishes",
+                [dish.title for dish in dishes],
+            )
 
     except Exception as e:
         logger.error("Dish generation failed: %s", str(e), exc_info=True)
