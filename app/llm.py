@@ -38,6 +38,12 @@ DEFAULT_CONCEPT_IMAGE_URL = "https://placehold.co/1200x800?text=Concept"
 DEFAULT_PRICE_CENTS = 1500
 
 
+def generate_concepts() -> List[str]:
+    """Return nine deterministic concept names for tests and fallbacks."""
+
+    return [f"Concept {i}" for i in range(1, 10)]
+
+
 def generate_dishes(concept: str) -> List[Dict]:
     """Return nine placeholder dishes for a concept."""
     dishes: List[Dict] = []
