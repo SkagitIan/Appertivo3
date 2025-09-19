@@ -1,0 +1,39 @@
+{% extends "base_logged_in.html" %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+  <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <div>
+      <a href="{% url 'concepts' %}" class="text-sm font-medium text-[#f08000] hover:text-[#d96e00] transition">&larr; Back to concepts</a>
+      <h1 class="mt-2 text-3xl font-bold text-[#49475B]">{{ concept.name }}</h1>
+      {% if concept.subtitle %}
+        <p class="mt-2 max-w-2xl text-base text-slate-600">{{ concept.subtitle }}</p>
+      {% endif %}
+      {% if concept.tags %}
+        <div class="mt-3 flex flex-wrap gap-2">
+          {% for tag in concept.tags %}
+            <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">{{ tag }}</span>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+    <div class="flex items-center gap-3">
+      <button
+        type="button"
+        class="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#FF8300] to-[#FF5C00] px-5 py-2.5 text-sm font-semibold text-white shadow transition hover:scale-105"
+        hx-post="{% url 'dishes-generate' concept.id %}"
+        hx-trigger="click"
+        hx-target="#dishes-grid"
+        hx-swap="innerHTML"
+      >
+        <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+        <span>Generate new dishes</span>
+      </button>
+    </div>
+  </div>
+
+  <div id="dishes-grid" class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+    {% include "dishes/grid.html" %}
+  </div>
+</div>
+{% endblock %}

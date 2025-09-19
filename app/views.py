@@ -668,6 +668,8 @@ def dishes_generate_view(request, concept_id):
 
     context = serialize_restaurant_context(restaurant_payload, menu_markdown, concept)
 
+    is_htmx = request.headers.get("HX-Request") == "true"
+
     previous_dishes: List[str] = []
     if request.user.is_authenticated:
         previous_dishes = _get_session_list(request.session, "generated_dishes")
@@ -794,7 +796,8 @@ def dishes_generate_view(request, concept_id):
         ideation_run.status = models.IdeationRun.Status.FAILED
         ideation_run.error_message = str(e)
         ideation_run.save(update_fields=["status", "error_message"])
-    return render(request, "dishes/grid.html", {"concept": concept, "dishes": dishes})
+    template_name = "dishes/grid.html" if is_htmx else "dishes/page.html"
+    return render(request, template_name, {"concept": concept, "dishes": dishes})
 
 
 def dishes_grid_view(request, concept_id):

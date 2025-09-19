@@ -2,7 +2,7 @@
   {% with start_loader=trigger_loader|default:False %}
     <button
       type="button"
-      onclick="event.stopPropagation();"
+      onclick="event.preventDefault(); event.stopPropagation();"
       hx-trigger="click consume"
       hx-post="{% url 'concept-favorite' concept.id %}"
       hx-target="this"

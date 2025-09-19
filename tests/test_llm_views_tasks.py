@@ -233,8 +233,9 @@ class SessionHistoryTests(TestCase):
         session["generated_dishes"] = ["Sunrise Salad"]
         session.save()
 
-        response = self.client.post(reverse("dishes-generate", args=[self.concept.id]))
+        response = self.client.get(reverse("dishes-generate", args=[self.concept.id]))
         self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "dishes/page.html")
 
         _, kwargs = mock_client.responses.create.call_args
         input_messages = kwargs.get("input", [])
@@ -255,6 +256,31 @@ class SessionHistoryTests(TestCase):
         stored_dishes = session.get("generated_dishes")
         self.assertIn("Sunrise Salad", stored_dishes)
         self.assertIn("Dish 1", stored_dishes)
+
+    @patch("app.views.client")
+    def test_dish_generation_htmx_returns_partial(self, mock_client):
+        dishes_payload = {
+            "dishes": [
+                {
+                    "title": f"Dish {i}",
+                    "description": "Tasty",
+                    "ingredient_overlap": [],
+                    "category_tags": ["tag"],
+                }
+                for i in range(1, 10)
+            ]
+        }
+        mock_client.responses.create.return_value = self._fake_response(dishes_payload)
+
+        self.client.login(username="owner@example.com", password="safe-pass")
+
+        response = self.client.post(
+            reverse("dishes-generate", args=[self.concept.id]),
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "dishes/grid.html")
 
 
 @override_settings(SECURE_SSL_REDIRECT=False)
