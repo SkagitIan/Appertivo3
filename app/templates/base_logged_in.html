@@ -19,6 +19,19 @@
 </head>
 <body class="bg-gray-50 text-[#14080E] min-h-screen flex flex-col">
 
+  <!-- Global Loading Overlay -->
+  <div id="global-overlay"
+       class="fixed inset-0 bg-black/60 text-slate-800 z-50 hidden items-center justify-center p-6">
+    <div class="bg-white rounded-xl shadow-xl max-w-sm w-full text-center px-6 py-8 space-y-4">
+      <svg class="animate-spin h-8 w-8 text-[#f08000] mx-auto"
+           xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+      </svg>
+      <p id="overlay-message" class="font-semibold text-base"></p>
+    </div>
+  </div>
+
   <!-- NAVBAR -->
   {% if restaurant %}
     {% url 'dashboard' restaurant.id as dashboard_url %}
@@ -151,4 +164,56 @@
       setTimeout(() => toast.remove(), 4000);
     }
   });
+</script>
+
+<script>
+  (function () {
+    const overlay = document.getElementById("global-overlay");
+    const messageBox = document.getElementById("overlay-message");
+    let timer = null;
+    let active = false;
+
+    function hideOverlay() {
+      if (!active) return;
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+      overlay.classList.add("hidden");
+      active = false;
+    }
+
+    document.body.addEventListener("htmx:beforeRequest", function (event) {
+      const trigger = event.detail.elt;
+      if (!trigger || trigger.dataset.overlay !== "true") {
+        return;
+      }
+
+      let messages = [];
+      try {
+        messages = JSON.parse(trigger.dataset.messages || "[]");
+      } catch (err) {
+        messages = [];
+      }
+
+      let index = 0;
+      messageBox.textContent = messages[0] || "Loading…";
+      overlay.classList.remove("hidden");
+      active = true;
+
+      if (timer) {
+        clearInterval(timer);
+      }
+
+      if (messages.length > 1) {
+        timer = setInterval(function () {
+          index = (index + 1) % messages.length;
+          messageBox.textContent = messages[index];
+        }, 3000);
+      }
+    });
+
+    document.body.addEventListener("htmx:afterRequest", hideOverlay);
+    document.body.addEventListener("htmx:responseError", hideOverlay);
+  })();
 </script>
