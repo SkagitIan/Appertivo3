@@ -37,22 +37,40 @@ cursor: pointer;
 transform: rotateY(0deg);
 }
 .concept-card-background {
-position: absolute;
-inset: 0;
-background-size: cover;
-background-position: center;
-filter: grayscale(100%);
-opacity: 0;
-transition: opacity 0.4s ease;
-z-index: 1;
-pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  filter: grayscale(100%);
+  opacity: 0;
+  transition: opacity 1s ease, filter 1.2s ease;
+  z-index: 1;
+  pointer-events: none;
 }
 .concept-card-background--loading {
-background: radial-gradient(circle at center, rgba(226,232,240,0.8), rgba(226,232,240,0.4));
-opacity: 1;
+  background: radial-gradient(circle at center, rgba(226,232,240,0.8), rgba(226,232,240,0.4));
+  opacity: 1;
 }
 .concept-card-background--loaded {
-opacity:1;
+  opacity: 1;
+  filter: grayscale(0%);
+  animation: concept-background-reveal 0.9s ease forwards;
+}
+.concept-favorite-btn--favorited {
+  background: rgba(254, 226, 226, 0.95) !important;
+  border-color: rgba(254, 202, 202, 0.9) !important;
+  color: #e11d48 !important;
+}
+.concept-favorite-btn--burst {
+  animation: concept-heart-burst 0.45s ease;
+}
+@keyframes concept-background-reveal {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 .concept-card-overlay {
 position: absolute;
@@ -62,7 +80,7 @@ z-index: 5;
 pointer-events: none;
 }
 .concept-favorite-btn--loading {
-animation: concept-heart-pulse 0.9s ease-in-out infinite;
+  animation: concept-heart-pulse 0.9s ease-in-out infinite;
 }
 @keyframes concept-heart-pulse {
 0%, 100% {
@@ -126,9 +144,68 @@ transform: rotateY(180deg);
 </div>
 <script>
 
+  function setFavoriteButtonState(button, favorited) {
+    if (!button) {
+      return;
+    }
+    button.dataset.favorited = favorited ? "true" : "false";
+    button.classList.toggle("concept-favorite-btn--favorited", favorited);
+    const heart = button.querySelector('span[aria-hidden="true"]');
+    if (heart) {
+      heart.textContent = favorited ? "❤️" : "🤍";
+    }
+    const label = button.getAttribute("aria-label");
+    if (label) {
+      const updated = label.replace(/^(Favorite|Unfavorite)\s+/i, "");
+      button.setAttribute(
+        "aria-label",
+        `${favorited ? "Unfavorite" : "Favorite"} ${updated}`.trim()
+      );
+    }
+  }
+
+  function revertFavoriteButton(button) {
+    if (!button || !button.classList || !button.classList.contains("concept-favorite-btn")) {
+      return;
+    }
+    const originalFavorited = button.dataset.originalFavorited;
+    if (originalFavorited === undefined || originalFavorited === "") {
+      delete button.dataset.awaitingResponse;
+      return;
+    }
+    setFavoriteButtonState(button, originalFavorited === "true");
+    delete button.dataset.originalFavorited;
+    delete button.dataset.awaitingResponse;
+    button.classList.remove("concept-favorite-btn--burst");
+  }
+
+  document.body.addEventListener("click", function (evt) {
+    const button = evt.target.closest(".concept-favorite-btn");
+    if (!button) {
+      return;
+    }
+    if (button.dataset.awaitingResponse === "true") {
+      evt.preventDefault();
+      return;
+    }
+
+    const currentFavorited = button.dataset.favorited === "true";
+    button.dataset.originalFavorited = currentFavorited ? "true" : "false";
+    const nextFavorited = !currentFavorited;
+    setFavoriteButtonState(button, nextFavorited);
+    button.classList.remove("concept-favorite-btn--burst");
+    void button.offsetWidth;
+    button.classList.add("concept-favorite-btn--burst");
+    button.dataset.awaitingResponse = "true";
+  });
+
   document.body.addEventListener("htmx:beforeRequest", function (evt) {
     const trigger = evt.detail.elt;
-    if (!trigger || trigger.classList.contains("concept-favorite-btn")) {
+    if (
+      !trigger ||
+      trigger.classList.contains("concept-favorite-btn") ||
+      trigger.classList.contains("concept-background-loader")
+    ) {
       return;
     }
 
@@ -155,14 +232,17 @@ transform: rotateY(180deg);
   }
 
   document.body.addEventListener("htmx:afterSwap", function (evt) {
+    revertFavoriteButton(evt.detail.elt);
     clearConceptFavoriteLoading(evt.detail.elt);
   });
 
   document.body.addEventListener("htmx:responseError", function (evt) {
+    revertFavoriteButton(evt.detail.elt);
     clearConceptFavoriteLoading(evt.detail.elt);
   });
 
   document.body.addEventListener("htmx:sendError", function (evt) {
+    revertFavoriteButton(evt.detail.elt);
     clearConceptFavoriteLoading(evt.detail.elt);
   });
 
