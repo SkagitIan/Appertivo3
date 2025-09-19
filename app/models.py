@@ -205,6 +205,8 @@ class Concept(TimestampedModel):
     ideation_run = models.ForeignKey(IdeationRun, on_delete=models.CASCADE)
     name = models.CharField(max_length=100)
     subtitle = models.CharField(max_length=200)
+    reasoning = models.TextField()  # explanation why this concept makes sense
+    tags = models.JSONField(default=list)  # array of descriptive tags
     rank_order = models.SmallIntegerField()
     sketch_image_url = models.TextField(null=True, blank=True)
 
