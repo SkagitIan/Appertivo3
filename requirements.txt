@@ -13,3 +13,17 @@ requests
 stripe
 whitenoise
 celery
+cloudinary
+Django
+django-anymail[brevo]
+django-cloudinary-storage
+django-cors-headers
+django-crontab
+django-extensions
+gunicorn
+openai
+outscraper
+python-dotenv
+requests
+stripe
+whitenoise
