@@ -1,6 +1,10 @@
 <div
   id="favorite-concept-{{ favorite.concept.id }}"
   class="favorite-concept-card group relative flex min-h-[180px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow"
+  onclick="window.location.href='{% url 'dishes-generate' favorite.concept.id %}';"
+  role="link"
+  tabindex="0"
+  onkeydown="if(event.key==='Enter' || event.key===' '){ event.preventDefault(); window.location.href='{% url 'dishes-generate' favorite.concept.id %}'; }"
 >
   {% with background=favorite.concept.sketch_image_url %}
     <div
@@ -28,7 +32,7 @@
         hx-trigger="click consume"
         hx-target="#favorite-concept-{{ favorite.concept.id }}"
         hx-swap="outerHTML"
-        onclick="event.stopPropagation();"
+        onclick="event.preventDefault(); event.stopPropagation();"
         title="Remove concept"
       >
         <i class="fa-solid fa-trash-can text-sm" aria-hidden="true"></i>
@@ -36,18 +40,14 @@
       </button>
     </div>
     <div class="mt-auto flex justify-end pt-4">
-      <button
-        type="button"
+      <a
+        href="{% url 'dishes-generate' favorite.concept.id %}"
         class="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#FF8300] to-[#FF5C00] px-4 py-2 text-sm font-semibold text-white shadow transition hover:scale-105"
-        hx-post="{% url 'dishes-generate' favorite.concept.id %}"
-        hx-trigger="click"
-        hx-target="#favorites-generated-dishes"
-        hx-swap="innerHTML"
-        hx-indicator="#favorites-dishes-loading"
+        onclick="event.stopPropagation();"
       >
         <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
         <span>Get ideas</span>
-      </button>
+      </a>
     </div>
   </div>
 </div>
