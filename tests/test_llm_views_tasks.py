@@ -57,6 +57,7 @@ class ConceptGridViewTests(TestCase):
         self.assertEqual(len(response.context["concepts"]), 9)
 
 
+
 @override_settings(SECURE_SSL_REDIRECT=False)
 class DishVariationViewTests(TestCase):
     """Ensure dish variations can be generated on demand."""

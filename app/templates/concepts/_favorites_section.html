@@ -1,15 +1,58 @@
 {% if concepts %}
-<div class="mt-10">
-  <div class="flex items-center justify-between mb-3">
-    <h2 class="text-2xl font-semibold text-[#49475B]">Your favorites</h2>
-    <span class="text-sm text-slate-500">Showing {{ concepts|length }} saved concepts</span>
-  </div>
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-    {% include "concepts/_concepts_grid.html" %}
+    {% for concept in concepts %}
+      <div class="flip-scene relative">
+        <div class="flip-card cursor-pointer" id="concept-{{ concept.id }}" hx-post="{% url 'dishes-generate' concept.id %}"
+             hx-target="#concepts-grid" hx-swap="innerHTML" hx-trigger="click">
+          <div class="flip-face front bg-white p-6 rounded-2xl shadow-md border border-slate-200 transition cursor-pointer hover:shadow-lg relative overflow-hidden">
+            {% with background=concept.sketch_image_url %}
+              <div id="concept-{{ concept.id }}-background"
+                   class="concept-card-background {% if background %}concept-card-background--loaded{% else %}concept-card-background--loading{% endif %}"
+                   {% if background %}style="background-image: url('{{ background }}');"{% endif %}
+                   aria-hidden="true">
+              </div>
+            {% endwith %}
+            <div class="concept-card-overlay" aria-hidden="true"></div>
+            <div class="relative z-10 flex flex-col h-full">
+              <h2 class="text-xl font-bold text-[#49475B] drop-shadow-sm">
+                {{ concept.name }}
+              </h2>
+              <p class="subtitle mt-2 text-slate-700 drop-shadow-sm">
+                {{ concept.subtitle }}
+              </p>
+              <div class="absolute -bottom-2 -left-1 right-1 flex items-center justify-between">
+                <div class="flex flex-wrap gap-2">
+                  {% for tag in concept.tags %}
+                    {% if forloop.counter0|divisibleby:5 %}
+                      <span class="inline-flex px-2 py-1 rounded-full text-xs font-medium text-white bg-[#58B09C]">{{ tag }}</span>
+                    {% elif forloop.counter0|divisibleby:4 %}
+                      <span class="inline-flex px-2 py-1 rounded-full text-xs font-medium text-white bg-[#f08000]">{{ tag }}</span>
+                    {% elif forloop.counter0|divisibleby:3 %}
+                      <span class="inline-flex px-2 py-1 rounded-full text-xs font-medium text-white bg-[#58B09C]">{{ tag }}</span>
+                    {% elif forloop.counter0|divisibleby:2 %}
+                      <span class="inline-flex px-2 py-1 rounded-full text-xs font-medium text-white bg-[#49475B]">{{ tag }}</span>
+                    {% else %}
+                      <span class="inline-flex px-2 py-1 rounded-full text-xs font-medium text-white bg-[#14080E]">{{ tag }}</span>
+                    {% endif %}
+                  {% endfor %}
+                </div>
+                <div>
+                  {% include "concepts/_favorite_button.html" %}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="flip-face flip-back bg-slate-800 text-white p-6 rounded-2xl">
+            <svg class="animate-spin h-8 w-8 mb-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+            </svg>
+            <p class="text-lg font-medium">Generating dish ideas…</p>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
   </div>
-</div>
 {% else %}
-<div class="mt-10 text-center text-slate-500">
-  <p>You haven’t saved any concepts yet.</p>
-</div>
+  <p class="text-sm text-slate-500">You haven't favorited any concepts yet.</p>
 {% endif %}
