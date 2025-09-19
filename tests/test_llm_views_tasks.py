@@ -1,3 +1,5 @@
+import json
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from unittest.mock import patch
@@ -24,6 +26,9 @@ class ConceptGridViewTests(TestCase):
     """Ensure concept grid renders nine cards."""
 
     def setUp(self):
+        self.user = User.objects.create_user(
+            username="viewer@example.com", password="pass1234"
+        )
         account = models.Account.objects.create(name="Acc")
         restaurant = models.Restaurant.objects.create(
             account=account, name="R", location_text="City"
@@ -42,11 +47,69 @@ class ConceptGridViewTests(TestCase):
             models.Concept.objects.create(
                 restaurant=restaurant, ideation_run=run, name=f"Concept {i}", rank_order=i
             )
+        self.client.login(username="viewer@example.com", password="pass1234")
 
     def test_concept_grid_renders_nine_cards(self):
         response = self.client.get(reverse("concepts"))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "concept-card", count=9)
+        content = response.content.decode()
+        self.assertGreaterEqual(content.count("concept-card"), 9)
+        self.assertEqual(len(response.context["concepts"]), 9)
+
+
+@override_settings(SECURE_SSL_REDIRECT=False)
+class ConceptFavoritesViewTests(TestCase):
+    """Ensure favorited concepts render without regenerating backgrounds."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="fan@example.com", password="pass1234"
+        )
+        account = models.Account.objects.create(name="Favs")
+        models.Membership.objects.create(
+            account=account, user=self.user, role=models.Membership.Role.OWNER
+        )
+        self.restaurant = models.Restaurant.objects.create(
+            account=account,
+            name="Fav Place",
+            location_text="Town",
+        )
+        run = models.IdeationRun.objects.create(
+            restaurant=self.restaurant,
+            initiated_by_user=self.user,
+            type=models.IdeationRun.RunType.CONCEPTS,
+            model_name="mock",
+            temperature=0,
+            classic_creative=50,
+            context_snapshot={},
+            status=models.IdeationRun.Status.SUCCEEDED,
+        )
+        self.concept = models.Concept.objects.create(
+            restaurant=self.restaurant,
+            ideation_run=run,
+            name="Garden Glow",
+            subtitle="Fresh and bright",
+            sketch_image_url="https://example.com/sketch.png",
+            rank_order=1,
+        )
+        models.FavoriteConcept.objects.create(
+            user=self.user,
+            concept=self.concept,
+            favorited_at=timezone.now(),
+        )
+
+    def test_favorites_view_uses_existing_background(self):
+        self.client.login(username="fan@example.com", password="pass1234")
+        with patch("app.views.llm.generate_concept_sketch") as mock_generate:
+            response = self.client.get(reverse("concepts-favorites"))
+
+        self.assertEqual(response.status_code, 200)
+        mock_generate.assert_not_called()
+        self.concept.refresh_from_db()
+        self.assertEqual(
+            self.concept.sketch_image_url, "https://example.com/sketch.png"
+        )
+        self.assertIn("Garden Glow", response.content.decode())
 
 
 @override_settings(SECURE_SSL_REDIRECT=False)
@@ -117,6 +180,135 @@ class DishVariationViewTests(TestCase):
         new_dish = children.first()
         self.assertIn(str(new_dish.id), response.content.decode())
         self.assertTrue(new_dish.title.startswith(self.dish.title))
+
+
+@override_settings(SECURE_SSL_REDIRECT=False)
+class SessionHistoryTests(TestCase):
+    """Ensure session history is attached to LLM prompts."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="owner@example.com", password="safe-pass"
+        )
+        account = models.Account.objects.create(name="Session Co")
+        models.Membership.objects.create(
+            account=account, user=self.user, role=models.Membership.Role.OWNER
+        )
+        self.restaurant = models.Restaurant.objects.create(
+            account=account,
+            name="Session Bistro",
+            location_text="Metro",
+            context_json={"name": "Session Bistro"},
+        )
+        concept_run = models.IdeationRun.objects.create(
+            restaurant=self.restaurant,
+            initiated_by_user=self.user,
+            type=models.IdeationRun.RunType.CONCEPTS,
+            model_name="mock",
+            temperature=0,
+            classic_creative=50,
+            context_snapshot={},
+            status=models.IdeationRun.Status.SUCCEEDED,
+        )
+        self.concept = models.Concept.objects.create(
+            restaurant=self.restaurant,
+            ideation_run=concept_run,
+            name="Harvest Harmony",
+            subtitle="",
+            rank_order=1,
+        )
+
+    def _fake_response(self, payload):
+        return SimpleNamespace(
+            output=[SimpleNamespace(content=[SimpleNamespace(text=json.dumps(payload))])]
+        )
+
+    @patch("app.views.client")
+    def test_concept_generation_records_session_history(self, mock_client):
+        concepts_payload = {
+            "concepts": [
+                {
+                    "title": f"Concept Title {i}",
+                    "subtitle": "",
+                    "reasoning": "",
+                    "tags": ["tag"],
+                }
+                for i in range(1, 10)
+            ]
+        }
+        mock_client.responses.create.return_value = self._fake_response(concepts_payload)
+
+        self.client.login(username="owner@example.com", password="safe-pass")
+        session = self.client.session
+        session["generated_concepts"] = ["Sunset Soirée"]
+        session["generated_dishes"] = ["Twilight Tacos"]
+        session.save()
+
+        response = self.client.post(reverse("concepts-generate"))
+        self.assertEqual(response.status_code, 200)
+
+        _, kwargs = mock_client.responses.create.call_args
+        input_messages = kwargs.get("input", [])
+        self.assertGreaterEqual(len(input_messages), 2)
+        system_content = input_messages[0]["content"]
+        context_content = input_messages[1]["content"]
+
+        self.assertIn("Sunset Soirée", system_content)
+        self.assertNotIn("Twilight Tacos", system_content)
+        self.assertIn(
+            "Previously generated concept names to avoid: Sunset Soirée",
+            context_content,
+        )
+        self.assertNotIn("Previously generated dish names", context_content)
+
+        session = self.client.session
+        stored_concepts = session.get("generated_concepts")
+        self.assertIn("Sunset Soirée", stored_concepts)
+        self.assertIn("Concept Title 1", stored_concepts)
+
+    @patch("app.views.client")
+    def test_dish_generation_records_session_history(self, mock_client):
+        dishes_payload = {
+            "dishes": [
+                {
+                    "title": f"Dish {i}",
+                    "description": "Tasty",
+                    "ingredient_overlap": [],
+                    "category_tags": ["tag"],
+                }
+                for i in range(1, 10)
+            ]
+        }
+        mock_client.responses.create.return_value = self._fake_response(dishes_payload)
+
+        self.client.login(username="owner@example.com", password="safe-pass")
+        session = self.client.session
+        session["generated_concepts"] = ["Harvest Harmony"]
+        session["generated_dishes"] = ["Sunrise Salad"]
+        session.save()
+
+        response = self.client.post(reverse("dishes-generate", args=[self.concept.id]))
+        self.assertEqual(response.status_code, 200)
+
+        _, kwargs = mock_client.responses.create.call_args
+        input_messages = kwargs.get("input", [])
+        instruction_content = input_messages[0]["content"]
+        context_json = json.loads(input_messages[1]["content"])
+
+        self.assertIn("Avoid repeating these dish names: Sunrise Salad", instruction_content)
+        self.assertNotIn("Avoid duplicating these concept names", instruction_content)
+        self.assertEqual(
+            context_json.get("session_history"),
+            {"dish_names": ["Sunrise Salad"]},
+        )
+        self.assertNotIn(
+            "concept_names", context_json.get("session_history", {})
+        )
+
+        session = self.client.session
+        stored_dishes = session.get("generated_dishes")
+        self.assertIn("Sunrise Salad", stored_dishes)
+        self.assertIn("Dish 1", stored_dishes)
 
 
 @override_settings(SECURE_SSL_REDIRECT=False)
