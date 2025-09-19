@@ -1,0 +1,15 @@
+{% if concepts %}
+<div class="mt-10">
+  <div class="flex items-center justify-between mb-3">
+    <h2 class="text-2xl font-semibold text-[#49475B]">Your favorites</h2>
+    <span class="text-sm text-slate-500">Showing {{ concepts|length }} saved concepts</span>
+  </div>
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    {% include "concepts/_concepts_grid.html" %}
+  </div>
+</div>
+{% else %}
+<div class="mt-10 text-center text-slate-500">
+  <p>You haven’t saved any concepts yet.</p>
+</div>
+{% endif %}

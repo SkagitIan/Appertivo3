@@ -21,6 +21,7 @@ urlpatterns = [
     path("restaurants/<uuid:restaurant_id>/upload-menu/",app_views.upload_menu,name="upload_menu",),
     path("concepts/", app_views.concepts_view, name="concepts"),
     path("concepts/generate/", app_views.concepts_generate_view, name="concepts-generate"),
+    path("concepts/favorites/", app_views.concepts_favorites_view, name="concepts-favorites"),
     path("concepts/<uuid:concept_id>/favorite/", app_views.concept_favorite_view, name="concept-favorite"),
     path(
         "concepts/<uuid:concept_id>/background/",
