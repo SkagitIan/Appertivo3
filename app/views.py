@@ -293,31 +293,39 @@ def concepts_generate_view(request):
 
     # Schema definition for structured output
     schema = {
-            "name": "concept_list",
-            "type": "json_schema",
-            "schema": {
-                "type": "object",
-                "properties": {
-                    "concepts": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "title": {"type": "string", "maxLength": 30},
-                                "subtitle": {"type": "string", "maxLength": 80}
-                            },
-                            "required": ["title", "subtitle"],
-                            "additionalProperties": False
+        "name": "concept_list",
+        "type": "json_schema",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "concepts": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "title": {"type": "string",},
+                            "subtitle": {"type": "string"},
+                            "reasoning": {"type": "string" },
+                            "tags": {
+                                "type": "array",
+                                "items": {"type": "string", "maxLength": 20},
+                                "minItems": 1,
+                                "maxItems": 3
+                            }
                         },
-                        "minItems": 9,
-                        "maxItems": 9
-                    }
-                },
-                "required": ["concepts"],
-                "additionalProperties": False,
+                        "required": ["title", "subtitle", "reasoning", "tags"],
+                        "additionalProperties": False
+                    },
+                    "minItems": 9,
+                    "maxItems": 9
+                }
             },
-            "strict": True,
-        }
+            "required": ["concepts"],
+            "additionalProperties": False,
+        },
+        "strict": True,
+    }
+
 
 
     response = client.responses.create(
@@ -327,7 +335,10 @@ def concepts_generate_view(request):
                 "role": "system",
                 "content": (
                     "You are a seasoned restaurant marketing consultant. "
-                    "Generate exactly 9 unique, theme-based concepts for daily specials.  Include a name no more than 30 characters & a subtitle no more than 80 characters. "
+                    "Generate exactly 9 unique, theme-based concepts for daily specials."
+                    "Include a name no more than 30 characters & a subtitle no more than 80 characters. "
+                    "Include a reasoning of why you chose this concept, what context and frame of mind were you in when you picked this concept.  1 sentance ender 80 characters"
+                    "Include an array of tags that quickly relate the concept to the users context"
                     "Concepts are themes like 'Taco Tuesday', 'Family Feast', 'Game Night', "
                     "'Seasonal Harvest Dinner'. They are NOT individual dishes."
                 ),
@@ -365,10 +376,13 @@ def concepts_generate_view(request):
             ideation_run=run,
             name=item["title"],
             subtitle=item["subtitle"],
+            reasoning=item["reasoning"],
+            tags=item["tags"],
             rank_order=idx,
         )
         for idx, item in enumerate(names, start=1)
     ]
+
 
     for concept in concepts:
         concept.is_favorited_for_user = False
