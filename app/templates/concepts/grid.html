@@ -200,6 +200,16 @@ transform: rotateY(180deg);
   });
 
   document.body.addEventListener("htmx:beforeRequest", function (evt) {
+    const triggeringEvent = evt.detail && evt.detail.triggeringEvent;
+    if (
+      triggeringEvent &&
+      triggeringEvent.target &&
+      triggeringEvent.target.closest(".concept-favorite-btn")
+    ) {
+      evt.preventDefault();
+      return;
+    }
+
     const trigger = evt.detail.elt;
     if (
       !trigger ||
