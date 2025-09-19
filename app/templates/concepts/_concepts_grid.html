@@ -1,7 +1,13 @@
 {% for concept in concepts %}
 <div class="flip-scene relative">
-  <div class="flip-card cursor-pointer" id="concept-{{ concept.id }}" hx-post="{% url 'dishes-generate' concept.id %}"
-    hx-target="#concepts-grid" hx-swap="innerHTML" hx-trigger="click">
+  <div
+    class="flip-card cursor-pointer"
+    id="concept-{{ concept.id }}"
+    onclick="window.location.href='{% url 'dishes-generate' concept.id %}';"
+    role="link"
+    tabindex="0"
+    onkeydown="if(event.key==='Enter' || event.key===' '){ event.preventDefault(); window.location.href='{% url 'dishes-generate' concept.id %}'; }"
+  >
     <div
       class="flip-face front bg-white p-6 rounded-2xl shadow-md border border-slate-200 transition cursor-pointer hover:shadow-lg relative overflow-hidden">
       {% with background=concept.sketch_image_url %}
