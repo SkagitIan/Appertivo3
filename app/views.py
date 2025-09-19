@@ -445,6 +445,36 @@ def concept_background_view(request, concept_id):
         {"concept": concept, "image_url": image_url},
     )
 
+
+@login_required
+@require_GET
+def concepts_favorites_view(request):
+    """Return favorited concepts rendered for the concepts page."""
+
+    favorites = (
+        models.FavoriteConcept.objects.filter(user=request.user)
+        .select_related("concept", "concept__restaurant")
+        .order_by("-favorited_at")
+    )
+
+    concepts = []
+    for favorite in favorites:
+        concept = favorite.concept
+        if concept is None:
+            continue
+        if not concept.sketch_image_url:
+            image_url = llm.generate_concept_sketch(concept)
+            concept.sketch_image_url = image_url
+            concept.save(update_fields=["sketch_image_url"])
+        concept.is_favorited_for_user = True
+        concepts.append(concept)
+
+    return render(
+        request,
+        "concepts/_favorites_section.html",
+        {"concepts": concepts},
+    )
+
 def serialize_restaurant_context(restaurant_payload, menu_markdown, concept):
     """Return a slim JSON-serializable context for dish generation."""
     return {
