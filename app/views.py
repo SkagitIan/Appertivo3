@@ -512,10 +512,6 @@ def concepts_favorites_view(request):
         concept = favorite.concept
         if concept is None:
             continue
-        if not concept.sketch_image_url:
-            image_url = llm.generate_concept_sketch(concept)
-            concept.sketch_image_url = image_url
-            concept.save(update_fields=["sketch_image_url"])
         concept.is_favorited_for_user = True
         concepts.append(concept)
 
