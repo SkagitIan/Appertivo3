@@ -521,7 +521,6 @@ def concepts_favorites_view(request):
         {"concepts": concepts},
     )
 
-
 def serialize_restaurant_context(restaurant_payload, menu_markdown, concept):
     """Return a slim JSON-serializable context for dish generation."""
     return {

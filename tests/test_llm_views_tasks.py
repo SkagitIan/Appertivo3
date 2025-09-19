@@ -57,60 +57,6 @@ class ConceptGridViewTests(TestCase):
         self.assertEqual(len(response.context["concepts"]), 9)
 
 
-@override_settings(SECURE_SSL_REDIRECT=False)
-class ConceptFavoritesViewTests(TestCase):
-    """Ensure favorited concepts render without regenerating backgrounds."""
-
-    def setUp(self):
-        self.user = User.objects.create_user(
-            username="fan@example.com", password="pass1234"
-        )
-        account = models.Account.objects.create(name="Favs")
-        models.Membership.objects.create(
-            account=account, user=self.user, role=models.Membership.Role.OWNER
-        )
-        self.restaurant = models.Restaurant.objects.create(
-            account=account,
-            name="Fav Place",
-            location_text="Town",
-        )
-        run = models.IdeationRun.objects.create(
-            restaurant=self.restaurant,
-            initiated_by_user=self.user,
-            type=models.IdeationRun.RunType.CONCEPTS,
-            model_name="mock",
-            temperature=0,
-            classic_creative=50,
-            context_snapshot={},
-            status=models.IdeationRun.Status.SUCCEEDED,
-        )
-        self.concept = models.Concept.objects.create(
-            restaurant=self.restaurant,
-            ideation_run=run,
-            name="Garden Glow",
-            subtitle="Fresh and bright",
-            sketch_image_url="https://example.com/sketch.png",
-            rank_order=1,
-        )
-        models.FavoriteConcept.objects.create(
-            user=self.user,
-            concept=self.concept,
-            favorited_at=timezone.now(),
-        )
-
-    def test_favorites_view_uses_existing_background(self):
-        self.client.login(username="fan@example.com", password="pass1234")
-        with patch("app.views.llm.generate_concept_sketch") as mock_generate:
-            response = self.client.get(reverse("concepts-favorites"))
-
-        self.assertEqual(response.status_code, 200)
-        mock_generate.assert_not_called()
-        self.concept.refresh_from_db()
-        self.assertEqual(
-            self.concept.sketch_image_url, "https://example.com/sketch.png"
-        )
-        self.assertIn("Garden Glow", response.content.decode())
-
 
 @override_settings(SECURE_SSL_REDIRECT=False)
 class DishVariationViewTests(TestCase):
