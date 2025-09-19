@@ -30,11 +30,12 @@ GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
 SECRET_KEY = 'django-insecure-9p1o@*d)+lij5nyyv6=8i*m^r_gmn&2(2ol-twbzpyf9#v&f4w'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = [
     "appertivo.com", "www.appertivo.com",
-    "app.appertivo.com", "localhost", "127.0.0.1","38.68.10.226"
+    "app.appertivo.com", "localhost", "127.0.0.1", "38.68.10.226",
+    "*"  # Allow all hosts for Replit development environment
 ]
 
 # Application definition
