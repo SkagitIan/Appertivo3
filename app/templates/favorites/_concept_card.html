@@ -1,6 +1,6 @@
 <div
   id="favorite-concept-{{ favorite.concept.id }}"
-  class="favorite-concept-card group relative flex min-h-[220px] flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm"
+  class="favorite-concept-card group relative flex min-h-[180px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow"
 >
   {% with background=favorite.concept.sketch_image_url %}
     <div
@@ -23,7 +23,7 @@
       </div>
       <button
         type="button"
-        class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/70 text-slate-600 transition hover:bg-white"
+        class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-red-500/90 text-white transition hover:bg-red-600 shadow-lg opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100"
         hx-post="{% url 'favorite-remove' 'concept' favorite.concept.id %}"
         hx-trigger="click consume"
         hx-target="#favorite-concept-{{ favorite.concept.id }}"
@@ -31,14 +31,11 @@
         onclick="event.stopPropagation();"
         title="Remove concept"
       >
-        <i class="fa-regular fa-trash-can" aria-hidden="true"></i>
+        <i class="fa-solid fa-trash-can text-sm" aria-hidden="true"></i>
         <span class="sr-only">Remove {{ favorite.concept.name }} from favorites</span>
       </button>
     </div>
-    <div class="mt-auto flex flex-wrap items-center justify-between gap-3 pt-4">
-      <span class="text-xs font-medium uppercase tracking-wide text-slate-500">
-        Saved {{ favorite.favorited_at|date:"M d, Y" }}
-      </span>
+    <div class="mt-auto flex justify-end pt-4">
       <button
         type="button"
         class="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#FF8300] to-[#FF5C00] px-4 py-2 text-sm font-semibold text-white shadow transition hover:scale-105"
