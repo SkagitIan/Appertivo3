@@ -151,6 +151,8 @@ transform: rotateY(180deg);
       hx-get="{% url 'concepts-generate' %}"
       hx-target="#concepts-grid"
       hx-swap="innerHTML"
+        data-overlay="true"
+  data-messages='["Cooking up ideas…", "Almost there…", "Plating concepts!"]'
       class="relative inline-flex items-center gap-2 bg-gradient-to-r from-[#f08000] to-[#FF5C00] text-white font-semibold px-6 py-3 rounded-xl shadow-lg hover:scale-105 transition"
     >
       <!-- Spinner (hidden until active) -->
