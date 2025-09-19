@@ -385,10 +385,7 @@ def concept_favorite_view(request, concept_id):
     favorited = created
 
     if created:
-        if not image_url:
-            image_url = llm.generate_concept_sketch(concept)
-            concept.sketch_image_url = image_url
-            concept.save(update_fields=["sketch_image_url"])
+        image_url = None
     else:
         fav.delete()
         favorited = False
@@ -396,8 +393,6 @@ def concept_favorite_view(request, concept_id):
             concept.sketch_image_url = None
             concept.save(update_fields=["sketch_image_url"])
         image_url = None
-
-    concept.is_favorited_for_user = favorited
 
     concept.is_favorited_for_user = favorited
 
