@@ -151,6 +151,8 @@ transform: rotateY(180deg);
       hx-get="{% url 'concepts-generate' %}"
       hx-target="#concepts-grid"
       hx-swap="innerHTML"
+        data-overlay="true"
+  data-messages='["Cooking up ideas…", "Almost there…", "Plating concepts!"]'
       class="relative inline-flex items-center gap-2 bg-gradient-to-r from-[#f08000] to-[#FF5C00] text-white font-semibold px-6 py-3 rounded-xl shadow-lg hover:scale-105 transition"
     >
       <!-- Spinner (hidden until active) -->
@@ -169,6 +171,19 @@ transform: rotateY(180deg);
 
   <div id="concepts-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
    {% include 'concepts/_concepts_grid.html' %}
+  </div>
+
+  <div class="mt-8">
+    <button
+      id="concepts-favorites-btn"
+      hx-get="{% url 'concepts-favorites' %}"
+      hx-target="#concepts-favorites"
+      hx-swap="innerHTML"
+      class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:bg-white hover:text-[#49475B]"
+    >
+      <span>See favorites</span>
+    </button>
+    <div id="concepts-favorites" class="mt-6"></div>
   </div>
 </div>
 <script>
