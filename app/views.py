@@ -18,7 +18,8 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 from pydantic import BaseModel
-
+from django.core.cache import cache
+import hashlib
 from . import models
 
 from openai import OpenAI
@@ -303,26 +304,31 @@ def concepts_view(request):
 
 @login_required
 def concepts_generate_view(request):
+    membership = models.Membership.objects.filter(user=request.user).first()
+    restaurant = models.Restaurant.objects.filter(account=membership.account).first()
     """Generate 9 new concepts via OpenAI."""
-    restaurant = models.Restaurant.objects.first()
+    context_parts = [
+    f"Restaurant: {restaurant.name}, {restaurant.location_text}"
+    ]
 
-    # Build context (menu, outscraper, etc.)
-    context = f"Restaurant: {restaurant.name}, {restaurant.location_text}"
+    if restaurant.description:
+        context_parts.append(f"Description: {restaurant.description}")
+
+    if restaurant.about_json:
+        context_parts.append("About: " + json.dumps(restaurant.about_json, ensure_ascii=False)[:1000])
+
+    if restaurant.context_json:
+        context_parts.append("Context: " + json.dumps(restaurant.context_json, ensure_ascii=False)[:1000])
+
     if restaurant.active_menu_version:
-        context += f"\nMenu:\n{restaurant.active_menu_version.raw_markdown[:2000]}"
+        context_parts.append("Menu:\n" + restaurant.active_menu_version.raw_markdown[:2000])
 
-    previous_concepts: List[str] = []
-    if request.user.is_authenticated:
-        previous_concepts = _get_session_list(request.session, "generated_concepts")
-
-    guidance_lines: List[str] = []
+    # Add avoidance guidance
+    previous_concepts = _get_session_list(request.session, "generated_concepts") if request.user.is_authenticated else []
     if previous_concepts:
-        guidance_lines.append(
-            "Previously generated concept names to avoid: "
-            + ", ".join(previous_concepts)
-        )
-    if guidance_lines:
-        context += "\n" + "\n".join(guidance_lines)
+        context_parts.append("Previously generated concept names to avoid: " + ", ".join(previous_concepts))
+
+    context = "\n".join(context_parts)
 
     # Schema definition for structured output
     schema = {
@@ -390,7 +396,7 @@ def concepts_generate_view(request):
         ],
         text={"format": schema},
     )
-
+    logger.info(context)
     # 👇 Extract raw text and parse
     raw_text = response.output[0].content[0].text
     try:
@@ -521,29 +527,45 @@ def concepts_favorites_view(request):
         {"concepts": concepts},
     )
 
-def serialize_restaurant_context(restaurant_payload, menu_markdown, concept):
-    """Return a slim JSON-serializable context for dish generation."""
-    return {
+def serialize_restaurant_context(restaurant, concept, request=None):
+    """
+    Return a slim JSON-serializable context for dish generation.
+    Cached per (restaurant, concept, user session) combo.
+    """
+
+    # Build cache key (include session key if available so users don't clash)
+    raw_key = f"context:{restaurant.id}:{concept.id}:{getattr(request, 'session', {}).session_key}"
+    cache_key = hashlib.md5(raw_key.encode()).hexdigest()
+
+    cached = cache.get(cache_key)
+    if cached:
+        return cached
+
+    context = {
         "restaurant": {
-            "name": restaurant_payload.get("name"),
-            "description": restaurant_payload.get("description"),
-            "category": restaurant_payload.get("category"),
-            "price_range": restaurant_payload.get("range"),
-            "city": restaurant_payload.get("city"),
-            "state": restaurant_payload.get("us_state"),
-            "atmosphere": restaurant_payload.get("about", {}).get("Atmosphere", {}),
-            "highlights": restaurant_payload.get("about", {}).get("Highlights", {}),
-            "popular_for": restaurant_payload.get("about", {}).get("Popular for", {}),
-            "offerings": restaurant_payload.get("about", {}).get("Offerings", {}),
-            "customer_favorites": restaurant_payload.get("reviews_tags", []),
-            "rating": restaurant_payload.get("rating"),
+            "name": restaurant.name,
+            "description": restaurant.description,
+            "category": restaurant.context_json.get("category") if restaurant.context_json else None,
+            "price_range": restaurant.context_json.get("range") if restaurant.context_json else None,
+            "city": restaurant.context_json.get("city") if restaurant.context_json else None,
+            "state": restaurant.context_json.get("us_state") if restaurant.context_json else None,
+            "about": restaurant.about_json or {},
+            "context": restaurant.context_json or {},
         },
-        "menu_markdown": menu_markdown,
+        "menu_markdown": (
+            restaurant.active_menu_version.raw_markdown
+            if restaurant.active_menu_version else ""
+        ),
         "concept": {
-            "id": str(concept.id),
-            "name": concept.name,
+            "id": str(concept.id) if concept else None,
+            "name": concept.name if concept else None,
         },
     }
+
+    # Cache for, say, 10 minutes (tune depending on freshness you need)
+    cache.set(cache_key, context, timeout=600)
+
+    return context
 
 
 CURRENCY_SYMBOLS = {"USD": "$", "EUR": "€", "GBP": "£"}
@@ -563,9 +585,7 @@ def format_price_display(cents: Optional[int], currency: Optional[str]) -> str:
     return f"{currency} {amount:,.2f}"
 
 
-def decorate_dishes_with_enhancements(
-    dishes: Iterable[models.DishIdea],
-) -> List[models.DishIdea]:
+def decorate_dishes_with_enhancements(dishes: Iterable[models.DishIdea],) -> List[models.DishIdea]:
     """Attach enhancement metadata to dish objects for rendering."""
 
     dish_list = list(dishes)
@@ -603,9 +623,7 @@ def decorate_dishes_with_enhancements(
     return dish_list
 
 
-def ensure_dish_enhancement(
-    dish: models.DishIdea, user: Optional[User]
-) -> Optional[models.Enhancement]:
+def ensure_dish_enhancement(dish: models.DishIdea, user: Optional[User]) -> Optional[models.Enhancement]:
     """Create an enhancement for the dish if one does not already exist."""
 
     existing = (
@@ -656,116 +674,100 @@ def ensure_dish_enhancement(
 
     return enhancement
 
-
 @login_required
 def dishes_generate_view(request, concept_id):
-    concept = models.Concept.objects.get(id=concept_id)
-
-    # Example: pull restaurant + menu from your DB relations
+    """
+    Generate 9 dish ideas for a given concept.
+    Returns HX-Redirect → dish_detail_view so HTMX can load the page.
+    """
+    concept = models.Concept.objects.select_related("restaurant").get(id=concept_id)
     restaurant = concept.restaurant
-    restaurant_payload = restaurant.context_json  # assuming JSONField
-    menu_markdown = restaurant.primary_menu_url or ""
+    logger.info("Starting dish generation: concept=%s, restaurant=%s", concept.name, restaurant.name)
 
-    context = serialize_restaurant_context(restaurant_payload, menu_markdown, concept)
+    # Build previous dish titles (avoid duplication in generation)
+    previous_titles: List[str] = list(
+        models.DishIdea.objects.filter(restaurant=restaurant)
+        .order_by("-created_at")
+        .values_list("title", flat=True)[:27]
+    )
 
-    is_htmx = request.headers.get("HX-Request") == "true"
-
-    previous_dishes: List[str] = []
-    if request.user.is_authenticated:
-        previous_dishes = _get_session_list(request.session, "generated_dishes")
-
-    if previous_dishes:
-        context["session_history"] = {"dish_names": previous_dishes}
-
-    logger.info("Generating dishes for concept=%s restaurant=%s", concept.name, restaurant.name)
-
-    # ✅ Use Structured Outputs with enforced schema
+    context = serialize_restaurant_context(restaurant, concept, request=request)
+    logger.info(f"Context:  {context}")
+    # Prepare schema
     schema = {
-            "name": "dish_list",
-            "schema": {
-                "type": "object",
-                "properties": {
+        "name": "dish_list",
+        "type": "json_schema",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "properties": {
                 "dishes": {
                     "type": "array",
                     "items": {
-                    "type": "object",
-                    "properties": {
-                        "title": { "type": "string" },
-                        "description": { "type": "string" },
-                        "ingredient_overlap": {
-                        "type": "array",
-                        "items": { "type": "string" }
+                        "type": "object",
+                        "properties": {
+                            "title": {"type": "string"},
+                            "description": {"type": "string"},
+                            "ingredient_overlap": {
+                                "type": "array", "items": {"type": "string"}
+                            },
+                            "category_tags": {
+                                "type": "array", "items": {"type": "string"}
+                            },
                         },
-                        "category_tags": {
-                        "type": "array",
-                        "items": { "type": "string" }
-                        }
-                    },
-                    "required": ["title", "description", "ingredient_overlap", "category_tags"],
-                    "additionalProperties": False
+                        "required": ["title", "description", "ingredient_overlap", "category_tags"],
+                        "additionalProperties": False,
                     },
                     "minItems": 9,
-                    "maxItems": 9
+                    "maxItems": 9,
                 }
-                },
-                "required": ["dishes"],
-                "additionalProperties": False
             },
-            "type": "json_schema",
-            "strict": True
-            }
+            "required": ["dishes"],
+            "additionalProperties": False,
+        },
+    }
+
+    # Create IdeationRun *before* calling LLM so we can track errors
+    ideation_run = models.IdeationRun.objects.create(
+        restaurant=restaurant,
+        initiated_by_user=request.user,
+        type=models.IdeationRun.RunType.DISHES,
+        model_name="gpt-4o-mini",
+        temperature=0.7,
+        classic_creative=50,
+        context_snapshot=context,
+        parent_concept=concept,
+        status=models.IdeationRun.Status.RUNNING,
+    )
 
     try:
-        instruction_text = (
-            f"""
-                    Given the following restaurant context and menu, generate 9 saleable dish ideas
-                    for the concept: '{concept.name}'.
-                    Each dish must include: title, description, ingredient_overlap, category_tags.
-                    """
-        )
+        # Build instruction text
+        instruction = f"""
+        Given the following restaurant context and menu, generate 9 saleable dish ideas
+        for the concept: '{concept.name}'.
+        Each dish must include: title, description, ingredient_overlap, category_tags.
+        """
 
-        guidance_lines: List[str] = []
-        if previous_dishes:
-            guidance_lines.append(
-                "Avoid repeating these dish names: " + ", ".join(previous_dishes)
-            )
-        if guidance_lines:
-            instruction_text += "\n" + "\n".join(guidance_lines)
+        if previous_titles:
+            instruction += "\nAvoid repeating these dish names: " + ", ".join(previous_titles)
 
+        # Call LLM
         response = client.responses.create(
-            model="gpt-4.1",  # or gpt-4o-mini if you want faster
+            model="gpt-4o-mini",
             input=[
-                {
-                    "role": "user",
-                    "content": instruction_text,
-                },
-                {
-                    "role": "user",
-                    "content": json.dumps(context, indent=2),
-                },
+                {"role": "user", "content": instruction},
+                {"role": "user", "content": json.dumps(context, indent=2)},
             ],
-            text={"format":schema},
+            text={"format": schema},
         )
 
-        # Parse structured output
         raw_text = response.output[0].content[0].text
         parsed = json.loads(raw_text)
         dishes = parsed["dishes"]
 
-        logger.info("Generated %d dishes for concept=%s", len(dishes), concept.name)
-        ideation_run = models.IdeationRun.objects.create(
-            restaurant=restaurant,
-            initiated_by_user=request.user,
-            type=models.IdeationRun.RunType.DISHES,
-            model_name="gpt-4.1",
-            temperature=0.7,
-            classic_creative=50,
-            context_snapshot=context,
-            parent_concept=concept,
-            status=models.IdeationRun.Status.RUNNING,
-                )
+        logger.info("LLM generated %d dishes for concept=%s", len(dishes), concept.name)
 
-        # Save to DB with UUIDs
+        # Persist dish ideas
         dish_objects = []
         for dish in dishes:
             obj = models.DishIdea.objects.create(
@@ -779,66 +781,44 @@ def dishes_generate_view(request, concept_id):
             )
             dish_objects.append(obj)
 
-        # Mark run as complete
+        # Mark run as successful
         ideation_run.status = models.IdeationRun.Status.SUCCEEDED
         ideation_run.save(update_fields=["status"])
-        dishes = dish_objects
+        logger.info("Dish generation succeeded: %d dishes stored (run_id=%s)", len(dish_objects), ideation_run.id)
 
+        # Save generated dish names into session history
         if request.user.is_authenticated:
             _extend_session_list(
                 request.session,
                 "generated_dishes",
-                [dish.title for dish in dishes],
+                [dish.title for dish in dish_objects],
             )
 
     except Exception as e:
-        logger.error("Dish generation failed: %s", str(e), exc_info=True)
+        logger.error("Dish generation failed for concept=%s: %s", concept.name, str(e), exc_info=True)
         ideation_run.status = models.IdeationRun.Status.FAILED
         ideation_run.error_message = str(e)
         ideation_run.save(update_fields=["status", "error_message"])
-    template_name = "dishes/grid.html" if is_htmx else "dishes/page.html"
+
+    # Tell HTMX to redirect (overlay handles spinner/messages)
+    response = HttpResponse()
+    response["HX-Redirect"] = reverse("dish_detail", args=[concept_id])
+    return response
+
+
+@login_required
+def dish_detail_view(request, concept_id):
+    """
+    Show generated dishes for a concept.
+    If HTMX: return grid fragment. Else: return full page.
+    """
+    concept = get_object_or_404(models.Concept.objects.select_related("restaurant"), id=concept_id)
+    dishes = concept.dishidea_set.order_by("created_at")
+
+    template_name = "dishes/grid.html" if request.htmx else "dishes/page.html"
+    logger.info("Rendering dish detail view: concept=%s, template=%s", concept.name, template_name)
+
     return render(request, template_name, {"concept": concept, "dishes": dishes})
-
-
-def dishes_grid_view(request, concept_id):
-    concept = get_object_or_404(models.Concept, id=concept_id)
-    restaurant = concept.restaurant
-    ideation_run = concept.ideation_run
-
-    # === OpenAI call (already in your code) ===
-    raw_text = response.output[0].content[0].text
-    dishes_obj = json.loads(raw_text)
-
-    dishes = []
-    for d in dishes_obj["dishes"]:
-        dish_obj, created = models.DishIdea.objects.get_or_create(
-            restaurant=restaurant,
-            ideation_run=ideation_run,
-            parent_concept=concept,
-            title=d["title"],
-            defaults={
-                "description": d["description"],
-                "ingredient_names": d.get("ingredient_overlap", []),
-                "category_tags": d.get("category_tags", []),
-            },
-        )
-        dishes.append(dish_obj)
-
-    dishes = decorate_dishes_with_enhancements(dishes)
-
-    # === mark favorites ===
-    user_favs = set(
-        models.FavoriteDish.objects.filter(user=request.user)
-        .values_list("dish_id", flat=True)
-    )
-    for dish in dishes:
-        dish.is_favorited = dish.id in user_favs
-
-    return render(
-        request,
-        "dishes/grid.html",
-        {"concept": concept, "dishes": dishes}
-    )
 
 
 def dish_favorite_view(request, dish_id):
