@@ -81,16 +81,25 @@
             {% endif %}
           </div>
           <div class="mt-6 flex flex-col gap-3" data-no-flip>
-            <button
-              type="button"
-              class="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#f08000] to-[#FF5C00] px-4 py-2 text-sm font-semibold text-white shadow-md transition hover:scale-[1.02]"
-              hx-post="{% url 'dishes-generate' concept.id %}"
-              hx-trigger="click"
-              data-overlay="true"
-              data-messages='["Cooking up ideas…", "Almost there…", "Plating concepts!"]'
-            >
-              <span>Generate dishes</span>
-            </button>
+            {% if concept.has_dishes %}
+              <a
+                href="{% url 'dish_detail' concept.id %}"
+                class="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#f08000] to-[#FF5C00] px-4 py-2 text-sm font-semibold text-white shadow-md transition hover:scale-[1.02]"
+              >
+                <span>See dish ideas</span>
+              </a>
+            {% else %}
+              <button
+                type="button"
+                class="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#f08000] to-[#FF5C00] px-4 py-2 text-sm font-semibold text-white shadow-md transition hover:scale-[1.02]"
+                hx-post="{% url 'dishes-generate' concept.id %}"
+                hx-trigger="click"
+                data-overlay="true"
+                data-messages='["Cooking up ideas…", "Almost there…", "Plating concepts!"]'
+              >
+                <span>Generate dish ideas</span>
+              </button>
+            {% endif %}
             {% if show_delete|default:True %}
               <button
                 type="button"
