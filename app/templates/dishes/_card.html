@@ -1,8 +1,8 @@
 {# Full dish card (lookbook-first) #}
 {% with context_name=card_context|default:'grid' %}
-{% with HSM="min-h-[280px]" HMD="md:min-h-[340px]" HLG="lg:min-h-[400px]" %}
+{% with HSM="min-h-[260px]" HMD="md:min-h-[320px]" HLG="lg:min-h-[360px]" %}
 
-<div class="dish-card-wrapper" id="dish-{{ dish.id }}">
+<div class="dish-card-wrapper" id="dish-{{ dish.id }}" data-dish-card>
   <div class="flip-scene h-full">
     <div class="flip-card h-full">
 
@@ -25,7 +25,7 @@
           {% endif %}
         {% else %}
           <!-- No image? Show a clean, centered info front -->
-          <div class="relative flex flex-col items-center justify-center text-center p-5 {{HSM}} {{HMD}} {{HLG}}">
+          <div class="relative flex flex-col items-center justify-center text-center p-4 {{HSM}} {{HMD}} {{HLG}}">
             <h3 class="text-lg md:text-xl font-bold text-[#49475B]">{{ dish.title }}</h3>
             {% if dish.description %}
               <p class="mt-2 text-slate-600 text-sm md:text-base line-clamp-4">{{ dish.description }}</p>
@@ -43,7 +43,7 @@
         {% endif %}
 
         <!-- Action pill (always shown on FRONT) -->
-        <div class="absolute bottom-2 right-2 flex items-center gap-2 bg-white/95 border border-slate-200 rounded-full shadow px-2 py-1">
+        <div class="absolute bottom-2 right-2 flex items-center gap-2 bg-white/95 border border-slate-200 rounded-full shadow px-2 py-1" data-no-flip>
           {% include "dishes/_favorite_button.html" with dish=dish card_context=context_name btn_class='favorite-btn text-[#f08000]' %}
           <button
             type="button"
@@ -61,17 +61,17 @@
       </div>
 
       {# ---------------- BACK (DETAILS) ---------------- #}
-      <div class="flip-face flip-back bg-white text-slate-800 rounded-2xl shadow-md border border-slate-200 p-5 flex flex-col {{HSM}} {{HMD}} {{HLG}}">
+      <div class="flip-face flip-back bg-white text-slate-800 rounded-2xl shadow-md border border-slate-200 p-4 flex flex-col gap-4 {{HSM}} {{HMD}} {{HLG}}">
         <!-- Title & Description -->
-        <div class="flex-1">
+        <div class="flex-1 text-center space-y-3">
           <h3 class="text-lg md:text-xl font-bold text-[#49475B] text-center">{{ dish.title }}</h3>
           {% if dish.description %}
-            <p class="mt-2 text-slate-600 text-sm md:text-base text-center line-clamp-6">{{ dish.description }}</p>
+            <p class="text-slate-600 text-sm md:text-base text-center line-clamp-6">{{ dish.description }}</p>
           {% endif %}
         </div>
 
         <!-- Tags -->
-        <div class="mt-4 flex flex-wrap justify-center gap-2">
+        <div class="flex flex-wrap justify-center gap-2">
           {% if dish.enhancement_price_display %}
             <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs md:text-sm font-semibold bg-white text-[#49475B] border border-slate-200 shadow-sm">
               {{ dish.enhancement_price_display }}
@@ -90,7 +90,7 @@
         </div>
 
         <!-- Actions (again, on BACK) -->
-        <div class="mt-auto flex justify-end gap-3 pt-4 border-t border-slate-200">
+        <div class="mt-auto flex justify-end gap-2 pt-3 border-t border-slate-200" data-no-flip>
           {% include "dishes/_favorite_button.html" with dish=dish card_context=context_name btn_class='favorite-btn card-action-button' %}
           <button
             type="button"
@@ -114,6 +114,14 @@
           >
             🗑️
           </button>
+        </div>
+      </div>
+
+      {# ---------------- LOADING FACE ---------------- #}
+      <div class="flip-loading-face">
+        <div class="loading-card">
+          <div class="loading-spinner" aria-hidden="true"></div>
+          <p class="loading-copy">Cooking up your enhancement…</p>
         </div>
       </div>
 
