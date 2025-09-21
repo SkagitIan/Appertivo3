@@ -1,5 +1,14 @@
 {# Shared styles and scripts for dish cards #}
 <style>
+  .dish-card-wrapper {
+    margin: 0.75rem 0;
+    padding: 0 0.75rem;
+  }
+
+  .dish-card-wrapper .flip-scene {
+    height: 100%;
+  }
+
   .flip-scene {
     perspective: 1200px;
   }
@@ -7,12 +16,13 @@
   .flip-card {
     position: relative;
     width: 100%;
-    min-height: 340px;
+    min-height: 320px;
     transition: transform 0.6s;
     transform-style: preserve-3d;
   }
 
-  .flip-card.flipped {
+  .flip-card.show-back,
+  .flip-card.loading {
     transform: rotateY(180deg);
   }
 
@@ -36,40 +46,6 @@
     transform: rotateY(180deg);
   }
 
-  .flip-face.front.enhanced {
-    background-size: cover;
-    background-position: center;
-    color: white;
-  }
-
-  .flip-face.front.enhanced::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.45);
-  }
-
-  .flip-face.front .card-inner {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    height: 100%;
-    z-index: 1;
-  }
-
-  .flip-face.front.enhanced .card-inner h3 {
-    color: #fff;
-  }
-
-  .flip-face.front.enhanced .card-inner p {
-    color: rgba(255, 255, 255, 0.85);
-  }
-
-  .flip-face.front.enhanced .card-inner .text-slate-600 {
-    color: rgba(255, 255, 255, 0.85);
-  }
-
   .clamp-3 {
     display: -webkit-box;
     -webkit-line-clamp: 3;
@@ -79,15 +55,6 @@
 
   .dish-card-wrapper .flip-face.front {
     box-shadow: 0 15px 35px rgba(15, 23, 42, 0.08);
-  }
-
-  .flip-face.front.enhanced {
-    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.25);
-  }
-
-  .flip-face.flip-back {
-    background: #1e293b;
-    color: #fff;
   }
 
   .card-footer {
@@ -115,8 +82,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2.5rem;
-    height: 2.5rem;
+    width: 2.25rem;
+    height: 2.25rem;
     border-radius: 9999px;
     background: transparent;
     border: none;
@@ -133,20 +100,6 @@
   .card-action-button:focus-visible {
     outline: 2px solid #6366f1;
     outline-offset: 2px;
-  }
-
-  .flip-face.front.enhanced .card-action-tab {
-    background: rgba(15, 23, 42, 0.85);
-    border-color: rgba(255, 255, 255, 0.25);
-    box-shadow: 0 18px 35px rgba(15, 23, 42, 0.5);
-  }
-
-  .flip-face.front.enhanced .card-action-button {
-    color: rgba(248, 250, 252, 0.95);
-  }
-
-  .flip-face.front.enhanced .card-action-button:hover {
-    color: #fca5a5;
   }
 
   .dish-tag {
@@ -176,27 +129,6 @@
     letter-spacing: 0.01em;
   }
 
-  .flip-face.front.enhanced .dish-tag {
-    background: rgba(15, 23, 42, 0.45);
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    color: rgba(248, 250, 252, 0.95);
-  }
-
-  .flip-face.front.enhanced .dish-tag--category {
-    background: rgba(165, 180, 252, 0.35);
-    border-color: transparent;
-  }
-
-  .flip-face.front.enhanced .dish-tag--ingredient {
-    background: rgba(244, 114, 182, 0.35);
-    border-color: transparent;
-  }
-
-  .flip-face.front.enhanced .dish-tag--price {
-    background: rgba(248, 113, 113, 0.95);
-    border-color: transparent;
-  }
-
   .masonry-grid {
     column-gap: 1.25rem;
   }
@@ -217,48 +149,122 @@
       column-count: 3;
     }
   }
+
+  .flip-loading-face {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    text-align: center;
+    border-radius: 1rem;
+    background: linear-gradient(135deg, #b993d6, #58b09c);
+    color: #ffffff;
+    transform: rotateY(180deg);
+    backface-visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+
+  .flip-card.loading .flip-loading-face {
+    opacity: 1;
+  }
+
+  .flip-card.loading .flip-face {
+    opacity: 0;
+  }
+
+  .loading-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .loading-spinner {
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 9999px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #ffffff;
+    animation: dish-card-spin 1s linear infinite;
+  }
+
+  .loading-copy {
+    font-size: 0.9rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  @keyframes dish-card-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
 </style>
 
 <script>
   if (!window.__dishCardEnhancements) {
     window.__dishCardEnhancements = true;
 
-    const shouldFlip = (elt) =>
+    const shouldShowLoading = (elt) =>
       elt && (elt.classList.contains("dish-variation-btn") || elt.classList.contains("favorite-btn"));
 
     document.body.addEventListener("htmx:beforeRequest", function (evt) {
       const trigger = evt.detail.elt;
-      if (shouldFlip(trigger)) {
+      if (shouldShowLoading(trigger)) {
         const card = trigger.closest(".flip-card");
         if (card) {
-          card.classList.add("flipped");
+          card.classList.remove("show-back");
+          card.classList.add("loading");
         }
       }
     });
 
     document.body.addEventListener("htmx:responseError", function (evt) {
       const trigger = evt.detail.elt;
-      if (shouldFlip(trigger)) {
+      if (shouldShowLoading(trigger)) {
         const card = trigger.closest(".flip-card");
         if (card) {
-          card.classList.remove("flipped");
+          card.classList.remove("loading");
         }
       }
     });
 
     document.body.addEventListener("htmx:afterSwap", function (evt) {
       const trigger = evt.detail.elt;
-      if (shouldFlip(trigger)) {
+      if (shouldShowLoading(trigger)) {
         const target = evt.detail.target;
         if (target) {
           const card = target.classList.contains("flip-card")
             ? target
             : target.querySelector(".flip-card");
           if (card) {
-            card.classList.remove("flipped");
+            card.classList.remove("loading");
+            card.classList.remove("show-back");
           }
         }
       }
+    });
+
+    document.body.addEventListener("click", function (evt) {
+      const card = evt.target.closest(".flip-card");
+      if (!card) {
+        return;
+      }
+
+      if (card.classList.contains("loading")) {
+        return;
+      }
+
+      const actionable = evt.target.closest("button, a, [data-no-flip]");
+      if (actionable) {
+        return;
+      }
+
+      card.classList.toggle("show-back");
     });
   }
 </script>
