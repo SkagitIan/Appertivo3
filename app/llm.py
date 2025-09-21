@@ -174,7 +174,7 @@ def _call_openai_for_price(
 
     try:
         response = client.responses.create(
-            model="gpt-4.1-mini",
+            model="gpt-4.1-nano",
             input=[
                 {
                     "role": "system",
