@@ -1,14 +1,26 @@
+{% with base_class=btn_class|default:'favorite-btn card-action-button' %}
 <button
   hx-post="{% url 'dish_favorite' dish.id %}?context={{ card_context|default:'grid' }}"
   hx-trigger="click"
   hx-swap="outerHTML"
   hx-target="closest .dish-card-wrapper"
-  class="favorite-btn card-action-button text-[#f08000] transition"
-  aria-label="Favorite {{ dish.title }}"
+  class="{{ base_class }} transition {% if dish.is_favorited %}text-red-500{% else %}text-slate-500 hover:text-red-400{% endif %}"
+  aria-label="{% if dish.is_favorited %}Unfavorite{% else %}Favorite{% endif %} {{ dish.title }}"
+  aria-pressed="{{ dish.is_favorited|yesno:'true,false' }}"
 >
-  {% if dish.is_favorited %}
-    ❤️
-  {% else %}
-    🤍
-  {% endif %}
+  <span aria-hidden="true">
+    {% if dish.is_favorited %}
+      ❤️
+    {% else %}
+      🤍
+    {% endif %}
+  </span>
+  <span class="sr-only">
+    {% if dish.is_favorited %}
+      Unfavorite {{ dish.title }}
+    {% else %}
+      Favorite {{ dish.title }}
+    {% endif %}
+  </span>
 </button>
+{% endwith %}
