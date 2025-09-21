@@ -73,10 +73,21 @@
         </div>
       </div>
     </div>
-    <div class="flip-face flip-back bg-slate-800 text-white p-6 rounded-2xl flex flex-col items-center justify-center">
-      <i class="fa-solid fa-rotate"></i>
-      <p class="text-sm font-medium mt-2">Mixing up something special…</p>
-    </div>
+<div 
+  class="flip-face flip-back bg-gradient-to-br from-[#B993D6] to-[#49475B] text-white p-6 rounded-2xl flex flex-col items-center justify-center relative overflow-hidden"
+  x-data="{ messages: ['Mixing up something special…', 'Adding a dash of creativity…', 'Almost ready to serve!'], i: 0 }"
+  x-init="setInterval(() => i = (i + 1) % messages.length, 2000)"
+>
+  <!-- Spinner -->
+  <div class="animate-spin rounded-full h-10 w-10 border-4 border-white/30 border-t-white"></div>
+
+  <!-- Rotating messages -->
+  <p 
+    class="text-sm font-medium mt-4 transition-opacity duration-500 ease-in-out"
+    x-text="messages[i]"
+  ></p>
+</div>
+
   </div>
 </div>
 {% endwith %}
