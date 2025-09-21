@@ -809,14 +809,42 @@ def dishes_generate_view(request, concept_id):
 @login_required
 def dish_detail_view(request, concept_id):
     """
-    Show generated dishes for a concept.
+    Show the most recent batch of generated dishes for a concept.
     If HTMX: return grid fragment. Else: return full page.
     """
-    concept = get_object_or_404(models.Concept.objects.select_related("restaurant"), id=concept_id)
-    dishes = concept.dishidea_set.order_by("created_at")
+    concept = get_object_or_404(
+        models.Concept.objects.select_related("restaurant"),
+        id=concept_id,
+    )
 
-    template_name = "dishes/grid.html" if request.htmx else "dishes/page.html"
-    logger.info("Rendering dish detail view: concept=%s, template=%s", concept.name, template_name)
+    # Get the most recent ideation run for this concept
+    latest_run = (
+        models.IdeationRun.objects.filter(
+            parent_concept=concept,
+            type=models.IdeationRun.RunType.DISHES,
+            status=models.IdeationRun.Status.SUCCEEDED,
+        )
+        .order_by("-created_at")
+        .first()
+    )
+
+    if latest_run:
+        dishes = (
+            models.DishIdea.objects.filter(ideation_run=latest_run)
+            .order_by("created_at")
+        )
+    else:
+        dishes = models.DishIdea.objects.none()
+
+    template_name = "dishes/grid.html" if request.headers.get("HX-Request") == "true" else "dishes/page.html"
+
+    logger.info(
+        "Rendering dish detail view: concept=%s, run_id=%s, dish_count=%d, template=%s",
+        concept.name,
+        latest_run.id if latest_run else None,
+        dishes.count(),
+        template_name,
+    )
 
     return render(request, template_name, {"concept": concept, "dishes": dishes})
 
