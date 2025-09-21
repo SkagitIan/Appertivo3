@@ -453,36 +453,24 @@ def concept_favorite_view(request, concept_id):
     fav, created = models.FavoriteConcept.objects.get_or_create(
         user=request.user, concept=concept, defaults={"favorited_at": timezone.now()}
     )
-    image_url = concept.sketch_image_url
     favorited = created
 
-    if created:
-        image_url = None
-    else:
+    if not created:
         fav.delete()
         favorited = False
-        if image_url:
+        if concept.sketch_image_url:
             concept.sketch_image_url = None
             concept.save(update_fields=["sketch_image_url"])
-        image_url = None
 
     concept.is_favorited_for_user = favorited
 
-    # Always return the updated button immediately
-    button_html = render_to_string(
-        "concepts/_favorite_button.html",
-        {"concept": concept, "favorited": favorited, "trigger_loader": favorited},
+    # Always return the refreshed card so the UI stays in sync
+    card_html = render_to_string(
+        "concepts/_card.html",
+        {"concept": concept, "loading": favorited},
         request=request,
     )
-    if favorited:
-        return HttpResponse(button_html)
-
-    background_html = render_to_string(
-        "concepts/_concept_background.html",
-        {"concept": concept, "image_url": None, "swap_oob": True},
-        request=request,
-    )
-    return HttpResponse(button_html + background_html)
+    return HttpResponse(card_html)
 
 
 
@@ -497,10 +485,15 @@ def concept_background_view(request, concept_id):
         image_url = llm.generate_concept_sketch(concept)
         concept.sketch_image_url = image_url
         concept.save(update_fields=["sketch_image_url"])
+
+    concept.is_favorited_for_user = models.FavoriteConcept.objects.filter(
+        user=request.user, concept=concept
+    ).exists()
+
     return render(
         request,
-        "concepts/_concept_background.html",
-        {"concept": concept, "image_url": image_url},
+        "concepts/_card.html",
+        {"concept": concept},
     )
 
 

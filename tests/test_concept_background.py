@@ -51,7 +51,7 @@ class ConceptBackgroundViewTests(TestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         content = response.content.decode()
-        self.assertIn("concept-card-background concept-card-background--loaded", content)
+        self.assertIn("concept-card-wrapper", content)
         self.assertIn(llm.DEFAULT_CONCEPT_IMAGE_URL, content)
 
     def test_reuses_existing_background_image(self) -> None:
@@ -64,6 +64,7 @@ class ConceptBackgroundViewTests(TestCase):
 
         mock_generate.assert_not_called()
         content = response.content.decode()
+        self.assertIn("concept-card-wrapper", content)
         self.assertIn("https://stored.example/sketch.png", content)
 
 
@@ -104,3 +105,38 @@ class ConceptFavoriteToggleTests(TestCase):
             subtitle="Botanical cocktails on a rooftop terrace.",
             rank_order=1,
         )
+
+    def test_favoriting_returns_loading_card_markup(self) -> None:
+        url = reverse("concept-favorite", args=[self.concept.id])
+        response = self.client.post(url, HTTP_HX_REQUEST="true")
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+        self.assertIn("concept-card-wrapper", content)
+        self.assertIn("concept-sketch-loader", content)
+        self.concept.refresh_from_db()
+        self.assertTrue(
+            models.FavoriteConcept.objects.filter(
+                user=self.user, concept=self.concept
+            ).exists()
+        )
+
+    def test_unfavorite_resets_sketch_and_returns_plain_card(self) -> None:
+        models.FavoriteConcept.objects.create(
+            user=self.user, concept=self.concept, favorited_at=timezone.now()
+        )
+        self.concept.sketch_image_url = "https://stored.example/sketch.png"
+        self.concept.save(update_fields=["sketch_image_url"])
+
+        url = reverse("concept-favorite", args=[self.concept.id])
+        response = self.client.post(url, HTTP_HX_REQUEST="true")
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+        self.assertIn("concept-card-wrapper", content)
+        self.assertNotIn("concept-sketch-loader", content)
+        self.assertFalse(
+            models.FavoriteConcept.objects.filter(
+                user=self.user, concept=self.concept
+            ).exists()
+        )
+        self.concept.refresh_from_db()
+        self.assertIsNone(self.concept.sketch_image_url)

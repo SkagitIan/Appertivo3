@@ -1,0 +1,185 @@
+<style>
+  .concept-card-wrapper {
+    position: relative;
+    padding: 0.75rem 0.5rem;
+  }
+
+  .concept-card-wrapper .flip-scene {
+    height: 100%;
+  }
+
+  .concept-card-wrapper .flip-card {
+    position: relative;
+    width: 100%;
+    min-height: 320px;
+    transition: transform 0.6s ease;
+    transform-style: preserve-3d;
+    cursor: pointer;
+  }
+
+  @media (min-width: 768px) {
+    .concept-card-wrapper .flip-card {
+      min-height: 380px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .concept-card-wrapper .flip-card {
+      min-height: 420px;
+    }
+  }
+
+  .concept-card-wrapper .flip-card.show-back,
+  .concept-card-wrapper .flip-card.loading {
+    transform: rotateY(180deg);
+  }
+
+  .concept-card-wrapper .flip-face {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+    border-radius: 1.5rem;
+    overflow: hidden;
+  }
+
+  .concept-card-wrapper .flip-face.front {
+    transform: rotateY(0deg);
+  }
+
+  .concept-card-wrapper .flip-face.flip-back {
+    transform: rotateY(180deg);
+  }
+
+  .concept-card-wrapper .concept-loading-face {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 1.5rem;
+    text-align: center;
+    border-radius: 1.5rem;
+    background: linear-gradient(135deg, #b993d6, #f08000);
+    color: #ffffff;
+    transform: rotateY(180deg);
+    backface-visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+
+  .concept-card-wrapper .flip-card.loading .concept-loading-face {
+    opacity: 1;
+  }
+
+  .concept-card-wrapper .flip-card.loading .flip-face {
+    opacity: 0;
+  }
+
+  .concept-favorite-btn--favorited {
+    background: rgba(254, 226, 226, 0.95) !important;
+    border-color: rgba(254, 202, 202, 0.9) !important;
+    color: #e11d48 !important;
+  }
+
+  .concept-loading-spinner {
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 9999px;
+    border: 3px solid rgba(255, 255, 255, 0.35);
+    border-top-color: #ffffff;
+    animation: concept-card-spin 1s linear infinite;
+  }
+
+  @keyframes concept-card-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+</style>
+
+<script>
+  if (!window.__conceptCardEnhancements) {
+    window.__conceptCardEnhancements = true;
+
+    const findConceptCard = (elt) => {
+      if (!elt) {
+        return null;
+      }
+      const wrapper = elt.closest('[data-concept-card]');
+      return wrapper ? wrapper.querySelector('.flip-card') : null;
+    };
+
+    const shouldShowConceptLoading = (elt) => {
+      if (!elt) {
+        return false;
+      }
+      return (
+        elt.classList.contains('concept-favorite-btn') ||
+        elt.classList.contains('concept-delete-btn') ||
+        elt.classList.contains('concept-sketch-loader')
+      );
+    };
+
+    document.body.addEventListener('htmx:beforeRequest', function (evt) {
+      const trigger = evt.detail && evt.detail.elt;
+      if (!shouldShowConceptLoading(trigger)) {
+        return;
+      }
+      const card = findConceptCard(trigger);
+      if (!card) {
+        return;
+      }
+      card.classList.remove('show-back');
+      card.classList.add('loading');
+    });
+
+    document.body.addEventListener('htmx:responseError', function (evt) {
+      const trigger = evt.detail && evt.detail.elt;
+      const card = findConceptCard(trigger);
+      if (card) {
+        card.classList.remove('loading');
+      }
+    });
+
+    document.body.addEventListener('htmx:afterSwap', function (evt) {
+      const trigger = evt.detail && evt.detail.elt;
+      if (!shouldShowConceptLoading(trigger)) {
+        return;
+      }
+      const target = evt.detail && evt.detail.target;
+      if (!target) {
+        return;
+      }
+      if (
+        target.matches('[data-concept-card]') ||
+        target.querySelector('[data-concept-card]')
+      ) {
+        return;
+      }
+      const card = findConceptCard(trigger);
+      if (card) {
+        card.classList.remove('loading');
+      }
+    });
+
+    document.body.addEventListener('click', function (evt) {
+      const card = evt.target.closest('[data-concept-card] .flip-card');
+      if (!card) {
+        return;
+      }
+      if (card.classList.contains('loading')) {
+        return;
+      }
+      const actionable = evt.target.closest('button, a, [data-no-flip]');
+      if (actionable) {
+        return;
+      }
+      card.classList.toggle('show-back');
+    });
+  }
+</script>
