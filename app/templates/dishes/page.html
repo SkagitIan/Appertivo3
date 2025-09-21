@@ -2,7 +2,14 @@
 
 {% block content %}
 <div class="max-w-7xl mx-auto px-4 py-6 space-y-6">
-  <div class="rounded-3xl bg-white/90 p-6 shadow-lg ring-1 ring-slate-200/60 backdrop-blur">
+<div class="relative rounded-3xl overflow-hidden shadow-lg ring-1 ring-slate-200/60" 
+     style="background-image: url('{{ concept.sketch_image_url }}'); background-size: cover; background-position: center;">
+  
+  <!-- overlay only dims the background -->
+  <div class="absolute inset-0 bg-white/70"></div>
+
+  <!-- content sits above overlay -->
+  <div class="relative p-6">
     <div class="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
       <div class="space-y-4">
         <a
@@ -49,6 +56,8 @@
       </div>
     </div>
   </div>
+</div>
+
 
   <div id="dishes-grid" class="masonry-grid">
     {% include "dishes/grid.html" %}
