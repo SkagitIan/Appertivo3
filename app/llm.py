@@ -7,17 +7,11 @@ tests can run without network access.
 
 from __future__ import annotations
 
-import base64
 import json
 import logging
 import os
 import uuid
 from typing import Dict, List, Optional
-try:  # pragma: no cover - optional dependency
-    from google import genai
-except ImportError:  # pragma: no cover - optional dependency
-    genai = None
-
 from openai import OpenAI
 
 from dotenv import load_dotenv
@@ -29,18 +23,15 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 _openai_api_key = os.getenv("OPENAI_API_KEY")
-_gemini_api_key = os.getenv("GEMINI_API_KEY")
-logger.info(_gemini_api_key)
 client = OpenAI(api_key=_openai_api_key) if _openai_api_key else None
-gemini_client = genai.Client(api_key=_gemini_api_key) if genai and _gemini_api_key else None
 DEFAULT_IMAGE_URL = "https://placehold.co/800x600?text=Dish"
 DEFAULT_CONCEPT_IMAGE_URL = "https://placehold.co/1200x800?text=Concept"
 DEFAULT_PRICE_CENTS = 1500
 
 
 
-def _gemini_concept_sketch_prompt(name: str, subtitle: str) -> str:
-    """Describe a lightweight concept sketch request for Gemini."""
+def _concept_sketch_prompt(name: str, subtitle: str) -> str:
+    """Describe a lightweight concept sketch request for OpenAI image generation."""
 
     subtitle_text = subtitle or ""
     return (
@@ -52,12 +43,23 @@ def _gemini_concept_sketch_prompt(name: str, subtitle: str) -> str:
         f"Concept subtitle: {subtitle_text}"
     )
 
-def _fetch_openai_image(title, description, default_url: str) -> str:
+def _dish_image_prompt(title: str, description: str) -> str:
+    """Return the prompt text for generating a dish image."""
+
+    description_text = description or ""
+    return (
+        "Create a realistic professional photograph of the following dish on a "
+        "transparent background, as if the dish is hovering on a white plane.\n"
+        f"Title: {title}\n"
+        f"Description: {description_text}"
+    )
+
+def _fetch_openai_image(prompt: str, default_url: str) -> str:
     """Return inline image data (base64) for the given prompt or a fallback URL."""
-    prompt = f"""
-        Create a realistic professional photograph of the following dish. on a transparent background.  as if the dish is hovering ona white plane.
-        Title: {title}\nDescription: {description}
-    """
+
+    if not client:
+        return default_url
+
     try:
         response = client.images.generate(
             model="gpt-image-1",
@@ -67,7 +69,7 @@ def _fetch_openai_image(title, description, default_url: str) -> str:
             n=1,
             response_format="b64_json",
             size="1024x1024",
-            output_format="png",   # ensures we get base64-encoded PNG
+            output_format="png",
         )
 
         if response.data and "b64_json" in response.data[0]:
@@ -76,21 +78,25 @@ def _fetch_openai_image(title, description, default_url: str) -> str:
 
         logger.warning("OpenAI image response did not include b64_json data.")
 
-    except Exception as exc:
+    except Exception as exc:  # pragma: no cover - defensive
         logger.warning("OpenAI image generation failed: %s", exc, exc_info=True)
 
     return default_url
 
-def _call_gemini_for_image(title: str, description: str) -> str:
-    """Return a data URL for the generated dish image using the Gemini SDK."""
-    return _fetch_openai_image(title, description, DEFAULT_IMAGE_URL)
+
+def _call_openai_for_image(title: str, description: str) -> str:
+    """Return a data URL for the generated dish image using the OpenAI Images API."""
+
+    prompt = _dish_image_prompt(title, description)
+    return _fetch_openai_image(prompt, DEFAULT_IMAGE_URL)
 
 
-def _call_gemini_for_concept_sketch(name: str, subtitle: str) -> str:
-    """Return a Gemini generated concept sketch or a placeholder image."""
+def _call_openai_for_concept_sketch(name: str, subtitle: str) -> str:
+    """Return an OpenAI generated concept sketch or a placeholder image."""
 
-    prompt = _gemini_concept_sketch_prompt(name, subtitle)
-    return _fetch_gemini_image(prompt, DEFAULT_CONCEPT_IMAGE_URL)
+    prompt = _concept_sketch_prompt(name, subtitle)
+    return _fetch_openai_image(prompt, DEFAULT_CONCEPT_IMAGE_URL)
+
 
 
 def _format_menu_snapshot(restaurant: models.Restaurant) -> Dict[str, Optional[str]]:
@@ -180,7 +186,7 @@ def _call_openai_for_price(
 def enhance_dish(dish: models.DishIdea, restaurant: models.Restaurant) -> Dict[str, Optional[str]]:
     """Generate enhanced mode assets for a dish."""
 
-    image_url = _call_gemini_for_image(dish.title, dish.description)
+    image_url = _call_openai_for_image(dish.title, dish.description)
     snapshot = _format_menu_snapshot(restaurant)
     price_info = _call_openai_for_price(dish, snapshot)
 
@@ -190,7 +196,7 @@ def enhance_dish(dish: models.DishIdea, restaurant: models.Restaurant) -> Dict[s
         "currency": price_info.get("currency"),
         "pricing_notes": price_info.get("rationale"),
         "style_preset": "enhanced-mode-v1",
-        "model_name": "gemini+openai-enhanced",
+        "model_name": "openai-enhanced",
         "snapshot": snapshot,
         "reference": str(uuid.uuid4()),
     }
@@ -199,4 +205,4 @@ def enhance_dish(dish: models.DishIdea, restaurant: models.Restaurant) -> Dict[s
 def generate_concept_sketch(concept: models.Concept) -> str:
     """Return a concept background sketch for the provided concept."""
 
-    return _call_gemini_for_concept_sketch(concept.name, concept.subtitle)
+    return _call_openai_for_concept_sketch(concept.name, concept.subtitle)
