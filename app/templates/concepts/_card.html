@@ -1,0 +1,128 @@
+{% with has_sketch=concept.sketch_image_url %}
+<div
+  id="concept-card-{{ concept.id }}"
+  class="concept-card-wrapper"
+  data-concept-card
+>
+  <div class="flip-scene h-full">
+    <div
+      class="flip-card {% if loading %}loading{% endif %}"
+      data-concept-id="{{ concept.id }}"
+      tabindex="0"
+    >
+      <!-- Front face -->
+      <div class="flip-face front bg-white shadow-md border border-slate-200">
+        {% if has_sketch %}
+          <div class="relative h-full w-full">
+            <img
+              src="{{ concept.sketch_image_url }}"
+              alt="{{ concept.name }} concept sketch"
+              class="h-full w-full object-cover"
+            />
+            <div class="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/70 via-black/30 to-transparent"></div>
+            <div class="absolute top-3 right-3" data-no-flip>
+              {% if favorite_url_override %}
+                {% include "concepts/_favorite_button.html" with concept=concept favorited=True url_override=favorite_url_override %}
+              {% else %}
+                {% include "concepts/_favorite_button.html" with concept=concept favorited=True %}
+              {% endif %}
+            </div>
+            <div class="absolute bottom-4 left-4 right-4 text-left text-white drop-shadow">
+              <h2 class="text-xl md:text-2xl font-semibold">{{ concept.name }}</h2>
+              {% if concept.subtitle %}
+                <p class="mt-1 text-sm md:text-base text-white/90 line-clamp-2">{{ concept.subtitle }}</p>
+              {% endif %}
+            </div>
+          </div>
+        {% else %}
+          <div class="relative z-10 flex h-full flex-col items-center justify-center p-6 text-center">
+            <h2 class="text-lg md:text-xl lg:text-2xl font-bold text-[#49475B] mb-1">
+              {{ concept.name }}
+            </h2>
+            {% if concept.subtitle %}
+              <p class="text-slate-600 text-sm md:text-base mb-3 max-w-xs md:max-w-sm">
+                {{ concept.subtitle }}
+              </p>
+            {% endif %}
+            <div class="flex flex-wrap justify-center gap-2 mb-4">
+              {% for tag in concept.tags %}
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs md:text-sm font-medium bg-slate-100 text-[#49475B]">
+                  {{ tag }}
+                </span>
+              {% endfor %}
+            </div>
+            <div class="absolute top-3 right-3" data-no-flip>
+              {% if favorite_url_override %}
+                {% include "concepts/_favorite_button.html" with concept=concept url_override=favorite_url_override %}
+              {% else %}
+                {% include "concepts/_favorite_button.html" with concept=concept %}
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Back face -->
+      <div class="flip-face flip-back bg-white text-slate-800 shadow-md border border-slate-200">
+        <div class="flex h-full flex-col justify-between p-6 text-center">
+          <div class="space-y-3">
+            <h3 class="text-lg md:text-xl font-semibold text-[#49475B]">{{ concept.name }}</h3>
+            {% if concept.subtitle %}
+              <p class="text-slate-600 text-sm md:text-base">{{ concept.subtitle }}</p>
+            {% endif %}
+            {% if concept.tags %}
+              <div class="flex flex-wrap justify-center gap-2">
+                {% for tag in concept.tags %}
+                  <span class="inline-flex items-center px-3 py-1 rounded-full text-xs md:text-sm font-medium bg-[#B993D6]/15 text-[#49475B]">
+                    {{ tag }}
+                  </span>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+          <div class="mt-6 flex flex-col gap-3" data-no-flip>
+            <button
+              type="button"
+              class="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#f08000] to-[#FF5C00] px-4 py-2 text-sm font-semibold text-white shadow-md transition hover:scale-[1.02]"
+              hx-post="{% url 'dishes-generate' concept.id %}"
+              hx-trigger="click"
+              data-overlay="true"
+              data-messages='["Cooking up ideas…", "Almost there…", "Plating concepts!"]'
+            >
+              <span>Generate dishes</span>
+            </button>
+            {% if show_delete|default:True %}
+              <button
+                type="button"
+                class="concept-delete-btn inline-flex items-center justify-center gap-2 rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-500 hover:bg-red-50"
+                hx-post="{% url 'concept-favorite' concept.id %}"
+                hx-trigger="click"
+                hx-target="closest [data-concept-card]"
+                hx-swap="outerHTML"
+              >
+                <span>Delete</span>
+              </button>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="concept-loading-face">
+        <div class="concept-loading-spinner" aria-hidden="true"></div>
+        <p class="text-sm font-semibold tracking-wide uppercase">Preparing your concept sketch…</p>
+      </div>
+
+      {% if loading %}
+        <div
+          class="concept-sketch-loader"
+          style="display: none;"
+          hx-get="{% url 'concept-background' concept.id %}"
+          hx-trigger="load delay:150ms"
+          hx-target="#concept-card-{{ concept.id }}"
+          hx-swap="outerHTML"
+        ></div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endwith %}

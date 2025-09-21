@@ -1,62 +1,8 @@
 {% if concepts %}
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
     {% for concept in concepts %}
-      <div class="flip-scene relative">
-        <div
-          class="flip-card cursor-pointer"
-          id="concept-{{ concept.id }}"
-          onclick="window.location.href='{% url 'dishes-generate' concept.id %}';"
-          role="link"
-          tabindex="0"
-          onkeydown="if(event.key==='Enter' || event.key===' '){ event.preventDefault(); window.location.href='{% url 'dishes-generate' concept.id %}'; }"
-        >
-          <div class="flip-face front bg-white p-6 rounded-2xl shadow-md border border-slate-200 transition cursor-pointer hover:shadow-lg relative overflow-hidden">
-            {% with background=concept.sketch_image_url %}
-              <div id="concept-{{ concept.id }}-background"
-                   class="concept-card-background {% if background %}concept-card-background--loaded{% else %}concept-card-background--loading{% endif %}"
-                   {% if background %}style="background-image: url('{{ background }}');"{% endif %}
-                   aria-hidden="true">
-              </div>
-            {% endwith %}
-            <div class="concept-card-overlay" aria-hidden="true"></div>
-            <div class="relative z-10 flex flex-col h-full">
-              <h2 class="text-xl font-bold text-[#49475B] drop-shadow-sm">
-                {{ concept.name }}
-              </h2>
-              <p class="subtitle mt-2 text-slate-700 drop-shadow-sm">
-                {{ concept.subtitle }}
-              </p>
-              <div class="absolute -bottom-2 -left-1 right-1 flex items-center justify-between">
-                <div class="flex flex-wrap gap-2">
-                  {% for tag in concept.tags %}
-                    {% if forloop.counter0|divisibleby:5 %}
-                      <span class="inline-flex px-2 py-1 rounded-full text-xs font-medium text-white bg-[#58B09C]">{{ tag }}</span>
-                    {% elif forloop.counter0|divisibleby:4 %}
-                      <span class="inline-flex px-2 py-1 rounded-full text-xs font-medium text-white bg-[#f08000]">{{ tag }}</span>
-                    {% elif forloop.counter0|divisibleby:3 %}
-                      <span class="inline-flex px-2 py-1 rounded-full text-xs font-medium text-white bg-[#58B09C]">{{ tag }}</span>
-                    {% elif forloop.counter0|divisibleby:2 %}
-                      <span class="inline-flex px-2 py-1 rounded-full text-xs font-medium text-white bg-[#49475B]">{{ tag }}</span>
-                    {% else %}
-                      <span class="inline-flex px-2 py-1 rounded-full text-xs font-medium text-white bg-[#14080E]">{{ tag }}</span>
-                    {% endif %}
-                  {% endfor %}
-                </div>
-                <div>
-                  {% include "concepts/_favorite_button.html" %}
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="flip-face flip-back bg-slate-800 text-white p-6 rounded-2xl">
-            <svg class="animate-spin h-8 w-8 mb-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-            </svg>
-            <p class="text-lg font-medium">Generating dish ideas…</p>
-          </div>
-        </div>
-      </div>
+      {% url 'favorite-remove' 'concept' concept.id as remove_url %}
+      {% include "concepts/_card.html" with concept=concept favorite_url_override=remove_url show_delete=False %}
     {% endfor %}
   </div>
 {% else %}
