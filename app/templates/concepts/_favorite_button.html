@@ -1,34 +1,54 @@
 {% with is_favorited=favorited|default:concept.is_favorited_for_user|default:False %}
-  {% with start_loader=trigger_loader|default:False %}
-    <button
-      type="button"
-      onclick="event.preventDefault(); event.stopPropagation();"
-      hx-trigger="click consume"
-      hx-post="{% url 'concept-favorite' concept.id %}"
-      hx-target="this"
-      hx-swap="outerHTML"
-      class="concept-favorite-btn inline-flex items-center justify-center w-10 h-10 rounded-full border border-slate-200 bg-white/80 text-xl text-[#f08000] shadow-sm transition hover:scale-[1.02] {% if is_favorited %}concept-favorite-btn--favorited{% endif %} {% if start_loader %}concept-favorite-btn--loading{% endif %}"
-      aria-label="{% if is_favorited %}Unfavorite{% else %}Favorite{% endif %} {{ concept.name }}"
-      data-concept-id="{{ concept.id }}"
-      data-favorited="{% if is_favorited %}true{% else %}false{% endif %}"
-    >
-      <span aria-hidden="true">
-        {% if is_favorited %}
-          ❤️
-        {% else %}
-          🤍
-        {% endif %}
-      </span>
-      {% if start_loader %}
-        <div
-          class="concept-background-loader hidden"
-          data-concept-id="{{ concept.id }}"
-          hx-get="{% url 'concept-background' concept.id %}"
-          hx-trigger="load"
-          hx-target="#concept-{{ concept.id }}-background"
-          hx-swap="outerHTML"
-        ></div>
+  {% with hx_target=target_override|default:'closest [data-concept-card]' %}
+    {% with hx_swap=swap_override|default:'outerHTML' %}
+      {% if url_override %}
+        {% with hx_post=url_override %}
+          <button
+            type="button"
+            onclick="event.preventDefault(); event.stopPropagation();"
+            hx-trigger="click consume"
+            hx-post="{{ hx_post }}"
+            hx-target="{{ hx_target }}"
+            hx-swap="{{ hx_swap }}"
+            class="concept-favorite-btn inline-flex items-center justify-center w-10 h-10 rounded-full border border-slate-200 bg-white/80 text-xl text-[#f08000] shadow-sm transition hover:scale-[1.02] {% if is_favorited %}concept-favorite-btn--favorited{% endif %}"
+            aria-label="{% if is_favorited %}Unfavorite{% else %}Favorite{% endif %} {{ concept.name }}"
+            data-concept-id="{{ concept.id }}"
+            data-favorited="{% if is_favorited %}true{% else %}false{% endif %}"
+          >
+            <span aria-hidden="true">
+              {% if is_favorited %}
+                ❤️
+              {% else %}
+                🤍
+              {% endif %}
+            </span>
+          </button>
+        {% endwith %}
+      {% else %}
+        {% url 'concept-favorite' concept.id as default_favorite_url %}
+        {% with hx_post=default_favorite_url %}
+          <button
+            type="button"
+            onclick="event.preventDefault(); event.stopPropagation();"
+            hx-trigger="click consume"
+            hx-post="{{ hx_post }}"
+            hx-target="{{ hx_target }}"
+            hx-swap="{{ hx_swap }}"
+            class="concept-favorite-btn inline-flex items-center justify-center w-10 h-10 rounded-full border border-slate-200 bg-white/80 text-xl text-[#f08000] shadow-sm transition hover:scale-[1.02] {% if is_favorited %}concept-favorite-btn--favorited{% endif %}"
+            aria-label="{% if is_favorited %}Unfavorite{% else %}Favorite{% endif %} {{ concept.name }}"
+            data-concept-id="{{ concept.id }}"
+            data-favorited="{% if is_favorited %}true{% else %}false{% endif %}"
+          >
+            <span aria-hidden="true">
+              {% if is_favorited %}
+                ❤️
+              {% else %}
+                🤍
+              {% endif %}
+            </span>
+          </button>
+        {% endwith %}
       {% endif %}
-    </button>
+    {% endwith %}
   {% endwith %}
 {% endwith %}
