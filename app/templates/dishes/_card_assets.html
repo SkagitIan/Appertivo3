@@ -85,6 +85,11 @@
     box-shadow: 0 20px 40px rgba(15, 23, 42, 0.25);
   }
 
+  .flip-face.flip-back {
+    background: #1e293b;
+    color: #fff;
+  }
+
   .card-footer {
     position: relative;
     display: flex;
@@ -190,6 +195,27 @@
   .flip-face.front.enhanced .dish-tag--price {
     background: rgba(248, 113, 113, 0.95);
     border-color: transparent;
+  }
+
+  .masonry-grid {
+    column-gap: 1.25rem;
+  }
+
+  .masonry-grid .dish-card-wrapper {
+    break-inside: avoid;
+    margin-bottom: 1.25rem;
+  }
+
+  @media (min-width: 768px) {
+    .masonry-grid {
+      column-count: 2;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .masonry-grid {
+      column-count: 3;
+    }
   }
 </style>
 
