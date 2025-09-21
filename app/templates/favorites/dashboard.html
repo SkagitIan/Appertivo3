@@ -1,85 +1,113 @@
-{% extends "base.html" %}
+{% extends "base_logged_in.html" %}
 {% block title %}Favorites — Appertivo{% endblock %}
 
 {% block content %}
+{% include "concepts/_card_assets.html" %}
 {% include "dishes/_card_assets.html" %}
+<style>
+  details.favorites-section > summary::-webkit-details-marker { display: none; }
+  details.favorites-section > summary::marker { display: none; }
+</style>
 <div
   id="favorites-root"
-  class="space-y-8"
+  class="px-4 py-8 space-y-8"
   data-menus="{{ menus_payload_json|escapejs }}"
   data-move-url="{% url 'menu-item-move' %}"
   data-create-url="{% url 'menu-collection-create' %}"
 >
-  <section class="bg-gradient-to-r from-[#2E005D] via-[#5C008B] to-[#8E008B] text-white py-6 px-6 rounded-2xl shadow-lg">
-    <div class="max-w-6xl">
-      <h1 class="text-2xl font-bold">Favorites Hub</h1>
+  <section class="relative overflow-hidden rounded-3xl border border-[#B993D6]/30 bg-gradient-to-r from-[#B993D6] via-[#FF8300]/80 to-[#58B09C] text-white shadow-lg">
+    <div class="absolute inset-0 bg-black/10 mix-blend-soft-light"></div>
+    <div class="relative space-y-3 px-6 py-8 md:px-8">
+      <div class="inline-flex items-center gap-2 rounded-full bg-white/20 px-4 py-1 text-xs font-semibold uppercase tracking-wider text-white/90">
+        <i class="fa-regular fa-star" aria-hidden="true"></i>
+        <span>Favorites Studio</span>
+      </div>
+      <h1 class="text-3xl font-bold md:text-4xl">Your curated ideas & dishes</h1>
       {% if restaurant %}
-        <p class="text-slate-200 text-sm mt-1">Curated picks for {{ restaurant.name }}.</p>
+        <p class="max-w-2xl text-sm md:text-base text-white/90">Favorites tailored for <span class="font-semibold">{{ restaurant.name }}</span>. Mix and match concepts with dishes to craft the next menu drop.</p>
       {% else %}
-        <p class="text-slate-200 text-sm mt-1">Curated picks from your recent sessions.</p>
+        <p class="max-w-2xl text-sm md:text-base text-white/90">Revisit the ideas you saved. Flip concepts, drag dishes, and experiment until the menu feels right.</p>
       {% endif %}
     </div>
   </section>
 
-  <section class="space-y-4">
-    <div class="flex flex-wrap items-center justify-between gap-4">
+  <details open class="favorites-section group rounded-3xl border border-slate-200/70 bg-white/90 shadow-sm backdrop-blur">
+    <summary class="flex cursor-pointer select-none items-center justify-between gap-4 px-6 py-5">
       <div>
-        <h2 class="text-xl font-semibold text-[#49475B]">Favorited Concepts</h2>
-        <p class="text-xs text-slate-500">Tap back into the ideas you liked most.</p>
+        <h2 class="text-lg font-semibold text-[#49475B] md:text-xl">Favorited concepts</h2>
+        <p class="text-xs font-medium uppercase tracking-wide text-slate-400">Flip cards to view details & inspiration</p>
       </div>
-      <a href="{% url 'concepts' %}" class="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white shadow-md ring-1 ring-white/40 transition hover:bg-white/20">
-        <i class="fa-solid fa-compass" aria-hidden="true"></i>
-        <span>Explore concepts</span>
-      </a>
+      <span class="ml-auto inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-[#B993D6] transition-transform duration-200 group-open:rotate-180">
+        <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+      </span>
+    </summary>
+    <div class="space-y-6 px-6 pb-6">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <p class="text-sm text-slate-500">Keep building on the ideas you loved. Generate dishes straight from these concepts.</p>
+        <a
+          href="{% url 'concepts' %}"
+          class="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#f08000] to-[#FF5C00] px-4 py-2 text-sm font-semibold text-white shadow transition hover:scale-[1.02]"
+        >
+          <i class="fa-solid fa-compass" aria-hidden="true"></i>
+          <span>Explore concepts</span>
+        </a>
+      </div>
+
+      {% if favorite_concepts %}
+        <div id="favorite-concepts-grid" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {% for favorite in favorite_concepts %}
+            {% url 'favorite-remove' 'concept' favorite.concept.id as remove_favorite_url %}
+            {% include "concepts/_card.html" with concept=favorite.concept favorited=True favorite_url_override=remove_favorite_url show_delete=False %}
+          {% endfor %}
+        </div>
+        <div id="favorites-dishes-loading" class="mt-4 hidden items-center gap-2 text-sm font-medium text-slate-500">
+          <i class="fa-solid fa-spinner fa-spin"></i>
+          <span>Generating dishes…</span>
+        </div>
+        <div id="favorites-generated-dishes" class="grid grid-cols-1 gap-4 md:grid-cols-2"></div>
+      {% else %}
+        <div class="rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 p-6 text-sm text-slate-500">
+          Save a concept to see it here. Favoriting unlocks quick access to sketches and fresh dish ideas.
+        </div>
+      {% endif %}
     </div>
+  </details>
 
-    {% if favorite_concepts %}
-      <div id="favorite-concepts-grid" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 xl:grid-cols-8 gap-4">
-        {% for favorite in favorite_concepts %}
-          {% include "favorites/_concept_card.html" %}
-        {% endfor %}
-      </div>
-      <div id="favorites-dishes-loading" class="mt-6 hidden items-center gap-2 text-sm font-medium text-slate-500">
-        <i class="fa-solid fa-spinner fa-spin"></i>
-        <span>Generating dishes…</span>
-      </div>
-      <div id="favorites-generated-dishes" class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-5"></div>
-    {% else %}
-      <div class="rounded-2xl border border-dashed border-white/60 bg-white/10 p-6 text-sm text-white/90">
-        Save a concept to see it here. Favoriting gives you quick access to spin up more dishes later.
-      </div>
-    {% endif %}
-  </section>
-
-  <section class="space-y-5">
-    <div class="flex flex-wrap items-center justify-between gap-4">
+  <details open class="favorites-section group rounded-3xl border border-slate-200/70 bg-white/90 shadow-sm backdrop-blur">
+    <summary class="flex cursor-pointer select-none items-center justify-between gap-4 px-6 py-5">
       <div>
-        <h2 class="text-2xl font-semibold text-[#49475B]">Menus</h2>
-        <p class="text-sm text-slate-500">Drag dishes into a menu to start shaping a lineup. Collapse menus you’re not working on to keep things tidy.</p>
+        <h2 class="text-lg font-semibold text-[#49475B] md:text-xl">Menus</h2>
+        <p class="text-xs font-medium uppercase tracking-wide text-slate-400">Drag dishes into collections to plan lineups</p>
       </div>
-      <button
-        type="button"
-        class="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#FF8300] to-[#FF5C00] px-4 py-2 text-sm font-semibold text-white shadow transition hover:scale-105"
-        data-action="create-menu"
-      >
-        <i class="fa-solid fa-plus" aria-hidden="true"></i>
-        <span>New menu</span>
-      </button>
-    </div>
+      <span class="ml-auto inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-[#B993D6] transition-transform duration-200 group-open:rotate-180">
+        <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+      </span>
+    </summary>
+    <div class="space-y-6 px-6 pb-6">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <p class="text-sm text-slate-500">Create boards for brunch, dinner, or specials. Collapse finished menus to stay focused.</p>
+        <button
+          type="button"
+          class="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#FF8300] to-[#FF5C00] px-4 py-2 text-sm font-semibold text-white shadow transition hover:scale-[1.02]"
+          data-action="create-menu"
+        >
+          <i class="fa-solid fa-plus" aria-hidden="true"></i>
+          <span>New menu</span>
+        </button>
+      </div>
 
-    <div id="favorite-menus" class="space-y-4">
-      {% if menus %}
-        {% for menu in menus %}
-          <details
-            class="menu-card rounded-3xl border border-slate-200 bg-white shadow-sm"
-            data-menu-card
-            data-menu-id="{{ menu.id }}"
-            data-rename-url="{% url 'menu-collection-rename' menu.id %}"
-            data-delete-url="{% url 'menu-collection-delete' menu.id %}"
-            open
-          >
-            <summary class="cursor-pointer list-none rounded-3xl px-6 py-5">
-              <div class="flex items-center justify-between gap-4">
+      <div id="favorite-menus" class="space-y-4">
+        {% if menus %}
+          {% for menu in menus %}
+            <details
+              class="group/menu menu-card rounded-3xl border border-slate-200 bg-white shadow-sm"
+              data-menu-card
+              data-menu-id="{{ menu.id }}"
+              data-rename-url="{% url 'menu-collection-rename' menu.id %}"
+              data-delete-url="{% url 'menu-collection-delete' menu.id %}"
+              open
+            >
+              <summary class="flex cursor-pointer list-none items-center justify-between gap-4 rounded-3xl px-6 py-5">
                 <div>
                   <h3 class="text-lg font-semibold text-[#49475B]">{{ menu.name }}</h3>
                   <p class="text-xs uppercase tracking-wide text-slate-400">{{ menu.menu_items|length }} dish{{ menu.menu_items|length|pluralize }}</p>
@@ -94,81 +122,88 @@
                     <span class="sr-only">Delete menu</span>
                   </button>
                 </div>
+              </summary>
+              <div class="px-6 pb-6">
+                <div
+                  class="menu-dropzone rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-4"
+                  data-menu-dropzone
+                  data-menu-id="{{ menu.id }}"
+                >
+                  {% if menu.menu_items %}
+                    <div class="grid grid-cols-1 gap-4" data-menu-dishes>
+                      {% for item in menu.menu_items %}
+                        <div
+                          id="favorite-dish-{{ item.dish.id }}"
+                          class="favorite-dish-card"
+                          draggable="true"
+                          data-dish-card
+                          data-dish-id="{{ item.dish.id }}"
+                          data-current-menu="{{ menu.id }}"
+                        >
+                          {% include "dishes/_card.html" with dish=item.dish card_context='favorites' %}
+                        </div>
+                      {% endfor %}
+                    </div>
+                  {% else %}
+                    <div class="flex h-32 items-center justify-center rounded-xl bg-white/80 text-sm text-slate-400" data-menu-empty>
+                      Drag a dish here or tap the … button on a card to add it to {{ menu.name }}.
+                    </div>
+                  {% endif %}
+                </div>
               </div>
-            </summary>
-            <div class="px-6 pb-6">
-              <div class="menu-dropzone rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-4"
-                data-menu-dropzone
-                data-menu-id="{{ menu.id }}"
-              >
-                {% if menu.menu_items %}
-                  <div class="grid grid-cols-1 gap-4" data-menu-dishes>
-                    {% for item in menu.menu_items %}
-                      <div
-                        id="favorite-dish-{{ item.dish.id }}"
-                        class="favorite-dish-card"
-                        draggable="true"
-                        data-dish-card
-                        data-dish-id="{{ item.dish.id }}"
-                        data-current-menu="{{ menu.id }}"
-                      >
-                        {% include "dishes/_card.html" with dish=item.dish card_context='favorites' %}
-                      </div>
-                    {% endfor %}
-                  </div>
-                {% else %}
-                  <div class="flex h-32 items-center justify-center rounded-xl bg-white/80 text-sm text-slate-400" data-menu-empty>
-                    Drag a dish here or tap the … button on a card to add it to {{ menu.name }}.
-                  </div>
-                {% endif %}
-              </div>
-            </div>
-          </details>
-        {% endfor %}
-      {% else %}
-        <div class="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center text-slate-500">
-          Create your first menu to start grouping dishes together. You can always rename or delete it later.
-        </div>
-      {% endif %}
-    </div>
-  </section>
-
-  <section class="space-y-5">
-    <div class="flex flex-wrap items-center justify-between gap-4">
-      <div>
-        <h2 class="text-2xl font-semibold text-[#49475B]">Uncategorized favorites</h2>
-        <p class="text-sm text-slate-500">Dishes saved for inspiration. Drag onto a menu or use the action menu to assign.</p>
+            </details>
+          {% endfor %}
+        {% else %}
+          <div class="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center text-slate-500">
+            Create your first menu to start grouping dishes together. You can always rename or delete it later.
+          </div>
+        {% endif %}
       </div>
     </div>
+  </details>
 
-    <div
-      class="menu-dropzone rounded-3xl border border-dashed border-slate-200 bg-white p-4"
-      data-menu-dropzone
-      data-menu-id=""
-      id="favorites-uncategorized"
-    >
-      {% if uncategorized_favorites %}
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4" data-menu-dishes>
-          {% for favorite in uncategorized_favorites %}
-            <div
-              id="favorite-dish-{{ favorite.dish.id }}"
-              class="favorite-dish-card"
-              draggable="true"
-              data-dish-card
-              data-dish-id="{{ favorite.dish.id }}"
-              data-current-menu=""
-            >
-              {% include "dishes/_card.html" with dish=favorite.dish card_context='favorites' %}
-            </div>
-          {% endfor %}
-        </div>
-      {% else %}
-        <div class="flex h-32 items-center justify-center rounded-xl bg-slate-50 text-sm text-slate-400" data-menu-empty>
-          Assigning dishes to menus removes them from this list. Drag one back here to keep it uncategorized.
-        </div>
-      {% endif %}
+  <details open class="favorites-section group rounded-3xl border border-slate-200/70 bg-white/90 shadow-sm backdrop-blur">
+    <summary class="flex cursor-pointer select-none items-center justify-between gap-4 px-6 py-5">
+      <div>
+        <h2 class="text-lg font-semibold text-[#49475B] md:text-xl">Unassigned favorites</h2>
+        <p class="text-xs font-medium uppercase tracking-wide text-slate-400">Keep dishes here until they belong somewhere</p>
+      </div>
+      <span class="ml-auto inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-[#B993D6] transition-transform duration-200 group-open:rotate-180">
+        <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+      </span>
+    </summary>
+    <div class="space-y-4 px-6 pb-6">
+      <p class="text-sm text-slate-500">Drag dishes into a menu or keep them on deck for future inspiration.</p>
+
+      <div
+        class="menu-dropzone rounded-3xl border border-dashed border-slate-200 bg-white p-4"
+        data-menu-dropzone
+        data-menu-id=""
+        id="favorites-uncategorized"
+      >
+        {% if uncategorized_favorites %}
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2" data-menu-dishes>
+            {% for favorite in uncategorized_favorites %}
+              <div
+                id="favorite-dish-{{ favorite.dish.id }}"
+                class="favorite-dish-card"
+                draggable="true"
+                data-dish-card
+                data-dish-id="{{ favorite.dish.id }}"
+                data-current-menu=""
+              >
+                {% include "dishes/_card.html" with dish=favorite.dish card_context='favorites' %}
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="flex h-32 items-center justify-center rounded-xl bg-slate-50 text-sm text-slate-400" data-menu-empty>
+            Assigning dishes to menus removes them from this list. Drag one back here to keep it uncategorized.
+          </div>
+        {% endif %}
+      </div>
     </div>
-  </section>
+  </details>
 </div>
 
 <div id="favorites-menu-sheet" class="favorites-menu-sheet hidden">
