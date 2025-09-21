@@ -2,33 +2,51 @@
 
 {% block content %}
 <div class="max-w-7xl mx-auto px-4 py-6 space-y-6">
-  <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-    <div>
-      <a href="{% url 'concepts' %}" class="text-sm font-medium text-[#f08000] hover:text-[#d96e00] transition">&larr; Back to concepts</a>
-      <h1 class="mt-2 text-3xl font-bold text-[#49475B]">{{ concept.name }}</h1>
-      {% if concept.subtitle %}
-        <p class="mt-2 max-w-2xl text-base text-slate-600">{{ concept.subtitle }}</p>
-      {% endif %}
-      {% if concept.tags %}
-        <div class="mt-3 flex flex-wrap gap-2">
-          {% for tag in concept.tags %}
-            <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">{{ tag }}</span>
-          {% endfor %}
+  <div class="rounded-3xl bg-white/90 p-6 shadow-lg ring-1 ring-slate-200/60 backdrop-blur">
+    <div class="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+      <div class="space-y-4">
+        <a
+          href="{% url 'concepts' %}"
+          class="inline-flex items-center gap-2 text-sm font-semibold text-[#FF5C00] transition hover:-translate-x-1"
+        >
+          <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#FFF0E5] text-xs text-[#FF5C00]">
+            <i class="fa-solid fa-arrow-left-long" aria-hidden="true"></i>
+          </span>
+          <span>Back to concepts</span>
+        </a>
+        <div class="space-y-3">
+          <h1 class="text-3xl font-bold text-[#49475B] md:text-4xl">{{ concept.name }}</h1>
+          {% if concept.subtitle %}
+            <p class="max-w-2xl text-base text-slate-600">{{ concept.subtitle }}</p>
+          {% endif %}
+          {% if concept.tags %}
+            <div class="flex flex-wrap gap-2">
+              {% for tag in concept.tags %}
+                <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">{{ tag }}</span>
+              {% endfor %}
+            </div>
+          {% endif %}
         </div>
-      {% endif %}
-    </div>
-    <div class="flex items-center gap-3">
-      <button
-        type="button"
-        class="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#FF8300] to-[#FF5C00] px-5 py-2.5 text-sm font-semibold text-white shadow transition hover:scale-105"
-        hx-post="{% url 'dishes-generate' concept.id %}"
-        hx-trigger="click"
-        hx-target="#dishes-grid"
-        hx-swap="innerHTML"
-      >
-        <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
-        <span>Generate new dishes</span>
-      </button>
+      </div>
+      <div class="flex items-center gap-3">
+        <button
+          type="button"
+          class="inline-flex items-center gap-3 rounded-full bg-gradient-to-r from-[#FF8300] to-[#FF5C00] px-5 py-2.5 text-sm font-semibold text-white shadow transition hover:scale-105"
+          hx-post="{% url 'dishes-generate' concept.id %}"
+          hx-trigger="click"
+          hx-target="#dishes-grid"
+          hx-swap="innerHTML"
+        >
+          <span class="relative flex h-2 w-2">
+            <span class="absolute inline-flex h-full w-full rounded-full bg-white opacity-60 animate-ping"></span>
+            <span class="relative inline-flex h-2 w-2 rounded-full bg-white"></span>
+          </span>
+          <span class="inline-flex items-center gap-2">
+            <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+            <span>Generate new dishes</span>
+          </span>
+        </button>
+      </div>
     </div>
   </div>
 
