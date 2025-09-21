@@ -834,12 +834,26 @@ def dish_detail_view(request, concept_id):
     )
 
     if latest_run:
-        dishes = (
+        dish_queryset = (
             models.DishIdea.objects.filter(ideation_run=latest_run)
             .order_by("created_at")
         )
     else:
-        dishes = models.DishIdea.objects.none()
+        dish_queryset = models.DishIdea.objects.none()
+
+    dishes = list(dish_queryset)
+    decorate_dishes_with_enhancements(dishes)
+
+    favorite_ids = set()
+    if request.user.is_authenticated and dishes:
+        favorite_ids = set(
+            models.FavoriteDish.objects.filter(
+                user=request.user, dish__in=dishes
+            ).values_list("dish_id", flat=True)
+        )
+
+    for dish in dishes:
+        dish.is_favorited = dish.id in favorite_ids
 
     template_name = "dishes/grid.html" if request.headers.get("HX-Request") == "true" else "dishes/page.html"
 
@@ -847,7 +861,7 @@ def dish_detail_view(request, concept_id):
         "Rendering dish detail view: concept=%s, run_id=%s, dish_count=%d, template=%s",
         concept.name,
         latest_run.id if latest_run else None,
-        dishes.count(),
+        len(dishes),
         template_name,
     )
 

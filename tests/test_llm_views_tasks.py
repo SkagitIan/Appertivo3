@@ -129,6 +129,78 @@ class DishVariationViewTests(TestCase):
 
 
 @override_settings(SECURE_SSL_REDIRECT=False)
+class DishDetailViewLayoutTests(TestCase):
+    """The dish detail page should mark favorited dishes for enhanced layout."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="detailer@example.com", password="pass1234"
+        )
+        account = models.Account.objects.create(name="Detail Co")
+        models.Membership.objects.create(
+            account=account, user=self.user, role=models.Membership.Role.OWNER
+        )
+        self.restaurant = models.Restaurant.objects.create(
+            account=account,
+            name="Detail Bistro",
+            location_text="Metro",
+            context_json={"name": "Detail Bistro"},
+        )
+        concept_run = models.IdeationRun.objects.create(
+            restaurant=self.restaurant,
+            initiated_by_user=self.user,
+            type=models.IdeationRun.RunType.CONCEPTS,
+            model_name="mock",
+            temperature=0,
+            classic_creative=50,
+            context_snapshot={},
+            status=models.IdeationRun.Status.SUCCEEDED,
+        )
+        self.concept = models.Concept.objects.create(
+            restaurant=self.restaurant,
+            ideation_run=concept_run,
+            name="Detail Concept",
+            subtitle="",
+            rank_order=1,
+        )
+        dish_run = models.IdeationRun.objects.create(
+            restaurant=self.restaurant,
+            initiated_by_user=self.user,
+            type=models.IdeationRun.RunType.DISHES,
+            model_name="mock",
+            temperature=0,
+            classic_creative=50,
+            context_snapshot={},
+            parent_concept=self.concept,
+            status=models.IdeationRun.Status.SUCCEEDED,
+        )
+        self.dish = models.DishIdea.objects.create(
+            restaurant=self.restaurant,
+            ideation_run=dish_run,
+            parent_concept=self.concept,
+            title="Detail Dish",
+            description="Savory goodness.",
+            ingredient_names=["herb"],
+            category_tags=["entree"],
+        )
+
+        models.FavoriteDish.objects.create(
+            user=self.user, dish=self.dish, favorited_at=timezone.now()
+        )
+
+        self.client.login(username="detailer@example.com", password="pass1234")
+
+    def test_favorited_dish_uses_enhanced_layout(self):
+        response = self.client.get(reverse("dish_detail", args=[self.concept.id]))
+        self.assertEqual(response.status_code, 200)
+
+        html = response.content.decode()
+        self.assertIn("dish-image w-full aspect", html)
+        self.assertNotIn("flip-scene", html)
+        self.assertIn('aria-pressed="true"', html)
+
+
+@override_settings(SECURE_SSL_REDIRECT=False)
 class SessionHistoryTests(TestCase):
     """Ensure session history is attached to LLM prompts."""
 
