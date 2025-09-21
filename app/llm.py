@@ -13,6 +13,8 @@ import os
 import uuid
 from typing import Dict, List, Optional
 from openai import OpenAI
+import cloudinary
+import base64
 
 from dotenv import load_dotenv
 
@@ -28,7 +30,11 @@ DEFAULT_IMAGE_URL = "https://placehold.co/800x600?text=Dish"
 DEFAULT_CONCEPT_IMAGE_URL = "https://placehold.co/1200x800?text=Concept"
 DEFAULT_PRICE_CENTS = 1500
 
-
+cloudinary.config( 
+  cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME"), 
+  api_key = os.getenv("CLOUDINARY_API_KEY"), 
+  api_secret = os.getenv("CLOUDINARY_SECRET_KEY")
+)
 
 def _concept_sketch_prompt(name: str, subtitle: str) -> str:
     """Describe a lightweight concept sketch request for OpenAI image generation."""
@@ -48,15 +54,15 @@ def _dish_image_prompt(title: str, description: str) -> str:
 
     description_text = description or ""
     return (
-        "Create a realistic professional photograph of the following dish on a "
-        "transparent background, as if the dish is hovering on a white plane.\n"
+        "Create a realistic professional photograph of the following dish. "
+        
         f"Title: {title}\n"
         f"Description: {description_text}"
+        "This should be a very beautiful work of art dish, prepared by a chef in a restaurant."
     )
 
 def _fetch_openai_image(prompt: str, default_url: str) -> str:
-    """Return inline image data (base64) for the given prompt or a fallback URL."""
-
+    """Generate an image via OpenAI, upload to Cloudinary, return optimized URL."""
     if not client:
         return default_url
 
@@ -64,21 +70,37 @@ def _fetch_openai_image(prompt: str, default_url: str) -> str:
         response = client.images.generate(
             model="gpt-image-1",
             prompt=prompt,
-            quality="low",
-            background="transparent",
+            quality="high",
             n=1,
-            response_format="b64_json",
             size="1024x1024",
             output_format="png",
         )
+        if response.data and getattr(response.data[0], "b64_json", None):
+            base64_data = response.data[0].b64_json
+            image_bytes = base64.b64decode(base64_data)
 
-        if response.data and "b64_json" in response.data[0]:
-            base64_data = response.data[0]["b64_json"]
-            return f"data:image/png;base64,{base64_data}"
+            # Upload to Cloudinary
+            upload_result = cloudinary.uploader.upload(
+                image_bytes,
+                folder="appertivo/dishes",
+                public_id=str(uuid.uuid4()),
+                overwrite=True,
+                resource_type="image",
+            )
+
+            # Cloudinary can deliver resized/optimized variants with URL params
+            optimized_url = cloudinary.CloudinaryImage(upload_result["public_id"]).build_url(
+                width=500,
+                height=500,
+                crop="fill",
+                quality="auto",
+                fetch_format="auto",
+            )
+            return optimized_url
 
         logger.warning("OpenAI image response did not include b64_json data.")
 
-    except Exception as exc:  # pragma: no cover - defensive
+    except Exception as exc:
         logger.warning("OpenAI image generation failed: %s", exc, exc_info=True)
 
     return default_url
@@ -185,13 +207,10 @@ def _call_openai_for_price(
 
 def enhance_dish(dish: models.DishIdea, restaurant: models.Restaurant) -> Dict[str, Optional[str]]:
     """Generate enhanced mode assets for a dish."""
-
-    image_url = _call_openai_for_image(dish.title, dish.description)
     snapshot = _format_menu_snapshot(restaurant)
     price_info = _call_openai_for_price(dish, snapshot)
 
     return {
-        "image_url": image_url,
         "price_cents": price_info.get("price_cents"),
         "currency": price_info.get("currency"),
         "pricing_notes": price_info.get("rationale"),

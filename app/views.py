@@ -21,8 +21,10 @@ from pydantic import BaseModel
 from django.core.cache import cache
 import hashlib
 from . import models
-
+import base64
+import cloudinary.uploader
 from openai import OpenAI
+from app.llm import _fetch_openai_image
 from dotenv import load_dotenv
 load_dotenv()
 _openai_api_key = os.getenv("OPENAI_API_KEY")
@@ -643,7 +645,10 @@ def ensure_dish_enhancement(dish: models.DishIdea, user: Optional[User]) -> Opti
         logger.warning("Enhancement request failed: %s", exc, exc_info=True)
         return None
 
-    image_url = payload.get("image_url") or llm.DEFAULT_IMAGE_URL
+    image_url = _fetch_openai_image(
+            prompt=f"Plated dish photo of {dish.title}: {dish.description}",
+            default_url=llm.DEFAULT_IMAGE_URL,
+        )
     price_cents = payload.get("price_cents")
     currency = payload.get("currency") or "USD"
     pricing_notes = payload.get("pricing_notes")
