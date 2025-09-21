@@ -1,82 +1,83 @@
-<div class="max-w-7xl mx-auto px-4 py-10">
-  <div class="flex items-end justify-between mb-6">
-    <button hx-get="{% url 'concepts-generate' %}" hx-target="#concepts-grid" hx-swap="innerHTML"
-      class="bg-gradient-to-r from-[#FF8300] to-[#FF5C00] text-white font-semibold px-6 py-2 rounded-xl shadow hover:scale-105 transition flex items-center gap-2"
-      hx-indicator="#concepts-loading">
-      <span>Generate New Concepts</span>
-      <i id="concepts-loading" class="fas fa-spinner fa-spin hidden"></i>
-    </button>
-  </div>
-  <div id="concepts-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-    {% for concept in concepts %}
-    <div class="flip-scene">
-      <div class="flip-card cursor-pointer" id="concept-{{ concept.id }}"
-        hx-post="{% url 'dishes-generate' concept.id %}" hx-target="#concepts-grid" hx-swap="innerHTML"
-        hx-trigger="click">
-        <div
-          class="flip-face front bg-white p-6 rounded-2xl shadow-md border border-slate-200 transition cursor-pointer hover:shadow-lg relative overflow-hidden">
-          {% with background=concept.sketch_image_url %}
-            <div
-              id="concept-{{ concept.id }}-background"
-              class="concept-card-background {% if background %}concept-card-background--loaded{% else %}concept-card-background--loading{% endif %}"
-              {% if background %}style="background-image: url('{{ background }}');"{% endif %}
-              aria-hidden="true"
-            >
-            </div>
-          {% endwith %}
-          <div class="concept-card-overlay" aria-hidden="true"></div>
-          <div class="relative z-10 flex flex-col h-full">
-            <h2 class="text-xl font-bold text-[#49475B] drop-shadow-sm">{{ concept.name }}</h2>
-            <p class="subtitle mt-2 text-slate-700 drop-shadow-sm">{{ concept.subtitle }}</p>
-            <div class="mt-auto pt-6 flex justify-end">
-              {% with is_favorited=favorited|default:concept.is_favorited_for_user|default:False %}
-  {% with start_loader=trigger_loader|default:False %}
-    <button
-      type="button"
-      onclick="event.stopPropagation();"
-      hx-trigger="click consume"
-      hx-post="{% url 'concept-favorite' concept.id %}"
-      hx-target="this"
-      hx-swap="outerHTML"
-      class="concept-favorite-btn inline-flex items-center justify-center w-10 h-10 rounded-full border border-slate-200 bg-white/80 text-xl text-[#f08000] shadow-sm transition hover:scale-[1.02] {% if is_favorited %}concept-favorite-btn--favorited{% endif %} {% if start_loader %}concept-favorite-btn--loading{% endif %}"
-      aria-label="{% if is_favorited %}Unfavorite{% else %}Favorite{% endif %} {{ concept.name }}"
-      data-concept-id="{{ concept.id }}"
-      data-favorited="{% if is_favorited %}true{% else %}false{% endif %}"
-    >
-      <span aria-hidden="true">
-        {% if is_favorited %}
-          ❤️
+{# Full dish card #}
+{% with context_name=card_context|default:'grid' %}
+<div class="dish-card-wrapper" id="dish-{{ dish.id }}">
+  <div class="flip-scene h-full">
+    <div class="flip-card h-full">
+      
+      <!-- Front = Image only -->
+      <div class="flip-face front relative">
+        {% if dish.enhancement_image_url %}
+          <img 
+            src="{{ dish.enhancement_image_url }}" 
+            alt="{{ dish.title }}" 
+            class="w-full h-full object-cover rounded-2xl"
+          />
         {% else %}
-          🤍
-        {% endif %}
-      </span>
-      {% if start_loader %}
-        <div
-          class="concept-background-loader hidden"
-          data-concept-id="{{ concept.id }}"
-          hx-get="{% url 'concept-background' concept.id %}"
-          hx-trigger="load"
-          hx-target="#concept-{{ concept.id }}-background"
-          hx-swap="outerHTML"
-        ></div>
-      {% endif %}
-    </button>
-  {% endwith %}
-{% endwith %}
-
-            </div>
+          <div class="flex items-center justify-center w-full h-full bg-slate-100 text-slate-400 rounded-2xl">
+            <i class="fa-solid fa-utensils text-3xl"></i>
           </div>
+        {% endif %}
+
+        {# Price badge top-right #}
+        {% if dish.enhancement_price_display %}
+          <span class="absolute top-2 right-2 bg-white/90 text-[#49475B] text-xs md:text-sm font-semibold px-2.5 py-1 rounded-full shadow-sm">
+            {{ dish.enhancement_price_display }}
+          </span>
+        {% endif %}
+      </div>
+
+      <!-- Back = Details -->
+      <div class="flip-face flip-back bg-white text-slate-800 p-4 md:p-6 rounded-2xl flex flex-col h-[280px] md:h-[340px] lg:h-[400px]">
+        
+        <!-- Title & Description -->
+        <div class="flex-1">
+          <h3 class="text-lg md:text-xl font-bold text-[#49475B] text-center">{{ dish.title }}</h3>
+          {% if dish.description %}
+            <p class="mt-2 text-slate-600 text-sm md:text-base text-center line-clamp-4">
+              {{ dish.description }}
+            </p>
+          {% endif %}
         </div>
-        <div class="flip-face flip-back bg-slate-800 text-white p-6 rounded-2xl">
-          <svg class="animate-spin h-8 w-8 mb-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none"
-            viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-          </svg>
-          <p class="text-lg font-medium">Generating dish ideas…</p>
+
+        <!-- Tags -->
+        <div class="mt-3 flex flex-wrap justify-center gap-2">
+          {% for tag in dish.category_tags %}
+            <span class="dish-tag dish-tag--category">{{ tag }}</span>
+          {% endfor %}
+          {% for tag in dish.ingredient_overlap %}
+            <span class="dish-tag dish-tag--ingredient">{{ tag }}</span>
+          {% endfor %}
+        </div>
+
+        <!-- Actions -->
+        <div class="mt-auto flex justify-end gap-3 pt-4 border-t border-slate-200">
+          {% include "dishes/_favorite_button.html" with dish=dish card_context=context_name btn_class='favorite-btn card-action-button' %}
+          <button
+            type="button"
+            class="dish-variation-btn card-action-button text-slate-500 hover:text-slate-700"
+            hx-post="{% url 'dish-variation' dish.id %}"
+            hx-trigger="click"
+            hx-target="closest .dish-card-wrapper"
+            hx-swap="outerHTML"
+            aria-label="Generate a variation of {{ dish.title }}"
+          >
+            <i class="fa-solid fa-arrows-rotate"></i>
+          </button>
+          <button
+            type="button"
+            class="dish-delete-btn card-action-button text-red-500 hover:text-red-600"
+            hx-post="{% url 'dish-delete' dish.id %}"
+            hx-trigger="click"
+            hx-target="closest .dish-card-wrapper"
+            hx-swap="outerHTML"
+            aria-label="Delete {{ dish.title }}"
+          >
+            🗑️
+          </button>
         </div>
       </div>
+
     </div>
-    {% endfor %}
   </div>
 </div>
+{% endwith %}
