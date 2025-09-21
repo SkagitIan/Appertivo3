@@ -10,7 +10,7 @@ from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.db import IntegrityError, transaction
-from django.db.models import Max, Prefetch
+from django.db.models import Exists, Max, OuterRef, Prefetch
 from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
@@ -288,7 +288,11 @@ def manual_menu_view(request):
 @login_required
 def concepts_view(request):
     """Display latest concepts with favorite state for the user."""
-    concepts_qs = models.Concept.objects.order_by("-created_at")
+    concepts_qs = models.Concept.objects.order_by("-created_at").annotate(
+        has_dishes=Exists(
+            models.DishIdea.objects.filter(parent_concept=OuterRef("pk"))
+        )
+    )
     if request.user.is_authenticated:
         concepts_qs = concepts_qs.prefetch_related(
             Prefetch(
@@ -437,6 +441,7 @@ def concepts_generate_view(request):
 
     for concept in concepts:
         concept.is_favorited_for_user = False
+        concept.has_dishes = False
 
     if request.user.is_authenticated:
         _extend_session_list(
@@ -463,6 +468,9 @@ def concept_favorite_view(request, concept_id):
             concept.save(update_fields=["sketch_image_url"])
 
     concept.is_favorited_for_user = favorited
+    concept.has_dishes = models.DishIdea.objects.filter(
+        parent_concept=concept
+    ).exists()
 
     # Always return the refreshed card so the UI stays in sync
     card_html = render_to_string(
@@ -488,6 +496,9 @@ def concept_background_view(request, concept_id):
 
     concept.is_favorited_for_user = models.FavoriteConcept.objects.filter(
         user=request.user, concept=concept
+    ).exists()
+    concept.has_dishes = models.DishIdea.objects.filter(
+        parent_concept=concept
     ).exists()
 
     return render(
@@ -515,6 +526,18 @@ def concepts_favorites_view(request):
             continue
         concept.is_favorited_for_user = True
         concepts.append(concept)
+
+    concept_ids = [concept.id for concept in concepts]
+    if concept_ids:
+        concepts_with_dishes = set(
+            models.DishIdea.objects.filter(parent_concept_id__in=concept_ids)
+            .values_list("parent_concept_id", flat=True)
+        )
+    else:
+        concepts_with_dishes = set()
+
+    for concept in concepts:
+        concept.has_dishes = concept.id in concepts_with_dishes
 
     return render(
         request,
