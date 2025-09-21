@@ -81,16 +81,12 @@
             {% endif %}
           </div>
           <div class="mt-6 flex flex-col gap-3" data-no-flip>
-            <button
-              type="button"
+            <a
+              href="{% url 'dish_detail' concept.id %}"
               class="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#f08000] to-[#FF5C00] px-4 py-2 text-sm font-semibold text-white shadow-md transition hover:scale-[1.02]"
-              hx-post="{% url 'dishes-generate' concept.id %}"
-              hx-trigger="click"
-              data-overlay="true"
-              data-messages='["Cooking up ideas…", "Almost there…", "Plating concepts!"]'
             >
-              <span>Generate dishes</span>
-            </button>
+              <span>View latest dishes</span>
+            </a>
             {% if show_delete|default:True %}
               <button
                 type="button"
