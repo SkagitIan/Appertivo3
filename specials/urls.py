@@ -23,12 +23,9 @@ urlpatterns = [
     path("concepts/generate/", app_views.concepts_generate_view, name="concepts-generate"),
     path("concepts/favorites/", app_views.concepts_favorites_view, name="concepts-favorites"),
     path("concepts/<uuid:concept_id>/favorite/", app_views.concept_favorite_view, name="concept-favorite"),
-    path(
-        "concepts/<uuid:concept_id>/background/",
-        app_views.concept_background_view,
-        name="concept-background",
-    ),
+    path("concepts/<uuid:concept_id>/background/",app_views.concept_background_view, name="concept-background",),
     path("dishes/<uuid:concept_id>/generate/", app_views.dishes_generate_view, name="dishes-generate"),
+    path("dishes/<uuid:concept_id>/", app_views.dish_detail_view, name="dish_detail"),
 
     path("dishes/<uuid:dish_id>/favorite/", app_views.dish_favorite_view, name="dish_favorite"),
     path("dishes/variation/<uuid:dish_id>/", app_views.dish_variation_view, name="dish-variation"),
