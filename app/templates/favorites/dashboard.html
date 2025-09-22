@@ -1,6 +1,15 @@
 {% extends "base_logged_in.html" %}
 {% block title %}Favorites — Appertivo{% endblock %}
 
+{% block page_intro %}
+  <div class="space-y-1">
+    <h1 class="text-xl font-semibold text-[#14080E]">Favorites Studio</h1>
+    <p class="text-sm text-slate-600 max-w-2xl">
+      Revisit the concepts and dishes you saved. Mix and match favorites to shape your next menu drop.
+    </p>
+  </div>
+{% endblock %}
+
 {% block content %}
 {% include "concepts/_card_assets.html" %}
 {% include "dishes/_card_assets.html" %}
@@ -12,21 +21,13 @@
   id="favorites-root"
   class="px-4 py-8 space-y-8"
 >
-  <section class="relative overflow-hidden rounded-3xl border border-[#B993D6]/30 bg-gradient-to-r from-[#B993D6] via-[#FF8300]/80 to-[#58B09C] text-white shadow-lg">
-    <div class="absolute inset-0 bg-black/10 mix-blend-soft-light"></div>
-    <div class="relative space-y-3 px-6 py-8 md:px-8">
-      <div class="inline-flex items-center gap-2 rounded-full bg-white/20 px-4 py-1 text-xs font-semibold uppercase tracking-wider text-white/90">
-        <i class="fa-regular fa-star" aria-hidden="true"></i>
-        <span>Favorites Studio</span>
-      </div>
-      <h1 class="text-3xl font-bold md:text-4xl">Your curated ideas & dishes</h1>
-      {% if restaurant %}
-        <p class="max-w-2xl text-sm md:text-base text-white/90">Favorites tailored for <span class="font-semibold">{{ restaurant.name }}</span>. Mix and match concepts with dishes to craft the next menu drop.</p>
-      {% else %}
-        <p class="max-w-2xl text-sm md:text-base text-white/90">Revisit the ideas you saved. Flip concepts, drag dishes, and experiment until the menu feels right.</p>
-      {% endif %}
-    </div>
-  </section>
+  <div class="rounded-2xl border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur">
+    {% if restaurant %}
+      <p class="text-sm text-slate-600">Favorites tailored for <span class="font-semibold text-[#14080E]">{{ restaurant.name }}</span>. Organize them into menus whenever you are ready.</p>
+    {% else %}
+      <p class="text-sm text-slate-600">Save your favorite ideas to keep them within reach. Use the menu actions below to organize them.</p>
+    {% endif %}
+  </div>
 
   <details open class="favorites-section group rounded-3xl border border-slate-200/70 bg-white/90 shadow-sm backdrop-blur">
     <summary class="flex cursor-pointer select-none items-center justify-between gap-4 px-6 py-5">
