@@ -342,6 +342,62 @@ class ViewSmokeTests(TestCase):
         concept.refresh_from_db()
         self.assertIsNone(concept.sketch_image_url)
 
+    def test_menus_page_lists_menus(self):
+        concept_run = models.IdeationRun.objects.create(
+            restaurant=self.restaurant,
+            initiated_by_user=self.user,
+            type=models.IdeationRun.RunType.CONCEPTS,
+            model_name="m",
+            temperature=0,
+            classic_creative=50,
+            context_snapshot={},
+            status=models.IdeationRun.Status.SUCCEEDED,
+        )
+        concept = models.Concept.objects.create(
+            restaurant=self.restaurant,
+            ideation_run=concept_run,
+            name="Seasonal",
+            rank_order=1,
+        )
+        dish_run = models.IdeationRun.objects.create(
+            restaurant=self.restaurant,
+            initiated_by_user=self.user,
+            type=models.IdeationRun.RunType.DISHES,
+            model_name="m",
+            temperature=0,
+            classic_creative=50,
+            context_snapshot={},
+            parent_concept=concept,
+            status=models.IdeationRun.Status.SUCCEEDED,
+        )
+        dish = models.DishIdea.objects.create(
+            restaurant=self.restaurant,
+            ideation_run=dish_run,
+            parent_concept=concept,
+            title="Seasonal Dish",
+            description="Desc",
+            ingredient_names=[],
+            category_tags=[],
+        )
+        menu = models.MenuCollection.objects.create(
+            restaurant=self.restaurant,
+            created_by_user=self.user,
+            name="Tasting",
+        )
+        models.MenuItem.objects.create(menu=menu, dish=dish, position=1)
+
+        resp = self.client.get(reverse("menus"))
+        self.assertEqual(resp.status_code, 200)
+        menus = resp.context["menus"]
+        self.assertEqual(len(menus), 1)
+        self.assertEqual(menus[0].name, menu.name)
+        self.assertEqual(len(menus[0].menu_items), 1)
+        self.assertEqual(
+            resp.context["menu_options"],
+            [{"id": str(menu.id), "name": menu.name}],
+        )
+        self.assertEqual(resp.context["menu_move_url"], reverse("menu-item-move"))
+
     def test_menu_collection_and_item(self):
         create_resp = self.client.post(
             reverse("menu-collection-create"), {"name": "Menu"}
