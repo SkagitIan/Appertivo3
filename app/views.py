@@ -53,6 +53,125 @@ def _extend_session_list(session, key: str, new_items: Iterable[str]) -> None:
     session[key] = existing
     session.modified = True
 
+
+VIEW_MODE_CHOICES = {"gallery", "list", "carousel"}
+DEFAULT_VIEW_MODE = "gallery"
+
+VIEW_MODE_COLLECTION_TEMPLATES = {
+    "gallery": "dishes/grid.html",
+    "list": "dishes/list.html",
+    "carousel": "dishes/carousel.html",
+}
+
+VIEW_MODE_ITEM_TEMPLATES = {
+    "gallery": "dishes/_card.html",
+    "list": "dishes/_list_item.html",
+    "carousel": "dishes/_carousel_item.html",
+}
+
+
+def _normalize_view_mode(value: Optional[str]) -> str:
+    """Return a supported view mode string."""
+
+    if value in VIEW_MODE_CHOICES:
+        return value
+    return DEFAULT_VIEW_MODE
+
+
+def _get_preferred_view_mode(request) -> str:
+    """Return the stored view mode for this request."""
+
+    session_mode = request.session.get("preferred_view_mode")
+    if request.user.is_authenticated:
+        try:
+            profile = request.user.userprofile
+        except models.UserProfile.DoesNotExist:
+            profile = None
+        if profile and profile.preferred_view_mode in VIEW_MODE_CHOICES:
+            return profile.preferred_view_mode
+        if session_mode in VIEW_MODE_CHOICES:
+            return session_mode
+        if profile and profile.preferred_view_mode not in VIEW_MODE_CHOICES:
+            profile.preferred_view_mode = DEFAULT_VIEW_MODE
+            profile.save(update_fields=["preferred_view_mode"])
+        return DEFAULT_VIEW_MODE
+    if session_mode in VIEW_MODE_CHOICES:
+        return session_mode
+    return DEFAULT_VIEW_MODE
+
+
+def _set_preferred_view_mode(request, value: Optional[str]) -> str:
+    """Persist a chosen view mode for the current session/user."""
+
+    mode = _normalize_view_mode(value)
+    request.session["preferred_view_mode"] = mode
+    request.session.modified = True
+    if request.user.is_authenticated:
+        models.UserProfile.objects.update_or_create(
+            user=request.user, defaults={"preferred_view_mode": mode}
+        )
+    return mode
+
+
+def _render_dish_collection(
+    request,
+    dishes: Iterable[models.DishIdea],
+    view_mode: str,
+    *,
+    card_context: str = "grid",
+    menu_options: Optional[List[dict]] = None,
+    menu_move_url: str = "",
+    wrapper_id_prefix: str = "",
+    wrapper_extra_classes: str = "",
+    wrapper_is_menu_item: bool = False,
+    current_menu_id: str = "",
+) -> str:
+    """Render a collection of dishes using the requested view mode."""
+
+    template_name = VIEW_MODE_COLLECTION_TEMPLATES.get(view_mode, "dishes/grid.html")
+    context = {
+        "dishes": dishes,
+        "card_context": card_context,
+        "menu_options": menu_options or [],
+        "menu_move_url": menu_move_url,
+        "wrapper_id_prefix": wrapper_id_prefix,
+        "wrapper_extra_classes": wrapper_extra_classes,
+        "wrapper_is_menu_item": wrapper_is_menu_item,
+        "current_menu_id": current_menu_id,
+        "view_mode": view_mode,
+    }
+    return render_to_string(template_name, context, request=request)
+
+
+def _render_single_dish(
+    request,
+    dish: models.DishIdea,
+    view_mode: str,
+    *,
+    card_context: str = "grid",
+    menu_options: Optional[List[dict]] = None,
+    menu_move_url: str = "",
+    wrapper_id_prefix: str = "",
+    wrapper_extra_classes: str = "",
+    wrapper_is_menu_item: bool = False,
+    current_menu_id: str = "",
+) -> str:
+    """Render a single dish for HTMX replacements."""
+
+    template_name = VIEW_MODE_ITEM_TEMPLATES.get(view_mode, "dishes/_card.html")
+    context = {
+        "dish": dish,
+        "card_context": card_context,
+        "menu_options": menu_options or [],
+        "menu_move_url": menu_move_url,
+        "wrapper_id_prefix": wrapper_id_prefix,
+        "wrapper_extra_classes": wrapper_extra_classes,
+        "wrapper_is_menu_item": wrapper_is_menu_item,
+        "current_menu_id": current_menu_id,
+        "view_mode": view_mode,
+    }
+    return render_to_string(template_name, context, request=request)
+
 from app import llm
 from .tasks import parse_pdf_menu, run_outscraper_search, scrape_menu
 
@@ -264,6 +383,27 @@ def dashboard_redirect(request):
 @login_required
 def menus_view(request):
     """Render menus page."""
+    context = _build_menus_context(request)
+    context["view_mode"] = _get_preferred_view_mode(request)
+    context["toggle_url"] = reverse("menus-view-mode")
+    return render(request, "menus/main.html", context)
+
+
+@login_required
+@require_POST
+def menus_view_mode_update(request):
+    """Update stored view mode and render the menus list fragment."""
+
+    view_mode = _set_preferred_view_mode(request, request.POST.get("view_mode"))
+    context = _build_menus_context(request)
+    context["view_mode"] = view_mode
+    html = render_to_string("menus/_menu_list.html", context, request=request)
+    return HttpResponse(html)
+
+
+def _build_menus_context(request) -> dict:
+    """Gather menus context shared across view-mode responses."""
+
     restaurant = (
         models.Restaurant.objects.filter(account__membership__user=request.user)
         .select_related("account")
@@ -289,9 +429,12 @@ def menus_view(request):
         for menu in menus:
             items = list(menu.menuitem_set.all())
             menu.menu_items = items
+            menu.dishes_for_view = [item.dish for item in items]
 
     all_dishes = [
-        item.dish for menu in menus for item in getattr(menu, "menu_items", [])
+        dish
+        for menu in menus
+        for dish in getattr(menu, "dishes_for_view", [])
     ]
     decorate_dishes_with_enhancements(all_dishes)
     for dish in all_dishes:
@@ -305,13 +448,13 @@ def menus_view(request):
         for menu in menus
     ]
 
-    ctx = {
+    return {
         "restaurant": restaurant,
         "menus": menus,
         "menu_options": menu_options,
         "menu_move_url": reverse("menu-item-move"),
+        "card_context": "favorites",
     }
-    return render(request, "menus/main.html", ctx)
 
 
 def onboarding_view(request):
@@ -874,18 +1017,14 @@ def dishes_generate_view(request, concept_id):
     return response
 
 
-@login_required
-def dish_detail_view(request, concept_id):
-    """
-    Show the most recent batch of generated dishes for a concept.
-    If HTMX: return grid fragment. Else: return full page.
-    """
+def _build_dish_detail_context(request, concept_id: str) -> dict:
+    """Prepare dish detail context shared by multiple responses."""
+
     concept = get_object_or_404(
         models.Concept.objects.select_related("restaurant"),
         id=concept_id,
     )
 
-    # Get the most recent ideation run for this concept
     latest_run = (
         models.IdeationRun.objects.filter(
             parent_concept=concept,
@@ -926,30 +1065,72 @@ def dish_detail_view(request, concept_id):
         ).order_by("created_at")
         menu_options = [{"id": str(menu.id), "name": menu.name} for menu in menu_queryset]
 
-    template_name = "dishes/grid.html" if request.headers.get("HX-Request") == "true" else "dishes/page.html"
-
-    logger.info(
-        "Rendering dish detail view: concept=%s, run_id=%s, dish_count=%d, template=%s",
-        concept.name,
-        latest_run.id if latest_run else None,
-        len(dishes),
-        template_name,
-    )
-
     context = {
         "concept": concept,
         "dishes": dishes,
         "menu_options": menu_options,
         "menu_move_url": reverse("menu-item-move"),
+        "card_context": "grid",
     }
 
+    latest_run_id = latest_run.id if latest_run else None
+    logger.info(
+        "Loaded dish detail context: concept=%s, run_id=%s, dish_count=%d",
+        concept.name,
+        latest_run_id,
+        len(dishes),
+    )
+    return context
+
+
+@login_required
+def dish_detail_view(request, concept_id):
+    """Render the dish detail page or HTMX fragment using the preferred view."""
+
+    context = _build_dish_detail_context(request, concept_id)
+    view_mode = _get_preferred_view_mode(request)
+    context["view_mode"] = view_mode
+    context["toggle_url"] = reverse("dish-view-mode", args=[concept_id])
+
+    if request.headers.get("HX-Request") == "true":
+        template_name = VIEW_MODE_COLLECTION_TEMPLATES.get(view_mode, "dishes/grid.html")
+    else:
+        template_name = "dishes/page.html"
+
     return render(request, template_name, context)
+
+
+@login_required
+@require_POST
+def dish_view_mode_update(request, concept_id):
+    """Persist a new view mode and return the updated dish collection."""
+
+    view_mode = _set_preferred_view_mode(request, request.POST.get("view_mode"))
+    context = _build_dish_detail_context(request, concept_id)
+    html = _render_dish_collection(
+        request,
+        context.get("dishes", []),
+        view_mode,
+        card_context=context.get("card_context", "grid"),
+        menu_options=context.get("menu_options", []),
+        menu_move_url=context.get("menu_move_url", ""),
+    )
+    return HttpResponse(html)
 
 
 def dish_favorite_view(request, dish_id):
     """Toggle favorite on a dish."""
     dish = get_object_or_404(models.DishIdea, id=dish_id)
     card_context = request.POST.get("context") or request.GET.get("context") or "grid"
+    current_menu_id = request.POST.get("current_menu_id") or request.GET.get(
+        "current_menu_id", ""
+    )
+    view_mode_param = request.POST.get("view_mode") or request.GET.get("view_mode")
+    view_mode = (
+        _normalize_view_mode(view_mode_param)
+        if view_mode_param
+        else _get_preferred_view_mode(request)
+    )
     fav, created = models.FavoriteDish.objects.get_or_create(
         user=request.user, dish=dish, defaults={"favorited_at": timezone.now()}
     )
@@ -974,11 +1155,22 @@ def dish_favorite_view(request, dish_id):
 
     if not favorited and card_context == "favorites":
         return HttpResponse("")
-
-    html = render_to_string(
-        "dishes/_card.html",
-        {"dish": dish, "card_context": card_context},
-        request=request,
+    menu_options: List[dict] = []
+    menu_queryset = models.MenuCollection.objects.filter(
+        restaurant=dish.restaurant,
+        restaurant__account__membership__user=request.user,
+    ).order_by("created_at")
+    menu_options = [{"id": str(menu.id), "name": menu.name} for menu in menu_queryset]
+    menu_move_url = reverse("menu-item-move")
+    html = _render_single_dish(
+        request,
+        dish,
+        view_mode,
+        card_context=card_context,
+        menu_options=menu_options,
+        menu_move_url=menu_move_url,
+        wrapper_is_menu_item=bool(current_menu_id),
+        current_menu_id=current_menu_id,
     )
     return HttpResponse(html)
 
@@ -1021,6 +1213,18 @@ def dish_variation_view(request, dish_id):
             "restaurant", "parent_concept", "parent_dish", "ideation_run"
         ),
         id=dish_id,
+    )
+    current_menu_id = request.POST.get("current_menu_id") or request.GET.get(
+        "current_menu_id", ""
+    )
+    view_mode_param = request.POST.get("view_mode") or request.GET.get("view_mode")
+    view_mode = (
+        _normalize_view_mode(view_mode_param)
+        if view_mode_param
+        else _get_preferred_view_mode(request)
+    )
+    card_context = request.POST.get("card_context") or request.GET.get(
+        "card_context", "grid"
     )
 
     base_dish = dish.parent_dish or dish
@@ -1160,8 +1364,20 @@ def dish_variation_view(request, dish_id):
 
     decorate_dishes_with_enhancements([new_dish])
 
-    html = render_to_string(
-        "dishes/_card.html", {"dish": new_dish, "card_context": "grid"}, request=request
+    menu_queryset = models.MenuCollection.objects.filter(
+        restaurant=restaurant,
+        restaurant__account__membership__user=request.user,
+    ).order_by("created_at")
+    menu_options = [{"id": str(menu.id), "name": menu.name} for menu in menu_queryset]
+    html = _render_single_dish(
+        request,
+        new_dish,
+        view_mode,
+        card_context=card_context,
+        menu_options=menu_options,
+        menu_move_url=reverse("menu-item-move"),
+        wrapper_is_menu_item=bool(current_menu_id),
+        current_menu_id=current_menu_id,
     )
     return HttpResponse(html)
 
@@ -1169,6 +1385,35 @@ def dish_variation_view(request, dish_id):
 @login_required
 def favorites_view(request):
     """Render favorites dashboard."""
+    context = _build_favorites_context(request)
+    context["view_mode"] = _get_preferred_view_mode(request)
+    context["toggle_url"] = reverse("favorites-view-mode")
+    return render(request, "favorites/dashboard.html", context)
+
+
+@login_required
+@require_POST
+def favorites_view_mode_update(request):
+    """Update stored view mode and return the uncategorized favorites fragment."""
+
+    view_mode = _set_preferred_view_mode(request, request.POST.get("view_mode"))
+    context = _build_favorites_context(request)
+    html = _render_dish_collection(
+        request,
+        context.get("uncategorized_dishes", []),
+        view_mode,
+        card_context=context.get("card_context", "favorites"),
+        menu_options=context.get("menu_options", []),
+        menu_move_url=context.get("menu_move_url", ""),
+        wrapper_id_prefix="favorite-dish-",
+        wrapper_extra_classes="favorite-dish-card",
+    )
+    return HttpResponse(html)
+
+
+def _build_favorites_context(request) -> dict:
+    """Collect favorites data shared across responses."""
+
     restaurant = (
         models.Restaurant.objects.filter(account__membership__user=request.user)
         .select_related("account")
@@ -1188,8 +1433,8 @@ def favorites_view(request):
         .order_by("-favorited_at")
     )
 
-    menus = []
-    menu_dishes = []
+    menus: List[models.MenuCollection] = []
+    menu_dishes: List[models.DishIdea] = []
     if restaurant:
         menus = list(
             models.MenuCollection.objects.filter(restaurant=restaurant)
@@ -1216,7 +1461,9 @@ def favorites_view(request):
     for dish in all_dishes:
         dish.is_favorited = True
 
-    menu_dish_ids = {item.dish_id for menu in menus for item in getattr(menu, "menu_items", [])}
+    menu_dish_ids = {
+        item.dish_id for menu in menus for item in getattr(menu, "menu_items", [])
+    }
     uncategorized_favorites = [
         fav for fav in favorite_dishes if fav.dish_id not in menu_dish_ids
     ]
@@ -1229,16 +1476,17 @@ def favorites_view(request):
         for menu in menus
     ]
 
-    ctx = {
+    return {
         "restaurant": restaurant,
         "favorite_concepts": favorite_concepts,
         "favorite_dishes": favorite_dishes,
         "menus": menus,
         "uncategorized_favorites": uncategorized_favorites,
+        "uncategorized_dishes": [fav.dish for fav in uncategorized_favorites],
         "menu_options": menus_payload,
         "menu_move_url": reverse("menu-item-move"),
+        "card_context": "favorites",
     }
-    return render(request, "favorites/dashboard.html", ctx)
 
 
 @login_required

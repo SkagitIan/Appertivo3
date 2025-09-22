@@ -1,0 +1,48 @@
+{% include "dishes/_card_assets.html" %}
+
+<div class="relative" data-carousel-root data-view-mode="carousel">
+  <div class="flex snap-x snap-mandatory gap-6 overflow-x-auto pb-4" data-carousel-track>
+    {% if dishes %}
+      {% for dish in dishes %}
+        {% include "dishes/_carousel_item.html" with dish=dish card_context=card_context menu_options=menu_options menu_move_url=menu_move_url current_menu_id=current_menu_id view_mode=view_mode wrapper_id_prefix=wrapper_id_prefix wrapper_extra_classes=wrapper_extra_classes wrapper_is_menu_item=wrapper_is_menu_item %}
+      {% endfor %}
+    {% else %}
+      <div class="w-full rounded-3xl border border-dashed border-slate-200 bg-white/70 p-6 text-center text-sm text-slate-500">
+        No dishes yet. Generate or add dishes to see them here.
+      </div>
+    {% endif %}
+  </div>
+  <button
+    type="button"
+    class="hidden md:flex absolute left-2 top-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 p-3 text-slate-600 shadow"
+    data-carousel-control="prev"
+    aria-label="Scroll previous"
+  >
+    <i class="fa-solid fa-chevron-left"></i>
+  </button>
+  <button
+    type="button"
+    class="hidden md:flex absolute right-2 top-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 p-3 text-slate-600 shadow"
+    data-carousel-control="next"
+    aria-label="Scroll next"
+  >
+    <i class="fa-solid fa-chevron-right"></i>
+  </button>
+</div>
+
+<script>
+  if (!window.__dishCarouselControls) {
+    window.__dishCarouselControls = true;
+    document.addEventListener('click', (event) => {
+      const control = event.target.closest('[data-carousel-control]');
+      if (!control) return;
+      const root = control.closest('[data-carousel-root]');
+      if (!root) return;
+      const track = root.querySelector('[data-carousel-track]');
+      if (!track) return;
+      const direction = control.getAttribute('data-carousel-control');
+      const offset = root.getBoundingClientRect().width * 0.8;
+      track.scrollBy({ left: direction === 'next' ? offset : -offset, behavior: 'smooth' });
+    });
+  }
+</script>
