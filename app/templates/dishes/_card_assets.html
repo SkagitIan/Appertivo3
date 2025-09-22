@@ -102,6 +102,114 @@
     outline-offset: 2px;
   }
 
+  .dish-menu-control {
+    position: relative;
+  }
+
+  .dish-menu-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 9999px;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    background: rgba(255, 255, 255, 0.96);
+    color: #475569;
+    box-shadow: 0 12px 25px rgba(15, 23, 42, 0.18);
+    transition: transform 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+  }
+
+  .dish-menu-trigger:hover {
+    transform: translateY(-1px);
+    color: #1f2937;
+  }
+
+  .dish-menu-trigger:focus-visible {
+    outline: 2px solid #6366f1;
+    outline-offset: 2px;
+  }
+
+  .dish-menu-panel {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 0.5rem);
+    min-width: 12rem;
+    padding: 0.5rem;
+    border-radius: 0.75rem;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    background: rgba(255, 255, 255, 0.98);
+    box-shadow: 0 18px 30px rgba(15, 23, 42, 0.18);
+    display: none;
+    flex-direction: column;
+    gap: 0.25rem;
+    z-index: 10;
+  }
+
+  .dish-menu-panel.is-open {
+    display: flex;
+  }
+
+  .dish-menu-options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .dish-menu-option {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.75rem;
+    border: 1px solid transparent;
+    background: white;
+    color: #475569;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  }
+
+  .dish-menu-option:hover {
+    background: #f8fafc;
+    border-color: rgba(148, 163, 184, 0.4);
+  }
+
+  .dish-menu-option:focus-visible {
+    outline: 2px solid #6366f1;
+    outline-offset: 2px;
+  }
+
+  .dish-menu-option.is-loading {
+    opacity: 0.6;
+    cursor: wait;
+  }
+
+  .dish-menu-option--remove {
+    margin-top: 0.25rem;
+    border-style: dashed;
+    color: #dc2626;
+    background: #fff5f5;
+  }
+
+  .dish-menu-option--remove:hover {
+    background: #fee2e2;
+    border-color: rgba(248, 113, 113, 0.6);
+  }
+
+  .dish-menu-empty {
+    margin: 0;
+    padding: 0.5rem 0.25rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #64748b;
+    max-width: 12rem;
+    text-align: left;
+  }
+
   .dish-tag {
     display: inline-flex;
     align-items: center;
@@ -190,6 +298,170 @@
 
     const shouldShowLoading = (elt) =>
       elt && (elt.classList.contains("dish-variation-btn") || elt.classList.contains("favorite-btn"));
+
+    const openClass = "is-open";
+
+    const getCsrfToken = () => {
+      const input = document.querySelector('[name="csrfmiddlewaretoken"]');
+      if (input) {
+        return input.value;
+      }
+      const match = document.cookie.match(/csrftoken=([^;]+)/);
+      return match ? decodeURIComponent(match[1]) : "";
+    };
+
+    const closeMenuPanel = (panel) => {
+      if (!panel) {
+        return;
+      }
+      panel.classList.remove(openClass);
+      panel.setAttribute("aria-hidden", "true");
+      const control = panel.closest("[data-menu-control]");
+      const trigger = control ? control.querySelector("[data-menu-button]") : null;
+      if (trigger) {
+        trigger.setAttribute("aria-expanded", "false");
+      }
+    };
+
+    const closeAllMenus = (exceptPanel) => {
+      document.querySelectorAll("[data-menu-panel]").forEach((panel) => {
+        if (panel === exceptPanel) {
+          return;
+        }
+        closeMenuPanel(panel);
+      });
+    };
+
+    const toggleMenuPanel = (button) => {
+      const control = button.closest("[data-menu-control]");
+      if (!control) {
+        return;
+      }
+      const panel = control.querySelector("[data-menu-panel]");
+      if (!panel) {
+        return;
+      }
+      const isOpen = panel.classList.contains(openClass);
+      if (isOpen) {
+        closeMenuPanel(panel);
+        return;
+      }
+      closeAllMenus(panel);
+      panel.classList.add(openClass);
+      panel.setAttribute("aria-hidden", "false");
+      button.setAttribute("aria-expanded", "true");
+    };
+
+    const handleMenuSelection = (option) => {
+      const card = option.closest("[data-dish-card]");
+      if (!card) {
+        return;
+      }
+
+      const moveUrl = card.dataset.moveUrl || "";
+      const dishId = card.dataset.dishId || "";
+      if (!moveUrl || !dishId) {
+        option.textContent = option.dataset.label || option.textContent;
+        closeAllMenus();
+        return;
+      }
+
+      const menuId = option.dataset.menuId !== undefined ? option.dataset.menuId : "";
+      const label = option.dataset.label || option.textContent.trim();
+      const sourceMenuId = card.dataset.currentMenu || "";
+
+      if (sourceMenuId === (menuId || "")) {
+        closeAllMenus();
+        return;
+      }
+
+      option.disabled = true;
+      option.classList.add("is-loading");
+      option.textContent = menuId ? "Adding…" : "Removing…";
+
+      fetch(moveUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": getCsrfToken(),
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          dish_id: dishId,
+          source_menu_id: sourceMenuId,
+          target_menu_id: menuId || "",
+        }),
+      })
+        .then((res) => {
+          if (!res.ok) {
+            throw new Error("Request failed");
+          }
+          return res.json().catch(() => ({}));
+        })
+        .then(() => {
+          const normalizedMenu = menuId || "";
+          card.dataset.currentMenu = normalizedMenu;
+          const wrapper = document.getElementById(`favorite-dish-${dishId}`);
+          if (wrapper) {
+            wrapper.dataset.currentMenu = normalizedMenu;
+          }
+
+          const successText = menuId ? "Added!" : "Removed!";
+          option.textContent = successText;
+
+          setTimeout(() => {
+            option.textContent = label;
+            option.disabled = false;
+            option.classList.remove("is-loading");
+          }, 1000);
+
+          const detail = {
+            dishId,
+            sourceMenuId,
+            targetMenuId: normalizedMenu,
+          };
+          card.dispatchEvent(
+            new CustomEvent("dish-menu-moved", { detail, bubbles: true })
+          );
+
+          closeAllMenus();
+        })
+        .catch(() => {
+          option.textContent = "Try again";
+          setTimeout(() => {
+            option.textContent = label;
+            option.disabled = false;
+            option.classList.remove("is-loading");
+          }, 1200);
+        });
+    };
+
+    document.body.addEventListener("click", (evt) => {
+      const menuButton = evt.target.closest("[data-menu-button]");
+      if (menuButton) {
+        evt.preventDefault();
+        toggleMenuPanel(menuButton);
+        return;
+      }
+
+      const option = evt.target.closest("[data-menu-option]");
+      if (option) {
+        evt.preventDefault();
+        handleMenuSelection(option);
+        return;
+      }
+
+      const insidePanel = evt.target.closest("[data-menu-panel]");
+      if (!insidePanel) {
+        closeAllMenus();
+      }
+    });
+
+    document.addEventListener("keydown", (evt) => {
+      if (evt.key === "Escape") {
+        closeAllMenus();
+      }
+    });
 
     document.body.addEventListener("htmx:beforeRequest", function (evt) {
       const trigger = evt.detail.elt;

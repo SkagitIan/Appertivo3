@@ -140,7 +140,7 @@
                           data-dish-id="{{ item.dish.id }}"
                           data-current-menu="{{ menu.id }}"
                         >
-                          {% include "dishes/_card.html" with dish=item.dish card_context='favorites' %}
+                          {% include "dishes/_card.html" with dish=item.dish card_context='favorites' menu_options=menu_options menu_move_url=menu_move_url current_menu_id=menu.id %}
                         </div>
                       {% endfor %}
                     </div>
@@ -192,7 +192,7 @@
                 data-dish-id="{{ favorite.dish.id }}"
                 data-current-menu=""
               >
-                {% include "dishes/_card.html" with dish=favorite.dish card_context='favorites' %}
+                {% include "dishes/_card.html" with dish=favorite.dish card_context='favorites' menu_options=menu_options menu_move_url=menu_move_url current_menu_id='' %}
               </div>
             {% endfor %}
           </div>
@@ -418,6 +418,25 @@
       const card = getCard(trigger);
       if (!card) return;
       openSheet(card.dataset.dishId, card.dataset.currentMenu || '');
+    });
+
+    root.addEventListener('dish-menu-moved', (event) => {
+      const detail = event.detail || {};
+      const dishId = detail.dishId;
+      if (!dishId) return;
+      const sourceMenuId = detail.sourceMenuId || '';
+      const targetMenuId = detail.targetMenuId || '';
+      if (sourceMenuId === targetMenuId) return;
+
+      const wrapper = document.getElementById(`favorite-dish-${dishId}`);
+      if (!wrapper) return;
+      const targetZone = zoneFor(targetMenuId);
+      if (!targetZone) return;
+
+      wrapper.dataset.currentMenu = targetMenuId;
+      moveCard(wrapper, targetZone);
+      updateEmptyStates(zoneFor(sourceMenuId));
+      updateEmptyStates(targetZone);
     });
 
     const createBtn = root.querySelector('[data-action="create-menu"]');
