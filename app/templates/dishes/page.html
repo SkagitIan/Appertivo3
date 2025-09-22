@@ -36,11 +36,17 @@
 {% block content %}
 <div class="max-w-7xl mx-auto px-4 py-6 space-y-6 mt-5">
 
-<div id="dishes-grid"
-     class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4
-            gap-2 sm:gap-3 md:gap-4 lg:gap-4 xl:gap-5">
-  {% include "dishes/grid.html" %}
-</div>
+  {% include "dishes/_view_toggle.html" with view_mode=view_mode toggle_url=toggle_url target_id='dishes-grid' %}
+
+  <div id="dishes-grid">
+    {% if view_mode == "list" %}
+      {% include "dishes/list.html" %}
+    {% elif view_mode == "carousel" %}
+      {% include "dishes/carousel.html" %}
+    {% else %}
+      {% include "dishes/grid.html" %}
+    {% endif %}
+  </div>
 
 
 

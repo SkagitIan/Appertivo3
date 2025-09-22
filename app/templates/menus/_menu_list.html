@@ -1,0 +1,67 @@
+<section class="space-y-6" data-menu-list>
+  {% for menu in menus %}
+    <article
+      class="rounded-3xl border border-slate-200/80 bg-white/95 shadow-sm backdrop-blur"
+      data-menu-section="{{ menu.id }}"
+    >
+      <div class="flex flex-col gap-4 border-b border-slate-100 px-6 py-5 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h2 class="text-lg font-semibold text-[#49475B]" data-menu-title>{{ menu.name }}</h2>
+          <p class="text-xs font-medium uppercase tracking-wide text-slate-400" data-menu-count>
+            {{ menu.menu_items|length }} dish{{ menu.menu_items|length|pluralize }}
+          </p>
+        </div>
+        <div class="flex items-center gap-3">
+          <button
+            type="button"
+            class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-100"
+            data-action="rename-menu"
+            data-menu-id="{{ menu.id }}"
+            data-rename-url="{% url 'menu-collection-rename' menu.id %}"
+            title="Rename menu"
+          >
+            <i class="fa-regular fa-pen-to-square" aria-hidden="true"></i>
+            <span class="sr-only">Rename menu</span>
+          </button>
+          <button
+            type="button"
+            class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-red-100 text-red-500 transition hover:bg-red-50"
+            data-action="delete-menu"
+            data-menu-id="{{ menu.id }}"
+            data-delete-url="{% url 'menu-collection-delete' menu.id %}"
+            title="Delete menu"
+          >
+            <i class="fa-regular fa-trash-can" aria-hidden="true"></i>
+            <span class="sr-only">Delete menu</span>
+          </button>
+        </div>
+      </div>
+      <div class="space-y-4 px-6 py-6" data-menu-body>
+        <div data-menu-dishes>
+          {% with dishes=menu.dishes_for_view current_menu_id=menu.id wrapper_id_prefix='favorite-dish-' wrapper_extra_classes='favorite-dish-card' wrapper_is_menu_item=True %}
+            {% if view_mode == 'list' %}
+              {% include "dishes/list.html" with dishes=dishes card_context=card_context menu_options=menu_options menu_move_url=menu_move_url current_menu_id=current_menu_id wrapper_id_prefix=wrapper_id_prefix wrapper_extra_classes=wrapper_extra_classes wrapper_is_menu_item=wrapper_is_menu_item view_mode=view_mode %}
+            {% elif view_mode == 'carousel' %}
+              {% include "dishes/carousel.html" with dishes=dishes card_context=card_context menu_options=menu_options menu_move_url=menu_move_url current_menu_id=current_menu_id wrapper_id_prefix=wrapper_id_prefix wrapper_extra_classes=wrapper_extra_classes wrapper_is_menu_item=wrapper_is_menu_item view_mode=view_mode %}
+            {% else %}
+              {% include "dishes/grid.html" with dishes=dishes card_context=card_context menu_options=menu_options menu_move_url=menu_move_url current_menu_id=current_menu_id wrapper_id_prefix=wrapper_id_prefix wrapper_extra_classes=wrapper_extra_classes wrapper_is_menu_item=wrapper_is_menu_item view_mode=view_mode %}
+            {% endif %}
+          {% endwith %}
+        </div>
+        <div
+          class="flex min-h-[120px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-500 {% if menu.menu_items %}hidden{% endif %}"
+          data-menu-empty
+        >
+          No dishes here yet. Use the … menu on a dish to add it to {{ menu.name }}.
+        </div>
+      </div>
+    </article>
+  {% endfor %}
+</section>
+
+<div
+  data-menus-empty
+  class="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center text-slate-500 {% if menus %}hidden{% endif %}"
+>
+  Create a menu to start organizing your favorite dishes. They'll appear here once assigned.
+</div>

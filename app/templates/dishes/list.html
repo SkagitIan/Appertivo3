@@ -1,0 +1,13 @@
+{% include "dishes/_card_assets.html" %}
+
+<div class="space-y-3" data-view-mode="list">
+  {% if dishes %}
+    {% for dish in dishes %}
+      {% include "dishes/_list_item.html" with dish=dish card_context=card_context menu_options=menu_options menu_move_url=menu_move_url current_menu_id=current_menu_id view_mode=view_mode wrapper_id_prefix=wrapper_id_prefix wrapper_extra_classes=wrapper_extra_classes wrapper_is_menu_item=wrapper_is_menu_item %}
+    {% endfor %}
+  {% else %}
+    <div class="rounded-2xl border border-dashed border-slate-200 bg-white/70 p-6 text-center text-sm text-slate-500">
+      No dishes yet. Generate or add dishes to see them here.
+    </div>
+  {% endif %}
+</div>
