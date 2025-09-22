@@ -49,56 +49,83 @@
           </div>
         {% endif %}
 
-        <!-- Action menu (always shown on FRONT) -->
-        <div class="absolute bottom-2 right-2" data-no-flip>
-          <div class="dish-menu-control" data-menu-control data-no-flip>
-            <button
-              type="button"
-              class="dish-menu-trigger"
-              data-menu-button
-              data-no-flip
-              aria-haspopup="true"
-              aria-expanded="false"
-              title="Add to menu"
-            >
-              <span class="sr-only">Add {{ dish.title }} to a menu</span>
-              <i class="fa-solid fa-ellipsis"></i>
-            </button>
-            <div class="dish-menu-panel" data-menu-panel data-no-flip aria-hidden="true">
-              {% if menu_list %}
-                <div class="dish-menu-options" data-no-flip>
-                  {% for menu in menu_list %}
-                    <button
-                      type="button"
-                      class="dish-menu-option"
-                      data-menu-option
-                      data-menu-id="{{ menu.id }}"
-                      data-menu-name="{{ menu.name }}"
-                      data-label="Add to {{ menu.name }}"
-                      data-no-flip
-                    >
-                      Add to {{ menu.name }}
-                    </button>
-                  {% endfor %}
-                </div>
-                <button
-                  type="button"
-                  class="dish-menu-option dish-menu-option--remove"
-                  data-menu-option
-                  data-menu-id=""
-                  data-label="Remove from menus"
-                  data-no-flip
-                >
-                  Remove from menus
-                </button>
-              {% else %}
-                <p class="dish-menu-empty" data-no-flip>
-                  Create a menu to add this dish.
-                </p>
-              {% endif %}
+        <!-- Action menu / actions (shown on FRONT) -->
+        {% if dish.is_favorited %}
+          <div class="absolute bottom-2 right-2" data-no-flip>
+            <div class="dish-menu-control" data-menu-control data-no-flip>
+              <button
+                type="button"
+                class="dish-menu-trigger"
+                data-menu-button
+                data-no-flip
+                aria-haspopup="true"
+                aria-expanded="false"
+                title="Add to menu"
+              >
+                <span class="sr-only">Add {{ dish.title }} to a menu</span>
+                <i class="fa-solid fa-ellipsis"></i>
+              </button>
+              <div class="dish-menu-panel" data-menu-panel data-no-flip aria-hidden="true">
+                {% if menu_list %}
+                  <div class="dish-menu-options" data-no-flip>
+                    {% for menu in menu_list %}
+                      <button
+                        type="button"
+                        class="dish-menu-option"
+                        data-menu-option
+                        data-menu-id="{{ menu.id }}"
+                        data-menu-name="{{ menu.name }}"
+                        data-label="Add to {{ menu.name }}"
+                        data-no-flip
+                      >
+                        Add to {{ menu.name }}
+                      </button>
+                    {% endfor %}
+                  </div>
+                  <button
+                    type="button"
+                    class="dish-menu-option dish-menu-option--remove"
+                    data-menu-option
+                    data-menu-id=""
+                    data-label="Remove from menus"
+                    data-no-flip
+                  >
+                    Remove from menus
+                  </button>
+                {% else %}
+                  <p class="dish-menu-empty" data-no-flip>
+                    Create a menu to add this dish.
+                  </p>
+                {% endif %}
+              </div>
             </div>
           </div>
-        </div>
+        {% else %}
+          <div class="absolute bottom-2 right-2" data-no-flip>
+            <div class="card-action-tab" data-no-flip>
+              <button
+                type="button"
+                class="favorite-btn card-action-button text-slate-400 cursor-not-allowed"
+                disabled
+                aria-disabled="true"
+                title="Favorite {{ dish.title }}"
+                data-no-flip
+              >
+                <span aria-hidden="true">🤍</span>
+                <span class="sr-only">Favorite {{ dish.title }}</span>
+              </button>
+              <button
+                type="button"
+                class="dish-variation-btn card-action-button text-slate-600 hover:text-slate-800"
+                data-front-variation
+                data-no-flip
+                aria-label="Generate a variation of {{ dish.title }}"
+              >
+                <i class="fa-solid fa-arrows-rotate"></i>
+              </button>
+            </div>
+          </div>
+        {% endif %}
       </div>
 
       {# ---------------- BACK (DETAILS) ---------------- #}
