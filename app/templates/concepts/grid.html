@@ -2,7 +2,27 @@
 
 {% block page_intro %}
   <div class="space-y-1">
-    <h1 class="text-xl font-semibold text-[#14080E]">Menu Concept Studio</h1>
+    <h1 class="text-xl font-semibold text-[#14080E]">Menu Concept Studio  <button
+        id="generateBtn"
+        hx-get="{% url 'concepts-generate' %}"
+        hx-target="#concepts-grid"
+        hx-swap="innerHTML"
+        data-overlay="true"
+        data-messages='["Cooking up ideas…", "Almost there…", "Plating concepts!"]'
+        class="relative inline-flex ms-2 items-center gap-2 rounded-l bg-gradient-to-r from-[#f08000] to-[#FF5C00] px-3 py-1.5 text-sm font-semibold text-white shadow transition hover:scale-105"
+      >
+        <svg
+          id="concepts-loading"
+          class="hidden h-4 w-4 animate-spin text-white"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+        </svg>
+        <span class="button-text">Generate New Concepts</span>
+      </button></h1>
     <p class="text-sm text-slate-600 max-w-2xl">
       Discover innovative dining experiences crafted for your restaurant. Flip each concept to view details or favorite it to unlock sketch inspiration.
     </p>
@@ -16,33 +36,6 @@
     display: inline-block !important;
   }
 </style>
-<div class="max-w-7xl mx-auto px-4 py-4 space-y-6">
-  <div class="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm backdrop-blur">
-    <div class="flex flex-col items-start gap-3 md:flex-row md:items-center md:justify-between">
-      <p class="text-sm text-slate-600">Refresh the gallery whenever inspiration strikes. We will remix the latest menu insights for you.</p>
-      <button
-        id="generateBtn"
-        hx-get="{% url 'concepts-generate' %}"
-        hx-target="#concepts-grid"
-        hx-swap="innerHTML"
-        data-overlay="true"
-        data-messages='["Cooking up ideas…", "Almost there…", "Plating concepts!"]'
-        class="relative inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#f08000] to-[#FF5C00] px-5 py-2.5 text-sm font-semibold text-white shadow transition hover:scale-105"
-      >
-        <svg
-          id="concepts-loading"
-          class="hidden h-4 w-4 animate-spin text-white"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-        >
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-        </svg>
-        <span class="button-text">Generate New Concepts</span>
-      </button>
-    </div>
-  </div>
 
   <div id="concepts-grid" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
     {% include 'concepts/_concepts_grid.html' %}
