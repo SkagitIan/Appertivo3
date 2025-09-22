@@ -1,8 +1,15 @@
 {# Full dish card (lookbook-first) #}
-{% with context_name=card_context|default:'grid' %}
+{% with context_name=card_context|default:'grid', menu_list=menu_options|default:[], current_menu=current_menu_id|default:'', move_url=menu_move_url|default:'' %}
 
 
-<div class="dish-card-wrapper" id="dish-{{ dish.id }}" data-dish-card>
+<div
+  class="dish-card-wrapper"
+  id="dish-{{ dish.id }}"
+  data-dish-card
+  data-dish-id="{{ dish.id }}"
+  data-current-menu="{{ current_menu }}"
+  data-move-url="{{ move_url }}"
+>
   <div class="flip-scene h-full">
     <div class="flip-card h-full">
 
@@ -42,21 +49,55 @@
           </div>
         {% endif %}
 
-        <!-- Action pill (always shown on FRONT) -->
-        <div class="absolute bottom-2 right-2 flex items-center gap-2 bg-white/95 border border-slate-200 rounded-full shadow px-2 py-1" data-no-flip>
-          {% include "dishes/_favorite_button.html" with dish=dish card_context=context_name btn_class='favorite-btn text-[#f08000]' %}
-          <button
-            type="button"
-            class="dish-variation-btn text-slate-600 hover:text-slate-800 px-2"
-            hx-post="{% url 'dish-variation' dish.id %}"
-            hx-trigger="click"
-            hx-target="closest .dish-card-wrapper"
-            hx-swap="outerHTML"
-            aria-label="Generate a variation of {{ dish.title }}"
-            title="Generate a variation"
-          >
-            <i class="fa-solid fa-arrows-rotate"></i>
-          </button>
+        <!-- Action menu (always shown on FRONT) -->
+        <div class="absolute bottom-2 right-2" data-no-flip>
+          <div class="dish-menu-control" data-menu-control data-no-flip>
+            <button
+              type="button"
+              class="dish-menu-trigger"
+              data-menu-button
+              data-no-flip
+              aria-haspopup="true"
+              aria-expanded="false"
+              title="Add to menu"
+            >
+              <span class="sr-only">Add {{ dish.title }} to a menu</span>
+              <i class="fa-solid fa-ellipsis"></i>
+            </button>
+            <div class="dish-menu-panel" data-menu-panel data-no-flip aria-hidden="true">
+              {% if menu_list %}
+                <div class="dish-menu-options" data-no-flip>
+                  {% for menu in menu_list %}
+                    <button
+                      type="button"
+                      class="dish-menu-option"
+                      data-menu-option
+                      data-menu-id="{{ menu.id }}"
+                      data-menu-name="{{ menu.name }}"
+                      data-label="Add to {{ menu.name }}"
+                      data-no-flip
+                    >
+                      Add to {{ menu.name }}
+                    </button>
+                  {% endfor %}
+                </div>
+                <button
+                  type="button"
+                  class="dish-menu-option dish-menu-option--remove"
+                  data-menu-option
+                  data-menu-id=""
+                  data-label="Remove from menus"
+                  data-no-flip
+                >
+                  Remove from menus
+                </button>
+              {% else %}
+                <p class="dish-menu-empty" data-no-flip>
+                  Create a menu to add this dish.
+                </p>
+              {% endif %}
+            </div>
+          </div>
         </div>
       </div>
 
