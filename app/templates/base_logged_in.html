@@ -47,54 +47,45 @@
   {% else %}
     {% url 'home' as dashboard_url %}
   {% endif %}
-  <header class="bg-white shadow-md">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex justify-between items-center h-16">
-        
-        <!-- Left: Logo -->
-        <div class="flex-shrink-0">
-          <a href="{{ dashboard_url }}" class="text-2xl font-bold text-[#B993D6]">
-            Appertivo
-          </a>
+  <header class="relative border-b border-slate-200 bg-white/80 backdrop-blur">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <div class="flex items-start gap-4">
+        <button
+          id="page-menu-toggle"
+          type="button"
+          class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-slate-300 hover:text-[#14080E]"
+          aria-expanded="false"
+          aria-controls="page-menu"
+        >
+          <span class="sr-only">Toggle navigation</span>
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 7h16M4 12h16M4 17h16" />
+          </svg>
+        </button>
+        <div class="flex-1">
+          {% block page_intro %}{% endblock %}
         </div>
-
-        <!-- Desktop Nav -->
-        <nav class="hidden md:flex space-x-6">
-          <a href="{% url 'concepts' %}" class="hover:text-[#B993D6]">Concepts</a>
-          <a href="{% url 'favorites' %}" class="hover:text-[#B993D6]">Favorites</a>
-          <a href="{% url 'settings' %}" class="hover:text-[#B993D6]">Settings</a>
-        </nav>
-
-        <!-- Right: User dropdown (optional) -->
-        <div class="hidden md:flex items-center space-x-4">
-          <span class="text-sm text-slate-600">{{restaurant}}</span>
-          <a href="{% url 'logout' %}"
-             class="bg-[#f08000] text-white px-3 py-1 rounded-lg hover:bg-[#d96f00]">
-            Logout
-          </a>
-        </div>
-
-        <!-- Mobile toggle -->
-        <div class="md:hidden">
-          <button id="mobile-menu-toggle" class="text-gray-600 focus:outline-none">
-            <!-- Hamburger -->
-            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-        </div>
+        {% if restaurant %}
+          <div class="hidden sm:flex flex-col items-end text-xs font-medium uppercase tracking-wide text-slate-400">
+            <span>{{ restaurant }}</span>
+          </div>
+        {% endif %}
       </div>
     </div>
 
-    <!-- Mobile Nav -->
-    <div id="mobile-menu" class="hidden md:hidden bg-white border-t border-gray-200">
-      <nav class="px-2 py-3 space-y-1">
-        <a href="{{ dashboard_url }}" class="block px-3 py-2 rounded hover:bg-gray-100">Dashboard</a>
-        <a href="{% url 'concepts' %}" class="block px-3 py-2 rounded hover:bg-gray-100">Concepts</a>
-        <a href="{% url 'favorites' %}" class="block px-3 py-2 rounded hover:bg-gray-100">Favorites</a>
-        <a href="{% url 'settings' %}" class="block px-3 py-2 rounded hover:bg-gray-100">Settings</a>
-        <a href="{% url 'logout' %}" class="block px-3 py-2 rounded hover:bg-gray-100 text-[#f08000]">Logout</a>
+    <div
+      id="page-menu"
+      class="hidden absolute top-full inset-x-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur shadow-lg"
+    >
+      <nav class="max-w-7xl mx-auto flex flex-col gap-1 px-4 py-4 text-sm font-medium text-slate-600">
+        <a href="{{ dashboard_url }}" class="rounded-lg px-3 py-2 transition hover:bg-slate-100">Dashboard</a>
+        <a href="{% url 'concepts' %}" class="rounded-lg px-3 py-2 transition hover:bg-slate-100">Concepts</a>
+        <a href="{% url 'favorites' %}" class="rounded-lg px-3 py-2 transition hover:bg-slate-100">Favorites</a>
+        <a href="{% url 'settings' %}" class="rounded-lg px-3 py-2 transition hover:bg-slate-100">Settings</a>
+        <div class="my-2 border-t border-slate-200"></div>
+        <a href="{% url 'logout' %}" class="inline-flex items-center justify-center rounded-lg bg-[#f08000] px-3 py-2 text-white transition hover:bg-[#d96f00]">
+          Logout
+        </a>
       </nav>
     </div>
   </header>
@@ -116,7 +107,43 @@
 <div id="toast-container" class="fixed bottom-4 right-4 space-y-2 z-50"></div>
 
 
-  <!-- Script: toggle mobile menu -->
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const toggle = document.getElementById("page-menu-toggle");
+      const menu = document.getElementById("page-menu");
+      if (!toggle || !menu) {
+        return;
+      }
+
+      const closeMenu = () => {
+        if (menu.classList.contains("hidden")) {
+          return;
+        }
+        menu.classList.add("hidden");
+        toggle.setAttribute("aria-expanded", "false");
+      };
+
+      toggle.addEventListener("click", function (event) {
+        event.stopPropagation();
+        const isOpen = !menu.classList.contains("hidden");
+        if (isOpen) {
+          closeMenu();
+        } else {
+          menu.classList.remove("hidden");
+          toggle.setAttribute("aria-expanded", "true");
+        }
+      });
+
+      document.addEventListener("click", function (event) {
+        if (menu.contains(event.target) || toggle.contains(event.target)) {
+          return;
+        }
+        closeMenu();
+      });
+
+      window.addEventListener("resize", closeMenu);
+    });
+  </script>
 <!-- Script: handle rescrape form -->
 <script>
   document.addEventListener("DOMContentLoaded", function () {

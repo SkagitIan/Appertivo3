@@ -1,5 +1,14 @@
 {% extends "base_logged_in.html" %}
 
+{% block page_intro %}
+  <div class="space-y-1">
+    <h1 class="text-xl font-semibold text-[#14080E]">Dish Sketch Lab</h1>
+    <p class="text-sm text-slate-600 max-w-2xl">
+      Build on <span class="font-semibold text-[#14080E]">{{ concept.name }}</span> with plated ideas tailored to your restaurant. Regenerate dishes to test new directions before they hit the menu.
+    </p>
+  </div>
+{% endblock %}
+
 {% block content %}
 <div class="max-w-7xl mx-auto px-4 py-6 space-y-6">
 <div class="relative rounded-3xl overflow-hidden shadow-lg ring-1 ring-slate-200/60" 
