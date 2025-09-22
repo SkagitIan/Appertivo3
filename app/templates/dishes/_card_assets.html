@@ -306,8 +306,14 @@
       if (input) {
         return input.value;
       }
-      const match = document.cookie.match(/csrftoken=([^;]+)/);
-      return match ? decodeURIComponent(match[1]) : "";
+      const cookies = document.cookie ? document.cookie.split(";") : [];
+      for (let i = cookies.length - 1; i >= 0; i -= 1) {
+        const cookie = cookies[i].trim();
+        if (cookie.startsWith("csrftoken=")) {
+          return decodeURIComponent(cookie.slice("csrftoken=".length));
+        }
+      }
+      return "";
     };
 
     const closeMenuPanel = (panel) => {
