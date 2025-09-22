@@ -145,6 +145,26 @@ class ViewSmokeTests(TestCase):
         var_resp = self.client.post(reverse("dish-variation", args=[dish.id]))
         self.assertEqual(var_resp.status_code, 200)
 
+    def test_dish_detail_includes_menu_context(self):
+        self._create_concepts()
+        concept = models.Concept.objects.first()
+        self._create_dishes(concept)
+        menu = models.MenuCollection.objects.create(
+            restaurant=self.restaurant,
+            created_by_user=self.user,
+            name="Brunch",
+        )
+
+        resp = self.client.get(reverse("dish_detail", args=[concept.id]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("menu_options", resp.context)
+        self.assertIn("menu_move_url", resp.context)
+        self.assertEqual(
+            resp.context["menu_options"],
+            [{"id": str(menu.id), "name": menu.name}],
+        )
+        self.assertEqual(resp.context["menu_move_url"], reverse("menu-item-move"))
+
     def test_dish_delete_removes_dish_and_assets(self):
         self._create_concepts()
         concept = models.Concept.objects.first()
@@ -307,6 +327,11 @@ class ViewSmokeTests(TestCase):
         self.assertTrue(getattr(enhanced, "is_enhanced", False))
         self.assertEqual(enhanced.enhancement_image_url, asset.public_url)
         self.assertEqual(enhanced.enhancement_price_display, "$25.00")
+        self.assertEqual(
+            resp.context["menu_options"],
+            [{"id": str(menu.id), "name": menu.name}],
+        )
+        self.assertEqual(resp.context["menu_move_url"], reverse("menu-item-move"))
 
         rem_resp = self.client.post(
             reverse("favorite-remove", args=["concept", concept.id]),

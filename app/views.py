@@ -871,6 +871,14 @@ def dish_detail_view(request, concept_id):
     for dish in dishes:
         dish.is_favorited = dish.id in favorite_ids
 
+    menu_options: List[dict] = []
+    if request.user.is_authenticated:
+        menu_queryset = models.MenuCollection.objects.filter(
+            restaurant=concept.restaurant,
+            restaurant__account__membership__user=request.user,
+        ).order_by("created_at")
+        menu_options = [{"id": str(menu.id), "name": menu.name} for menu in menu_queryset]
+
     template_name = "dishes/grid.html" if request.headers.get("HX-Request") == "true" else "dishes/page.html"
 
     logger.info(
@@ -881,7 +889,14 @@ def dish_detail_view(request, concept_id):
         template_name,
     )
 
-    return render(request, template_name, {"concept": concept, "dishes": dishes})
+    context = {
+        "concept": concept,
+        "dishes": dishes,
+        "menu_options": menu_options,
+        "menu_move_url": reverse("menu-item-move"),
+    }
+
+    return render(request, template_name, context)
 
 
 def dish_favorite_view(request, dish_id):
@@ -1174,6 +1189,8 @@ def favorites_view(request):
         "menus": menus,
         "uncategorized_favorites": uncategorized_favorites,
         "menus_payload_json": json.dumps(menus_payload),
+        "menu_options": menus_payload,
+        "menu_move_url": reverse("menu-item-move"),
     }
     return render(request, "favorites/dashboard.html", ctx)
 
