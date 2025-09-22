@@ -444,6 +444,27 @@
     };
 
     document.body.addEventListener("click", (evt) => {
+      const frontVariation = evt.target.closest("[data-front-variation]");
+      if (frontVariation) {
+        evt.preventDefault();
+        evt.stopPropagation();
+
+        const card = frontVariation.closest(".flip-card");
+        if (!card || card.classList.contains("loading")) {
+          return;
+        }
+
+        card.classList.add("show-back");
+
+        const backVariation = card.querySelector(
+          ".flip-face.flip-back .dish-variation-btn"
+        );
+        if (backVariation) {
+          window.requestAnimationFrame(() => backVariation.click());
+        }
+        return;
+      }
+
       const menuButton = evt.target.closest("[data-menu-button]");
       if (menuButton) {
         evt.preventDefault();
