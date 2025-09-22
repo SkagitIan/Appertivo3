@@ -266,6 +266,21 @@ class ViewSmokeTests(TestCase):
         models.FavoriteDish.objects.create(
             user=self.user, dish=dish, favorited_at=timezone.now()
         )
+        asset = models.Asset.objects.create(
+            kind=models.Asset.Kind.IMAGE,
+            storage_key="enhanced/fav",
+            public_url="https://example.com/enhanced.jpg",
+        )
+        models.Enhancement.objects.create(
+            dish=dish,
+            status=models.Enhancement.Status.SUCCEEDED,
+            image_asset=asset,
+            suggested_price_cents=2500,
+            currency="USD",
+            model_name="enhanced",
+            started_at=timezone.now(),
+            finished_at=timezone.now(),
+        )
         menu = models.MenuCollection.objects.create(
             restaurant=self.restaurant,
             created_by_user=self.user,
@@ -286,6 +301,12 @@ class ViewSmokeTests(TestCase):
         self.assertEqual(len(menus[0].menu_items), 1)
         self.assertEqual(str(menus[0].menu_items[0].dish.id), str(dish.id))
         self.assertEqual(resp.context["uncategorized_favorites"], [])
+        favorite_dishes = resp.context["favorite_dishes"]
+        self.assertTrue(favorite_dishes)
+        enhanced = favorite_dishes[0].dish
+        self.assertTrue(getattr(enhanced, "is_enhanced", False))
+        self.assertEqual(enhanced.enhancement_image_url, asset.public_url)
+        self.assertEqual(enhanced.enhancement_price_display, "$25.00")
 
         rem_resp = self.client.post(
             reverse("favorite-remove", args=["concept", concept.id]),
