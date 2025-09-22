@@ -1150,6 +1150,7 @@ def favorites_view(request):
                 menu_dishes.append(item.dish)
 
     all_dishes = [fav.dish for fav in favorite_dishes] + menu_dishes
+    decorate_dishes_with_enhancements(all_dishes)
     for dish in all_dishes:
         dish.is_favorited = True
 
