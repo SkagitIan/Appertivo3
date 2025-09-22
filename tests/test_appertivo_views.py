@@ -275,6 +275,11 @@ class ViewSmokeTests(TestCase):
 
         resp = self.client.get(reverse("favorites"))
         self.assertEqual(resp.status_code, 200)
+        favorite_concepts = resp.context["favorite_concepts"]
+        self.assertTrue(favorite_concepts)
+        self.assertTrue(
+            getattr(favorite_concepts[0].concept, "is_favorited_for_user", False)
+        )
         menus = resp.context["menus"]
         self.assertEqual(len(menus), 1)
         self.assertEqual(menus[0].name, "Dinner")

@@ -1112,11 +1112,14 @@ def favorites_view(request):
         .select_related("account")
         .first()
     )
-    favorite_concepts = (
+    favorite_concepts = list(
         models.FavoriteConcept.objects.filter(user=request.user)
         .select_related("concept", "concept__restaurant")
         .order_by("-favorited_at")
     )
+    for favorite in favorite_concepts:
+        if favorite.concept:
+            favorite.concept.is_favorited_for_user = True
     favorite_dishes = list(
         models.FavoriteDish.objects.filter(user=request.user)
         .select_related("dish__parent_concept", "dish__restaurant")
