@@ -201,6 +201,89 @@ class DishDetailViewLayoutTests(TestCase):
 
 
 @override_settings(SECURE_SSL_REDIRECT=False)
+class ViewModeToggleTests(TestCase):
+    """Verify that view mode toggles update stored preferences and fragments."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="viewer@example.com", password="pass1234"
+        )
+        models.UserProfile.objects.create(user=self.user)
+        account = models.Account.objects.create(name="Toggle Co")
+        models.Membership.objects.create(
+            account=account, user=self.user, role=models.Membership.Role.OWNER
+        )
+        self.restaurant = models.Restaurant.objects.create(
+            account=account,
+            name="Toggle Bistro",
+            location_text="Metro",
+            context_json={"name": "Toggle Bistro"},
+        )
+        concept_run = models.IdeationRun.objects.create(
+            restaurant=self.restaurant,
+            initiated_by_user=self.user,
+            type=models.IdeationRun.RunType.CONCEPTS,
+            model_name="mock",
+            temperature=0,
+            classic_creative=50,
+            context_snapshot={},
+            status=models.IdeationRun.Status.SUCCEEDED,
+        )
+        self.concept = models.Concept.objects.create(
+            restaurant=self.restaurant,
+            ideation_run=concept_run,
+            name="Market Fresh",
+            subtitle="",
+            rank_order=1,
+        )
+        dish_run = models.IdeationRun.objects.create(
+            restaurant=self.restaurant,
+            initiated_by_user=self.user,
+            type=models.IdeationRun.RunType.DISHES,
+            model_name="mock",
+            temperature=0,
+            classic_creative=50,
+            context_snapshot={},
+            parent_concept=self.concept,
+            status=models.IdeationRun.Status.SUCCEEDED,
+        )
+        self.dish = models.DishIdea.objects.create(
+            restaurant=self.restaurant,
+            ideation_run=dish_run,
+            parent_concept=self.concept,
+            title="Herb Garden Salad",
+            description="Mixed herbs and greens.",
+            ingredient_names=["herb"],
+            category_tags=["salad"],
+        )
+
+    def test_dish_view_mode_update_sets_profile(self):
+        self.client.login(username="viewer@example.com", password="pass1234")
+        response = self.client.post(
+            reverse("dish-view-mode", args=[self.concept.id]),
+            {"view_mode": "list"},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('data-view-mode="list"', response.content.decode())
+        profile = models.UserProfile.objects.get(user=self.user)
+        self.assertEqual(profile.preferred_view_mode, "list")
+
+    def test_favorites_toggle_uses_selected_mode(self):
+        models.FavoriteDish.objects.create(
+            user=self.user, dish=self.dish, favorited_at=timezone.now()
+        )
+        self.client.login(username="viewer@example.com", password="pass1234")
+        response = self.client.post(
+            reverse("favorites-view-mode"),
+            {"view_mode": "carousel"},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('data-view-mode="carousel"', response.content.decode())
+
+
+@override_settings(SECURE_SSL_REDIRECT=False)
 class SessionHistoryTests(TestCase):
     """Ensure session history is attached to LLM prompts."""
 

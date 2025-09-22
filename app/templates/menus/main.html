@@ -52,74 +52,10 @@
     </div>
   </section>
 
-  <section class="space-y-6" data-menu-list>
-    {% for menu in menus %}
-      <article
-        class="rounded-3xl border border-slate-200/80 bg-white/95 shadow-sm backdrop-blur"
-        data-menu-section="{{ menu.id }}"
-      >
-        <div class="flex flex-col gap-4 border-b border-slate-100 px-6 py-5 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h2 class="text-lg font-semibold text-[#49475B]" data-menu-title>{{ menu.name }}</h2>
-            <p class="text-xs font-medium uppercase tracking-wide text-slate-400" data-menu-count>
-              {{ menu.menu_items|length }} dish{{ menu.menu_items|length|pluralize }}
-            </p>
-          </div>
-          <div class="flex items-center gap-3">
-            <button
-              type="button"
-              class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-100"
-              data-action="rename-menu"
-              data-menu-id="{{ menu.id }}"
-              data-rename-url="{% url 'menu-collection-rename' menu.id %}"
-              title="Rename menu"
-            >
-              <i class="fa-regular fa-pen-to-square" aria-hidden="true"></i>
-              <span class="sr-only">Rename menu</span>
-            </button>
-            <button
-              type="button"
-              class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-red-100 text-red-500 transition hover:bg-red-50"
-              data-action="delete-menu"
-              data-menu-id="{{ menu.id }}"
-              data-delete-url="{% url 'menu-collection-delete' menu.id %}"
-              title="Delete menu"
-            >
-              <i class="fa-regular fa-trash-can" aria-hidden="true"></i>
-              <span class="sr-only">Delete menu</span>
-            </button>
-          </div>
-        </div>
-        <div class="space-y-4 px-6 py-6" data-menu-body>
-          <div data-menu-dishes class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {% for item in menu.menu_items %}
-              <div
-                id="favorite-dish-{{ item.dish.id }}"
-                class="favorite-dish-card"
-                data-menu-dish
-                data-dish-id="{{ item.dish.id }}"
-                data-menu-id="{{ menu.id }}"
-              >
-                {% include "dishes/_card.html" with dish=item.dish card_context='favorites' menu_options=menu_options menu_move_url=menu_move_url current_menu_id=menu.id %}
-              </div>
-            {% endfor %}
-          </div>
-          <div
-            class="flex min-h-[120px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-500 {% if menu.menu_items %}hidden{% endif %}"
-            data-menu-empty
-          >
-            No dishes here yet. Use the … menu on a dish to add it to {{ menu.name }}.
-          </div>
-        </div>
-      </article>
-    {% endfor %}
-  </section>
+  {% include "dishes/_view_toggle.html" with view_mode=view_mode toggle_url=toggle_url target_id='menus-dish-view' %}
 
-  <div
-    data-menus-empty
-    class="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center text-slate-500 {% if menus %}hidden{% endif %}"
-  >
-    Create a menu to start organizing your favorite dishes. They'll appear here once assigned.
+  <div id="menus-dish-view">
+    {% include "menus/_menu_list.html" %}
   </div>
 </div>
 
@@ -140,9 +76,20 @@
       return match ? decodeURIComponent(match[1]) : '';
     };
 
+    const getMenuList = (section) => {
+      const outer = section?.querySelector('[data-menu-dishes]');
+      if (!outer) return null;
+      return outer.querySelector('[data-view-mode]') || outer;
+    };
+
+    const activeViewMode = () => {
+      const active = root.querySelector('#menus-dish-view [data-view-mode]');
+      return active ? active.dataset.viewMode || 'gallery' : 'gallery';
+    };
+
     const updateMenuSummary = (section) => {
       if (!section) return;
-      const list = section.querySelector('[data-menu-dishes]');
+      const list = getMenuList(section);
       const countLabel = section.querySelector('[data-menu-count]');
       const empty = section.querySelector('[data-menu-empty]');
       const items = list ? list.querySelectorAll('[data-menu-dish]').length : 0;
@@ -155,17 +102,21 @@
     };
 
     const ensureList = (section) => {
-      let list = section.querySelector('[data-menu-dishes]');
+      const outer = section.querySelector('[data-menu-dishes]');
+      if (!outer) return null;
+      let list = getMenuList(section);
       if (list) return list;
       list = document.createElement('div');
-      list.dataset.menuDishes = '1';
-      list.className = 'grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3';
-      const empty = section.querySelector('[data-menu-empty]');
-      if (empty) {
-        empty.before(list);
+      const mode = activeViewMode();
+      list.setAttribute('data-view-mode', mode);
+      if (mode === 'list') {
+        list.className = 'space-y-3';
+      } else if (mode === 'carousel') {
+        list.className = 'flex snap-x snap-mandatory gap-6 overflow-x-auto pb-4';
       } else {
-        section.appendChild(list);
+        list.className = 'grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4';
       }
+      outer.appendChild(list);
       return list;
     };
 
@@ -196,6 +147,13 @@
         .catch(() => {
           alert('Unable to create menu right now. Please try again.');
         });
+    });
+
+    document.body.addEventListener('htmx:afterSwap', (event) => {
+      if (event.target && event.target.id === 'menus-dish-view') {
+        root.querySelectorAll('[data-menu-section]').forEach(updateMenuSummary);
+        updateEmptyState();
+      }
     });
 
     const updateMenuOptions = (menuId, newName) => {
@@ -292,13 +250,13 @@
           `[data-menu-section="${CSS.escape(sourceMenuId)}"]`
         );
         if (sourceSection) {
-          const list = sourceSection.querySelector('[data-menu-dishes]');
-          if (list && list.contains(card)) {
-            if (targetMenuId) {
-              const targetSection = root.querySelector(
-                `[data-menu-section="${CSS.escape(targetMenuId)}"]`
-              );
-              const targetList = targetSection ? ensureList(targetSection) : null;
+        const list = getMenuList(sourceSection);
+        if (list && list.contains(card)) {
+          if (targetMenuId) {
+            const targetSection = root.querySelector(
+              `[data-menu-section="${CSS.escape(targetMenuId)}"]`
+            );
+            const targetList = targetSection ? ensureList(targetSection) : null;
               if (targetList) {
                 targetList.appendChild(card);
                 card.dataset.menuId = targetMenuId;

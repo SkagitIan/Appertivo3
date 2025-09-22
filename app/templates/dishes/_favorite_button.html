@@ -4,6 +4,9 @@
   hx-trigger="click"
   hx-swap="outerHTML"
   hx-target="closest .dish-card-wrapper"
+  {% if view_mode or current_menu_id %}
+    hx-vals='{'{% if view_mode %}"view_mode": "{{ view_mode }}"{% endif %}{% if view_mode and current_menu_id %}, {% endif %}{% if current_menu_id %}"current_menu_id": "{{ current_menu_id }}"{% endif %}}'
+  {% endif %}
   class="{{ base_class }} transition {% if dish.is_favorited %}text-red-500{% else %}text-slate-500 hover:text-red-400{% endif %}"
   aria-label="{% if dish.is_favorited %}Unfavorite{% else %}Favorite{% endif %} {{ dish.title }}"
   aria-pressed="{{ dish.is_favorited|yesno:'true,false' }}"

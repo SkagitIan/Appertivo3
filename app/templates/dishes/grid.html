@@ -1,6 +1,14 @@
 {# templates/dishes/grid.html #}
 {% include "dishes/_card_assets.html" %}
 
-{% for dish in dishes %}
-  {% include "dishes/_card.html" with dish=dish card_context="grid" menu_options=menu_options menu_move_url=menu_move_url current_menu_id='' %}
-{% endfor %}
+<div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" data-view-mode="gallery">
+  {% if dishes %}
+    {% for dish in dishes %}
+      {% include "dishes/_card.html" with dish=dish card_context=card_context menu_options=menu_options menu_move_url=menu_move_url current_menu_id=current_menu_id view_mode=view_mode wrapper_id_prefix=wrapper_id_prefix wrapper_extra_classes=wrapper_extra_classes wrapper_is_menu_item=wrapper_is_menu_item %}
+    {% endfor %}
+  {% else %}
+    <div class="col-span-full rounded-2xl border border-dashed border-slate-200 bg-white/60 p-6 text-center text-sm text-slate-500">
+      No dishes yet. Generate or add dishes to see them here.
+    </div>
+  {% endif %}
+</div>

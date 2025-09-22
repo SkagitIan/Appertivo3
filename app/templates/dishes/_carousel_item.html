@@ -1,0 +1,114 @@
+{% with context_name=card_context|default:'grid' selected_view=view_mode|default:'carousel' wrapper_prefix=wrapper_id_prefix|default:'' wrapper_classes=wrapper_extra_classes|default:'' is_menu_item=wrapper_is_menu_item|default_if_none:False move_url=menu_move_url|default:'' current_menu=current_menu_id|default:'' menu_list=menu_options|default:'' %}
+<div
+  class="dish-card-wrapper {{ wrapper_classes }} relative flex w-full max-w-xl flex-shrink-0 snap-center overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-md"
+  id="{% if wrapper_prefix %}{{ wrapper_prefix }}{{ dish.id }}{% else %}dish-{{ dish.id }}{% endif %}"
+  data-dish-card
+  data-dish-id="{{ dish.id }}"
+  data-current-menu="{{ current_menu }}"
+  data-move-url="{{ move_url }}"
+  data-view-mode="{{ selected_view }}"
+  {% if is_menu_item %}data-menu-dish{% endif %}
+>
+  <div class="flex w-full flex-col">
+    <div class="relative h-64 w-full overflow-hidden bg-slate-200">
+      {% if dish.enhancement_image_url %}
+        <img src="{{ dish.enhancement_image_url }}" alt="{{ dish.title }}" class="h-full w-full object-cover" />
+      {% else %}
+        <div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#B993D6]/40 to-[#58B09C]/40 text-[#49475B]">
+          <i class="fa-solid fa-images text-4xl"></i>
+        </div>
+      {% endif %}
+      {% if dish.enhancement_price_display %}
+        <span class="absolute right-4 top-4 rounded-full bg-white/90 px-3 py-1 text-sm font-semibold text-[#49475B] shadow">{{ dish.enhancement_price_display }}</span>
+      {% endif %}
+    </div>
+    <div class="flex flex-1 flex-col space-y-4 px-5 py-5">
+      <div class="flex items-start justify-between gap-4">
+        <div class="space-y-2">
+          <h3 class="text-xl font-semibold text-[#14080E]">{{ dish.title }}</h3>
+          {% if dish.description %}
+            <p class="text-sm text-slate-600">{{ dish.description }}</p>
+          {% endif %}
+        </div>
+        <div class="flex flex-col items-end gap-2" data-no-flip>
+          <div class="dish-menu-control" data-menu-control>
+            <button
+              type="button"
+              class="dish-menu-trigger"
+              data-menu-button
+              aria-haspopup="true"
+              aria-expanded="false"
+            >
+              <span class="sr-only">Menu actions</span>
+              <i class="fa-solid fa-ellipsis"></i>
+            </button>
+            <div class="dish-menu-panel" data-menu-panel aria-hidden="true">
+              {% if menu_list %}
+                <div class="dish-menu-options">
+                  {% for menu in menu_list %}
+                    <button
+                      type="button"
+                      class="dish-menu-option"
+                      data-menu-option
+                      data-menu-id="{{ menu.id }}"
+                      data-menu-name="{{ menu.name }}"
+                      data-label="Add to {{ menu.name }}"
+                    >
+                      Add to {{ menu.name }}
+                    </button>
+                  {% endfor %}
+                </div>
+                <button
+                  type="button"
+                  class="dish-menu-option dish-menu-option--remove"
+                  data-menu-option
+                  data-menu-id=""
+                  data-label="Remove from menus"
+                >
+                  Remove from menus
+                </button>
+              {% else %}
+                <p class="dish-menu-empty">Create a menu to add this dish.</p>
+              {% endif %}
+            </div>
+          </div>
+          {% include "dishes/_favorite_button.html" with dish=dish card_context=context_name btn_class='inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-base' view_mode=selected_view current_menu_id=current_menu %}
+          <button
+            type="button"
+            class="dish-variation-btn inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:text-slate-700"
+            hx-post="{% url 'dish-variation' dish.id %}"
+            hx-trigger="click"
+            hx-target="closest .dish-card-wrapper"
+            hx-swap="outerHTML"
+            hx-vals='{"view_mode": "{{ selected_view }}", "current_menu_id": "{{ current_menu }}", "card_context": "{{ context_name }}"}'
+            aria-label="Generate a variation of {{ dish.title }}"
+          >
+            <i class="fa-solid fa-arrows-rotate"></i>
+          </button>
+          {% if dish.is_enhanced %}
+            <button
+              type="button"
+              class="dish-delete-btn inline-flex h-10 w-10 items-center justify-center rounded-full border border-red-100 text-red-500 hover:bg-red-50"
+              hx-post="{% url 'dish-delete' dish.id %}"
+              hx-trigger="click"
+              hx-target="closest .dish-card-wrapper"
+              hx-swap="outerHTML"
+              aria-label="Delete {{ dish.title }}"
+            >
+              🗑️
+            </button>
+          {% endif %}
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        {% for tag in dish.category_tags %}
+          <span class="rounded-full bg-[#B993D6]/20 px-3 py-1 text-xs font-medium text-[#49475B]">{{ tag }}</span>
+        {% endfor %}
+        {% for tag in dish.ingredient_overlap %}
+          <span class="rounded-full bg-[#58B09C]/20 px-3 py-1 text-xs font-medium text-[#49475B]">{{ tag }}</span>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endwith %}
