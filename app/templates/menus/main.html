@@ -1,6 +1,332 @@
-<!DOCTYPE html>
-<html>
-<body>
-<h1>Menus</h1>
-</body>
-</html>
+{% extends "base_logged_in.html" %}
+{% block title %}Menus — Appertivo{% endblock %}
+
+{% block content %}
+{% include "dishes/_card_assets.html" %}
+<div id="menus-root" class="px-4 py-8 space-y-8">
+  <section class="relative overflow-hidden rounded-3xl border border-[#58B09C]/40 bg-gradient-to-r from-[#58B09C] via-[#B993D6]/90 to-[#FF8300] text-white shadow-lg">
+    <div class="absolute inset-0 bg-black/10 mix-blend-soft-light"></div>
+    <div class="relative space-y-4 px-6 py-8 md:px-10">
+      <div class="inline-flex items-center gap-2 rounded-full bg-white/20 px-4 py-1 text-xs font-semibold uppercase tracking-wider text-white/90">
+        <i class="fa-solid fa-utensils" aria-hidden="true"></i>
+        <span>Menu Studio</span>
+      </div>
+      <h1 class="text-3xl font-bold md:text-4xl">Plan and polish your menus</h1>
+      {% if restaurant %}
+        <p class="max-w-2xl text-sm md:text-base text-white/90">Curate lineups for <span class="font-semibold">{{ restaurant.name }}</span>. Add dishes, regroup them, and keep track of what's ready to serve.</p>
+      {% else %}
+        <p class="max-w-2xl text-sm md:text-base text-white/90">Create collections for brunch, dinner, or seasonal specials. Assign dishes with the … menu on each card.</p>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="rounded-3xl border border-slate-200/70 bg-white/90 shadow-sm backdrop-blur">
+    <div class="space-y-6 px-6 py-6 md:px-8">
+      <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h2 class="text-lg font-semibold text-[#49475B] md:text-xl">Add a new menu</h2>
+          <p class="text-sm text-slate-500">Name your menu and start assigning dishes using the … controls on each card.</p>
+        </div>
+        <form
+          method="post"
+          action="{% url 'menu-collection-create' %}"
+          data-menu-create-form
+          class="flex w-full flex-col gap-3 rounded-2xl bg-slate-50 p-4 md:w-auto md:flex-row md:items-center md:rounded-full md:bg-white md:px-5 md:py-3 md:shadow-sm"
+        >
+          {% csrf_token %}
+          <input
+            type="text"
+            name="name"
+            placeholder="New menu name"
+            class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-[#49475B] shadow-sm focus:border-[#B993D6] focus:outline-none focus:ring-2 focus:ring-[#B993D6]/40 md:w-64"
+          />
+          <button
+            type="submit"
+            class="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#FF8300] to-[#FF5C00] px-4 py-2 text-sm font-semibold text-white shadow transition hover:scale-[1.02]"
+          >
+            <i class="fa-solid fa-plus" aria-hidden="true"></i>
+            <span>Create menu</span>
+          </button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <section class="space-y-6" data-menu-list>
+    {% for menu in menus %}
+      <article
+        class="rounded-3xl border border-slate-200/80 bg-white/95 shadow-sm backdrop-blur"
+        data-menu-section="{{ menu.id }}"
+      >
+        <div class="flex flex-col gap-4 border-b border-slate-100 px-6 py-5 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 class="text-lg font-semibold text-[#49475B]" data-menu-title>{{ menu.name }}</h2>
+            <p class="text-xs font-medium uppercase tracking-wide text-slate-400" data-menu-count>
+              {{ menu.menu_items|length }} dish{{ menu.menu_items|length|pluralize }}
+            </p>
+          </div>
+          <div class="flex items-center gap-3">
+            <button
+              type="button"
+              class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-100"
+              data-action="rename-menu"
+              data-menu-id="{{ menu.id }}"
+              data-rename-url="{% url 'menu-collection-rename' menu.id %}"
+              title="Rename menu"
+            >
+              <i class="fa-regular fa-pen-to-square" aria-hidden="true"></i>
+              <span class="sr-only">Rename menu</span>
+            </button>
+            <button
+              type="button"
+              class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-red-100 text-red-500 transition hover:bg-red-50"
+              data-action="delete-menu"
+              data-menu-id="{{ menu.id }}"
+              data-delete-url="{% url 'menu-collection-delete' menu.id %}"
+              title="Delete menu"
+            >
+              <i class="fa-regular fa-trash-can" aria-hidden="true"></i>
+              <span class="sr-only">Delete menu</span>
+            </button>
+          </div>
+        </div>
+        <div class="space-y-4 px-6 py-6" data-menu-body>
+          <div data-menu-dishes class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {% for item in menu.menu_items %}
+              <div
+                id="favorite-dish-{{ item.dish.id }}"
+                class="favorite-dish-card"
+                data-menu-dish
+                data-dish-id="{{ item.dish.id }}"
+                data-menu-id="{{ menu.id }}"
+              >
+                {% include "dishes/_card.html" with dish=item.dish card_context='favorites' menu_options=menu_options menu_move_url=menu_move_url current_menu_id=menu.id %}
+              </div>
+            {% endfor %}
+          </div>
+          <div
+            class="flex min-h-[120px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-500 {% if menu.menu_items %}hidden{% endif %}"
+            data-menu-empty
+          >
+            No dishes here yet. Use the … menu on a dish to add it to {{ menu.name }}.
+          </div>
+        </div>
+      </article>
+    {% endfor %}
+  </section>
+
+  <div
+    data-menus-empty
+    class="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center text-slate-500 {% if menus %}hidden{% endif %}"
+  >
+    Create a menu to start organizing your favorite dishes. They'll appear here once assigned.
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const root = document.getElementById('menus-root');
+    if (!root) return;
+
+    const createForm = root.querySelector('[data-menu-create-form]');
+    const emptyState = root.querySelector('[data-menus-empty]');
+
+    const getCsrfToken = () => {
+      const input = document.querySelector('[name="csrfmiddlewaretoken"]');
+      if (input) {
+        return input.value;
+      }
+      const match = document.cookie.match(/csrftoken=([^;]+)/);
+      return match ? decodeURIComponent(match[1]) : '';
+    };
+
+    const updateMenuSummary = (section) => {
+      if (!section) return;
+      const list = section.querySelector('[data-menu-dishes]');
+      const countLabel = section.querySelector('[data-menu-count]');
+      const empty = section.querySelector('[data-menu-empty]');
+      const items = list ? list.querySelectorAll('[data-menu-dish]').length : 0;
+      if (countLabel) {
+        countLabel.textContent = `${items} dish${items === 1 ? '' : 'es'}`;
+      }
+      if (empty) {
+        empty.classList.toggle('hidden', items > 0);
+      }
+    };
+
+    const ensureList = (section) => {
+      let list = section.querySelector('[data-menu-dishes]');
+      if (list) return list;
+      list = document.createElement('div');
+      list.dataset.menuDishes = '1';
+      list.className = 'grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3';
+      const empty = section.querySelector('[data-menu-empty]');
+      if (empty) {
+        empty.before(list);
+      } else {
+        section.appendChild(list);
+      }
+      return list;
+    };
+
+    const updateEmptyState = () => {
+      if (!emptyState) return;
+      const hasMenus = Boolean(root.querySelector('[data-menu-section]'));
+      emptyState.classList.toggle('hidden', hasMenus);
+    };
+
+    createForm?.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const formData = new FormData(form);
+      fetch(form.action, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': getCsrfToken(),
+        },
+        body: formData,
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error('Unable to create menu');
+          return res.json();
+        })
+        .then(() => {
+          window.location.reload();
+        })
+        .catch(() => {
+          alert('Unable to create menu right now. Please try again.');
+        });
+    });
+
+    const updateMenuOptions = (menuId, newName) => {
+      document
+        .querySelectorAll(`[data-menu-option][data-menu-id="${CSS.escape(menuId)}"]`)
+        .forEach((option) => {
+          const label = `Add to ${newName}`;
+          option.dataset.label = label;
+          option.textContent = label;
+        });
+    };
+
+    const removeMenuOptions = (menuId) => {
+      document
+        .querySelectorAll(`[data-menu-option][data-menu-id="${CSS.escape(menuId)}"]`)
+        .forEach((option) => option.remove());
+    };
+
+    root.addEventListener('click', (event) => {
+      const renameBtn = event.target.closest('[data-action="rename-menu"]');
+      if (renameBtn) {
+        const section = renameBtn.closest('[data-menu-section]');
+        const url = renameBtn.dataset.renameUrl;
+        const currentName =
+          section?.querySelector('[data-menu-title]')?.textContent?.trim() || 'Menu';
+        const newName = prompt('Rename menu', currentName);
+        if (newName === null) return;
+        const formData = new FormData();
+        formData.append('name', newName);
+        fetch(url, {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': getCsrfToken(),
+          },
+          body: formData,
+        })
+          .then((res) => {
+            if (!res.ok) throw new Error('Unable to rename menu');
+            return res.json();
+          })
+          .then((data) => {
+            if (section) {
+              const title = section.querySelector('[data-menu-title]');
+              if (title) title.textContent = data.name;
+              updateMenuOptions(data.id, data.name);
+            }
+          })
+          .catch(() => {
+            alert('Unable to rename this menu. Please try again.');
+          });
+        return;
+      }
+
+      const deleteBtn = event.target.closest('[data-action="delete-menu"]');
+      if (deleteBtn) {
+        if (!confirm('Delete this menu?')) return;
+        const section = deleteBtn.closest('[data-menu-section]');
+        const url = deleteBtn.dataset.deleteUrl;
+        const menuId = deleteBtn.dataset.menuId;
+        fetch(url, {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': getCsrfToken(),
+          },
+        })
+          .then((res) => {
+            if (!res.ok) throw new Error('Unable to delete menu');
+            return res.json();
+          })
+          .then(() => {
+            section?.remove();
+            removeMenuOptions(menuId || '');
+            updateEmptyState();
+          })
+          .catch(() => {
+            alert('Unable to delete this menu. Please try again.');
+          });
+      }
+    });
+
+    root.addEventListener('dish-menu-moved', (event) => {
+      const detail = event.detail || {};
+      const dishId = detail.dishId;
+      if (!dishId) return;
+      const sourceMenuId = detail.sourceMenuId || '';
+      const targetMenuId = detail.targetMenuId || '';
+      const card = root.querySelector(
+        `[data-menu-dish][data-dish-id="${CSS.escape(dishId)}"]`
+      );
+      if (!card) return;
+
+      if (sourceMenuId && sourceMenuId !== targetMenuId) {
+        const sourceSection = root.querySelector(
+          `[data-menu-section="${CSS.escape(sourceMenuId)}"]`
+        );
+        if (sourceSection) {
+          const list = sourceSection.querySelector('[data-menu-dishes]');
+          if (list && list.contains(card)) {
+            if (targetMenuId) {
+              const targetSection = root.querySelector(
+                `[data-menu-section="${CSS.escape(targetMenuId)}"]`
+              );
+              const targetList = targetSection ? ensureList(targetSection) : null;
+              if (targetList) {
+                targetList.appendChild(card);
+                card.dataset.menuId = targetMenuId;
+                const cardInner = card.querySelector('[data-dish-card]');
+                if (cardInner) {
+                  cardInner.dataset.currentMenu = targetMenuId;
+                }
+                updateMenuSummary(targetSection);
+              } else {
+                card.remove();
+              }
+            } else {
+              card.remove();
+            }
+          }
+          updateMenuSummary(sourceSection);
+        }
+      }
+
+      if (!targetMenuId) {
+        card.remove();
+      }
+
+      updateEmptyState();
+    });
+
+    root.querySelectorAll('[data-menu-section]').forEach(updateMenuSummary);
+    updateEmptyState();
+  });
+</script>
+{% endblock %}

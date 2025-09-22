@@ -264,7 +264,54 @@ def dashboard_redirect(request):
 @login_required
 def menus_view(request):
     """Render menus page."""
-    return render(request, "menus/main.html")
+    restaurant = (
+        models.Restaurant.objects.filter(account__membership__user=request.user)
+        .select_related("account")
+        .first()
+    )
+
+    menus: List[models.MenuCollection] = []
+    if restaurant:
+        menus = list(
+            models.MenuCollection.objects.filter(restaurant=restaurant)
+            .prefetch_related(
+                Prefetch(
+                    "menuitem_set",
+                    queryset=models.MenuItem.objects.select_related(
+                        "dish",
+                        "dish__parent_concept",
+                        "dish__restaurant",
+                    ).order_by("position", "created_at"),
+                )
+            )
+            .order_by("created_at")
+        )
+        for menu in menus:
+            items = list(menu.menuitem_set.all())
+            menu.menu_items = items
+
+    all_dishes = [
+        item.dish for menu in menus for item in getattr(menu, "menu_items", [])
+    ]
+    decorate_dishes_with_enhancements(all_dishes)
+    for dish in all_dishes:
+        dish.is_favorited = True
+
+    menu_options = [
+        {
+            "id": str(menu.id),
+            "name": menu.name,
+        }
+        for menu in menus
+    ]
+
+    ctx = {
+        "restaurant": restaurant,
+        "menus": menus,
+        "menu_options": menu_options,
+        "menu_move_url": reverse("menu-item-move"),
+    }
+    return render(request, "menus/main.html", ctx)
 
 
 def onboarding_view(request):
@@ -1188,7 +1235,6 @@ def favorites_view(request):
         "favorite_dishes": favorite_dishes,
         "menus": menus,
         "uncategorized_favorites": uncategorized_favorites,
-        "menus_payload_json": json.dumps(menus_payload),
         "menu_options": menus_payload,
         "menu_move_url": reverse("menu-item-move"),
     }
