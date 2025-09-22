@@ -11,9 +11,6 @@
 <div
   id="favorites-root"
   class="px-4 py-8 space-y-8"
-  data-menus="{{ menus_payload_json|escapejs }}"
-  data-move-url="{% url 'menu-item-move' %}"
-  data-create-url="{% url 'menu-collection-create' %}"
 >
   <section class="relative overflow-hidden rounded-3xl border border-[#B993D6]/30 bg-gradient-to-r from-[#B993D6] via-[#FF8300]/80 to-[#58B09C] text-white shadow-lg">
     <div class="absolute inset-0 bg-black/10 mix-blend-soft-light"></div>
@@ -76,95 +73,6 @@
   <details open class="favorites-section group rounded-3xl border border-slate-200/70 bg-white/90 shadow-sm backdrop-blur">
     <summary class="flex cursor-pointer select-none items-center justify-between gap-4 px-6 py-5">
       <div>
-        <h2 class="text-lg font-semibold text-[#49475B] md:text-xl">Menus</h2>
-        <p class="text-xs font-medium uppercase tracking-wide text-slate-400">Drag dishes into collections to plan lineups</p>
-      </div>
-      <span class="ml-auto inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-[#B993D6] transition-transform duration-200 group-open:rotate-180">
-        <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
-      </span>
-    </summary>
-    <div class="space-y-6 px-6 pb-6">
-      <div class="flex flex-wrap items-center justify-between gap-4">
-        <p class="text-sm text-slate-500">Create boards for brunch, dinner, or specials. Collapse finished menus to stay focused.</p>
-        <button
-          type="button"
-          class="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#FF8300] to-[#FF5C00] px-4 py-2 text-sm font-semibold text-white shadow transition hover:scale-[1.02]"
-          data-action="create-menu"
-        >
-          <i class="fa-solid fa-plus" aria-hidden="true"></i>
-          <span>New menu</span>
-        </button>
-      </div>
-
-      <div id="favorite-menus" class="space-y-4">
-        {% if menus %}
-          {% for menu in menus %}
-            <details
-              class="group/menu menu-card rounded-3xl border border-slate-200 bg-white shadow-sm"
-              data-menu-card
-              data-menu-id="{{ menu.id }}"
-              data-rename-url="{% url 'menu-collection-rename' menu.id %}"
-              data-delete-url="{% url 'menu-collection-delete' menu.id %}"
-              open
-            >
-              <summary class="flex cursor-pointer list-none items-center justify-between gap-4 rounded-3xl px-6 py-5">
-                <div>
-                  <h3 class="text-lg font-semibold text-[#49475B]">{{ menu.name }}</h3>
-                  <p class="text-xs uppercase tracking-wide text-slate-400">{{ menu.menu_items|length }} dish{{ menu.menu_items|length|pluralize }}</p>
-                </div>
-                <div class="flex items-center gap-3">
-                  <button type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-100" data-action="rename-menu" title="Rename menu">
-                    <i class="fa-regular fa-pen-to-square" aria-hidden="true"></i>
-                    <span class="sr-only">Rename menu</span>
-                  </button>
-                  <button type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-red-100 text-red-500 transition hover:bg-red-50" data-action="delete-menu" title="Delete menu">
-                    <i class="fa-regular fa-trash-can" aria-hidden="true"></i>
-                    <span class="sr-only">Delete menu</span>
-                  </button>
-                </div>
-              </summary>
-              <div class="px-6 pb-6">
-                <div
-                  class="menu-dropzone rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-4"
-                  data-menu-dropzone
-                  data-menu-id="{{ menu.id }}"
-                >
-                  {% if menu.menu_items %}
-                    <div class="grid grid-cols-1 gap-4" data-menu-dishes>
-                      {% for item in menu.menu_items %}
-                        <div
-                          id="favorite-dish-{{ item.dish.id }}"
-                          class="favorite-dish-card"
-                          draggable="true"
-                          data-dish-card
-                          data-dish-id="{{ item.dish.id }}"
-                          data-current-menu="{{ menu.id }}"
-                        >
-                          {% include "dishes/_card.html" with dish=item.dish card_context='favorites' menu_options=menu_options menu_move_url=menu_move_url current_menu_id=menu.id %}
-                        </div>
-                      {% endfor %}
-                    </div>
-                  {% else %}
-                    <div class="flex h-32 items-center justify-center rounded-xl bg-white/80 text-sm text-slate-400" data-menu-empty>
-                      Drag a dish here or tap the … button on a card to add it to {{ menu.name }}.
-                    </div>
-                  {% endif %}
-                </div>
-              </div>
-            </details>
-          {% endfor %}
-        {% else %}
-          <div class="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center text-slate-500">
-            Create your first menu to start grouping dishes together. You can always rename or delete it later.
-          </div>
-        {% endif %}
-      </div>
-    </div>
-  </details>
-
-  <details open class="favorites-section group rounded-3xl border border-slate-200/70 bg-white/90 shadow-sm backdrop-blur">
-    <summary class="flex cursor-pointer select-none items-center justify-between gap-4 px-6 py-5">
-      <div>
         <h2 class="text-lg font-semibold text-[#49475B] md:text-xl">Unassigned favorites</h2>
         <p class="text-xs font-medium uppercase tracking-wide text-slate-400">Keep dishes here until they belong somewhere</p>
       </div>
@@ -173,51 +81,28 @@
       </span>
     </summary>
     <div class="space-y-4 px-6 pb-6">
-      <p class="text-sm text-slate-500">Drag dishes into a menu or keep them on deck for future inspiration.</p>
+      <p class="text-sm text-slate-500">Use the … menu on any dish to assign it to a menu. Once assigned, it disappears from this list.</p>
 
       <div
-        class="menu-dropzone rounded-3xl border border-dashed border-slate-200 bg-white p-4"
-        data-menu-dropzone
-        data-menu-id=""
+        class="rounded-3xl border border-dashed border-slate-200 bg-white p-4"
         id="favorites-uncategorized"
       >
-        {% if uncategorized_favorites %}
-          <div class="grid grid-cols-1 gap-4 md:grid-cols-2" data-menu-dishes>
-            {% for favorite in uncategorized_favorites %}
-              <div
-                id="favorite-dish-{{ favorite.dish.id }}"
-                class="favorite-dish-card"
-                draggable="true"
-                data-dish-card
-                data-dish-id="{{ favorite.dish.id }}"
-                data-current-menu=""
-              >
-                {% include "dishes/_card.html" with dish=favorite.dish card_context='favorites' menu_options=menu_options menu_move_url=menu_move_url current_menu_id='' %}
-              </div>
-            {% endfor %}
-          </div>
-        {% else %}
-          <div class="flex h-32 items-center justify-center rounded-xl bg-slate-50 text-sm text-slate-400" data-menu-empty>
-            Assigning dishes to menus removes them from this list. Drag one back here to keep it uncategorized.
-          </div>
-        {% endif %}
+        <div data-uncategorized-list class="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {% for favorite in uncategorized_favorites %}
+            <div id="favorite-dish-{{ favorite.dish.id }}" class="favorite-dish-card">
+              {% include "dishes/_card.html" with dish=favorite.dish card_context='favorites' menu_options=menu_options menu_move_url=menu_move_url current_menu_id='' %}
+            </div>
+          {% endfor %}
+        </div>
+        <div
+          id="uncategorized-empty"
+          class="flex h-32 items-center justify-center rounded-xl bg-slate-50 text-sm text-slate-400 {% if uncategorized_favorites %}hidden{% endif %}"
+        >
+          Assigning dishes to menus removes them from this list. Remove a dish from a menu to bring it back here.
+        </div>
       </div>
     </div>
   </details>
-</div>
-
-<div id="favorites-menu-sheet" class="favorites-menu-sheet hidden">
-  <div class="favorites-menu-sheet__backdrop" data-sheet-close></div>
-  <div class="favorites-menu-sheet__panel">
-    <div class="flex items-center justify-between gap-4">
-      <h3 class="text-lg font-semibold text-[#49475B]">Assign to menu</h3>
-      <button type="button" class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500" data-sheet-close>
-        <i class="fa-solid fa-xmark"></i>
-        <span class="sr-only">Close</span>
-      </button>
-    </div>
-    <div class="mt-4 space-y-2" data-sheet-list></div>
-  </div>
 </div>
 
 <script>
@@ -225,289 +110,30 @@
     const root = document.getElementById('favorites-root');
     if (!root) return;
 
-    function getCsrfToken(){
-      const input = document.querySelector('[name="csrfmiddlewaretoken"]');
-      if (input) return input.value;
-      const match = document.cookie.match(/csrftoken=([^;]+)/);
-      return match ? decodeURIComponent(match[1]) : '';
-    }
+    const list = root.querySelector('[data-uncategorized-list]');
+    const emptyState = document.getElementById('uncategorized-empty');
 
-    const csrf = getCsrfToken();
-    const menuData = (() => {
-      try {
-        return JSON.parse(root.dataset.menus || '[]');
-      } catch (err) {
-        console.warn('Unable to parse menus payload', err);
-        return [];
-      }
-    })();
+    const updateEmptyState = () => {
+      if (!list || !emptyState) return;
+      const hasItems = list.querySelector('[data-dish-card], .favorite-dish-card');
+      emptyState.classList.toggle('hidden', Boolean(hasItems));
+    };
 
-    const moveUrl = root.dataset.moveUrl;
-    const createUrl = root.dataset.createUrl;
-    const sheet = document.getElementById('favorites-menu-sheet');
-    const sheetList = sheet?.querySelector('[data-sheet-list]');
-
-    function getCard(el){
-      return el.closest('[data-dish-card]');
-    }
-
-    function updateEmptyStates(zone){
-      if (!zone) return;
-      const hasCard = zone.querySelector('[data-dish-card]');
-      zone.querySelectorAll('[data-menu-empty]').forEach((empty) => {
-        empty.style.display = hasCard ? 'none' : '';
-      });
-    }
-
-    function ensureList(zone){
-      let list = zone.querySelector('[data-menu-dishes]');
-      if (list) return list;
-      list = document.createElement('div');
-      list.dataset.menuDishes = '1';
-      list.className = zone.dataset.menuId ? 'grid grid-cols-1 gap-4' : 'grid grid-cols-1 md:grid-cols-2 gap-4';
-      const empty = zone.querySelector('[data-menu-empty]');
-      if (empty) {
-        empty.before(list);
-      } else {
-        zone.appendChild(list);
-      }
-      return list;
-    }
-
-    function moveCard(card, zone){
-      if (!(card && zone)) return;
-      const list = ensureList(zone);
-      list.appendChild(card);
-      updateEmptyStates(zone);
-    }
-
-    function sendMove(payload){
-      return fetch(moveUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': csrf,
-        },
-        body: JSON.stringify(payload),
-      }).then((res) => {
-        if (!res.ok) throw new Error('Request failed');
-        return res.json();
-      });
-    }
-
-    function zoneFor(menuId){
-      if (!menuId) return document.getElementById('favorites-uncategorized');
-      return root.querySelector(`[data-menu-dropzone][data-menu-id="${CSS.escape(menuId)}"]`);
-    }
-
-    function handleDrop(event){
-      event.preventDefault();
-      const zone = event.currentTarget;
-      const dishId = event.dataTransfer.getData('text/plain');
-      if (!dishId) return;
-      const card = document.getElementById(`favorite-dish-${dishId}`);
-      if (!card) return;
-      const sourceMenuId = card.dataset.currentMenu || '';
-      const targetMenuId = zone.dataset.menuId || '';
-      if (sourceMenuId === targetMenuId) return;
-
-      sendMove({dish_id: dishId, target_menu_id: targetMenuId, source_menu_id: sourceMenuId}).then(() => {
-        const sourceZone = zoneFor(sourceMenuId);
-        card.dataset.currentMenu = targetMenuId;
-        moveCard(card, zone);
-        updateEmptyStates(sourceZone);
-      }).catch(() => {
-        zone.classList.remove('is-drop-target');
-      });
-    }
-
-    root.querySelectorAll('[data-dish-card]').forEach((card) => {
-      card.addEventListener('dragstart', (event) => {
-        event.dataTransfer.effectAllowed = 'move';
-        event.dataTransfer.setData('text/plain', card.dataset.dishId);
-        card.classList.add('is-dragging');
-      });
-      card.addEventListener('dragend', () => {
-        card.classList.remove('is-dragging');
-        root.querySelectorAll('[data-menu-dropzone]').forEach((zone) => zone.classList.remove('is-drop-target'));
-      });
-    });
-
-    root.querySelectorAll('[data-menu-dropzone]').forEach((zone) => {
-      zone.addEventListener('dragover', (event) => {
-        event.preventDefault();
-        zone.classList.add('is-drop-target');
-      });
-      zone.addEventListener('dragleave', () => zone.classList.remove('is-drop-target'));
-      zone.addEventListener('drop', handleDrop);
-    });
-
-    function openSheet(dishId, currentMenuId){
-      if (!(sheet && sheetList)) return;
-      sheet.dataset.dishId = dishId;
-      sheet.dataset.currentMenuId = currentMenuId || '';
-      sheetList.innerHTML = '';
-
-      if (!menuData.length){
-        const empty = document.createElement('p');
-        empty.className = 'text-sm text-slate-500';
-        empty.textContent = 'Create a menu first to assign dishes.';
-        sheetList.appendChild(empty);
-      } else {
-        menuData.forEach((menu) => {
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.className = 'w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-left text-sm font-medium text-[#49475B] shadow-sm transition hover:bg-slate-50';
-          btn.textContent = menu.name;
-          btn.dataset.menuId = menu.id;
-          if (menu.id === currentMenuId){
-            btn.classList.add('bg-slate-100');
-          }
-          btn.addEventListener('click', () => assignFromSheet(menu.id));
-          sheetList.appendChild(btn);
-        });
-        const remove = document.createElement('button');
-        remove.type = 'button';
-        remove.className = 'w-full rounded-xl border border-dashed border-slate-300 px-4 py-3 text-left text-sm font-medium text-slate-500 transition hover:bg-slate-100';
-        remove.textContent = 'Remove from menus';
-        remove.addEventListener('click', () => assignFromSheet(''));
-        sheetList.appendChild(remove);
-      }
-
-      sheet.classList.remove('hidden');
-      requestAnimationFrame(() => sheet.classList.add('visible'));
-    }
-
-    function closeSheet(){
-      if (!sheet) return;
-      sheet.classList.remove('visible');
-      setTimeout(() => sheet.classList.add('hidden'), 150);
-    }
-
-    function assignFromSheet(targetMenuId){
-      if (!sheet) return;
-      const dishId = sheet.dataset.dishId;
-      const sourceMenuId = sheet.dataset.currentMenuId || '';
-      if (!dishId) return;
-      const zone = zoneFor(targetMenuId);
-      const card = document.getElementById(`favorite-dish-${dishId}`);
-      if (!(zone && card)) return;
-      if (sourceMenuId === targetMenuId) {
-        closeSheet();
-        return;
-      }
-
-      sendMove({dish_id: dishId, target_menu_id: targetMenuId, source_menu_id: sourceMenuId}).then(() => {
-        const sourceZone = zoneFor(sourceMenuId);
-        card.dataset.currentMenu = targetMenuId || '';
-        moveCard(card, zone);
-        updateEmptyStates(sourceZone);
-        updateEmptyStates(zone);
-        closeSheet();
-      });
-    }
-
-    sheet?.querySelectorAll('[data-sheet-close]').forEach((btn) => btn.addEventListener('click', closeSheet));
-    document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') closeSheet();
-    });
-
-    root.addEventListener('click', (event) => {
-      const trigger = event.target.closest('[data-menu-trigger]');
-      if (!trigger) return;
-      const card = getCard(trigger);
-      if (!card) return;
-      openSheet(card.dataset.dishId, card.dataset.currentMenu || '');
-    });
+    updateEmptyState();
 
     root.addEventListener('dish-menu-moved', (event) => {
       const detail = event.detail || {};
       const dishId = detail.dishId;
       if (!dishId) return;
-      const sourceMenuId = detail.sourceMenuId || '';
       const targetMenuId = detail.targetMenuId || '';
-      if (sourceMenuId === targetMenuId) return;
-
+      if (!targetMenuId) {
+        updateEmptyState();
+        return;
+      }
       const wrapper = document.getElementById(`favorite-dish-${dishId}`);
       if (!wrapper) return;
-      const targetZone = zoneFor(targetMenuId);
-      if (!targetZone) return;
-
-      wrapper.dataset.currentMenu = targetMenuId;
-      moveCard(wrapper, targetZone);
-      updateEmptyStates(zoneFor(sourceMenuId));
-      updateEmptyStates(targetZone);
-    });
-
-    const createBtn = root.querySelector('[data-action="create-menu"]');
-    createBtn?.addEventListener('click', () => {
-      const name = prompt('Name your menu', 'New Menu');
-      const formData = new FormData();
-      if (name) formData.append('name', name);
-      fetch(createUrl, {
-        method: 'POST',
-        headers: {
-          'X-CSRFToken': csrf,
-        },
-        body: formData,
-      })
-        .then((res) => {
-          if (!res.ok) throw new Error('Unable to create menu');
-          return res.json();
-        })
-        .then((data) => {
-          menuData.push({id: data.id, name: data.name});
-          window.location.reload();
-        });
-    });
-
-    root.querySelectorAll('[data-menu-card]').forEach((card) => {
-      const renameUrl = card.dataset.renameUrl;
-      const deleteUrl = card.dataset.deleteUrl;
-      const nameEl = card.querySelector('h3');
-
-      card.querySelector('[data-action="rename-menu"]').addEventListener('click', () => {
-        const currentName = nameEl?.textContent?.trim() || 'Menu';
-        const newName = prompt('Rename menu', currentName);
-        if (newName === null) return;
-        const formData = new FormData();
-        formData.append('name', newName);
-        fetch(renameUrl, {
-          method: 'POST',
-          headers: {
-            'X-CSRFToken': csrf,
-          },
-          body: formData,
-        })
-          .then((res) => {
-            if (!res.ok) throw new Error('Unable to rename menu');
-            return res.json();
-          })
-          .then((data) => {
-            if (nameEl) nameEl.textContent = data.name;
-            const entry = menuData.find((m) => m.id === data.id);
-            if (entry) entry.name = data.name;
-          });
-      });
-
-      card.querySelector('[data-action="delete-menu"]').addEventListener('click', () => {
-        if (!confirm('Delete this menu?')) return;
-        fetch(deleteUrl, {
-          method: 'POST',
-          headers: {
-            'X-CSRFToken': csrf,
-          },
-        })
-          .then((res) => {
-            if (!res.ok) throw new Error('Unable to delete menu');
-            return res.json();
-          })
-          .then(() => {
-            const idx = menuData.findIndex((m) => m.id === card.dataset.menuId);
-            if (idx >= 0) menuData.splice(idx, 1);
-            card.remove();
-          });
-      });
+      wrapper.remove();
+      updateEmptyState();
     });
   });
 </script>
