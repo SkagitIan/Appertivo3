@@ -29,6 +29,9 @@ from dotenv import load_dotenv
 load_dotenv()
 _openai_api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=_openai_api_key) if _openai_api_key else None
+import datetime
+
+from app.tasks import create_ideation_run
 
 class ConceptList(BaseModel):
     concepts: List[str]
@@ -359,30 +362,22 @@ def concepts_view(request):
 def concepts_generate_view(request):
     membership = models.Membership.objects.filter(user=request.user).first()
     restaurant = models.Restaurant.objects.filter(account=membership.account).first()
-    """Generate 9 new concepts via OpenAI."""
-    context_parts = [
-    f"Restaurant: {restaurant.name}, {restaurant.location_text}"
-    ]
+    previous_concepts = list(
+            Concept.objects.filter(restaurant=restaurant)
+            .order_by("-created_at")
+            .values_list("name", flat=True)[:27])
 
-    if restaurant.description:
-        context_parts.append(f"Description: {restaurant.description}")
-
-    if restaurant.about_json:
-        context_parts.append("About: " + json.dumps(restaurant.about_json, ensure_ascii=False)[:1000])
-
-    if restaurant.context_json:
-        context_parts.append("Context: " + json.dumps(restaurant.context_json, ensure_ascii=False)[:1000])
-
+    logger.info(f"previous concepts: {previous_concepts}")
     if restaurant.active_menu_version:
-        context_parts.append("Menu:\n" + restaurant.active_menu_version.raw_markdown[:2000])
-
-    # Add avoidance guidance
-    previous_concepts = _get_session_list(request.session, "generated_concepts") if request.user.is_authenticated else []
-    if previous_concepts:
-        context_parts.append("Previously generated concept names to avoid: " + ", ".join(previous_concepts))
-
-    context = "\n".join(context_parts)
-
+        restaurant_menu = restaurant.active_menu_version.raw_markdown
+    else:
+        restaurant_menu = ""
+    context = f"""
+    Restaurant: {restaurant.name}, {restaurant.location_text}.  \n
+    Description: {restaurant.description}. \n
+    Current Restaurant Menu:  {restaurant_menu}
+    About Services:  {restaurant.about_json}
+    """
     # Schema definition for structured output
     schema = {
         "name": "concept_list",
@@ -400,7 +395,7 @@ def concepts_generate_view(request):
                             "reasoning": {"type": "string" },
                             "tags": {
                                 "type": "array",
-                                "items": {"type": "string", "maxLength": 20},
+                                "items": {"type": "string"},
                                 "minItems": 1,
                                 "maxItems": 3
                             }
@@ -420,15 +415,39 @@ def concepts_generate_view(request):
 
 
 
-    system_prompt = (
-        "You are a seasoned restaurant marketing consultant. "
-        "Generate exactly 9 unique, theme-based concepts for daily specials."
-        "Include a name no more than 30 characters & a subtitle no more than 80 characters. "
-        "Include a reasoning of why you chose this concept, what context and frame of mind were you in when you picked this concept.  1 sentance ender 80 characters"
-        "Include an array of tags that quickly relate the concept to the users context"
-        "Concepts are themes like 'Taco Tuesday', 'Family Feast', 'Game Night', "
-        "'Seasonal Harvest Dinner'. They are NOT individual dishes."
-    )
+    system_prompt = f"""
+                **Role**: You are a seasoned restaurant marketing consultant with deep knowledge of regional cuisines, seasonal ingredients, and cultural dining traditions.
+                **Task**: Generate exactly 9 unique, theme-based concepts for daily specials that emphasize regional flavors and seasonal ingredients.
+
+                **Format Requirements for Each Concept**:
+                - **Name**: Maximum 30 characters
+                - **Subtitle**: Maximum 80 characters (descriptive tagline)
+                - **Reasoning**: Explain your creative process and mindset when selecting this concept (maximum 80 characters)
+                - **Tags**: Array of 3 relevant keywords that connect the concept to user context
+
+                **Concept Guidelines**:
+                - It should be relevant to the users restaurants menu, not identical but within the same style.
+                - Focus on THEMES, not individual dishes (like "Taco Tuesday" or "Mediterranean Monday")
+                - Emphasize regional specialties around: {restaurant.location_text} 
+                - and seasonal ingredients: {datetime.date.today()}
+                - Consider cultural celebrations, harvest seasons, and local food traditions
+                - Think beyond basic concepts to include:
+                - Regional American cuisines (Southern, Pacific Northwest, Southwest, etc.)
+                - Seasonal produce celebrations (Spring asparagus, Fall harvest, Summer stone fruits)
+                - Cultural heritage nights (Italian Nonna Night, Korean Comfort, etc.)
+                - Weather-responsive themes (Cozy Soup Sundays, Summer Grill Nights)
+
+                **Example Structure**:
+                ```
+                1. **Name**: "Harvest Moon Monday"
+                **Subtitle**: "Celebrating autumn's bounty with locally-sourced seasonal ingredients"
+                **Reasoning**: "Captured the cozy autumn feeling and farm-to-table movement"
+                **Tags**: [seasonal, autumn, local-sourcing, comfort-food, farm-to-table, harvest, cozy, regional]
+                ```
+
+                **Goal**: Create concepts that restaurant owners can easily adapt to their local region and seasonal availability while building customer excitement and loyalty.
+
+    """
 
     if previous_concepts:
         system_prompt += (
@@ -459,18 +478,7 @@ def concepts_generate_view(request):
 
     names = data.get("concepts", [])
 
-
-    # Save ideation run
-    run = models.IdeationRun.objects.create(
-        restaurant=restaurant,
-        initiated_by_user=request.user,
-        type=models.IdeationRun.RunType.CONCEPTS,
-        model_name="gpt-4.1-mini",
-        temperature=0.5,
-        classic_creative=50,
-        context_snapshot={"context": context},
-        status=models.IdeationRun.Status.SUCCEEDED,
-    )
+    task = create_ideation_run.delay(restaurant.id,request.user.id,context,)
 
     concepts = [
         models.Concept.objects.create(
@@ -751,6 +759,19 @@ def dishes_generate_view(request, concept_id):
     """
     concept = models.Concept.objects.select_related("restaurant").get(id=concept_id)
     restaurant = concept.restaurant
+    membership = models.Membership.objects.filter(user=request.user).first()
+    if restaurant.active_menu_version:
+        restaurant_menu = restaurant.active_menu_version.raw_markdown
+    else:
+        restaurant_menu = ""
+    
+    context = f"""
+        Restaurant: {restaurant.name}, {restaurant.location_text}.  \n
+        Description: {restaurant.description}. \n
+        Current Restaurant Menu:  {restaurant_menu}
+        About Services:  {restaurant.about_json}
+    """
+    
     logger.info("Starting dish generation: concept=%s, restaurant=%s", concept.name, restaurant.name)
 
     # Build previous dish titles (avoid duplication in generation)
@@ -760,7 +781,7 @@ def dishes_generate_view(request, concept_id):
         .values_list("title", flat=True)[:27]
     )
 
-    context = serialize_restaurant_context(restaurant, concept, request=request)
+    #context = serialize_restaurant_context(restaurant, concept, request=request)
     logger.info(f"Context:  {context}")
     # Prepare schema
     schema = {
@@ -795,7 +816,6 @@ def dishes_generate_view(request, concept_id):
             "additionalProperties": False,
         },
     }
-
     # Create IdeationRun *before* calling LLM so we can track errors
     ideation_run = models.IdeationRun.objects.create(
         restaurant=restaurant,
