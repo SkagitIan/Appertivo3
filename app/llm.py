@@ -54,15 +54,17 @@ def _dish_image_prompt(title: str, description: str) -> str:
 
     description_text = description or ""
     prompt = f"""
-    "Professional food photography of {title}. {description_text}. Shot with a DSLR camera using a 50mm
-    macro lens at f/2.8 aperture for shallow depth of field. Soft natural lighting from a large window with
-    white diffusion, creating gentle shadows and highlights that enhance texture. The dish is beautifully
-    plated on an appropriate serving vessel - white ceramic for colorful dishes, dark slate or wood for
-    lighter foods. Clean, minimalist styling on a neutral surface with subtle texture. Background softly
-    blurred in warm, muted tones. Fresh ingredients show natural moisture, steam, or appropriate
-    garnishes. Colors are rich and saturated but natural-looking. Sharp focus on the hero elements
-    of the dish with beautiful bokeh. Commercial food photography style reminiscent of Cook's
-    Illustrated or Saveur magazine. Photorealistic, high detail, appetizing presentation.
+    "Professional food photography of {title}. {description_text}. Shot with a DSLR camera using a 35mm lens 
+    at f/4 aperture, positioned as if seated at the table looking down at the meal. The dish is freshly 
+    plated and just set down on a complete table setting - white linen tablecloth or clean wooden 
+    table, with silverware properly placed, cloth napkin, and a water glass or appropriate beverage 
+    visible in frame. Soft overhead restaurant lighting with warm ambient tones, creating natural shadows. 
+    The plate appears to have just arrived - garnishes are fresh, sauces haven't been touched, and any hot 
+    dishes show gentle steam rising. Include subtle details like breadcrumbs on the table or a partially 
+    visible menu edge to enhance the dining experience feel. Colors are natural and inviting. Sharp focus 
+    on the main dish with the table setting softly detailed. The composition feels intimate and welcoming, 
+    like you're about to take your first bite. Restaurant photography style with a lived-in, authentic 
+    dining atmosphere."
     """
 
 
@@ -75,14 +77,14 @@ def _fetch_openai_image(prompt: str, default_url: str) -> str:
 
     try:
         response = client.images.generate(
-            model="gpt-image-1",
+            model="dall-e-3",
             prompt=prompt,
-            #quality="hd",
-            #style="natural",
+            quality="hd",
+            style="natural",
             #n=1,
             size="1024x1024",
             #output_format="png",
-            #response_format='b64_json'
+            response_format='b64_json'
         )
         if response.data and getattr(response.data[0], "b64_json", None):
             base64_data = response.data[0].b64_json
