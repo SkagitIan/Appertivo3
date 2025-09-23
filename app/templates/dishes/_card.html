@@ -9,6 +9,7 @@
   data-dish-id="{{ dish.id }}"
   data-current-menu="{{ current_menu }}"
   data-move-url="{{ move_url }}"
+  data-favorited="{% if dish.is_favorited %}true{% else %}false{% endif %}"
 >
   <div class="flip-scene h-full">
     <div class="flip-card h-full {% if not dish.is_favorited %}no-flip{% endif %}">
