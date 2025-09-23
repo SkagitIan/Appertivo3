@@ -7,7 +7,7 @@
 >
   <div class="flip-scene h-full">
     <div
-      class="flip-card {% if loading %}loading{% endif %}"
+      class="flip-card {% if loading %}loading{% endif %} {% if not concept.is_favorited_for_user %}no-flip{% endif %}"
       data-concept-id="{{ concept.id }}"
       tabindex="0"
     >
@@ -23,38 +23,36 @@
               class="h-full w-full object-cover"
             />
             <div class="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/70 via-black/30 to-transparent"></div>
-            <div class="absolute top-3 right-3" data-no-flip>
-              {% if favorite_url_override %}
-                {% include "concepts/_favorite_button.html" with concept=concept favorited=True url_override=favorite_url_override %}
-              {% else %}
-                {% include "concepts/_favorite_button.html" with concept=concept favorited=True %}
-              {% endif %}
-            </div>
-            <div class="absolute bottom-4 left-4 right-4 text-left text-white drop-shadow">
-              <h2 class="text-xl md:text-2xl font-semibold">{{ concept.name }}</h2>
-              {% if concept.subtitle %}
-                <p class="mt-1 text-sm md:text-base text-white/90 line-clamp-2">{{ concept.subtitle }}</p>
-              {% endif %}
+            <div class="absolute inset-x-0 bottom-0 p-4 text-white drop-shadow">
+              <div class="flex items-end justify-between gap-3">
+                <div class="max-w-[75%]">
+                  <h2 class="text-xl md:text-2xl font-semibold leading-tight">{{ concept.name }}</h2>
+                </div>
+                <div class="flex-shrink-0" data-no-flip>
+                  {% if favorite_url_override %}
+                    {% include "concepts/_favorite_button.html" with concept=concept favorited=True url_override=favorite_url_override btn_class='inline-flex items-center justify-center w-10 h-10 rounded-full border border-white/40 bg-white/80 text-lg text-slate-500 shadow-sm backdrop-blur transition hover:text-red-400' %}
+                  {% else %}
+                    {% include "concepts/_favorite_button.html" with concept=concept favorited=True btn_class='inline-flex items-center justify-center w-10 h-10 rounded-full border border-white/40 bg-white/80 text-lg text-slate-500 shadow-sm backdrop-blur transition hover:text-red-400' %}
+                  {% endif %}
+                </div>
+              </div>
             </div>
           </div>
         {% else %}
           <div class="relative z-10 flex h-full flex-col items-center justify-center p-6 text-center">
-            <h2 class="text-lg md:text-xl lg:text-2xl font-bold text-[#49475B] mb-1">
+            <h2 class="text-lg md:text-xl lg:text-2xl font-bold text-[#49475B]">
               {{ concept.name }}
             </h2>
-            {% if concept.subtitle %}
-              <p class="text-slate-600 text-sm md:text-base mb-3 max-w-xs md:max-w-sm">
-                {{ concept.subtitle }}
-              </p>
+            {% if concept.tags %}
+              <div class="mt-3 flex flex-wrap justify-center gap-2">
+                {% for tag in concept.tags %}
+                  <span class="inline-flex items-center px-3 py-1 rounded-full text-xs md:text-sm font-medium bg-slate-100 text-[#49475B]">
+                    {{ tag }}
+                  </span>
+                {% endfor %}
+              </div>
             {% endif %}
-            <div class="flex flex-wrap justify-center gap-2 mb-4">
-              {% for tag in concept.tags %}
-                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs md:text-sm font-medium bg-slate-100 text-[#49475B]">
-                  {{ tag }}
-                </span>
-              {% endfor %}
-            </div>
-            <div class="absolute top-3 right-3" data-no-flip>
+            <div class="absolute bottom-3 right-3" data-no-flip>
               {% if favorite_url_override %}
                 {% include "concepts/_favorite_button.html" with concept=concept url_override=favorite_url_override %}
               {% else %}
@@ -66,57 +64,66 @@
       </div>
 
       <!-- Back face -->
-      <div class="flip-face flip-back bg-white text-slate-800 shadow-md border border-slate-200">
-        <div class="flex h-full flex-col justify-between p-6 text-center">
-          <div class="space-y-3">
+      <div class="flip-face flip-back bg-white text-slate-800 shadow-md border border-slate-200 flex flex-col">
+        <div class="flex-1 overflow-y-auto px-4 py-4 text-left space-y-4">
+          <div class="space-y-2">
             <h3 class="text-lg md:text-xl font-semibold text-[#49475B]">{{ concept.name }}</h3>
             {% if concept.subtitle %}
               <p class="text-slate-600 text-sm md:text-base">{{ concept.subtitle }}</p>
             {% endif %}
-            {% if concept.tags %}
-              <div class="flex flex-wrap justify-center gap-2">
-                {% for tag in concept.tags %}
-                  <span class="inline-flex items-center px-3 py-1 rounded-full text-xs md:text-sm font-medium bg-[#B993D6]/15 text-[#49475B]">
-                    {{ tag }}
-                  </span>
-                {% endfor %}
-              </div>
-            {% endif %}
           </div>
-          <div class="mt-6 flex flex-col gap-3" data-no-flip>
-            {% if concept.has_dishes %}
-              <a
-                href="{% url 'dish_detail' concept.id %}"
-                class="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#f08000] to-[#FF5C00] px-4 py-2 text-sm font-semibold text-white shadow-md transition hover:scale-[1.02]"
-              >
-                <span>See dish ideas</span>
-              </a>
-            {% else %}
-              <button
-                type="button"
-                class="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#f08000] to-[#FF5C00] px-4 py-2 text-sm font-semibold text-white shadow-md transition hover:scale-[1.02]"
-                hx-post="{% url 'dishes-generate' concept.id %}"
-                hx-trigger="click"
-                data-overlay="true"
-                data-messages='["Cooking up ideas…", "Almost there…", "Plating concepts!"]'
-              >
-                <span>Generate dish ideas</span>
-              </button>
-            {% endif %}
+          {% if concept.tags %}
+            <div class="flex flex-wrap gap-2">
+              {% for tag in concept.tags %}
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs md:text-sm font-medium bg-[#B993D6]/15 text-[#49475B]">
+                  {{ tag }}
+                </span>
+              {% endfor %}
+            </div>
+          {% endif %}
+          {% if concept.reasoning %}
+            <div>
+              <h4 class="text-sm font-semibold uppercase tracking-wide text-[#49475B]/70">Why it works</h4>
+              <p class="mt-1 whitespace-pre-line text-sm text-slate-600">{{ concept.reasoning }}</p>
+            </div>
+          {% endif %}
+        </div>
+        <div class="flex items-center justify-end gap-2 border-t border-slate-200 bg-white/95 px-3 py-3" data-no-flip>
+          {% if concept.has_dishes %}
+            <a
+              href="{% url 'dish_detail' concept.id %}"
+              class="inline-flex items-center gap-1.5 rounded-full border border-[#f08000]/30 bg-[#f08000]/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-[#f08000] hover:bg-[#f08000]/15"
+            >
+              <i class="fa-solid fa-lightbulb text-[0.8rem]"></i>
+              <span>Dish ideas</span>
+            </a>
+          {% else %}
+            <button
+              type="button"
+              class="inline-flex items-center gap-1.5 rounded-full border border-[#f08000]/30 bg-[#f08000]/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-[#f08000] hover:bg-[#f08000]/15"
+              hx-post="{% url 'dishes-generate' concept.id %}"
+              hx-trigger="click"
+              data-overlay="true"
+              data-messages='["Cooking up ideas…", "Almost there…", "Plating concepts!"]'
+            >
+              <i class="fa-solid fa-utensils text-[0.8rem]"></i>
+              <span>Generate</span>
+            </button>
+          {% endif %}
 
-            {% if show_delete|default:True %}
-              <button
-                type="button"
-                class="concept-delete-btn inline-flex items-center justify-center gap-2 rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-500 hover:bg-red-50"
-                hx-post="{% url 'concept-favorite' concept.id %}"
-                hx-trigger="click"
-                hx-target="closest [data-concept-card]"
-                hx-swap="outerHTML"
-              >
-                <span>Delete</span>
-              </button>
-            {% endif %}
-          </div>
+          {% if show_delete|default:True %}
+            <button
+              type="button"
+              class="concept-delete-btn inline-flex h-10 w-10 items-center justify-center rounded-full border border-red-200 bg-white text-red-500 shadow-sm transition hover:bg-red-50"
+              hx-post="{% url 'concept-favorite' concept.id %}"
+              hx-trigger="click"
+              hx-target="closest [data-concept-card]"
+              hx-swap="outerHTML"
+              aria-label="Delete {{ concept.name }}"
+            >
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          {% endif %}
         </div>
       </div>
 

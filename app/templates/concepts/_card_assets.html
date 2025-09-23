@@ -17,6 +17,10 @@
     cursor: pointer;
   }
 
+  .concept-card-wrapper .flip-card.no-flip {
+    cursor: default;
+  }
+
   @media (min-width: 768px) {
     .concept-card-wrapper .flip-card {
       min-height: 380px;
@@ -240,6 +244,10 @@
         return;
       }
       if (card.classList.contains('loading')) {
+        return;
+      }
+      const wrapper = card.closest('[data-concept-card]');
+      if (wrapper && wrapper.dataset && wrapper.dataset.favorited !== 'true') {
         return;
       }
       const actionable = evt.target.closest('button, a, [data-no-flip]');
