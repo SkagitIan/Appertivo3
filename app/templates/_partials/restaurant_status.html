@@ -1,8 +1,13 @@
 {% if menu_version %}
   {% if menu_version.status == 'succeeded' %}
-    <div class="rounded-xl bg-green-50 border border-green-200 p-4 flex items-center space-x-3">
-      <span class="inline-block h-3 w-3 rounded-full bg-green-400"></span>
-      <p class="text-green-700 font-medium">✅ Your menu is ready!</p>
+    <div class="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+      <div class="flex items-center gap-3">
+        <span class="inline-block h-3 w-3 rounded-full bg-emerald-500"></span>
+        <p class="text-sm font-semibold text-emerald-700">Menu synced to assistant context</p>
+      </div>
+      {% if menu_version.finished_at %}
+        <span class="text-xs font-medium text-emerald-600">Updated {{ menu_version.finished_at|timesince }} ago</span>
+      {% endif %}
     </div>
   {% elif menu_version.status == 'failed' %}
     <div class="rounded-xl bg-red-50 border border-red-200 p-4 flex items-center space-x-3">
