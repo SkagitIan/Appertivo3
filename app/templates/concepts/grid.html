@@ -6,21 +6,8 @@
     <p class="text-sm text-slate-600 max-w-2xl">
       Discover innovative dining experiences crafted for your restaurant. Flip each concept to view details or favorite it to unlock sketch inspiration.
     </p>
-  </div>
-{% endblock %}
-
-{% block page_content %}
-{% include "concepts/_card_assets.html" %}
-<style>
-  #concepts-loading.htmx-request {
-    display: inline-block !important;
-  }
-</style>
-<div class="max-w-7xl mx-auto px-4 py-4 space-y-6">
-  <div class="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm backdrop-blur">
-    <div class="flex flex-col items-start gap-3 md:flex-row md:items-center md:justify-between">
-      <p class="text-sm text-slate-600">Refresh the gallery whenever inspiration strikes. We will remix the latest menu insights for you.</p>
-      <button
+    <p>
+            <button
         id="generateBtn"
         hx-get="{% url 'concepts-generate' %}"
         hx-target="#concepts-grid"
@@ -41,10 +28,20 @@
         </svg>
         <span class="button-text">Generate New Concepts</span>
       </button>
-    </div>
+    </p>
   </div>
+{% endblock %}
 
-  <div id="concepts-grid" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+{% block page_content %}
+{% include "concepts/_card_assets.html" %}
+<style>
+  #concepts-loading.htmx-request {
+    display: inline-block !important;
+  }
+</style>
+<div class="max-w-7xl mx-auto px-4 py-4 space-y-6">
+
+  <div id="concepts-grid" class="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-3">
     {% include 'concepts/_concepts_grid.html' %}
   </div>
 
