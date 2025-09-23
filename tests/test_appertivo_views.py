@@ -486,6 +486,11 @@ class ViewSmokeTests(TestCase):
         self.assertEqual(delete_resp.status_code, 200)
         self.assertFalse(models.MenuCollection.objects.filter(id=second_id).exists())
 
+    def test_menu_collection_requires_name(self):
+        response = self.client.post(reverse("menu-collection-create"), {"name": "   "})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"], "name_required")
+
     def test_settings_views(self):
         self.restaurant.context_json = {"story": "Farm-to-table"}
         self.restaurant.save(update_fields=["context_json"])
