@@ -15,24 +15,14 @@
         type="checkbox"
         name="include"
         value="true"
-        class="h-4 w-4 rounded border border-slate-300 text-[#FF5C00] focus:ring-[#FF5C00]"
+        class="h-4 w-4 rounded border focus:ring-emerald-500 focus:ring-offset-0 {% if item.included %}border-emerald-500 text-emerald-600{% else %}border-slate-300 text-slate-300{% endif %}"
         {% if item.included %}checked{% endif %}
         {% if not item.present %}disabled{% endif %}
       />
       <span>{{ item.label }}</span>
     </label>
     <div class="flex items-center gap-2">
-      {% if item.present %}
-        <span
-          class="rounded-full px-2 py-1 text-xs font-medium {% if item.included %}bg-emerald-100 text-emerald-700{% else %}bg-amber-100 text-amber-700{% endif %}"
-        >
-          {% if item.included %}
-            In context
-          {% else %}
-            Skipped
-          {% endif %}
-        </span>
-      {% else %}
+      {% if not item.present %}
         <a
           href="{{ settings_url }}"
           class="text-xs font-semibold text-[#FF5C00] hover:text-[#e05400]"
