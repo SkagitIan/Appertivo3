@@ -70,6 +70,54 @@ def _dish_image_prompt(title: str, description: str) -> str:
 
     return prompt
 
+
+def _fetch_openai_sketch(prompt: str, default_url: str) -> str:
+    """Generate an image via OpenAI, upload to Cloudinary, return optimized URL."""
+    if not client:
+        return default_url
+
+    try:
+        response = client.images.generate(
+            model="dall-e-3",
+            prompt=prompt,
+            quality="standard",
+            style="vivid",
+            #n=1,
+            size="1024x1024",
+            #output_format="png",
+            response_format='b64_json'
+        )
+        if response.data and getattr(response.data[0], "b64_json", None):
+            base64_data = response.data[0].b64_json
+            image_bytes = base64.b64decode(base64_data)
+
+            # Upload to Cloudinary
+            upload_result = cloudinary.uploader.upload(
+                image_bytes,
+                folder="appertivo/dishes",
+                public_id=str(uuid.uuid4()),
+                overwrite=True,
+                resource_type="image",
+            )
+
+            # Cloudinary can deliver resized/optimized variants with URL params
+            optimized_url = cloudinary.CloudinaryImage(upload_result["public_id"]).build_url(
+                width=500,
+                height=500,
+                crop="fill",
+                quality="auto",
+                fetch_format="auto",
+            )
+            return optimized_url
+
+        logger.warning("OpenAI image response did not include b64_json data.")
+
+    except Exception as exc:
+        logger.warning("OpenAI image generation failed: %s", exc, exc_info=True)
+
+    return default_url
+
+
 def _fetch_openai_image(prompt: str, default_url: str) -> str:
     """Generate an image via OpenAI, upload to Cloudinary, return optimized URL."""
     if not client:
@@ -128,7 +176,7 @@ def _call_openai_for_concept_sketch(name: str, subtitle: str) -> str:
     """Return an OpenAI generated concept sketch or a placeholder image."""
 
     prompt = _concept_sketch_prompt(name, subtitle)
-    return _fetch_openai_image(prompt, DEFAULT_CONCEPT_IMAGE_URL)
+    return _fetch_openai_sketch(prompt, DEFAULT_CONCEPT_IMAGE_URL)
 
 
 
