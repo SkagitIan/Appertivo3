@@ -10,6 +10,11 @@ urlpatterns = [
     path("login/", app_views.login_view, name="login"),
     path("logout/", app_views.logout_view, name="logout"),
     path("dashboard/<uuid:restaurant_id>/", app_views.dashboard, name="dashboard"),
+    path(
+        "dashboard/<uuid:restaurant_id>/context-toggle/",
+        app_views.dashboard_context_toggle,
+        name="dashboard-context-toggle",
+    ),
 
 
     ## onboarding

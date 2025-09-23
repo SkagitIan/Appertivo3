@@ -3,24 +3,13 @@
 {% block title %}Dashboard — Appertivo{% endblock %}
 
 {% block page_intro %}
-  <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-    <div class="space-y-1">
-      <p class="text-xs font-semibold uppercase text-slate-400">Dashboard</p>
-      <h1 class="text-xl font-semibold text-[#14080E]">Welcome back, {{ request.user.first_name|default:"Chef" }}</h1>
-      <p class="text-sm text-slate-600">Here’s a quick look at how Appertivo is supporting {{ restaurant.name }}.</p>
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div class="space-y-1">
+        <p class="text-xs font-semibold uppercase text-slate-400">Dashboard</p>
+        <h1 class="text-xl font-semibold text-[#14080E]">Welcome back, {{ request.user.first_name|default:"Chef" }}</h1>
+        <p class="text-sm text-slate-600">Here’s a quick look at how Appertivo is supporting {{ restaurant.name }}.</p>
+      </div>
     </div>
-    <div class="flex flex-wrap items-center gap-2">
-      <a href="{% url 'concepts-generate' %}" class="inline-flex items-center gap-2 rounded-full bg-[#FF5C00] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#e05400]">
-        <span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-white">
-          <i class="fa-solid fa-sparkles text-xs" aria-hidden="true"></i>
-        </span>
-        New Concepts
-      </a>
-      <a href="{% url 'concepts' %}" class="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-[#14080E] transition hover:bg-slate-100">
-        Browse concepts
-      </a>
-    </div>
-  </div>
 {% endblock %}
 
 {% block page_content %}
@@ -71,41 +60,27 @@
 
     <section class="rounded-2xl border border-slate-200 bg-white p-6">
       <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 class="text-lg font-semibold text-[#14080E]">Restaurant context checklist</h2>
-          <p class="text-sm text-slate-600">Complete the basics so the assistant understands your restaurant.</p>
-        </div>
+        <h2 class="text-lg font-semibold text-[#14080E]">Restaurant context checklist</h2>
         <a href="{{ settings_url }}" class="inline-flex items-center gap-2 text-sm font-semibold text-[#FF5C00] hover:text-[#e05400]">Update settings</a>
       </div>
       <ul class="mt-4 grid gap-3 sm:grid-cols-3">
         {% for item in context_items %}
-          <li class="rounded-xl border border-slate-200 p-4">
-            <div class="flex items-start gap-3">
-              <span class="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full {% if item.present %}bg-emerald-100 text-emerald-600{% else %}bg-slate-100 text-slate-500{% endif %}">
-                {% if item.present %}
-                  <i class="fa-solid fa-check text-xs" aria-hidden="true"></i>
-                {% else %}
-                  <i class="fa-solid fa-plus text-xs" aria-hidden="true"></i>
-                {% endif %}
-              </span>
-              <div class="space-y-1">
-                <p class="text-sm font-semibold text-[#14080E]">{{ item.label }}</p>
-                <p class="text-sm text-slate-600">{{ item.description }}</p>
-                {% if not item.present %}
-                  <a href="{{ settings_url }}" class="text-sm font-semibold text-[#FF5C00] hover:text-[#e05400]">Add now</a>
-                {% endif %}
-              </div>
-            </div>
-          </li>
+          {% include "dashboard/_context_item.html" with item=item toggle_url=context_toggle_url settings_url=settings_url %}
         {% endfor %}
       </ul>
     </section>
 
     <div class="grid gap-4 lg:grid-cols-2">
       <section class="rounded-2xl border border-slate-200 bg-white p-6">
-        <div class="flex items-center justify-between gap-2">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h2 class="text-lg font-semibold text-[#14080E]">Recent concepts</h2>
-          <a href="{% url 'concepts' %}" class="text-sm font-semibold text-[#FF5C00] hover:text-[#e05400]">View all</a>
+          <div class="flex items-center gap-2">
+            <a href="{% url 'concepts-generate' %}" class="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-[#14080E] transition hover:bg-slate-100">
+              <i class="fa-solid fa-sparkles text-[10px]" aria-hidden="true"></i>
+              New run
+            </a>
+            <a href="{% url 'concepts' %}" class="text-sm font-semibold text-[#FF5C00] hover:text-[#e05400]">View all</a>
+          </div>
         </div>
         {% if recent_concepts %}
           <ul class="mt-4 space-y-3">
@@ -114,7 +89,12 @@
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p class="text-sm font-semibold text-[#14080E]">{{ concept.name }}</p>
-                    <p class="text-xs text-slate-500">Generated {{ concept.created_at|timesince }} ago</p>
+                    <p class="text-xs text-slate-500">
+                      {% if concept.runtime_display %}
+                        Ran in {{ concept.runtime_display }} •
+                      {% endif %}
+                      {{ concept.generated_at|timesince }} ago
+                    </p>
                   </div>
                   <a href="{% if concept.has_dishes %}{% url 'dish_detail' concept.id %}{% else %}{% url 'dishes-generate' concept.id %}{% endif %}" class="inline-flex items-center gap-2 text-sm font-semibold text-[#FF5C00] hover:text-[#e05400]">
                     {% if concept.has_dishes %}
@@ -135,7 +115,13 @@
 
       <section class="rounded-2xl border border-slate-200 bg-white p-6">
         <div class="flex items-center justify-between gap-2">
-          <h2 class="text-lg font-semibold text-[#14080E]">Recent dishes</h2>
+          <div class="flex items-center gap-2">
+            <h2 class="text-lg font-semibold text-[#14080E]">Favorite dishes</h2>
+            <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+              <i class="fa-solid fa-star text-[9px]" aria-hidden="true"></i>
+              Saved
+            </span>
+          </div>
           <a href="{% url 'favorites' %}" class="text-sm font-semibold text-[#FF5C00] hover:text-[#e05400]">See favorites</a>
         </div>
         {% if recent_dishes %}
@@ -152,9 +138,9 @@
                 <div class="flex-1 space-y-1">
                   <p class="text-sm font-semibold text-[#14080E]">{{ dish.title }}</p>
                   <p class="text-xs text-slate-500">Concept: {{ dish.parent_concept.name }}</p>
-                  <p class="text-xs text-slate-500">{{ dish.created_at|timesince }} ago</p>
+                  <p class="text-xs text-slate-500">Favorited {{ dish.favorited_at|timesince }} ago</p>
                 </div>
-                <a href="{% url 'dish_detail' dish.parent_concept.id %}" class="self-center text-sm font-semibold text-[#FF5C00] hover:text-[#e05400]">Open run</a>
+                <a href="{% url 'dish_detail' dish.parent_concept.id %}" class="self-center text-sm font-semibold text-[#FF5C00] hover:text-[#e05400]">&rsaquo;&rsaquo;</a>
               </li>
             {% endfor %}
           </ul>

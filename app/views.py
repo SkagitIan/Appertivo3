@@ -11,7 +11,12 @@ from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.db import IntegrityError, transaction
 from django.db.models import Exists, Max, OuterRef, Prefetch
-from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
+from django.http import (
+    HttpResponse,
+    HttpResponseBadRequest,
+    HttpResponseForbidden,
+    JsonResponse,
+)
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
@@ -230,8 +235,12 @@ def logout_view(request):
 @login_required
 def dashboard(request, restaurant_id):
     restaurant = get_object_or_404(
-        models.Restaurant.objects.select_related("account"),
+        models.Restaurant.objects.select_related("account", "restaurantsettings"),
         id=restaurant_id,
+    )
+
+    settings_obj, _ = models.RestaurantSettings.objects.get_or_create(
+        restaurant=restaurant
     )
 
     subscription = (
@@ -295,6 +304,7 @@ def dashboard(request, restaurant_id):
 
     concepts_qs = (
         models.Concept.objects.filter(restaurant=restaurant)
+        .select_related("ideation_run")
         .annotate(
             has_dishes=Exists(
                 models.DishIdea.objects.filter(
@@ -305,13 +315,25 @@ def dashboard(request, restaurant_id):
         .order_by("-created_at")
     )
     recent_concepts = list(concepts_qs[:4])
+    for concept in recent_concepts:
+        concept.runtime_display = format_run_duration(concept.ideation_run)
+        run_finished = (
+            concept.ideation_run.finished_at if concept.ideation_run else None
+        )
+        concept.generated_at = run_finished or concept.created_at
 
-    dishes_qs = (
-        models.DishIdea.objects.filter(restaurant=restaurant, is_deleted=False)
-        .select_related("parent_concept")
-        .order_by("-created_at")
+    favorite_dishes = list(
+        models.FavoriteDish.objects.filter(
+            user=request.user, dish__restaurant=restaurant
+        )
+        .select_related("dish__parent_concept")
+        .order_by("-favorited_at")[:4]
     )
-    recent_dishes = decorate_dishes_with_enhancements(dishes_qs[:4])
+    dishes_only = [fav.dish for fav in favorite_dishes]
+    recent_dishes = decorate_dishes_with_enhancements(dishes_only)
+    for fav, dish in zip(favorite_dishes, recent_dishes):
+        dish.is_favorited = True
+        dish.favorited_at = fav.favorited_at
 
     menus = list(
         models.MenuCollection.objects.filter(restaurant=restaurant)
@@ -334,25 +356,7 @@ def dashboard(request, restaurant_id):
         ]
         menu.menu_items = items
 
-    context_items = [
-        {
-            "label": "Menu on file",
-            "present": bool(
-                restaurant.primary_menu_url or restaurant.active_menu_version
-            ),
-            "description": "Menus keep concepts grounded in what you actually serve.",
-        },
-        {
-            "label": "Restaurant context",
-            "present": bool(restaurant.context_json),
-            "description": "Neighborhood, cuisine and vibe sharpen the AI suggestions.",
-        },
-        {
-            "label": "Story & description",
-            "present": bool(restaurant.description),
-            "description": "Share your story so dishes reflect your brand voice.",
-        },
-    ]
+    context_items = build_context_items(restaurant, settings_obj)
 
     context = {
         "restaurant": restaurant,
@@ -362,10 +366,58 @@ def dashboard(request, restaurant_id):
         "recent_dishes": recent_dishes,
         "menus": menus,
         "settings_url": reverse("settings"),
+        "context_toggle_url": reverse(
+            "dashboard-context-toggle", args=[restaurant.id]
+        ),
         "tbd_message": "Personalized tips will appear here soon.",
         "prompt_for_menu": not bool(restaurant.primary_menu_url),
     }
     return render(request, "dashboard.html", context)
+
+
+@login_required
+@require_POST
+def dashboard_context_toggle(request, restaurant_id):
+    restaurant = get_object_or_404(models.Restaurant, id=restaurant_id)
+    membership_exists = models.Membership.objects.filter(
+        account=restaurant.account, user=request.user
+    ).exists()
+    if not membership_exists:
+        return HttpResponseForbidden("not_allowed")
+
+    settings_obj, _ = models.RestaurantSettings.objects.get_or_create(
+        restaurant=restaurant
+    )
+
+    key = request.POST.get("key")
+    valid_keys = {item[0] for item in CONTEXT_ITEM_DEFINITIONS}
+    if key not in valid_keys:
+        return HttpResponseBadRequest("invalid_key")
+
+    include_values = request.POST.getlist("include")
+    include_raw = include_values[-1] if include_values else "false"
+    include = str(include_raw).lower() in {"1", "true", "yes", "on"}
+
+    context_flags = dict(settings_obj.llm_defaults.get("context_flags", {}))
+    context_flags[key] = include
+    settings_obj.llm_defaults["context_flags"] = context_flags
+    settings_obj.save(update_fields=["llm_defaults"])
+
+    context_items = build_context_items(restaurant, settings_obj)
+    item = next((item for item in context_items if item["key"] == key), None)
+    if not item:
+        return HttpResponseBadRequest("unknown_item")
+
+    html = render_to_string(
+        "dashboard/_context_item.html",
+        {
+            "item": item,
+            "settings_url": reverse("settings"),
+            "toggle_url": reverse("dashboard-context-toggle", args=[restaurant.id]),
+        },
+        request=request,
+    )
+    return HttpResponse(html)
 
 
 @login_required
@@ -816,6 +868,93 @@ def decorate_dishes_with_enhancements(dishes: Iterable[models.DishIdea],) -> Lis
             dish.enhancement_price_display = ""
 
     return dish_list
+
+
+CONTEXT_ITEM_DEFINITIONS = (
+    ("menu", "Menu synced"),
+    ("context", "Neighborhood & vibe"),
+    ("story", "Story & description"),
+)
+
+
+def build_context_items(
+    restaurant: models.Restaurant, settings_obj: models.RestaurantSettings
+) -> List[dict]:
+    """Return context checklist items with presence + preference state."""
+
+    context_flags = dict(settings_obj.llm_defaults.get("context_flags", {}))
+    items: List[dict] = []
+
+    presence_map = {
+        "menu": bool(restaurant.primary_menu_url or restaurant.active_menu_version),
+        "context": bool(restaurant.context_json),
+        "story": bool(restaurant.description),
+    }
+
+    updated = False
+    for key, _ in CONTEXT_ITEM_DEFINITIONS:
+        if key not in context_flags:
+            context_flags[key] = presence_map.get(key, False)
+            updated = True
+
+    if updated:
+        settings_obj.llm_defaults["context_flags"] = context_flags
+        settings_obj.save(update_fields=["llm_defaults"])
+
+    for key, label in CONTEXT_ITEM_DEFINITIONS:
+        present = presence_map.get(key, False)
+        include_preference = bool(context_flags.get(key))
+        included = include_preference and present
+        status = "missing"
+        if present and included:
+            status = "included"
+        elif present:
+            status = "excluded"
+        items.append(
+            {
+                "key": key,
+                "label": label,
+                "present": present,
+                "included": included,
+                "status": status,
+            }
+        )
+
+    return items
+
+
+def format_run_duration(run: Optional[models.IdeationRun]) -> Optional[str]:
+    """Return a short string describing the runtime for a concept run."""
+
+    if not run:
+        return None
+
+    started = run.started_at or run.created_at
+    finished = run.finished_at or timezone.now()
+    if not started or not finished:
+        return None
+
+    delta = finished - started
+    total_seconds = int(delta.total_seconds())
+    if total_seconds < 1:
+        return "<1s"
+
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    seconds = total_seconds % 60
+
+    parts: List[str] = []
+    if hours:
+        parts.append(f"{hours}h")
+    if minutes:
+        parts.append(f"{minutes}m")
+    if seconds and not hours:
+        parts.append(f"{seconds}s")
+
+    if not parts:
+        parts.append("<1s")
+
+    return " ".join(parts)
 
 
 def ensure_dish_enhancement(dish: models.DishIdea, user: Optional[User]) -> Optional[models.Enhancement]:

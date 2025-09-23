@@ -573,6 +573,19 @@ class ViewSmokeTests(TestCase):
         response = self.client.get(reverse("dashboard", args=[self.restaurant.id]))
         self.assertNotIn("show_menu_modal", response.content.decode())
 
+    def test_dashboard_context_toggle_updates_preference(self):
+        self.restaurant.description = "Tasty story"
+        self.restaurant.save(update_fields=["description"])
+
+        toggle_url = reverse("dashboard-context-toggle", args=[self.restaurant.id])
+        resp = self.client.post(toggle_url, {"key": "story", "include": "false"})
+        self.assertEqual(resp.status_code, 200)
+
+        settings = self.restaurant.restaurantsettings
+        settings.refresh_from_db()
+        self.assertIn("context_flags", settings.llm_defaults)
+        self.assertFalse(settings.llm_defaults["context_flags"]["story"])
+
     def test_logout_via_get_redirects(self):
         response = self.client.get(reverse("logout"))
         self.assertEqual(response.status_code, 302)
