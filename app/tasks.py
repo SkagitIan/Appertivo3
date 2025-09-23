@@ -16,6 +16,28 @@ from openai import OpenAI
 _openai_api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=_openai_api_key) if _openai_api_key else None
 
+
+@shared_task
+def create_ideation_run(restaurant_id, user_id, context):
+    IdeationRun = apps.get_model("yourappname", "IdeationRun")
+    Restaurant = apps.get_model("yourappname", "Restaurant")
+    User = apps.get_model("auth", "User")
+
+    restaurant = Restaurant.objects.get(id=restaurant_id)
+    user = User.objects.get(id=user_id)
+
+    run = IdeationRun.objects.create(
+        restaurant=restaurant,
+        initiated_by_user=user,
+        type=IdeationRun.RunType.CONCEPTS,
+        model_name="gpt-4.1-mini",
+        temperature=0.5,
+        classic_creative=50,
+        context_snapshot={"context": context},
+        status=IdeationRun.Status.SUCCEEDED,
+    )
+    return run.id
+    
 @shared_task
 def run_outscraper_search(payload_id: str) -> dict:
     """Call the Outscraper API and store the response."""
