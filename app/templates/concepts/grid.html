@@ -1,4 +1,4 @@
-{% extends "base_logged_in.html" %}
+{% extends "layouts/app.html" %}
 
 {% block page_intro %}
   <div class="space-y-1">
@@ -9,7 +9,7 @@
   </div>
 {% endblock %}
 
-{% block content %}
+{% block page_content %}
 {% include "concepts/_card_assets.html" %}
 <style>
   #concepts-loading.htmx-request {

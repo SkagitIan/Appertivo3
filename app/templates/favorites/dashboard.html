@@ -1,4 +1,4 @@
-{% extends "base_logged_in.html" %}
+{% extends "layouts/app.html" %}
 {% block title %}Favorites — Appertivo{% endblock %}
 
 {% block page_intro %}
@@ -10,7 +10,7 @@
   </div>
 {% endblock %}
 
-{% block content %}
+{% block page_content %}
 {% include "concepts/_card_assets.html" %}
 {% include "dishes/_card_assets.html" %}
 <style>
