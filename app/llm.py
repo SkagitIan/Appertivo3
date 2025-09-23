@@ -53,13 +53,20 @@ def _dish_image_prompt(title: str, description: str) -> str:
     """Return the prompt text for generating a dish image."""
 
     description_text = description or ""
-    return (
-        "Create a realistic professional photograph of the following dish. "
-        
-        f"Title: {title}\n"
-        f"Description: {description_text}"
-        "This should be a very beautiful work of art dish, prepared by a chef in a restaurant."
-    )
+    prompt = f"""
+    "Professional food photography of {title}. {description_text}. Shot with a DSLR camera using a 50mm
+    macro lens at f/2.8 aperture for shallow depth of field. Soft natural lighting from a large window with
+    white diffusion, creating gentle shadows and highlights that enhance texture. The dish is beautifully
+    plated on an appropriate serving vessel - white ceramic for colorful dishes, dark slate or wood for
+    lighter foods. Clean, minimalist styling on a neutral surface with subtle texture. Background softly
+    blurred in warm, muted tones. Fresh ingredients show natural moisture, steam, or appropriate
+    garnishes. Colors are rich and saturated but natural-looking. Sharp focus on the hero elements
+    of the dish with beautiful bokeh. Commercial food photography style reminiscent of Cook's
+    Illustrated or Saveur magazine. Photorealistic, high detail, appetizing presentation.
+    """
+
+
+    return prompt
 
 def _fetch_openai_image(prompt: str, default_url: str) -> str:
     """Generate an image via OpenAI, upload to Cloudinary, return optimized URL."""
@@ -70,10 +77,12 @@ def _fetch_openai_image(prompt: str, default_url: str) -> str:
         response = client.images.generate(
             model="gpt-image-1",
             prompt=prompt,
-            quality="high",
-            n=1,
+            #quality="hd",
+            #style="natural",
+            #n=1,
             size="1024x1024",
-            output_format="png",
+            #output_format="png",
+            #response_format='b64_json'
         )
         if response.data and getattr(response.data[0], "b64_json", None):
             base64_data = response.data[0].b64_json
@@ -131,9 +140,7 @@ def _format_menu_snapshot(restaurant: models.Restaurant) -> Dict[str, Optional[s
     }
 
 
-def _call_openai_for_price(
-    dish: models.DishIdea, menu_snapshot: Dict[str, Optional[str]]
-) -> Dict[str, Optional[str]]:
+def _call_openai_for_price(dish: models.DishIdea, menu_snapshot: Dict[str, Optional[str]]) -> Dict[str, Optional[str]]:
     """Return pricing info using OpenAI or deterministic fallback."""
 
     fallback = {
