@@ -41,21 +41,10 @@
 </style>
 <div class="max-w-7xl mx-auto px-4 py-4 space-y-6">
 
-  <div id="concepts-grid" class="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+  <div id="concepts-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4
+            gap-2 sm:gap-3 md:gap-4 lg:gap-4 xl:gap-5">
     {% include 'concepts/_concepts_grid.html' %}
   </div>
 
-  <div class="pt-2">
-    <button
-      id="concepts-favorites-btn"
-      hx-get="{% url 'concepts-favorites' %}"
-      hx-target="#concepts-favorites"
-      hx-swap="innerHTML"
-      class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:bg-white hover:text-[#49475B]"
-    >
-      <span>See favorites</span>
-    </button>
-    <div id="concepts-favorites" class="mt-6"></div>
-  </div>
 </div>
 {% endblock %}
