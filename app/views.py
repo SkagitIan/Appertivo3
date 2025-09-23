@@ -24,7 +24,7 @@ from . import models
 import base64
 import cloudinary.uploader
 from openai import OpenAI
-from app.llm import _fetch_openai_image
+from app.llm import _fetch_openai_image, _fetch_gemini_image
 from dotenv import load_dotenv
 load_dotenv()
 _openai_api_key = os.getenv("OPENAI_API_KEY")
@@ -717,7 +717,7 @@ def ensure_dish_enhancement(dish: models.DishIdea, user: Optional[User]) -> Opti
         logger.warning("Enhancement request failed: %s", exc, exc_info=True)
         return None
 
-    image_url = _fetch_openai_image(
+    image_url = _fetch_gemini_image(
             prompt=f"Plated dish photo of {dish.title}: {dish.description}",
             default_url=llm.DEFAULT_IMAGE_URL,
         )

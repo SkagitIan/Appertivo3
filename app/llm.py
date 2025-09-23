@@ -54,17 +54,7 @@ def _dish_image_prompt(title: str, description: str) -> str:
 
     description_text = description or ""
     prompt = f"""
-    "Professional food photography of {title}. {description_text}. Shot with a DSLR camera using a 35mm lens 
-    at f/4 aperture, positioned as if seated at the table looking down at the meal. The dish is freshly 
-    plated and just set down on a complete table setting - white linen tablecloth or clean wooden 
-    table, with silverware properly placed, cloth napkin, and a water glass or appropriate beverage 
-    visible in frame. Soft overhead restaurant lighting with warm ambient tones, creating natural shadows. 
-    The plate appears to have just arrived - garnishes are fresh, sauces haven't been touched, and any hot 
-    dishes show gentle steam rising. Include subtle details like breadcrumbs on the table or a partially 
-    visible menu edge to enhance the dining experience feel. Colors are natural and inviting. Sharp focus 
-    on the main dish with the table setting softly detailed. The composition feels intimate and welcoming, 
-    like you're about to take your first bite. Restaurant photography style with a lived-in, authentic 
-    dining atmosphere."
+    "Professional food photography of {title}. {description_text}.
     """
 
 
@@ -114,6 +104,55 @@ def _fetch_openai_sketch(prompt: str, default_url: str) -> str:
 
     except Exception as exc:
         logger.warning("OpenAI image generation failed: %s", exc, exc_info=True)
+
+    return default_url
+
+def _fetch_gemini_image(prompt: str, default_url: str) -> str:
+    """Generate an image via Gemini, upload to Cloudinary, return optimized URL."""
+    try:
+        from google import genai
+        from io import BytesIO
+        import base64
+        import uuid
+        import cloudinary
+        import cloudinary.uploader
+        import cloudinary.api
+
+        client = genai.Client()
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash-image-preview",
+            contents=[prompt],
+        )
+
+        # Loop through response parts looking for image data
+        for candidate in response.candidates:
+            for part in candidate.content.parts:
+                if getattr(part, "inline_data", None):
+                    image_bytes = BytesIO(part.inline_data.data)
+
+                    # Upload to Cloudinary
+                    upload_result = cloudinary.uploader.upload(
+                        image_bytes,
+                        folder="appertivo/dishes",
+                        public_id=str(uuid.uuid4()),
+                        overwrite=True,
+                        resource_type="image",
+                    )
+
+                    # Build optimized URL
+                    optimized_url = cloudinary.CloudinaryImage(upload_result["public_id"]).build_url(
+                        width=500,
+                        height=500,
+                        crop="fill",
+                        quality="auto",
+                        fetch_format="auto",
+                    )
+                    return optimized_url
+
+        logger.warning("Gemini image response did not include inline_data.")
+    except Exception as exc:
+        logger.warning("Gemini image generation failed: %s", exc, exc_info=True)
 
     return default_url
 
@@ -169,7 +208,7 @@ def _call_openai_for_image(title: str, description: str) -> str:
     """Return a data URL for the generated dish image using the OpenAI Images API."""
 
     prompt = _dish_image_prompt(title, description)
-    return _fetch_openai_image(prompt, DEFAULT_IMAGE_URL)
+    return _fetch_gemini_image(prompt, DEFAULT_IMAGE_URL)
 
 
 def _call_openai_for_concept_sketch(name: str, subtitle: str) -> str:
