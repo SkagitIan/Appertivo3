@@ -2,107 +2,231 @@
 
 {% block title %}Dashboard — Appertivo{% endblock %}
 
-{% block page_content %}
-<div class="min-h-screen bg-gradient-to-br from-[#2E005D] via-[#5C008B] to-[#8E008B] text-white p-6 relative">
-
-  <!-- HEADER -->
-  <header class="mb-8 text-center">
-    <h1 class="text-3xl font-bold">Welcome back, {{ request.user.first_name|default:"Chef" }}</h1>
-    <p class="text-indigo-200 text-lg">Your AI-powered culinary partner</p>
-  </header>
-{{restaurant}}
-  <!-- STATUS WIDGET -->
-  <div id="restaurant-status"
-       hx-get="{% url 'restaurant_status' restaurant.id %}"
-       hx-trigger="load, every 5s"
-       hx-target="#restaurant-status"
-       hx-swap="outerHTML"
-       class="mb-8">
-    <div class="bg-white/10 rounded-xl p-4 flex items-center space-x-3 animate-pulse">
-      <span class="h-3 w-3 rounded-full bg-indigo-300 animate-bounce"></span>
-      <p class="text-indigo-200 font-medium">We’re preparing your AI menu assistant…</p>
+{% block page_intro %}
+  <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div class="space-y-1">
+      <p class="text-xs font-semibold uppercase text-slate-400">Dashboard</p>
+      <h1 class="text-xl font-semibold text-[#14080E]">Welcome back, {{ request.user.first_name|default:"Chef" }}</h1>
+      <p class="text-sm text-slate-600">Here’s a quick look at how Appertivo is supporting {{ restaurant.name }}.</p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <a href="{% url 'concepts-generate' %}" class="inline-flex items-center gap-2 rounded-full bg-[#FF5C00] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#e05400]">
+        <span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-white">
+          <i class="fa-solid fa-sparkles text-xs" aria-hidden="true"></i>
+        </span>
+        New Concepts
+      </a>
+      <a href="{% url 'concepts' %}" class="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-[#14080E] transition hover:bg-slate-100">
+        Browse concepts
+      </a>
     </div>
   </div>
+{% endblock %}
 
-  <!-- MAIN CONTENT GRID -->
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+{% block page_content %}
+  <div class="px-4 py-6 space-y-6">
+    <div class="grid gap-4 lg:grid-cols-3">
+      <section class="lg:col-span-2 rounded-2xl border border-slate-200 bg-white p-6">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <p class="text-xs font-semibold uppercase text-slate-400">Daily spark</p>
+            <p class="mt-3 text-sm text-slate-600">{{ tbd_message }}</p>
+          </div>
+          <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#FF5C00]/10 text-[#FF5C00]">
+            <i class="fa-solid fa-robot" aria-hidden="true"></i>
+          </span>
+        </div>
+      </section>
+      <section class="rounded-2xl border border-slate-200 bg-white p-6">
+        <p class="text-xs font-semibold uppercase text-slate-400">Plan status</p>
+        <div class="mt-3 space-y-2">
+          <p class="text-lg font-semibold text-[#14080E]">{{ trial_info.label }}</p>
+          {% if trial_info.is_trial and trial_info.countdown_display %}
+            <p class="text-sm text-slate-600">Trial ends {{ trial_info.ends_at|date:"M j, Y" }} • {{ trial_info.countdown_display }}</p>
+          {% elif not trial_info.is_trial %}
+            <p class="text-sm text-slate-600">Manage billing any time to keep service uninterrupted.</p>
+          {% endif %}
+        </div>
+        {% if trial_info.show_upgrade %}
+          <a href="{% url 'billing-upgrade' %}" class="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#FF5C00] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#e05400]">
+            {{ trial_info.action_label }}
+          </a>
+        {% endif %}
+      </section>
+    </div>
 
-    <!-- FAVORITES / ENHANCED DISHES -->
-    <section class="bg-white rounded-2xl shadow-lg p-6 text-gray-900">
-      <h2 class="text-xl font-semibold text-[#2E005D] mb-4">Favorites (The Gallery)</h2>
-      {% if favorites %}
-        <div class="space-y-4">
-          {% for dish in favorites %}
-            <div class="rounded-xl overflow-hidden shadow hover:shadow-md transition bg-gray-50">
-              <img src="{{ dish.image_url|default:'/static/img/placeholder.png' }}"
-                   alt="{{ dish.title }}"
-                   class="w-full h-40 object-cover">
-              <div class="p-4">
-                <h3 class="font-bold text-[#49475B]">{{ dish.title }}</h3>
-                <p class="text-sm text-gray-600 line-clamp-2">{{ dish.description }}</p>
-                <div class="mt-2 flex flex-wrap gap-2">
-                  {% for tag in dish.category_tags %}
-                    <span class="px-2 py-1 rounded-full text-xs font-medium bg-[#58B09C] text-white">{{ tag }}</span>
-                  {% endfor %}
-                </div>
+    <div
+      id="restaurant-status"
+      hx-get="{% url 'restaurant_status' restaurant.id %}"
+      hx-trigger="load, every 20s"
+      hx-target="#restaurant-status"
+      hx-swap="outerHTML"
+      class="rounded-2xl border border-slate-200 bg-white p-6"
+    >
+      <div class="flex items-center gap-3">
+        <span class="inline-flex h-3 w-3 animate-pulse rounded-full bg-emerald-500"></span>
+        <p class="text-sm text-slate-600">Checking menu status…</p>
+      </div>
+    </div>
+
+    <section class="rounded-2xl border border-slate-200 bg-white p-6">
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 class="text-lg font-semibold text-[#14080E]">Restaurant context checklist</h2>
+          <p class="text-sm text-slate-600">Complete the basics so the assistant understands your restaurant.</p>
+        </div>
+        <a href="{{ settings_url }}" class="inline-flex items-center gap-2 text-sm font-semibold text-[#FF5C00] hover:text-[#e05400]">Update settings</a>
+      </div>
+      <ul class="mt-4 grid gap-3 sm:grid-cols-3">
+        {% for item in context_items %}
+          <li class="rounded-xl border border-slate-200 p-4">
+            <div class="flex items-start gap-3">
+              <span class="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full {% if item.present %}bg-emerald-100 text-emerald-600{% else %}bg-slate-100 text-slate-500{% endif %}">
+                {% if item.present %}
+                  <i class="fa-solid fa-check text-xs" aria-hidden="true"></i>
+                {% else %}
+                  <i class="fa-solid fa-plus text-xs" aria-hidden="true"></i>
+                {% endif %}
+              </span>
+              <div class="space-y-1">
+                <p class="text-sm font-semibold text-[#14080E]">{{ item.label }}</p>
+                <p class="text-sm text-slate-600">{{ item.description }}</p>
+                {% if not item.present %}
+                  <a href="{{ settings_url }}" class="text-sm font-semibold text-[#FF5C00] hover:text-[#e05400]">Add now</a>
+                {% endif %}
               </div>
             </div>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+
+    <div class="grid gap-4 lg:grid-cols-2">
+      <section class="rounded-2xl border border-slate-200 bg-white p-6">
+        <div class="flex items-center justify-between gap-2">
+          <h2 class="text-lg font-semibold text-[#14080E]">Recent concepts</h2>
+          <a href="{% url 'concepts' %}" class="text-sm font-semibold text-[#FF5C00] hover:text-[#e05400]">View all</a>
+        </div>
+        {% if recent_concepts %}
+          <ul class="mt-4 space-y-3">
+            {% for concept in recent_concepts %}
+              <li class="rounded-xl border border-slate-200 p-4">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p class="text-sm font-semibold text-[#14080E]">{{ concept.name }}</p>
+                    <p class="text-xs text-slate-500">Generated {{ concept.created_at|timesince }} ago</p>
+                  </div>
+                  <a href="{% if concept.has_dishes %}{% url 'dish_detail' concept.id %}{% else %}{% url 'dishes-generate' concept.id %}{% endif %}" class="inline-flex items-center gap-2 text-sm font-semibold text-[#FF5C00] hover:text-[#e05400]">
+                    {% if concept.has_dishes %}
+                      See dish ideas
+                    {% else %}
+                      Generate dishes
+                    {% endif %}
+                    <i class="fa-solid fa-arrow-right text-xs" aria-hidden="true"></i>
+                  </a>
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="mt-4 text-sm text-slate-600">No concepts yet. <a href="{% url 'concepts-generate' %}" class="font-semibold text-[#FF5C00] hover:text-[#e05400]">Generate the first set</a>.</p>
+        {% endif %}
+      </section>
+
+      <section class="rounded-2xl border border-slate-200 bg-white p-6">
+        <div class="flex items-center justify-between gap-2">
+          <h2 class="text-lg font-semibold text-[#14080E]">Recent dishes</h2>
+          <a href="{% url 'favorites' %}" class="text-sm font-semibold text-[#FF5C00] hover:text-[#e05400]">See favorites</a>
+        </div>
+        {% if recent_dishes %}
+          <ul class="mt-4 space-y-3">
+            {% for dish in recent_dishes %}
+              <li class="flex gap-3 rounded-xl border border-slate-200 p-4">
+                {% if dish.enhancement_image_url %}
+                  <img src="{{ dish.enhancement_image_url }}" alt="{{ dish.title }}" class="h-16 w-16 rounded-lg object-cover" />
+                {% else %}
+                  <div class="flex h-16 w-16 items-center justify-center rounded-lg bg-slate-100 text-slate-400">
+                    <i class="fa-solid fa-bowl-food" aria-hidden="true"></i>
+                  </div>
+                {% endif %}
+                <div class="flex-1 space-y-1">
+                  <p class="text-sm font-semibold text-[#14080E]">{{ dish.title }}</p>
+                  <p class="text-xs text-slate-500">Concept: {{ dish.parent_concept.name }}</p>
+                  <p class="text-xs text-slate-500">{{ dish.created_at|timesince }} ago</p>
+                </div>
+                <a href="{% url 'dish_detail' dish.parent_concept.id %}" class="self-center text-sm font-semibold text-[#FF5C00] hover:text-[#e05400]">Open run</a>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="mt-4 text-sm text-slate-600">Generate dishes from a concept to see them here.</p>
+        {% endif %}
+      </section>
+    </div>
+
+    <section class="rounded-2xl border border-slate-200 bg-white p-6">
+      <div class="flex items-center justify-between gap-2">
+        <div>
+          <h2 class="text-lg font-semibold text-[#14080E]">Menus</h2>
+          <p class="text-sm text-slate-600">Peek at the dishes grouped for service.</p>
+        </div>
+        <a href="{% url 'menus' %}" class="text-sm font-semibold text-[#FF5C00] hover:text-[#e05400]">Manage menus</a>
+      </div>
+      {% if menus %}
+        <div class="mt-4 space-y-3">
+          {% for menu in menus %}
+            <details class="rounded-xl border border-slate-200 p-4" {% if forloop.first %}open{% endif %}>
+              <summary class="flex cursor-pointer items-center justify-between gap-2 text-sm font-semibold text-[#14080E]">
+                <span>{{ menu.name }}</span>
+                <span class="text-xs font-medium text-slate-500">{{ menu.menu_items|length }} dishes</span>
+              </summary>
+              <ul class="mt-3 space-y-2 text-sm text-slate-600">
+                {% if menu.menu_items %}
+                  {% for item in menu.menu_items %}
+                    <li class="flex items-center justify-between gap-3">
+                      <span>{{ item.dish.title }}</span>
+                      <a href="{% url 'dish_detail' item.dish.parent_concept.id %}" class="text-xs font-semibold text-[#FF5C00] hover:text-[#e05400]">Open</a>
+                    </li>
+                  {% endfor %}
+                {% else %}
+                  <li>No dishes added yet.</li>
+                {% endif %}
+              </ul>
+            </details>
           {% endfor %}
         </div>
       {% else %}
-        <p class="text-gray-500">You haven’t favorited any dishes yet.</p>
+        <p class="mt-4 text-sm text-slate-600">Build a menu to group your favorite dishes for events or service.</p>
       {% endif %}
     </section>
 
-    <!-- LATEST CONCEPTS -->
-    <section class="bg-white rounded-2xl shadow-lg p-6 text-gray-900">
-      <h2 class="text-xl font-semibold text-[#2E005D] mb-4">Latest Concepts</h2>
-      {% if concepts %}
-        <ul class="space-y-3">
-          {% for concept in concepts %}
-            <li class="p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition">
-              <span class="font-medium text-[#5C008B]">{{ concept.name }}</span>
-            </li>
-          {% endfor %}
-        </ul>
-      {% else %}
-        <p class="text-gray-500">No concepts yet — <a href="{% url 'concepts-generate' %}" class="text-[#f08000] font-medium hover:underline">generate new ones</a>.</p>
-      {% endif %}
-    </section>
-
-    <!-- QUICK ACTIONS -->
-    <section class="bg-white rounded-2xl shadow-lg p-6 text-gray-900 flex flex-col justify-between">
-      <h2 class="text-xl font-semibold text-[#2E005D] mb-4">Quick Actions</h2>
-      <div class="space-y-4">
-        <a href="{% url 'concepts-generate' %}"
-           class="block w-full text-center px-4 py-3 rounded-xl bg-gradient-to-r from-[#FF8300] to-[#FF5C00] text-white font-semibold shadow hover:scale-105 transition">
-          Generate New Concepts
-        </a>
-        <a href="{% url 'settings' %}"
-           class="block w-full text-center px-4 py-3 rounded-xl border border-[#5C008B] text-[#5C008B] font-semibold hover:bg-[#5C008B] hover:text-white transition">
-          Settings
-        </a>
+    <section class="rounded-2xl border border-slate-200 bg-white p-6">
+      <h2 class="text-lg font-semibold text-[#14080E]">Need a hand?</h2>
+      <p class="mt-2 text-sm text-slate-600">Reach our customer support team for help with menus, billing, or AI prompts.</p>
+      <div class="mt-4 space-y-2 text-sm text-slate-600">
+        <p><i class="fa-solid fa-envelope text-[#FF5C00]" aria-hidden="true"></i> <a href="mailto:support@appertivo.com" class="font-semibold text-[#FF5C00] hover:text-[#e05400]">support@appertivo.com</a></p>
+        <p><i class="fa-solid fa-clock text-[#FF5C00]" aria-hidden="true"></i> Weekdays 9am – 6pm PT</p>
+        <p><i class="fa-solid fa-message text-[#FF5C00]" aria-hidden="true"></i> In-app chat coming soon.</p>
       </div>
     </section>
-
   </div>
-</div>
-{% if prompt_for_menu %}
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-  const modalTarget = document.getElementById('menu-modal');
-  if (!modalTarget) {
-    return;
-  }
-  fetch('{% url 'show_menu_modal' restaurant.id %}', {
-    headers: {
-      'X-Requested-With': 'XMLHttpRequest'
-    }
-  })
-    .then(function (response) { return response.text(); })
-    .then(function (html) { modalTarget.innerHTML = html; })
-    .catch(function () {});
-});
-</script>
-{% endif %}
+
+  {% if prompt_for_menu %}
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        const modalTarget = document.getElementById('menu-modal');
+        if (!modalTarget) {
+          return;
+        }
+        fetch('{% url 'show_menu_modal' restaurant.id %}', {
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+          }
+        })
+          .then(function (response) { return response.text(); })
+          .then(function (html) { modalTarget.innerHTML = html; })
+          .catch(function () {});
+      });
+    </script>
+  {% endif %}
 {% endblock %}

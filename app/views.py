@@ -231,21 +231,138 @@ def logout_view(request):
 def dashboard(request, restaurant_id):
     restaurant = get_object_or_404(
         models.Restaurant.objects.select_related("account"),
-        id=restaurant_id
+        id=restaurant_id,
     )
-    recent_runs = (
-        models.IdeationRun.objects.filter(restaurant=restaurant)
-        .order_by("-created_at")[:5]
-    )
+
     subscription = (
         models.Subscription.objects.filter(account=restaurant.account)
         .order_by("-created_at")
         .first()
     )
+
+    trial_info = {
+        "label": "Free preview",
+        "is_trial": False,
+        "ends_at": None,
+        "days_remaining": None,
+        "hours_remaining": None,
+        "countdown_display": None,
+        "show_upgrade": True,
+        "action_label": "Upgrade plan",
+    }
+
+    if subscription:
+        status = subscription.status
+        display = subscription.get_status_display()
+        if status == models.Subscription.Status.ACTIVE:
+            trial_info["label"] = "Active plan"
+        elif status == models.Subscription.Status.TRIALING:
+            trial_info["label"] = "Free trial"
+        else:
+            trial_info["label"] = display
+        trial_info["show_upgrade"] = subscription.status in {
+            models.Subscription.Status.TRIALING,
+            models.Subscription.Status.PAST_DUE,
+            models.Subscription.Status.CANCELED,
+        }
+        if subscription.status == models.Subscription.Status.ACTIVE:
+            trial_info["action_label"] = "Manage billing"
+        if subscription.status == models.Subscription.Status.TRIALING:
+            trial_info["is_trial"] = True
+            trial_info["action_label"] = "Upgrade plan"
+            if subscription.current_period_end:
+                remaining = subscription.current_period_end - timezone.now()
+                total_seconds = int(max(remaining.total_seconds(), 0))
+                days = total_seconds // 86400
+                hours = (total_seconds % 86400) // 3600
+                trial_info.update(
+                    {
+                        "ends_at": subscription.current_period_end,
+                        "days_remaining": days,
+                        "hours_remaining": hours,
+                        "countdown_display": f"{days}d {hours}h remaining",
+                    }
+                )
+        elif subscription.status == models.Subscription.Status.PAST_DUE:
+            trial_info["action_label"] = "Update payment"
+        elif subscription.status == models.Subscription.Status.CANCELED:
+            trial_info["action_label"] = "Restart plan"
+        elif subscription.status not in {
+            models.Subscription.Status.PAST_DUE,
+            models.Subscription.Status.CANCELED,
+        }:
+            trial_info["show_upgrade"] = False
+
+    concepts_qs = (
+        models.Concept.objects.filter(restaurant=restaurant)
+        .annotate(
+            has_dishes=Exists(
+                models.DishIdea.objects.filter(
+                    parent_concept=OuterRef("pk"), is_deleted=False
+                )
+            )
+        )
+        .order_by("-created_at")
+    )
+    recent_concepts = list(concepts_qs[:4])
+
+    dishes_qs = (
+        models.DishIdea.objects.filter(restaurant=restaurant, is_deleted=False)
+        .select_related("parent_concept")
+        .order_by("-created_at")
+    )
+    recent_dishes = decorate_dishes_with_enhancements(dishes_qs[:4])
+
+    menus = list(
+        models.MenuCollection.objects.filter(restaurant=restaurant)
+        .prefetch_related(
+            Prefetch(
+                "menuitem_set",
+                queryset=models.MenuItem.objects.select_related(
+                    "dish",
+                    "dish__parent_concept",
+                ).order_by("position", "created_at"),
+            )
+        )
+        .order_by("-created_at")[:4]
+    )
+    for menu in menus:
+        items = [
+            item
+            for item in menu.menuitem_set.all()
+            if item.dish and not item.dish.is_deleted
+        ]
+        menu.menu_items = items
+
+    context_items = [
+        {
+            "label": "Menu on file",
+            "present": bool(
+                restaurant.primary_menu_url or restaurant.active_menu_version
+            ),
+            "description": "Menus keep concepts grounded in what you actually serve.",
+        },
+        {
+            "label": "Restaurant context",
+            "present": bool(restaurant.context_json),
+            "description": "Neighborhood, cuisine and vibe sharpen the AI suggestions.",
+        },
+        {
+            "label": "Story & description",
+            "present": bool(restaurant.description),
+            "description": "Share your story so dishes reflect your brand voice.",
+        },
+    ]
+
     context = {
         "restaurant": restaurant,
-        "recent_runs": recent_runs,
-        "subscription_status": getattr(subscription, "status", "free"),
+        "trial_info": trial_info,
+        "context_items": context_items,
+        "recent_concepts": recent_concepts,
+        "recent_dishes": recent_dishes,
+        "menus": menus,
+        "settings_url": reverse("settings"),
+        "tbd_message": "Personalized tips will appear here soon.",
         "prompt_for_menu": not bool(restaurant.primary_menu_url),
     }
     return render(request, "dashboard.html", context)
