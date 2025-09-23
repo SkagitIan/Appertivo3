@@ -165,6 +165,18 @@ class ViewSmokeTests(TestCase):
         )
         self.assertEqual(resp.context["menu_move_url"], reverse("menu-item-move"))
 
+    def test_dish_detail_excludes_deleted_dishes(self):
+        self._create_concepts()
+        concept = models.Concept.objects.first()
+        self._create_dishes(concept)
+        dish = models.DishIdea.objects.first()
+        dish.is_deleted = True
+        dish.save(update_fields=["is_deleted"])
+
+        resp = self.client.get(reverse("dish_detail", args=[concept.id]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotContains(resp, dish.title)
+
     def test_dish_delete_removes_dish_and_assets(self):
         self._create_concepts()
         concept = models.Concept.objects.first()
@@ -187,7 +199,11 @@ class ViewSmokeTests(TestCase):
         resp = self.client.post(reverse("dish-delete", args=[dish.id]))
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.content, b"")
-        self.assertFalse(models.DishIdea.objects.filter(id=dish.id).exists())
+        dish.refresh_from_db()
+        self.assertTrue(dish.is_deleted)
+        self.assertFalse(
+            models.Enhancement.objects.filter(dish_id=dish.id).exists()
+        )
         self.assertFalse(models.Asset.objects.filter(id=asset.id).exists())
 
     def test_dish_delete_requires_membership(self):
