@@ -296,6 +296,66 @@
   if (!window.__dishCardEnhancements) {
     window.__dishCardEnhancements = true;
 
+    const dishGridId = "dishes-grid";
+    const dishGridSelector = "#dishes-grid";
+    const dishCardSelector = "[data-dish-card]";
+
+    const reorderDishCards = () => {
+      const grid = document.querySelector(dishGridSelector);
+      if (!grid) {
+        return;
+      }
+      const cards = Array.from(grid.querySelectorAll(dishCardSelector));
+      if (cards.length < 2) {
+        return;
+      }
+      const favorites = [];
+      const others = [];
+      cards.forEach((card) => {
+        if (card.dataset && card.dataset.favorited === "true") {
+          favorites.push(card);
+        } else {
+          others.push(card);
+        }
+      });
+      const orderedCards = favorites.concat(others);
+      orderedCards.forEach((card) => {
+        grid.appendChild(card);
+      });
+    };
+
+    const scheduleDishReorder = () => {
+      if (typeof requestAnimationFrame === "function") {
+        requestAnimationFrame(reorderDishCards);
+      } else {
+        setTimeout(reorderDishCards, 0);
+      }
+    };
+
+    const dishTargetNeedsReorder = (target) => {
+      if (!target) {
+        return false;
+      }
+      if (target.id === dishGridId) {
+        return true;
+      }
+      if (typeof target.matches === "function" && target.matches(dishCardSelector)) {
+        return true;
+      }
+      if (typeof target.closest === "function") {
+        const grid = target.closest(dishGridSelector);
+        if (grid) {
+          return true;
+        }
+      }
+      if (typeof target.querySelector === "function" && target.querySelector(dishCardSelector)) {
+        return true;
+      }
+      return false;
+    };
+
+    document.addEventListener("DOMContentLoaded", reorderDishCards);
+
     const shouldShowLoading = (elt) =>
       elt && (elt.classList.contains("dish-variation-btn") || elt.classList.contains("favorite-btn"));
 
@@ -493,17 +553,21 @@
 
     document.body.addEventListener("htmx:afterSwap", function (evt) {
       const trigger = evt.detail.elt;
+      const target = evt.detail.target;
       if (shouldShowLoading(trigger)) {
-        const target = evt.detail.target;
         if (target) {
-          const card = target.classList.contains("flip-card")
+          const card = target.classList && target.classList.contains("flip-card")
             ? target
-            : target.querySelector(".flip-card");
+            : (typeof target.querySelector === "function" ? target.querySelector(".flip-card") : null);
           if (card) {
             card.classList.remove("loading");
             card.classList.remove("show-back");
           }
         }
+      }
+
+      if (dishTargetNeedsReorder(target)) {
+        scheduleDishReorder();
       }
     });
 

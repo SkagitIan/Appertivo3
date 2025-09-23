@@ -3,6 +3,7 @@
   id="concept-card-{{ concept.id }}"
   class="concept-card-wrapper"
   data-concept-card
+  data-favorited="{% if concept.is_favorited_for_user %}true{% else %}false{% endif %}"
 >
   <div class="flip-scene h-full">
     <div
