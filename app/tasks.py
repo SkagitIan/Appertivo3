@@ -228,7 +228,11 @@ def generate_dishes_task(concept: str) -> list:
 def enhance_dish_task(dish_id: str) -> dict:
     """Trigger dish enhancement via background worker."""
     try:
-        dish = models.DishIdea.objects.select_related("restaurant").get(id=dish_id)
+        dish = (
+            models.DishIdea.objects.select_related("restaurant")
+            .filter(is_deleted=False)
+            .get(id=dish_id)
+        )
     except models.DishIdea.DoesNotExist:  # pragma: no cover - defensive
         logger.warning("Dish %s not found for enhancement", dish_id)
         return {}

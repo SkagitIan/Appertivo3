@@ -226,6 +226,7 @@ class DishIdea(TimestampedModel):
     description = models.TextField()
     ingredient_names = models.JSONField(default=list)
     category_tags = models.JSONField(default=list)
+    is_deleted = models.BooleanField(default=False)
 
 
 class DishIdeaIngredient(TimestampedModel):
