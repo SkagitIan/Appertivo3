@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block html_attrs %} x-data="{ mobileMenuOpen: false }" class="h-full"{% endblock %}
+
+{% block body_class %}bg-[#F9F7F2] text-[#14080E] font-inter min-h-screen flex flex-col{% endblock %}
+
+{% block overlay %}
+  <div id="global-overlay"
+       class="fixed inset-0 bg-black/60 text-slate-800 z-50 hidden items-center justify-center p-6">
+    <div class="bg-white rounded-xl shadow-xl max-w-sm w-full text-center px-6 py-8 space-y-4">
+      <svg class="animate-spin h-8 w-8 text-[#f08000] mx-auto"
+           xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+      </svg>
+      <p id="overlay-message" class="font-semibold text-base"></p>
+    </div>
+  </div>
+{% endblock %}
+
+{% block header %}
+  {% if restaurant %}
+    {% url 'dashboard' restaurant.id as dashboard_url %}
+  {% elif request.resolver_match.kwargs.restaurant_id %}
+    {% url 'dashboard' request.resolver_match.kwargs.restaurant_id as dashboard_url %}
+  {% else %}
+    {% url 'home' as dashboard_url %}
+  {% endif %}
+  <header class="bg-gradient-to-r from-[#2E005D] via-[#5C008B] to-[#8E008B] text-white shadow">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+      <a href="{{ dashboard_url }}" class="text-2xl font-bold tracking-tight">Appertivo</a>
+      <nav class="hidden md:flex gap-8 text-sm font-medium">
+        <a href="{{ dashboard_url }}" class="hover:underline">Dashboard</a>
+        <a href="{% url 'favorites' %}" class="hover:underline">Favorites</a>
+        <a href="{% url 'menus' %}" class="hover:underline">Menus</a>
+        <a href="{% url 'settings' %}" class="hover:underline">Settings</a>
+      </nav>
+      <div class="flex items-center gap-4">
+        <span class="hidden sm:inline text-sm">Hi, {{ user.username }}</span>
+        <form action="{% url 'logout' %}" method="post" class="hidden md:block">
+          {% csrf_token %}
+          <button type="submit"
+                  class="px-4 py-2 rounded-lg bg-gradient-to-r from-[#FF8300] to-[#FF5C00] font-semibold text-white hover:scale-105 transition">
+            Logout
+          </button>
+        </form>
+        <button @click="mobileMenuOpen = !mobileMenuOpen" class="md:hidden focus:outline-none">
+          <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div x-show="mobileMenuOpen" class="md:hidden bg-[#5C008B] text-white px-6 py-4 space-y-4">
+      <a href="{{ dashboard_url }}" class="block">Dashboard</a>
+      <a href="{% url 'favorites' %}" class="block">Favorites</a>
+      <a href="{% url 'menus' %}" class="block">Menus</a>
+      <a href="{% url 'settings' %}" class="block">Settings</a>
+      <form action="{% url 'logout' %}" method="post">
+        {% csrf_token %}
+        <button type="submit"
+                class="w-full mt-2 px-4 py-2 rounded-lg bg-gradient-to-r from-[#FF8300] to-[#FF5C00] font-semibold text-white hover:scale-105 transition">
+          Logout
+        </button>
+      </form>
+    </div>
+  </header>
+{% endblock %}
+
+{% block main_class %}max-w-7xl mx-auto px-6 py-8 flex-1{% endblock %}
+
+{% block footer %}
+  <footer class="bg-[#2E005D] text-white">
+    <div class="max-w-7xl mx-auto px-6 py-6 flex flex-col md:flex-row justify-between items-center text-sm">
+      <p>&copy; {{ now|date:"Y" }} Appertivo. All rights reserved.</p>
+      <div class="flex gap-6 mt-4 md:mt-0">
+        <a href="#" class="hover:underline">Privacy</a>
+        <a href="#" class="hover:underline">Terms</a>
+      </div>
+    </div>
+  </footer>
+{% endblock %}
+
+{% block extra_scripts %}
+  <script src="https://unpkg.com/alpinejs" defer></script>
+  <script>
+    (function () {
+      const overlay = document.getElementById("global-overlay");
+      const messageBox = document.getElementById("overlay-message");
+      let timer = null;
+      let active = false;
+
+      function hideOverlay() {
+        if (!active) return;
+        if (timer) {
+          clearInterval(timer);
+          timer = null;
+        }
+        overlay?.classList.add("hidden");
+        active = false;
+      }
+
+      document.body.addEventListener("htmx:beforeRequest", function (event) {
+        const trigger = event.detail.elt;
+        if (!trigger || trigger.dataset.overlay !== "true") {
+          return;
+        }
+
+        let messages = [];
+        try {
+          messages = JSON.parse(trigger.dataset.messages || "[]");
+        } catch (err) {
+          messages = [];
+        }
+
+        let index = 0;
+        if (messageBox) {
+          messageBox.textContent = messages[0] || "Loading…";
+        }
+        overlay?.classList.remove("hidden");
+        active = true;
+
+        if (timer) {
+          clearInterval(timer);
+        }
+
+        if (messages.length > 1 && messageBox) {
+          timer = setInterval(function () {
+            index = (index + 1) % messages.length;
+            messageBox.textContent = messages[index];
+          }, 3000);
+        }
+      });
+
+      document.body.addEventListener("htmx:afterRequest", hideOverlay);
+      document.body.addEventListener("htmx:responseError", hideOverlay);
+    })();
+  </script>
+{% endblock %}
