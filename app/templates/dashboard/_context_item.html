@@ -1,0 +1,45 @@
+<li class="rounded-xl border border-slate-200 p-4 {% if not item.present %}opacity-70{% endif %}">
+  <form
+    method="post"
+    hx-post="{{ toggle_url }}"
+    hx-target="closest li"
+    hx-swap="outerHTML"
+    hx-trigger="change from:input[type='checkbox']"
+    class="flex items-center justify-between gap-3"
+  >
+    {% csrf_token %}
+    <input type="hidden" name="key" value="{{ item.key }}" />
+    <input type="hidden" name="include" value="false" />
+    <label class="flex items-center gap-3 text-sm font-semibold text-[#14080E]">
+      <input
+        type="checkbox"
+        name="include"
+        value="true"
+        class="h-4 w-4 rounded border border-slate-300 text-[#FF5C00] focus:ring-[#FF5C00]"
+        {% if item.included %}checked{% endif %}
+        {% if not item.present %}disabled{% endif %}
+      />
+      <span>{{ item.label }}</span>
+    </label>
+    <div class="flex items-center gap-2">
+      {% if item.present %}
+        <span
+          class="rounded-full px-2 py-1 text-xs font-medium {% if item.included %}bg-emerald-100 text-emerald-700{% else %}bg-amber-100 text-amber-700{% endif %}"
+        >
+          {% if item.included %}
+            In context
+          {% else %}
+            Skipped
+          {% endif %}
+        </span>
+      {% else %}
+        <a
+          href="{{ settings_url }}"
+          class="text-xs font-semibold text-[#FF5C00] hover:text-[#e05400]"
+        >
+          Add now
+        </a>
+      {% endif %}
+    </div>
+  </form>
+</li>
