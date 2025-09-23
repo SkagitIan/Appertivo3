@@ -595,27 +595,30 @@ def concepts_favorites_view(request):
 def serialize_restaurant_context(restaurant, concept, request=None):
     """
     Return a slim JSON-serializable context for dish generation.
-    Cached per (restaurant, concept, user session) combo.
     """
 
-    # Build cache key (include session key if available so users don't clash)
     raw_key = f"context:{restaurant.id}:{concept.id}:{getattr(request, 'session', {}).session_key}"
     cache_key = hashlib.md5(raw_key.encode()).hexdigest()
-
     cached = cache.get(cache_key)
     if cached:
         return cached
 
+    ctx_json = restaurant.context_json or {}
+    about = restaurant.about_json or {}
+
+    # Pick only a few relevant fields
     context = {
         "restaurant": {
             "name": restaurant.name,
             "description": restaurant.description,
-            "category": restaurant.context_json.get("category") if restaurant.context_json else None,
-            "price_range": restaurant.context_json.get("range") if restaurant.context_json else None,
-            "city": restaurant.context_json.get("city") if restaurant.context_json else None,
-            "state": restaurant.context_json.get("us_state") if restaurant.context_json else None,
-            "about": restaurant.about_json or {},
-            "context": restaurant.context_json or {},
+            "category": ctx_json.get("category"),
+            "price_range": ctx_json.get("range"),
+            "city": ctx_json.get("city"),
+            "state": ctx_json.get("us_state"),
+            "rating": ctx_json.get("rating"),
+            "reviews_tags": ctx_json.get("reviews_tags", [])[:5],  # top 5 tags
+            "highlights": list((about.get("Highlights") or {}).keys()),
+            "atmosphere": list((about.get("Atmosphere") or {}).keys()),
         },
         "menu_markdown": (
             restaurant.active_menu_version.raw_markdown
@@ -627,9 +630,7 @@ def serialize_restaurant_context(restaurant, concept, request=None):
         },
     }
 
-    # Cache for, say, 10 minutes (tune depending on freshness you need)
     cache.set(cache_key, context, timeout=600)
-
     return context
 
 
