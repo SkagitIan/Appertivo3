@@ -871,9 +871,12 @@ def decorate_dishes_with_enhancements(dishes: Iterable[models.DishIdea],) -> Lis
 
 
 CONTEXT_ITEM_DEFINITIONS = (
-    ("menu", "Menu synced"),
-    ("context", "Neighborhood & vibe"),
+    ("menu", "Menu link"),
+    ("menu_content", "Menu content"),
+    ("services", "Services info"),
     ("story", "Story & description"),
+    ("reviews", "Guest reviews"),
+    ("ingredients", "Ingredient list"),
 )
 
 
@@ -885,10 +888,61 @@ def build_context_items(
     context_flags = dict(settings_obj.llm_defaults.get("context_flags", {}))
     items: List[dict] = []
 
+    def _has_content(value) -> bool:
+        if value is None:
+            return False
+        if isinstance(value, str):
+            return bool(value.strip())
+        if isinstance(value, dict):
+            return any(_has_content(item) for item in value.values())
+        if isinstance(value, (list, tuple, set)):
+            return any(_has_content(item) for item in value)
+        return bool(value)
+
+    menu_urls = [url for url in (restaurant.menu_urls or []) if (url or "").strip()]
+    has_menu_link = bool(restaurant.primary_menu_url or menu_urls)
+
+    if (
+        restaurant.active_menu_version
+        and _has_content(restaurant.active_menu_version.raw_markdown)
+    ):
+        has_menu_content = True
+    else:
+        has_menu_content = models.MenuVersion.objects.filter(
+            restaurant=restaurant,
+            raw_markdown__isnull=False,
+        ).exclude(raw_markdown="").exists()
+
+    about_data = restaurant.about_json or {}
+    services_sections = []
+    if isinstance(about_data, dict):
+        for key, value in about_data.items():
+            if isinstance(key, str) and "service" in key.lower():
+                services_sections.append(value)
+    has_services_info = any(_has_content(section) for section in services_sections)
+
+    context_data = restaurant.context_json or {}
+    review_sources = [
+        restaurant.review_count,
+        restaurant.rating,
+    ]
+    if isinstance(context_data, dict):
+        review_sources.extend(
+            context_data.get(key)
+            for key in ["reviews", "reviews_tags", "review_snippets"]
+            if key in context_data
+        )
+    has_reviews = any(_has_content(value) for value in review_sources)
+
+    has_ingredients = models.Ingredient.objects.filter(restaurant=restaurant).exists()
+
     presence_map = {
-        "menu": bool(restaurant.primary_menu_url or restaurant.active_menu_version),
-        "context": bool(restaurant.context_json),
-        "story": bool(restaurant.description),
+        "menu": has_menu_link,
+        "menu_content": has_menu_content,
+        "services": has_services_info,
+        "story": _has_content(restaurant.description),
+        "reviews": has_reviews,
+        "ingredients": has_ingredients,
     }
 
     updated = False
