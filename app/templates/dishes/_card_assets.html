@@ -517,6 +517,10 @@
         return;
       }
 
+      if (card.classList.contains("no-flip")) {
+        return;
+      }
+
       const actionable = evt.target.closest("button, a, [data-no-flip]");
       if (actionable) {
         return;
