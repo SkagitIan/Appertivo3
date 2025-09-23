@@ -7,7 +7,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from app import models
+from app import models, views
 
 
 @override_settings(SECURE_SSL_REDIRECT=False)
@@ -585,6 +585,91 @@ class ViewSmokeTests(TestCase):
         settings.refresh_from_db()
         self.assertIn("context_flags", settings.llm_defaults)
         self.assertFalse(settings.llm_defaults["context_flags"]["story"])
+
+    def test_context_checklist_reflects_data_sources(self):
+        settings = self.restaurant.restaurantsettings
+        settings.llm_defaults = {}
+        settings.save(update_fields=["llm_defaults"])
+
+        self.restaurant.active_menu_version = None
+        self.restaurant.about_json = None
+        self.restaurant.description = ""
+        self.restaurant.review_count = None
+        self.restaurant.rating = None
+        self.restaurant.context_json = {}
+        self.restaurant.set_menu_urls([])
+        self.restaurant.save(
+            update_fields=[
+                "active_menu_version",
+                "about_json",
+                "description",
+                "review_count",
+                "rating",
+                "context_json",
+                "menu_urls",
+                "primary_menu_url",
+            ]
+        )
+
+        models.MenuVersion.objects.filter(restaurant=self.restaurant).delete()
+        models.Ingredient.objects.filter(restaurant=self.restaurant).delete()
+
+        items = views.build_context_items(self.restaurant, settings)
+        presence = {item["key"]: item["present"] for item in items}
+        self.assertEqual(
+            presence,
+            {
+                "menu": False,
+                "menu_content": False,
+                "services": False,
+                "story": False,
+                "reviews": False,
+                "ingredients": False,
+            },
+        )
+
+        menu_version = models.MenuVersion.objects.create(
+            restaurant=self.restaurant,
+            source_url="https://example.com/menu",
+            source_kind=models.MenuVersion.SourceKind.URL_SCRAPE,
+            raw_markdown="Menu text",
+            status=models.MenuVersion.Status.SUCCEEDED,
+        )
+        self.restaurant.active_menu_version = menu_version
+        self.restaurant.set_menu_urls(["https://example.com/menu"])
+        self.restaurant.about_json = {"Service options": {"Dine-in": True}}
+        self.restaurant.description = "House story"
+        self.restaurant.review_count = 5
+        self.restaurant.context_json = {"reviews_tags": ["friendly staff"]}
+        self.restaurant.save(
+            update_fields=[
+                "active_menu_version",
+                "menu_urls",
+                "primary_menu_url",
+                "about_json",
+                "description",
+                "review_count",
+                "context_json",
+            ]
+        )
+        models.Ingredient.objects.create(restaurant=self.restaurant, name="Salt")
+
+        settings.llm_defaults = {}
+        settings.save(update_fields=["llm_defaults"])
+
+        refreshed_items = views.build_context_items(self.restaurant, settings)
+        refreshed_presence = {item["key"]: item["present"] for item in refreshed_items}
+        self.assertEqual(
+            refreshed_presence,
+            {
+                "menu": True,
+                "menu_content": True,
+                "services": True,
+                "story": True,
+                "reviews": True,
+                "ingredients": True,
+            },
+        )
 
     def test_logout_via_get_redirects(self):
         response = self.client.get(reverse("logout"))

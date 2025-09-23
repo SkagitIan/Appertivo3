@@ -93,7 +93,7 @@
                       {% if concept.runtime_display %}
                         Ran in {{ concept.runtime_display }} •
                       {% endif %}
-                      {{ concept.generated_at|timesince }} ago
+                      {{ concept.generated_at|date:"M j, Y g:i a" }}
                     </p>
                   </div>
                   <a href="{% if concept.has_dishes %}{% url 'dish_detail' concept.id %}{% else %}{% url 'dishes-generate' concept.id %}{% endif %}" class="inline-flex items-center gap-2 text-sm font-semibold text-[#FF5C00] hover:text-[#e05400]">
