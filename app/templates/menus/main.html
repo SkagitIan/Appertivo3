@@ -26,12 +26,15 @@
           class="flex w-full flex-col gap-3 rounded-2xl bg-slate-50 p-4 md:w-auto md:flex-row md:items-center md:rounded-full md:bg-white md:px-5 md:py-3 md:shadow-sm"
         >
           {% csrf_token %}
-          <input
-            type="text"
-            name="name"
-            placeholder="New menu name"
-            class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-[#49475B] shadow-sm focus:border-[#B993D6] focus:outline-none focus:ring-2 focus:ring-[#B993D6]/40 md:w-64"
-          />
+          <div class="flex w-full flex-col gap-2 md:w-64">
+            <input
+              type="text"
+              name="name"
+              placeholder="New menu name"
+              class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-[#49475B] shadow-sm focus:border-[#B993D6] focus:outline-none focus:ring-2 focus:ring-[#B993D6]/40"
+            />
+            <p class="hidden text-sm font-medium text-red-600" data-menu-error role="alert"></p>
+          </div>
           <button
             type="submit"
             class="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#FF8300] to-[#FF5C00] px-4 py-2 text-sm font-semibold text-white shadow transition hover:scale-[1.02]"
@@ -47,8 +50,9 @@
   <section class="space-y-6" data-menu-list>
     {% for menu in menus %}
       <article
-        class="rounded-3xl border border-slate-200/80 bg-white/95 shadow-sm backdrop-blur"
+        class="rounded-3xl border border-slate-200/80 shadow-sm backdrop-blur transition-colors"
         data-menu-section="{{ menu.id }}"
+        style="background-color: {% cycle '#F9F7FF' '#F3FAFF' '#FFF6F1' '#F4FFF5' '#FFF5FA' %};"
       >
         <div class="flex flex-col gap-4 border-b border-slate-100 px-6 py-5 md:flex-row md:items-center md:justify-between">
           <div>
@@ -87,10 +91,11 @@
             {% for item in menu.menu_items %}
               <div
                 id="favorite-dish-{{ item.dish.id }}"
-                class="favorite-dish-card"
+                class="favorite-dish-card cursor-move"
                 data-menu-dish
                 data-dish-id="{{ item.dish.id }}"
                 data-menu-id="{{ menu.id }}"
+                draggable="true"
               >
                 {% include "dishes/_card.html" with dish=item.dish card_context='favorites' menu_options=menu_options menu_move_url=menu_move_url current_menu_id=menu.id %}
               </div>
@@ -115,6 +120,23 @@
   </div>
 </div>
 
+<style>
+  [data-menu-dish].is-dragging {
+    opacity: 0.6;
+  }
+
+  [data-menu-body].is-drop-target,
+  [data-menu-empty].is-drop-target {
+    outline: 2px dashed rgba(185, 147, 214, 0.6);
+    outline-offset: -12px;
+  }
+
+  [data-menu-section].menu-drop-target {
+    border-color: rgba(185, 147, 214, 0.6);
+    box-shadow: 0 18px 32px -20px rgba(20, 8, 14, 0.4);
+  }
+</style>
+
 <script>
   document.addEventListener('DOMContentLoaded', () => {
     const root = document.getElementById('menus-root');
@@ -122,6 +144,9 @@
 
     const createForm = root.querySelector('[data-menu-create-form]');
     const emptyState = root.querySelector('[data-menus-empty]');
+    const createError = createForm?.querySelector('[data-menu-error]');
+    const createInput = createForm?.querySelector('[name="name"]');
+    const createButton = createForm?.querySelector('[type="submit"]');
 
     const getCsrfToken = () => {
       const input = document.querySelector('[name="csrfmiddlewaretoken"]');
@@ -173,10 +198,36 @@
       emptyState.classList.toggle('hidden', hasMenus);
     };
 
+    const clearCreateError = () => {
+      if (!createError) return;
+      createError.textContent = '';
+      createError.classList.add('hidden');
+    };
+
+    const showCreateError = (message) => {
+      if (!createError) return;
+      createError.textContent = message;
+      createError.classList.remove('hidden');
+    };
+
     createForm?.addEventListener('submit', (event) => {
       event.preventDefault();
       const form = event.currentTarget;
       const formData = new FormData(form);
+      clearCreateError();
+
+      const rawName = formData.get('name');
+      const trimmedName = rawName ? String(rawName).trim() : '';
+      if (!trimmedName) {
+        showCreateError('Please enter a menu name.');
+        createInput?.focus();
+        return;
+      }
+
+      formData.set('name', trimmedName);
+      createButton?.setAttribute('disabled', 'disabled');
+      createButton?.classList.add('is-loading');
+
       fetch(form.action, {
         method: 'POST',
         headers: {
@@ -184,16 +235,207 @@
         },
         body: formData,
       })
-        .then((res) => {
-          if (!res.ok) throw new Error('Unable to create menu');
-          return res.json();
+        .then(async (res) => {
+          if (res.ok) {
+            return res.json();
+          }
+          let data = {};
+          try {
+            data = await res.json();
+          } catch (err) {
+            data = {};
+          }
+          if (res.status === 400 && data.error === 'name_required') {
+            showCreateError('Please enter a menu name.');
+            createInput?.focus();
+            const validationError = new Error('validation');
+            validationError.isValidation = true;
+            throw validationError;
+          }
+          throw new Error('create_failed');
         })
         .then(() => {
           window.location.reload();
         })
-        .catch(() => {
+        .catch((error) => {
+          if (error && error.isValidation) {
+            return;
+          }
           alert('Unable to create menu right now. Please try again.');
+        })
+        .finally(() => {
+          createButton?.removeAttribute('disabled');
+          createButton?.classList.remove('is-loading');
         });
+    });
+
+    const dragState = {
+      dishId: '',
+      sourceMenuId: '',
+    };
+
+    let dropTargets = [];
+
+    const highlightTarget = (target, active) => {
+      if (!target) return;
+      target.classList.toggle('is-drop-target', active);
+      const section = target.closest('[data-menu-section]');
+      if (section) {
+        section.classList.toggle('menu-drop-target', active);
+      }
+    };
+
+    const clearDropHighlights = () => {
+      dropTargets.forEach((target) => highlightTarget(target, false));
+    };
+
+    root.addEventListener('dragstart', (event) => {
+      const card = event.target.closest('[data-menu-dish]');
+      if (!card) return;
+      const dishId = card.dataset.dishId || '';
+      if (!dishId) return;
+      dragState.dishId = dishId;
+      dragState.sourceMenuId = card.dataset.menuId || '';
+      card.classList.add('is-dragging');
+      if (!event.dataTransfer) return;
+      event.dataTransfer.effectAllowed = 'move';
+      try {
+        event.dataTransfer.setData('text/plain', dishId);
+        event.dataTransfer.setData(
+          'application/json',
+          JSON.stringify({
+            dishId,
+            sourceMenuId: dragState.sourceMenuId,
+          })
+        );
+      } catch (err) {
+        // Ignore clipboard errors
+      }
+    });
+
+    root.addEventListener('dragend', (event) => {
+      const card = event.target.closest('[data-menu-dish]');
+      card?.classList.remove('is-dragging');
+      dragState.dishId = '';
+      dragState.sourceMenuId = '';
+      clearDropHighlights();
+    });
+
+    dropTargets = Array.from(
+      root.querySelectorAll('[data-menu-body], [data-menu-empty]')
+    );
+
+    dropTargets.forEach((target) => {
+      target.addEventListener('dragover', (event) => {
+        if (!dragState.dishId) return;
+        event.preventDefault();
+        if (event.dataTransfer) {
+          event.dataTransfer.dropEffect = 'move';
+        }
+        highlightTarget(target, true);
+      });
+
+      target.addEventListener('dragleave', (event) => {
+        if (!dragState.dishId) return;
+        const related = event.relatedTarget;
+        if (related && target.contains(related)) return;
+        highlightTarget(target, false);
+      });
+
+      target.addEventListener('drop', (event) => {
+        if (!dragState.dishId) return;
+        event.preventDefault();
+        highlightTarget(target, false);
+
+        const section = target.closest('[data-menu-section]');
+        if (!section) {
+          clearDropHighlights();
+          return;
+        }
+
+        const targetMenuId = section.dataset.menuSection || '';
+        const rawData = event.dataTransfer
+          ? event.dataTransfer.getData('application/json')
+          : '';
+
+        let payload = {};
+        if (rawData) {
+          try {
+            payload = JSON.parse(rawData) || {};
+          } catch (err) {
+            payload = {};
+          }
+        }
+
+        const dishId = payload.dishId || dragState.dishId;
+        const sourceMenuId =
+          payload.sourceMenuId !== undefined
+            ? payload.sourceMenuId
+            : dragState.sourceMenuId;
+
+        const card = root.querySelector(
+          `[data-menu-dish][data-dish-id="${CSS.escape(dishId)}"]`
+        );
+        if (!card) {
+          clearDropHighlights();
+          return;
+        }
+
+        const normalizedSource = sourceMenuId || card.dataset.menuId || '';
+        if (!dishId || normalizedSource === targetMenuId) {
+          clearDropHighlights();
+          return;
+        }
+
+        const cardInner = card.querySelector('[data-dish-card]');
+        const moveUrl = cardInner?.dataset.moveUrl || '';
+        if (!moveUrl) {
+          clearDropHighlights();
+          return;
+        }
+
+        fetch(moveUrl, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            'X-CSRFToken': getCsrfToken(),
+          },
+          body: JSON.stringify({
+            dish_id: dishId,
+            source_menu_id: normalizedSource,
+            target_menu_id: targetMenuId,
+          }),
+        })
+          .then((res) => {
+            if (!res.ok) {
+              throw new Error('move_failed');
+            }
+            return res.json().catch(() => ({}));
+          })
+          .then(() => {
+            card.dispatchEvent(
+              new CustomEvent('dish-menu-moved', {
+                detail: {
+                  dishId,
+                  sourceMenuId: normalizedSource,
+                  targetMenuId,
+                },
+                bubbles: true,
+              })
+            );
+          })
+          .catch(() => {
+            alert('Unable to move this dish right now. Please try again.');
+          })
+          .finally(() => {
+            clearDropHighlights();
+            card.classList.remove('is-dragging');
+            dragState.dishId = '';
+            dragState.sourceMenuId = '';
+          });
+      });
     });
 
     const updateMenuOptions = (menuId, newName) => {

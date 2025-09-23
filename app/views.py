@@ -1315,7 +1315,9 @@ def favorite_remove_view(request, type, id):
 @require_POST
 def menu_collection_create_view(request):
     """Create a new menu collection."""
-    name = request.POST.get("name", "Menu")
+    name = (request.POST.get("name") or "").strip()
+    if not name:
+        return JsonResponse({"error": "name_required"}, status=400)
     restaurant = (
         models.Restaurant.objects.filter(account__membership__user=request.user)
         .select_related("account")
