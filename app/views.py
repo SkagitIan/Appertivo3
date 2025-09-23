@@ -340,7 +340,9 @@ def concepts_view(request):
     """Display latest concepts with favorite state for the user."""
     concepts_qs = models.Concept.objects.order_by("-created_at").annotate(
         has_dishes=Exists(
-            models.DishIdea.objects.filter(parent_concept=OuterRef("pk"))
+            models.DishIdea.objects.filter(
+                parent_concept=OuterRef("pk"), is_deleted=False
+            )
         )
     )
     if request.user.is_authenticated:
@@ -524,7 +526,7 @@ def concept_favorite_view(request, concept_id):
 
     concept.is_favorited_for_user = favorited
     concept.has_dishes = models.DishIdea.objects.filter(
-        parent_concept=concept
+        parent_concept=concept, is_deleted=False
     ).exists()
 
     # Always return the refreshed card so the UI stays in sync
@@ -553,7 +555,7 @@ def concept_background_view(request, concept_id):
         user=request.user, concept=concept
     ).exists()
     concept.has_dishes = models.DishIdea.objects.filter(
-        parent_concept=concept
+        parent_concept=concept, is_deleted=False
     ).exists()
 
     return render(
@@ -585,7 +587,9 @@ def concepts_favorites_view(request):
     concept_ids = [concept.id for concept in concepts]
     if concept_ids:
         concepts_with_dishes = set(
-            models.DishIdea.objects.filter(parent_concept_id__in=concept_ids)
+            models.DishIdea.objects.filter(
+                parent_concept_id__in=concept_ids, is_deleted=False
+            )
             .values_list("parent_concept_id", flat=True)
         )
     else:
@@ -764,25 +768,36 @@ def dishes_generate_view(request, concept_id):
         restaurant_menu = restaurant.active_menu_version.raw_markdown
     else:
         restaurant_menu = ""
-    
-    context = f"""
+
+    context_text = f"""
         Restaurant: {restaurant.name}, {restaurant.location_text}.  \n
         Description: {restaurant.description}. \n
         Current Restaurant Menu:  {restaurant_menu}
         About Services:  {restaurant.about_json}
     """
-    
+
+    deleted_dishes = list(
+        models.DishIdea.objects.filter(restaurant=restaurant, is_deleted=True)
+        .order_by("-created_at")
+        .values_list("title", flat=True)[:15]
+    )
+
+    context_payload = {
+        "context": context_text,
+        "deleted_dishes": deleted_dishes,
+    }
+
     logger.info("Starting dish generation: concept=%s, restaurant=%s", concept.name, restaurant.name)
 
     # Build previous dish titles (avoid duplication in generation)
     previous_titles: List[str] = list(
-        models.DishIdea.objects.filter(restaurant=restaurant)
+        models.DishIdea.objects.filter(restaurant=restaurant, is_deleted=False)
         .order_by("-created_at")
         .values_list("title", flat=True)[:27]
     )
 
     #context = serialize_restaurant_context(restaurant, concept, request=request)
-    logger.info(f"Context:  {context}")
+    logger.info("Context: %s", context_payload)
     # Prepare schema
     schema = {
         "name": "dish_list",
@@ -824,7 +839,7 @@ def dishes_generate_view(request, concept_id):
         model_name="gpt-4o-mini",
         temperature=0.7,
         classic_creative=50,
-        context_snapshot=context,
+        context_snapshot=context_payload,
         parent_concept=concept,
         status=models.IdeationRun.Status.RUNNING,
     )
@@ -845,7 +860,7 @@ def dishes_generate_view(request, concept_id):
             model="gpt-4o-mini",
             input=[
                 {"role": "user", "content": instruction},
-                {"role": "user", "content": json.dumps(context, indent=2)},
+                {"role": "user", "content": json.dumps(context_payload, indent=2)},
             ],
             text={"format": schema},
         )
@@ -919,7 +934,9 @@ def dish_detail_view(request, concept_id):
 
     if latest_run:
         dish_queryset = (
-            models.DishIdea.objects.filter(ideation_run=latest_run)
+            models.DishIdea.objects.filter(
+                ideation_run=latest_run, is_deleted=False
+            )
             .order_by("created_at")
         )
     else:
@@ -969,7 +986,9 @@ def dish_detail_view(request, concept_id):
 
 def dish_favorite_view(request, dish_id):
     """Toggle favorite on a dish."""
-    dish = get_object_or_404(models.DishIdea, id=dish_id)
+    dish = get_object_or_404(
+        models.DishIdea.objects.filter(is_deleted=False), id=dish_id
+    )
     card_context = request.POST.get("context") or request.GET.get("context") or "grid"
     fav, created = models.FavoriteDish.objects.get_or_create(
         user=request.user, dish=dish, defaults={"favorited_at": timezone.now()}
@@ -1010,7 +1029,9 @@ def dish_delete_view(request, dish_id):
     """Delete a dish and remove any associated enhancement assets."""
 
     dish = get_object_or_404(
-        models.DishIdea.objects.select_related("restaurant"),
+        models.DishIdea.objects.select_related("restaurant").filter(
+            is_deleted=False
+        ),
         id=dish_id,
     )
 
@@ -1025,7 +1046,14 @@ def dish_delete_view(request, dish_id):
     )
     asset_ids = [enh.image_asset_id for enh in enhancements if enh.image_asset_id]
 
-    dish.delete()
+    if enhancements:
+        models.Enhancement.objects.filter(
+            id__in=[enh.id for enh in enhancements]
+        ).delete()
+
+    models.FavoriteDish.objects.filter(dish=dish).delete()
+    dish.is_deleted = True
+    dish.save(update_fields=["is_deleted"])
 
     if asset_ids:
         models.Asset.objects.filter(id__in=asset_ids).delete()
@@ -1040,7 +1068,7 @@ def dish_variation_view(request, dish_id):
     dish = get_object_or_404(
         models.DishIdea.objects.select_related(
             "restaurant", "parent_concept", "parent_dish", "ideation_run"
-        ),
+        ).filter(is_deleted=False),
         id=dish_id,
     )
 
@@ -1053,7 +1081,8 @@ def dish_variation_view(request, dish_id):
     context = serialize_restaurant_context(restaurant_payload, menu_markdown, concept)
 
     existing_variations = list(
-        models.DishIdea.objects.filter(parent_dish=base_dish).order_by("created_at")
+        models.DishIdea.objects.filter(parent_dish=base_dish, is_deleted=False)
+        .order_by("created_at")
     )
     previous_titles = [base_dish.title] + [v.title for v in existing_variations]
     variation_number = len(existing_variations) + 1
@@ -1304,7 +1333,9 @@ def menu_collection_create_view(request):
 @require_POST
 def menu_item_add_view(request, dish_id, collection_id):
     """Add a dish to a menu collection."""
-    dish = get_object_or_404(models.DishIdea, id=dish_id)
+    dish = get_object_or_404(
+        models.DishIdea.objects.filter(is_deleted=False), id=dish_id
+    )
     menu = get_object_or_404(
         models.MenuCollection,
         id=collection_id,
@@ -1372,7 +1403,9 @@ def menu_item_move_view(request):
     if not restaurant:
         return JsonResponse({"error": "restaurant_missing"}, status=400)
 
-    dish = get_object_or_404(models.DishIdea, id=dish_id)
+    dish = get_object_or_404(
+        models.DishIdea.objects.filter(is_deleted=False), id=dish_id
+    )
 
     def _remove_from_menu(menu_id):
         if not menu_id:

@@ -48,6 +48,17 @@
               >
                 <i class="fa-solid fa-arrows-rotate"></i>
               </button>
+              <button
+                type="button"
+                class="dish-delete-btn card-action-button bg-white/90 text-red-500 hover:text-red-600"
+                hx-post="{% url 'dish-delete' dish.id %}"
+                hx-trigger="click"
+                hx-target="closest .dish-card-wrapper"
+                hx-swap="outerHTML"
+                aria-label="Dismiss {{ dish.title }}"
+              >
+                <i class="fa-solid fa-thumbs-down"></i>
+              </button>
             </footer>
           </article>
         </div>
