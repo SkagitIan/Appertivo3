@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+
+{% block head_scripts %}
+  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+  <script src="https://unpkg.com/alpinejs" defer></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" />
+{% endblock %}
+
+{% block extra_head %}
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      document.body.addEventListener("htmx:configRequest", (event) => {
+        event.detail.headers["X-CSRFToken"] = "{{ csrf_token }}";
+      });
+    });
+  </script>
+{% endblock %}
+
+{% block body_class %}bg-gray-50 text-[#14080E] min-h-screen flex flex-col{% endblock %}
+
+{% block overlay %}
+  <div id="global-overlay" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-gradient-to-br from-[#B993D6] via-purple-700 to-[#49475B]">
+    <div class="flex flex-col items-center text-center px-6">
+      <svg class="animate-spin h-12 w-12 text-white mb-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+      </svg>
+      <p id="overlay-message" class="text-lg font-semibold text-white drop-shadow-lg"></p>
+    </div>
+  </div>
+{% endblock %}
+
+{% block header %}
+  {% if restaurant %}
+    {% url 'dashboard' restaurant.id as dashboard_url %}
+  {% elif request.resolver_match.kwargs.restaurant_id %}
+    {% url 'dashboard' request.resolver_match.kwargs.restaurant_id as dashboard_url %}
+  {% else %}
+    {% url 'home' as dashboard_url %}
+  {% endif %}
+  <header class="relative border-b border-slate-200 bg-white/80 backdrop-blur">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <div class="flex items-start gap-4">
+        <button
+          id="page-menu-toggle"
+          type="button"
+          class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-slate-300 hover:text-[#14080E]"
+          aria-expanded="false"
+          aria-controls="page-menu"
+        >
+          <span class="sr-only">Toggle navigation</span>
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 7h16M4 12h16M4 17h16" />
+          </svg>
+        </button>
+        <div class="flex-1">
+          {% block page_intro %}{% endblock %}
+        </div>
+        {% if restaurant %}
+          <div class="hidden sm:flex flex-col items-end text-xs font-medium uppercase tracking-wide text-slate-400">
+            <span>{{ restaurant }}</span>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div
+      id="page-menu"
+      class="hidden absolute top-full inset-x-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur shadow-lg"
+    >
+      <nav class="max-w-7xl mx-auto flex flex-col gap-1 px-4 py-4 text-sm font-medium text-slate-600">
+        <a href="{{ dashboard_url }}" class="rounded-lg px-3 py-2 transition hover:bg-slate-100">Dashboard</a>
+        <a href="{% url 'concepts' %}" class="rounded-lg px-3 py-2 transition hover:bg-slate-100">Concepts</a>
+        <a href="{% url 'favorites' %}" class="rounded-lg px-3 py-2 transition hover:bg-slate-100">Favorites</a>
+        <a href="{% url 'settings' %}" class="rounded-lg px-3 py-2 transition hover:bg-slate-100">Settings</a>
+        <div class="my-2 border-t border-slate-200"></div>
+        <a href="{% url 'logout' %}" class="inline-flex items-center justify-center rounded-lg bg-[#f08000] px-3 py-2 text-white transition hover:bg-[#d96f00]">
+          Logout
+        </a>
+      </nav>
+    </div>
+  </header>
+{% endblock %}
+
+{% block main_class %}flex-1{% endblock %}
+
+{% block content %}
+  <div class="max-w-7xl mx-auto" id="main_content">
+    {% block page_content %}{% endblock %}
+  </div>
+{% endblock %}
+
+{% block footer %}
+  <footer class="bg-gray-100 text-center py-4 text-sm text-gray-500">
+    © 2025 Appertivo — All rights reserved
+  </footer>
+{% endblock %}
+
+{% block extra_scripts %}
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const toggle = document.getElementById("page-menu-toggle");
+      const menu = document.getElementById("page-menu");
+      if (!toggle || !menu) {
+        return;
+      }
+
+      const closeMenu = () => {
+        if (menu.classList.contains("hidden")) {
+          return;
+        }
+        menu.classList.add("hidden");
+        toggle.setAttribute("aria-expanded", "false");
+      };
+
+      toggle.addEventListener("click", function (event) {
+        event.stopPropagation();
+        const isOpen = !menu.classList.contains("hidden");
+        if (isOpen) {
+          closeMenu();
+        } else {
+          menu.classList.remove("hidden");
+          toggle.setAttribute("aria-expanded", "true");
+        }
+      });
+
+      document.addEventListener("click", function (event) {
+        if (menu.contains(event.target) || toggle.contains(event.target)) {
+          return;
+        }
+        closeMenu();
+      });
+
+      window.addEventListener("resize", closeMenu);
+    });
+  </script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const form = document.getElementById("rescrape-form");
+      const btn = document.getElementById("rescrape-btn");
+      const label = btn ? btn.querySelector(".label") : null;
+      const spinner = btn ? btn.querySelector(".spinner") : null;
+
+      if (!form || !btn || !label || !spinner) {
+        return;
+      }
+
+      document.body.addEventListener("htmx:beforeRequest", function (evt) {
+        if (evt.detail.elt === form) {
+          label.textContent = "Refreshing…";
+          spinner.classList.remove("hidden");
+          btn.disabled = true;
+          btn.classList.add("opacity-70", "cursor-not-allowed");
+        }
+      });
+
+      document.body.addEventListener("htmx:afterRequest", function (evt) {
+        if (evt.detail.elt === form) {
+          label.textContent = "Rescrape Restaurant Data";
+          spinner.classList.add("hidden");
+          btn.disabled = false;
+          btn.classList.remove("opacity-70", "cursor-not-allowed");
+
+          if (evt.detail.xhr && evt.detail.xhr.responseText.includes("rescrape_complete")) {
+            showToast("Restaurant data refreshed successfully!");
+          } else if (!evt.detail.successful) {
+            const responseText = evt.detail.xhr ? evt.detail.xhr.responseText : "";
+            const message = responseText.includes("missing_menu_url")
+              ? "Add a menu URL before refreshing."
+              : "Unable to refresh the menu right now.";
+            showToast(message);
+          }
+        }
+      });
+
+      function showToast(message) {
+        const container = document.getElementById("toast-container");
+        if (!container) {
+          return;
+        }
+        const toast = document.createElement("div");
+        toast.className = "bg-[#58B09C] text-white px-4 py-2 rounded-lg shadow";
+        toast.textContent = message;
+        container.appendChild(toast);
+        setTimeout(() => toast.remove(), 4000);
+      }
+    });
+  </script>
+  <div id="toast-container" class="fixed bottom-4 right-4 space-y-2 z-50"></div>
+{% endblock %}
