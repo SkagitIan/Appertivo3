@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load navigation_tags %}
 
 {% block head_scripts %}
   <script src="https://unpkg.com/htmx.org@1.9.10"></script>
@@ -31,13 +32,7 @@
 {% endblock %}
 
 {% block header %}
-  {% if restaurant %}
-    {% url 'dashboard' restaurant.id as dashboard_url %}
-  {% elif request.resolver_match.kwargs.restaurant_id %}
-    {% url 'dashboard' request.resolver_match.kwargs.restaurant_id as dashboard_url %}
-  {% else %}
-    {% url 'home' as dashboard_url %}
-  {% endif %}
+  {% resolve_dashboard_url as dashboard_url %}
   <header class="relative border-b border-slate-200 bg-white/80 backdrop-blur z-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
       <div class="flex items-start gap-4">
