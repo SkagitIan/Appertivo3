@@ -1,0 +1,21 @@
+{% extends "layouts/auth.html" %}
+
+{% block content %}
+  <div class="w-full max-w-md bg-white rounded-2xl shadow-lg p-8 space-y-4">
+    <h1 class="text-3xl font-bold text-center text-[#2E005D]">{% block auth_title %}{% endblock %}</h1>
+    {% if error %}
+      <div class="rounded-xl bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">
+        {{ error }}
+      </div>
+    {% endif %}
+    <form method="post" class="space-y-4">
+      {% csrf_token %}
+      {% block form_fields %}{% endblock %}
+      <button type="submit"
+              class="w-full bg-gradient-to-r from-[#FF8300] to-[#FF5C00] text-white font-semibold py-3 rounded-xl shadow-md hover:scale-105 transition">
+        {% block submit_label %}Continue{% endblock %}
+      </button>
+    </form>
+    {% block auth_footer %}{% endblock %}
+  </div>
+{% endblock %}
