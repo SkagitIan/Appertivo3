@@ -10,48 +10,106 @@
   data-current-menu="{{ current_menu }}"
   data-move-url="{{ move_url }}"
 >
-  <div class="flip-scene h-full">
-    <div class="flip-card h-full">
-
-      {# ---------------- FRONT ---------------- #}
-      <div class="flip-face front relative rounded-2xl overflow-hidden shadow-md border border-slate-200 bg-white">
-        {% if dish.enhancement_image_url %}
-          <!-- Lookbook image -->
-          <img
-            src="{{ dish.enhancement_image_url }}"
-            alt="{{ dish.title }}"
-            class="absolute inset-0 w-full h-full object-cover"
-          />
-          <!-- Top gradient so price badge stays readable -->
-          <div class="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/25 to-transparent"></div>
-
-          {% if dish.enhancement_price_display %}
-            <span class="absolute top-2 right-2 bg-white/90 text-[#49475B] text-xs md:text-sm font-semibold px-3 py-1 rounded-full shadow">
-              {{ dish.enhancement_price_display }}
-            </span>
-          {% endif %}
-        {% else %}
-          <!-- No image? Show a clean, centered info front -->
-          <div class="relative flex flex-col items-center justify-center text-center p-4 {{HSM}} {{HMD}} {{HLG}}">
-            <h3 class="text-lg md:text-xl font-bold text-[#49475B]">{{ dish.title }}</h3>
-            {% if dish.description %}
-              <p class="mt-2 text-slate-600 text-sm md:text-base line-clamp-4">{{ dish.description }}</p>
-            {% endif %}
-
-            <div class="mt-3 flex flex-wrap justify-center gap-2">
+  {% if not dish.is_favorited %}
+    <div class="flip-scene h-full">
+      <div class="flip-card h-full" data-no-flip>
+        <div class="flip-face front bg-white border border-slate-200 shadow-md rounded-2xl">
+          <div class="h-full p-4 flex flex-col gap-4">
+            <div class="space-y-3">
+              <h3 class="text-lg md:text-xl font-bold text-[#49475B]">{{ dish.title }}</h3>
+              {% if dish.description %}
+                <p class="text-slate-600 text-sm md:text-base line-clamp-4">{{ dish.description }}</p>
+              {% endif %}
+            </div>
+            <div class="flex flex-wrap gap-2">
               {% for tag in dish.category_tags %}
-                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs md:text-sm font-medium bg-[#B993D6]/20 text-[#49475B]">{{ tag }}</span>
+                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs md:text-sm font-medium bg-[#B993D6]/20 text-[#49475B]">
+                  {{ tag }}
+                </span>
               {% endfor %}
               {% for tag in dish.ingredient_overlap %}
-                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs md:text-sm font-medium bg-[#58B09C]/20 text-[#49475B]">{{ tag }}</span>
+                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs md:text-sm font-medium bg-[#58B09C]/20 text-[#49475B]">
+                  {{ tag }}
+                </span>
               {% endfor %}
             </div>
+            <div class="mt-auto flex justify-end gap-2">
+              {% include "dishes/_favorite_button.html" with dish=dish card_context=context_name btn_class='favorite-btn card-action-button bg-white/90 text-slate-500 hover:text-red-400' %}
+              <button
+                type="button"
+                class="dish-variation-btn card-action-button bg-white/90 text-slate-600 hover:text-slate-800"
+                hx-post="{% url 'dish-variation' dish.id %}"
+                hx-trigger="click"
+                hx-target="closest .dish-card-wrapper"
+                hx-swap="outerHTML"
+                aria-label="Generate a variation of {{ dish.title }}"
+              >
+                <i class="fa-solid fa-arrows-rotate"></i>
+              </button>
+            </div>
           </div>
-        {% endif %}
+        </div>
+        <div class="flip-loading-face">
+          <div class="loading-card">
+            <div class="loading-spinner" aria-hidden="true"></div>
+            <p class="loading-copy">Cooking up your enhancement…</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% else %}
+    <div class="flip-scene h-full">
+      <div class="flip-card h-full">
 
-        <!-- Action menu / actions (shown on FRONT) -->
-        {% if dish.is_favorited %}
-          <div class="absolute bottom-2 right-2" data-no-flip>
+        {# ---------------- FRONT ---------------- #}
+        <div class="flip-face front relative rounded-2xl overflow-hidden shadow-md border border-slate-200 bg-white">
+          {% if dish.enhancement_image_url %}
+            <!-- Lookbook image -->
+            <img
+              src="{{ dish.enhancement_image_url }}"
+              alt="{{ dish.title }}"
+              class="absolute inset-0 w-full h-full object-cover"
+            />
+            <!-- Top gradient so price badge stays readable -->
+            <div class="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/25 to-transparent"></div>
+
+            {% if dish.enhancement_price_display %}
+              <span class="absolute top-2 right-2 bg-white/90 text-[#49475B] text-xs md:text-sm font-semibold px-3 py-1 rounded-full shadow">
+                {{ dish.enhancement_price_display }}
+              </span>
+            {% endif %}
+          {% else %}
+            <!-- No image? Show a clean, centered info front -->
+            <div class="relative flex flex-col items-center justify-center text-center p-4 {{HSM}} {{HMD}} {{HLG}}">
+              <h3 class="text-lg md:text-xl font-bold text-[#49475B]">{{ dish.title }}</h3>
+              {% if dish.description %}
+                <p class="mt-2 text-slate-600 text-sm md:text-base line-clamp-4">{{ dish.description }}</p>
+              {% endif %}
+
+              <div class="mt-3 flex flex-wrap justify-center gap-2">
+                {% for tag in dish.category_tags %}
+                  <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs md:text-sm font-medium bg-[#B993D6]/20 text-[#49475B]">{{ tag }}</span>
+                {% endfor %}
+                {% for tag in dish.ingredient_overlap %}
+                  <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs md:text-sm font-medium bg-[#58B09C]/20 text-[#49475B]">{{ tag }}</span>
+                {% endfor %}
+              </div>
+            </div>
+          {% endif %}
+
+          <div class="absolute bottom-2 right-2 flex items-center gap-2" data-no-flip>
+            {% include "dishes/_favorite_button.html" with dish=dish card_context=context_name btn_class='favorite-btn card-action-button bg-white/90' %}
+            <button
+              type="button"
+              class="dish-variation-btn card-action-button bg-white/90 text-slate-600 hover:text-slate-800"
+              hx-post="{% url 'dish-variation' dish.id %}"
+              hx-trigger="click"
+              hx-target="closest .dish-card-wrapper"
+              hx-swap="outerHTML"
+              aria-label="Generate a variation of {{ dish.title }}"
+            >
+              <i class="fa-solid fa-arrows-rotate"></i>
+            </button>
             <div class="dish-menu-control" data-menu-control data-no-flip>
               <button
                 type="button"
@@ -100,101 +158,64 @@
               </div>
             </div>
           </div>
-        {% else %}
-          <div class="absolute bottom-2 right-2" data-no-flip>
-            <div class="card-action-tab" data-no-flip>
-              <button
-                type="button"
-                class="favorite-btn card-action-button text-slate-400 cursor-not-allowed"
-                disabled
-                aria-disabled="true"
-                title="Favorite {{ dish.title }}"
-                data-no-flip
-              >
-                <span aria-hidden="true">🤍</span>
-                <span class="sr-only">Favorite {{ dish.title }}</span>
-              </button>
-              <button
-                type="button"
-                class="dish-variation-btn card-action-button text-slate-600 hover:text-slate-800"
-                data-front-variation
-                data-no-flip
-                aria-label="Generate a variation of {{ dish.title }}"
-              >
-                <i class="fa-solid fa-arrows-rotate"></i>
-              </button>
-            </div>
+        </div>
+
+        {# ---------------- BACK (DETAILS) ---------------- #}
+        <div class="flip-face flip-back bg-white text-slate-800 rounded-2xl shadow-md border border-slate-200 p-4 flex flex-col gap-4 {{HSM}} {{HMD}} {{HLG}}">
+          <!-- Title & Description -->
+          <div class="flex-1 text-center space-y-3">
+            <h3 class="text-lg md:text-xl font-bold text-[#49475B] text-center">{{ dish.title }}</h3>
+            {% if dish.description %}
+              <p class="text-slate-600 text-sm md:text-base text-center line-clamp-6">{{ dish.description }}</p>
+            {% endif %}
           </div>
-        {% endif %}
+
+          <!-- Tags -->
+          <div class="flex flex-wrap justify-center gap-2">
+            {% if dish.enhancement_price_display %}
+              <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs md:text-sm font-semibold bg-[#ff4c4c] text-light border border-slate-200 shadow-sm">
+                {{ dish.enhancement_price_display }}
+              </span>
+            {% endif %}
+            {% for tag in dish.category_tags %}
+              <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs md:text-sm font-medium bg-[#B993D6]/20 text-[#49475B]">
+                {{ tag }}
+              </span>
+            {% endfor %}
+            {% for tag in dish.ingredient_overlap %}
+              <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs md:text-sm font-medium bg-[#58B09C]/20 text-[#49475B]">
+                {{ tag }}
+              </span>
+            {% endfor %}
+          </div>
+
+          <!-- Actions (again, on BACK) -->
+          <div class="mt-auto flex justify-end gap-2 pt-3 border-t border-slate-200" data-no-flip>
+            <button
+              type="button"
+              class="dish-delete-btn card-action-button text-red-500 hover:text-red-600"
+              hx-post="{% url 'dish-delete' dish.id %}"
+              hx-trigger="click"
+              hx-target="closest .dish-card-wrapper"
+              hx-swap="outerHTML"
+              aria-label="Delete {{ dish.title }}"
+            >
+              🗑️
+            </button>
+          </div>
+        </div>
+
+        {# ---------------- LOADING FACE ---------------- #}
+        <div class="flip-loading-face">
+          <div class="loading-card">
+            <div class="loading-spinner" aria-hidden="true"></div>
+            <p class="loading-copy">Cooking up your enhancement…</p>
+          </div>
+        </div>
+
       </div>
-
-      {# ---------------- BACK (DETAILS) ---------------- #}
-      <div class="flip-face flip-back bg-white text-slate-800 rounded-2xl shadow-md border border-slate-200 p-4 flex flex-col gap-4 {{HSM}} {{HMD}} {{HLG}}">
-        <!-- Title & Description -->
-        <div class="flex-1 text-center space-y-3">
-          <h3 class="text-lg md:text-xl font-bold text-[#49475B] text-center">{{ dish.title }}</h3>
-          {% if dish.description %}
-            <p class="text-slate-600 text-sm md:text-base text-center line-clamp-6">{{ dish.description }}</p>
-          {% endif %}
-        </div>
-
-        <!-- Tags -->
-        <div class="flex flex-wrap justify-center gap-2">
-          {% if dish.enhancement_price_display %}
-            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs md:text-sm font-semibold bg-[#ff4c4c] text-light border border-slate-200 shadow-sm">
-              {{ dish.enhancement_price_display }}
-            </span>
-          {% endif %}
-          {% for tag in dish.category_tags %}
-            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs md:text-sm font-medium bg-[#B993D6]/20 text-[#49475B]">
-              {{ tag }}
-            </span>
-          {% endfor %}
-          {% for tag in dish.ingredient_overlap %}
-            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs md:text-sm font-medium bg-[#58B09C]/20 text-[#49475B]">
-              {{ tag }}
-            </span>
-          {% endfor %}
-        </div>
-
-        <!-- Actions (again, on BACK) -->
-        <div class="mt-auto flex justify-end gap-2 pt-3 border-t border-slate-200" data-no-flip>
-          {% include "dishes/_favorite_button.html" with dish=dish card_context=context_name btn_class='favorite-btn card-action-button' %}
-          <button
-            type="button"
-            class="dish-variation-btn card-action-button text-slate-600 hover:text-slate-800"
-            hx-post="{% url 'dish-variation' dish.id %}"
-            hx-trigger="click"
-            hx-target="closest .dish-card-wrapper"
-            hx-swap="outerHTML"
-            aria-label="Generate a variation of {{ dish.title }}"
-          >
-            <i class="fa-solid fa-arrows-rotate"></i>
-          </button>
-          <button
-            type="button"
-            class="dish-delete-btn card-action-button text-red-500 hover:text-red-600"
-            hx-post="{% url 'dish-delete' dish.id %}"
-            hx-trigger="click"
-            hx-target="closest .dish-card-wrapper"
-            hx-swap="outerHTML"
-            aria-label="Delete {{ dish.title }}"
-          >
-            🗑️
-          </button>
-        </div>
-      </div>
-
-      {# ---------------- LOADING FACE ---------------- #}
-      <div class="flip-loading-face">
-        <div class="loading-card">
-          <div class="loading-spinner" aria-hidden="true"></div>
-          <p class="loading-copy">Cooking up your enhancement…</p>
-        </div>
-      </div>
-
     </div>
-  </div>
+  {% endif %}
 </div>
 
 {% endwith %}
