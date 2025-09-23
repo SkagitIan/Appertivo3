@@ -106,6 +106,66 @@
   if (!window.__conceptCardEnhancements) {
     window.__conceptCardEnhancements = true;
 
+    const conceptGridId = "concepts-grid";
+    const conceptGridSelector = "#concepts-grid";
+    const conceptCardSelector = "[data-concept-card]";
+
+    const reorderConceptCards = () => {
+      const grid = document.querySelector(conceptGridSelector);
+      if (!grid) {
+        return;
+      }
+      const cards = Array.from(grid.querySelectorAll(conceptCardSelector));
+      if (cards.length < 2) {
+        return;
+      }
+      const favorites = [];
+      const others = [];
+      cards.forEach((card) => {
+        if (card.dataset && card.dataset.favorited === "true") {
+          favorites.push(card);
+        } else {
+          others.push(card);
+        }
+      });
+      const orderedCards = favorites.concat(others);
+      orderedCards.forEach((card) => {
+        grid.appendChild(card);
+      });
+    };
+
+    const scheduleConceptReorder = () => {
+      if (typeof requestAnimationFrame === "function") {
+        requestAnimationFrame(reorderConceptCards);
+      } else {
+        setTimeout(reorderConceptCards, 0);
+      }
+    };
+
+    const conceptTargetNeedsReorder = (target) => {
+      if (!target) {
+        return false;
+      }
+      if (target.id === conceptGridId) {
+        return true;
+      }
+      if (typeof target.matches === "function" && target.matches(conceptCardSelector)) {
+        return true;
+      }
+      if (typeof target.closest === "function") {
+        const grid = target.closest(conceptGridSelector);
+        if (grid) {
+          return true;
+        }
+      }
+      if (typeof target.querySelector === "function" && target.querySelector(conceptCardSelector)) {
+        return true;
+      }
+      return false;
+    };
+
+    document.addEventListener("DOMContentLoaded", reorderConceptCards);
+
     const findConceptCard = (elt) => {
       if (!elt) {
         return null;
@@ -148,22 +208,29 @@
 
     document.body.addEventListener('htmx:afterSwap', function (evt) {
       const trigger = evt.detail && evt.detail.elt;
-      if (!shouldShowConceptLoading(trigger)) {
-        return;
-      }
       const target = evt.detail && evt.detail.target;
-      if (!target) {
-        return;
+
+      if (shouldShowConceptLoading(trigger)) {
+        if (!target) {
+          const card = findConceptCard(trigger);
+          if (card) {
+            card.classList.remove('loading');
+          }
+        } else if (
+          (typeof target.matches === 'function' && target.matches(conceptCardSelector)) ||
+          (typeof target.querySelector === 'function' && target.querySelector(conceptCardSelector))
+        ) {
+          // Replaced with a fresh card, no need to toggle loading.
+        } else {
+          const card = findConceptCard(trigger);
+          if (card) {
+            card.classList.remove('loading');
+          }
+        }
       }
-      if (
-        target.matches('[data-concept-card]') ||
-        target.querySelector('[data-concept-card]')
-      ) {
-        return;
-      }
-      const card = findConceptCard(trigger);
-      if (card) {
-        card.classList.remove('loading');
+
+      if (conceptTargetNeedsReorder(target)) {
+        scheduleConceptReorder();
       }
     });
 
