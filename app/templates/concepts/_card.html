@@ -27,6 +27,7 @@
               <div class="flex items-end justify-between gap-3">
                 <div class="max-w-[75%]">
                   <h2 class="text-xl md:text-2xl font-semibold leading-tight">{{ concept.name }}</h2>
+                  
                 </div>
                 <div class="flex-shrink-0" data-no-flip>
                   {% if favorite_url_override %}
@@ -43,6 +44,9 @@
             <h2 class="text-lg md:text-xl lg:text-2xl font-bold text-[#49475B]">
               {{ concept.name }}
             </h2>
+            {% if concept.subtitle %}
+              <p class="text-slate-600 text-sm md:text-base">{{ concept.subtitle }}</p>
+            {% endif %}
             {% if concept.tags %}
               <div class="mt-3 flex flex-wrap justify-center gap-2">
                 {% for tag in concept.tags %}
@@ -72,6 +76,9 @@
               <p class="text-slate-600 text-sm md:text-base">{{ concept.subtitle }}</p>
             {% endif %}
           </div>
+                    {% if concept.reasoning %}
+              <p class="mt-1 whitespace-pre-line text-sm text-slate-600"><i>{{ concept.reasoning }}</i></p>
+          {% endif %}
           {% if concept.tags %}
             <div class="flex flex-wrap gap-2">
               {% for tag in concept.tags %}
@@ -81,12 +88,7 @@
               {% endfor %}
             </div>
           {% endif %}
-          {% if concept.reasoning %}
-            <div>
-              <h4 class="text-sm font-semibold uppercase tracking-wide text-[#49475B]/70">Why it works</h4>
-              <p class="mt-1 whitespace-pre-line text-sm text-slate-600">{{ concept.reasoning }}</p>
-            </div>
-          {% endif %}
+
         </div>
         <div class="flex items-center justify-end gap-2 border-t border-slate-200 bg-white/95 px-3 py-3" data-no-flip>
           {% if concept.has_dishes %}
