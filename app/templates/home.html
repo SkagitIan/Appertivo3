@@ -31,52 +31,244 @@
       right: -100px;
     }
 
-    .home-flip-card {
+    .app-demo-frame {
       position: relative;
-      perspective: 1200px;
+      border-radius: 2.5rem;
+      background: linear-gradient(180deg, rgba(20, 8, 14, 0.92) 0%, rgba(20, 8, 14, 0.85) 100%);
+      padding: 1.5rem;
+      box-shadow: 0 35px 60px -30px rgba(20, 8, 14, 0.6);
+      color: white;
+      overflow: hidden;
     }
 
-    .home-flip-inner {
+    .app-demo-status {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      opacity: 0.7;
+    }
+
+    .app-demo-card {
+      margin-top: 1.5rem;
+      position: relative;
+      perspective: 1200px;
+      height: 320px;
+    }
+
+    .app-card-inner {
       position: relative;
       width: 100%;
       height: 100%;
       transform-style: preserve-3d;
-      transition: transform 0.7s ease;
+      transition: transform 0.8s ease;
     }
 
-    .home-flip-card:hover .home-flip-inner,
-    .home-flip-card:focus-within .home-flip-inner {
+    .app-card-inner.is-flipped {
       transform: rotateY(180deg);
     }
 
-    .home-flip-face {
+    .app-card-face {
       position: absolute;
       inset: 0;
-      width: 100%;
-      height: 100%;
-      backface-visibility: hidden;
-      border-radius: 1.5rem;
-      overflow: hidden;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
+      border-radius: 1.75rem;
+      padding: 1.75rem;
+      backface-visibility: hidden;
+      overflow: hidden;
+      box-shadow: 0 20px 45px -25px rgba(14, 2, 31, 0.55);
     }
 
-    .home-flip-back {
+    .app-card-face::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      opacity: 0.14;
+      pointer-events: none;
+    }
+
+    .app-card-face[data-theme="concept"] {
+      background: linear-gradient(135deg, #ffe8cc, #fff6ee);
+      color: #2E005D;
+    }
+
+    .app-card-face[data-theme="concept"]::after {
+      background: radial-gradient(circle at top right, #ff8300, transparent 70%);
+    }
+
+    .app-card-face[data-theme="sketch"] {
+      background: linear-gradient(135deg, #f3f0ff, #ffffff);
+      color: #14080E;
+    }
+
+    .app-card-face[data-theme="sketch"]::after {
+      background: radial-gradient(circle at bottom left, #5C008B, transparent 70%);
+    }
+
+    .app-card-face[data-theme="menu"] {
+      background: linear-gradient(135deg, #2E005D, #5C008B);
+      color: #fff;
+    }
+
+    .app-card-face[data-theme="menu"]::after {
+      background: radial-gradient(circle at top left, rgba(255, 255, 255, 0.4), transparent 60%);
+    }
+
+    .app-card-face[data-theme="spotlight"] {
+      background: linear-gradient(135deg, #ff8300, #ff5c00);
+      color: #fff;
+    }
+
+    .app-card-face[data-theme="spotlight"]::after {
+      background: radial-gradient(circle at center, rgba(255, 255, 255, 0.55), transparent 65%);
+    }
+
+    .app-card-face.is-back {
       transform: rotateY(180deg);
     }
 
+    .app-card-face header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      opacity: 0.75;
+    }
+
+    .app-card-face h3 {
+      font-size: 1.6rem;
+      line-height: 1.2;
+      font-weight: 700;
+      margin-top: 1rem;
+    }
+
+    .app-card-face p {
+      margin-top: 0.5rem;
+      font-size: 0.95rem;
+      line-height: 1.55;
+    }
+
+    .app-card-face figure {
+      margin-top: 1.5rem;
+      border-radius: 1.25rem;
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      min-height: 120px;
+      display: grid;
+      place-items: center;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .app-card-face ul {
+      margin-top: 1rem;
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+
+    .app-card-pills {
+      margin-top: 1.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .app-card-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.4rem 0.85rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      background: rgba(255, 255, 255, 0.12);
+      color: inherit;
+    }
+
+    .app-card-cta {
+      margin-top: 1.5rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      opacity: 0.8;
+    }
+
+    .data-flow-grid {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1.25rem;
+    }
+
+    .data-flow-node {
+      position: relative;
+      border-radius: 1.5rem;
+      padding: 1.5rem;
+      background: linear-gradient(135deg, rgba(94, 0, 139, 0.12), rgba(94, 0, 139, 0.4));
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #F9F7F2;
+      box-shadow: 0 25px 45px -30px rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(8px);
+      text-align: center;
+    }
+
+    .data-flow-node strong {
+      display: block;
+      font-size: 1.05rem;
+      margin-bottom: 0.4rem;
+    }
+
+    .data-flow-node p {
+      font-size: 0.85rem;
+      line-height: 1.55;
+      margin: 0;
+    }
+
+    .data-flow-node::after {
+      content: "";
+      position: absolute;
+      inset: -2px;
+      border-radius: inherit;
+      border: 1px dashed rgba(255, 255, 255, 0.18);
+      pointer-events: none;
+    }
+
+    .data-flow-node.is-highlight {
+      background: linear-gradient(135deg, rgba(255, 131, 0, 0.18), rgba(255, 92, 0, 0.55));
+    }
+
+    @media (max-width: 768px) {
+      .app-demo-card {
+        height: 280px;
+      }
+
+      .data-flow-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
     @media (prefers-reduced-motion: reduce) {
-      .home-flip-inner {
+      .app-card-inner {
         transition: none;
       }
 
-      .home-flip-card:hover .home-flip-inner,
-      .home-flip-card:focus-within .home-flip-inner {
+      .app-card-inner.is-flipped {
         transform: none;
       }
 
-      .home-flip-back {
+      .app-card-face.is-back {
         display: none;
       }
     }
@@ -141,107 +333,94 @@
     </div>
   </section>
 
-  <section id="features" class="py-20 bg-white">
-    <div class="max-w-6xl mx-auto px-6">
-      <div class="text-center max-w-3xl mx-auto mb-14 space-y-4">
-        <h2 class="text-3xl md:text-4xl font-bold">Your all-in-one creative lab for the menu.</h2>
-        <p class="text-lg text-slate-600">Explore, refine, and launch dishes with the same polished experience you love inside Appertivo.</p>
+  <section id="app-showcase" class="py-20 bg-white">
+    <div class="max-w-6xl mx-auto px-6 grid gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)] items-start">
+      <div class="space-y-6">
+        <span class="inline-flex items-center gap-2 rounded-full bg-[#FFE7CC] px-4 py-2 text-sm font-semibold text-[#FF5C00] uppercase tracking-wide">Inside the Appertivo lab</span>
+        <h2 class="text-3xl md:text-4xl font-bold text-[#14080E]">See the Appertivo card come to life.</h2>
+        <p class="text-lg text-slate-600 leading-relaxed">
+          We rebuilt the signature concept card from our app so you can watch it work. Every couple of seconds the card flips to show the next stage—from raw idea to plated story.
+        </p>
+        <ul class="space-y-4 text-slate-600">
+          <li class="flex items-start gap-3">
+            <span class="mt-1 inline-flex h-2.5 w-2.5 rounded-full bg-[#FF8300]"></span>
+            <div>
+              <p class="font-semibold text-[#2E005D]">Capture inspiration fast.</p>
+              <p class="text-sm">Drop in a few words, seasonal notes, or a vibe. Appertivo keeps it all organized.</p>
+            </div>
+          </li>
+          <li class="flex items-start gap-3">
+            <span class="mt-1 inline-flex h-2.5 w-2.5 rounded-full bg-[#5C008B]"></span>
+            <div>
+              <p class="font-semibold text-[#2E005D]">Visualize before you plate.</p>
+              <p class="text-sm">Concept sketches and menu-ready language appear automatically.</p>
+            </div>
+          </li>
+          <li class="flex items-start gap-3">
+            <span class="mt-1 inline-flex h-2.5 w-2.5 rounded-full bg-[#FFB000]"></span>
+            <div>
+              <p class="font-semibold text-[#2E005D]">Share a spotlight moment.</p>
+              <p class="text-sm">Highlight the hero photo and a catchy phrase when it’s time to launch.</p>
+            </div>
+          </li>
+        </ul>
       </div>
-      <div class="grid gap-8 md:grid-cols-3">
-        <div class="home-flip-card group" tabindex="0">
-          <div class="home-flip-inner">
-            <article class="home-flip-face bg-gradient-to-br from-[#FF8300] to-[#FF5C00] p-6 text-white shadow-xl">
-              <div class="space-y-4">
-                <h3 class="text-2xl font-semibold">Generate Concepts</h3>
-                <p class="text-base text-white/85">Brainstorm with AI tuned to your cuisine.</p>
-              </div>
-              <p class="text-sm font-medium uppercase tracking-wide text-white/80">Hover to see more</p>
-            </article>
-            <article class="home-flip-face home-flip-back bg-white p-6 text-slate-700 shadow-xl">
-              <p class="text-sm font-semibold uppercase text-[#FF8300]">How it works</p>
-              <p class="mt-4 text-base leading-relaxed">Describe the vibe, season, or ingredient. Appertivo delivers concepts that already speak in your restaurant’s voice.</p>
-              <ul class="mt-6 space-y-2 text-sm">
-                <li>• Seasonal inspirations on demand</li>
-                <li>• Flavor pairings with context</li>
-                <li>• Launch ready in minutes</li>
-              </ul>
-            </article>
+      <div class="app-demo-frame">
+        <div class="app-demo-status">
+          <span class="inline-flex h-2 w-2 rounded-full bg-[#6BFF9E] animate-pulse"></span>
+          <span>Live concept card</span>
+        </div>
+        <div class="app-demo-card" aria-live="polite">
+          <div class="app-card-inner" id="appCardInner">
+            <article class="app-card-face" id="appCardFront" data-theme="concept"></article>
+            <article class="app-card-face is-back" id="appCardBack" data-theme="sketch"></article>
           </div>
         </div>
-        <div class="home-flip-card group" tabindex="0">
-          <div class="home-flip-inner">
-            <article class="home-flip-face bg-gradient-to-br from-[#2E005D] via-[#5C008B] to-[#8E008B] p-6 text-white shadow-xl">
-              <div class="space-y-4">
-                <h3 class="text-2xl font-semibold">Dish Lookbook</h3>
-                <p class="text-base text-white/85">See your ideas in a visual grid, like a style magazine.</p>
-              </div>
-              <p class="text-sm font-medium uppercase tracking-wide text-white/80">Hover to flip</p>
-            </article>
-            <article class="home-flip-face home-flip-back bg-white p-6 text-slate-700 shadow-xl">
-              <p class="text-sm font-semibold uppercase text-[#5C008B]">Inside the card</p>
-              <p class="mt-4 text-base leading-relaxed">Images take center stage on the front. Flip to review descriptions, tags, and the story behind each concept.</p>
-              <ul class="mt-6 space-y-2 text-sm">
-                <li>• Flip for detailed descriptions</li>
-                <li>• Smart tags and price cues</li>
-                <li>• Favorite and organize instantly</li>
-              </ul>
-            </article>
-          </div>
-        </div>
-        <div class="home-flip-card group" tabindex="0">
-          <div class="home-flip-inner">
-            <article class="home-flip-face bg-gradient-to-br from-[#FFE7CC] to-white p-6 text-slate-900 shadow-xl">
-              <div class="space-y-4">
-                <h3 class="text-2xl font-semibold">Enhance with AI</h3>
-                <p class="text-base text-slate-700">Sharper wording, better visuals, smarter price cues.</p>
-              </div>
-              <p class="text-sm font-medium uppercase tracking-wide text-slate-500">Hover to flip</p>
-            </article>
-            <article class="home-flip-face home-flip-back bg-white p-6 text-slate-700 shadow-xl">
-              <p class="text-sm font-semibold uppercase text-[#2E005D]">The extras</p>
-              <p class="mt-4 text-base leading-relaxed">Move from idea to menu-ready collateral with AI enhancements tailored to your brand voice.</p>
-              <ul class="mt-6 space-y-2 text-sm">
-                <li>• Auto-tagging for ingredients & categories</li>
-                <li>• Price suggestions backed by data</li>
-                <li>• Menu builder with chef-friendly notes</li>
-              </ul>
-            </article>
-          </div>
-        </div>
-      </div>
-      <div class="mt-16 grid gap-6 md:grid-cols-2">
-        <div class="rounded-3xl border border-[#E2D6F7] bg-[#F7F2FF] p-8 shadow-sm">
-          <h3 class="text-2xl font-semibold text-[#2E005D]">Smart Tagging</h3>
-          <p class="mt-4 text-slate-600">Ingredients, categories, and price suggestions are auto-generated so you can filter and build menus faster.</p>
-        </div>
-        <div class="rounded-3xl border border-[#FFD9B5] bg-[#FFF4EB] p-8 shadow-sm">
-          <h3 class="text-2xl font-semibold text-[#FF5C00]">Organize & Favorite</h3>
-          <p class="mt-4 text-slate-600">Save winners, create menus, and refine directions without losing the energy of the brainstorm.</p>
-        </div>
+        <p class="mt-6 text-sm text-white/70">The animation loops automatically. Hover or tap to pause the flip.</p>
       </div>
     </div>
   </section>
 
-  <section id="ai" class="py-20">
-    <div class="max-w-5xl mx-auto px-6 grid gap-10 md:grid-cols-[minmax(0,1fr)_minmax(0,360px)] items-center">
+  <section id="ai" class="py-20 bg-gradient-to-br from-[#14011F] via-[#2E005D] to-[#5C008B] text-white">
+    <div class="max-w-6xl mx-auto px-6 grid gap-12 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] items-center">
       <div class="space-y-6">
-        <h2 class="text-3xl md:text-4xl font-bold">Not just AI — your AI.</h2>
-        <p class="text-lg text-slate-600 leading-relaxed">
-          Generic tools spit out generic results. Appertivo is different. It’s powered by your data — your menus, your reviews, your voice. That means the dishes it generates feel authentic to you, not copy-paste ideas from somewhere else.
+        <span class="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide">Train it on your flavor</span>
+        <h2 class="text-3xl md:text-4xl font-bold">We train Appertivo on your data, not somebody else’s trends.</h2>
+        <p class="text-base md:text-lg text-white/80 leading-relaxed">
+          Upload past menus, top-performing dishes, staff notes, or even guest reviews. Our private fine-tuning pipeline keeps everything encrypted while teaching the model the voice of your kitchen.
         </p>
-        <p class="text-lg text-slate-600 leading-relaxed">
-          This isn’t about replacing chefs — it’s about giving them a creative partner that knows their restaurant.
+        <p class="text-base md:text-lg text-white/80 leading-relaxed">
+          The result? Suggestions that sound like your chefs, respect your sourcing, and know the difference between a brunch special and a chef’s table tasting.
         </p>
       </div>
-      <div class="rounded-3xl border border-[#FF8300]/20 bg-white p-6 shadow-lg">
-        <div class="flex items-start gap-4">
-          <div class="rounded-full bg-gradient-to-br from-[#FF8300] to-[#FF5C00] px-4 py-3 text-white font-semibold">AI</div>
-          <div>
-            <p class="text-sm uppercase tracking-wide text-[#FF8300]">Personalization</p>
-            <p class="mt-2 text-base text-slate-700">Feed Appertivo your menu, favorite dishes, or reviews to fine-tune outputs.</p>
-            <p class="mt-4 text-sm text-slate-500">Every suggestion respects your brand — from plating style to portion sizes.</p>
+      <div class="space-y-6">
+        <div class="data-flow-grid">
+          <div class="data-flow-node">
+            <strong>Menus &amp; Recipes</strong>
+            <p>Import PDFs, spreadsheets, or kitchen docs. We pull structured data automatically.</p>
+          </div>
+          <div class="data-flow-node is-highlight">
+            <strong>Secure Training Loop</strong>
+            <p>Fine-tuned models live in your workspace. No cross-restaurant mixing, ever.</p>
+          </div>
+          <div class="data-flow-node">
+            <strong>Guest Feedback</strong>
+            <p>Layer in POS notes and reviews so tone and expectations stay on point.</p>
+          </div>
+          <div class="data-flow-node">
+            <strong>Supplier Details</strong>
+            <p>Tag preferred farms, purveyors, and seasonal windows for smarter sourcing.</p>
+          </div>
+          <div class="data-flow-node">
+            <strong>Chef Edits</strong>
+            <p>Approve, tweak, and lock-in language to keep the AI evolving with your team.</p>
+          </div>
+          <div class="data-flow-node is-highlight">
+            <strong>On-Brand Output</strong>
+            <p>Every generated card mirrors your plating style, margins, and storytelling.</p>
           </div>
         </div>
+        <p class="text-sm text-white/70">We never use customer data to train global models. Your flavors stay yours.</p>
       </div>
     </div>
   </section>
@@ -310,4 +489,142 @@
       </div>
     </div>
   </section>
+{% endblock %}
+
+{% block extra_scripts %}
+  {{ block.super }}
+  <script>
+    (function () {
+      const cardInner = document.getElementById("appCardInner");
+      const front = document.getElementById("appCardFront");
+      const back = document.getElementById("appCardBack");
+      const cardWrapper = document.querySelector(".app-demo-card");
+
+      if (!cardInner || !front || !back) {
+        return;
+      }
+
+      const states = [
+        {
+          theme: "concept",
+          html: `
+            <header>
+              <span>Concept prompt</span>
+              <span>Chef Rivera</span>
+            </header>
+            <div>
+              <h3>Heirloom Tomato Tart</h3>
+              <p>“Bright tomato layers with citrus basil crema and a whisper of smoked salt.”</p>
+              <div class="app-card-pills">
+                <span class="app-card-pill">Summer</span>
+                <span class="app-card-pill">Veg-forward</span>
+                <span class="app-card-pill">Brunch</span>
+              </div>
+            </div>
+            <p class="app-card-cta">Next up: sketching plating ideas…</p>
+          `,
+        },
+        {
+          theme: "sketch",
+          html: `
+            <header>
+              <span>Concept sketch</span>
+              <span>Lookbook view</span>
+            </header>
+            <div>
+              <h3>Layered tart illustration</h3>
+              <p>Top view with concentric heirloom slices, basil crema swirls, and puff pastry shell.</p>
+              <figure>
+                <span>Sketch rendering</span>
+              </figure>
+            </div>
+            <p class="app-card-cta">Flip for menu language.</p>
+          `,
+        },
+        {
+          theme: "menu",
+          html: `
+            <header>
+              <span>Menu ready</span>
+              <span>Dining room</span>
+            </header>
+            <div>
+              <h3>Heirloom Tomato Tart</h3>
+              <p>Citrus basil crema • Charred scallion oil • Burrata crumble</p>
+              <ul>
+                <li>• Suggested price: $18</li>
+                <li>• Prep time: 12 minutes</li>
+                <li>• Pairing: Sauvignon Blanc</li>
+              </ul>
+            </div>
+            <p class="app-card-cta">Ready for spotlight mode.</p>
+          `,
+        },
+        {
+          theme: "spotlight",
+          html: `
+            <header>
+              <span>Launch spotlight</span>
+              <span>Social kit</span>
+            </header>
+            <div>
+              <h3>Meet your new patio star.</h3>
+              <p>Golden puff pastry stacked with sweet tomatoes and a basil-citrus glow.</p>
+              <figure>
+                <span>Plated hero image</span>
+              </figure>
+            </div>
+            <p class="app-card-cta">“Summer never tasted this vibrant.”</p>
+          `,
+        },
+      ];
+
+      function render(face, state) {
+        face.dataset.theme = state.theme;
+        face.innerHTML = state.html;
+      }
+
+      let currentIndex = 0;
+      let isFlipped = false;
+      let paused = false;
+
+      render(front, states[0]);
+      const secondIndex = states.length > 1 ? 1 : 0;
+      render(back, states[secondIndex]);
+
+      cardInner.addEventListener("transitionend", function (event) {
+        if (event.propertyName !== "transform") {
+          return;
+        }
+        currentIndex = (currentIndex + 1) % states.length;
+        isFlipped = !isFlipped;
+        const nextState = states[(currentIndex + 1) % states.length];
+        const hiddenFace = isFlipped ? front : back;
+        render(hiddenFace, nextState);
+      });
+
+      const interval = setInterval(function () {
+        if (paused || states.length <= 1) {
+          return;
+        }
+        cardInner.classList.toggle("is-flipped");
+      }, 2300);
+
+      if (cardWrapper) {
+        cardWrapper.addEventListener("mouseenter", function () {
+          paused = true;
+        });
+        cardWrapper.addEventListener("mouseleave", function () {
+          paused = false;
+        });
+        cardWrapper.addEventListener("touchstart", function () {
+          paused = !paused;
+        });
+      }
+
+      window.addEventListener("beforeunload", function () {
+        clearInterval(interval);
+      });
+    })();
+  </script>
 {% endblock %}
