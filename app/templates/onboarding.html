@@ -1,79 +1,152 @@
 {% extends "layouts/app.html" %}
 
-{% block title %}Onboarding — Appertivo{% endblock %}
+{% block title %}Welcome — Appertivo{% endblock %}
 
 {% block page_intro %}
   <div class="space-y-1">
-    <h1 class="text-xl font-semibold text-[#14080E]">Welcome to Appertivo</h1>
-    <p class="text-sm text-slate-600">Complete these quick steps to tailor recommendations.</p>
+    <p class="text-xs font-semibold uppercase tracking-wide text-[#5C008B]/70">Onboarding</p>
+    <h1 class="text-2xl font-semibold text-[#14080E]">Let's get your restaurant set up</h1>
+    <p class="text-sm text-slate-600">Follow these steps to personalize Appertivo before you dive into concepts and dishes.</p>
   </div>
 {% endblock %}
 
 {% block page_content %}
-  <div class="px-4 py-8">
-    <div class="mx-auto flex max-w-3xl flex-col gap-6">
-      <section class="rounded-2xl border border-slate-200 bg-white/90 p-6 text-slate-600">
-        <div class="flex flex-col gap-4">
+  <div class="px-4 py-10">
+    <div class="mx-auto flex max-w-4xl flex-col gap-6">
+      <section class="rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm">
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Step 1</p>
+        <div class="mt-3 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
-            <p class="text-xs font-semibold uppercase text-slate-400">Step 1</p>
-            <h2 class="mt-2 text-lg font-semibold text-[#14080E]">Start your {{ trial_days }}-day free trial</h2>
-            <p class="text-sm">Unlock unlimited ideation, menu polishing tools, and collaboration features.</p>
-          </div>
-
-          <div class="rounded-xl border border-slate-200 bg-white p-4">
-            {% if subscription %}
-              <p class="text-sm font-semibold text-[#14080E]">You're {{ subscription.get_status_display|lower }}.</p>
-              {% if trial_days_remaining is not None %}
-                <p class="mt-1 text-sm">Your trial ends {{ trial_ends|date:"F j, Y" }} ({{ trial_days_remaining }} days remaining).</p>
-              {% elif trial_ends %}
-                <p class="mt-1 text-sm">Renewal date: {{ trial_ends|date:"F j, Y" }}.</p>
-              {% endif %}
-              {% if subscription.cancel_at_period_end %}
-                <p class="mt-2 text-xs font-medium text-amber-600">Cancellation is scheduled at the end of this period.</p>
-              {% endif %}
-            {% else %}
-              <p class="text-sm">Add a payment method now and you won't be charged until your trial ends.</p>
+            <h2 class="text-lg font-semibold text-[#14080E]">Confirm your restaurant details</h2>
+            <p class="mt-1 text-sm text-slate-600">We're pulling public data to preload your dashboard.</p>
+            {% if restaurant %}
+              <dl class="mt-4 grid gap-2 text-sm text-slate-600">
+                <div class="flex flex-wrap items-center gap-2">
+                  <dt class="font-medium text-[#14080E]">Restaurant:</dt>
+                  <dd>{{ restaurant.name }}</dd>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <dt class="font-medium text-[#14080E]">Location:</dt>
+                  <dd>{{ restaurant.location_text }}</dd>
+                </div>
+              </dl>
             {% endif %}
           </div>
+          <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
+            {% if outscraper_payload %}
+              <p class="font-semibold text-[#14080E]">Status: {{ outscraper_payload.get_status_display }}</p>
+              {% if outscraper_payload.discovered_menu_url %}
+                <p class="mt-1 break-all text-slate-600">We found a menu link: <a class="text-[#5C008B] underline" href="{{ outscraper_payload.discovered_menu_url }}" target="_blank" rel="noopener">{{ outscraper_payload.discovered_menu_url }}</a></p>
+              {% else %}
+                <p class="mt-1 text-slate-600">We'll notify you as soon as the search finishes.</p>
+              {% endif %}
+            {% else %}
+              <p class="font-semibold text-[#14080E]">Queued</p>
+              <p class="mt-1 text-slate-600">Your lookup request is in progress.</p>
+            {% endif %}
+          </div>
+        </div>
+      </section>
 
-          {% if show_start_trial %}
-            <form method="post" action="{% url 'billing-upgrade' %}">
-              {% csrf_token %}
-              <input type="hidden" name="next" value="{% url 'onboarding' %}">
-              <button type="submit" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#FF5C00] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#e05400]">
-                Start {{ trial_days }}-day trial
+      <section class="rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm">
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Step 2</p>
+        <div class="mt-3 space-y-4">
+          <div>
+            <h2 class="text-lg font-semibold text-[#14080E]">Add your live menu link</h2>
+            <p class="mt-1 text-sm text-slate-600">We use your menu to tailor concept ideas and dish recommendations.</p>
+          </div>
+          {% if menu_success %}
+            <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+              Menu received! We're processing it now.
+            </div>
+          {% elif menu_error %}
+            <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+              {{ menu_error }}
+            </div>
+          {% endif %}
+          <form method="post" class="space-y-3">
+            {% csrf_token %}
+            <label class="block text-sm font-medium text-slate-700" for="menu_url">Restaurant menu URL</label>
+            <input id="menu_url" name="menu_url" type="url" required placeholder="https://"
+                   value="{{ restaurant.primary_menu_url }}"
+                   class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm focus:border-[#5C008B] focus:outline-none focus:ring-2 focus:ring-[#B993D6]">
+            <div class="flex flex-wrap items-center gap-3">
+              <button type="submit" class="inline-flex items-center justify-center rounded-xl bg-[#5C008B] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#4a0178]">
+                Save menu link
               </button>
-            </form>
-          {% else %}
-            <div class="flex flex-wrap gap-3">
-              <a href="{% url 'billing' %}" class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-[#14080E] transition hover:bg-slate-100">
-                Manage billing
-              </a>
-              {% if restaurant %}
-                <a href="{% url 'dashboard' restaurant.id %}" class="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-600">
-                  Continue to dashboard
+              {% if restaurant and restaurant.primary_menu_url %}
+                <a href="{{ restaurant.primary_menu_url }}" target="_blank" rel="noopener" class="text-sm font-medium text-[#5C008B] underline">
+                  Preview current link
                 </a>
+              {% endif %}
+            </div>
+          </form>
+          {% if latest_menu_version %}
+            <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
+              <p class="font-semibold text-[#14080E]">Latest import: {{ latest_menu_version.get_status_display }}</p>
+              {% if latest_menu_version.source_url %}
+                <p class="mt-1 break-all">Source: {{ latest_menu_version.source_url }}</p>
               {% endif %}
             </div>
           {% endif %}
         </div>
       </section>
 
-      <section class="rounded-2xl border border-dashed border-slate-200 bg-white/70 p-6 text-slate-600">
-        <p class="text-xs font-semibold uppercase text-slate-400">Step 2</p>
-        <h2 class="mt-2 text-lg font-semibold text-[#14080E]">Track menu processing</h2>
-        {% if jobs %}
-          <ul class="mt-4 space-y-2 text-sm">
-            {% for job in jobs %}
-              <li class="flex items-center justify-between rounded-xl bg-white p-3">
-                <span>{{ job.get_kind_display|default:job.kind }}</span>
-                <span class="text-xs font-medium uppercase text-slate-400">{{ job.get_status_display|default:job.status }}</span>
-              </li>
-            {% endfor %}
-          </ul>
-        {% else %}
-          <p class="mt-4 text-sm">We'll keep an eye on your menu imports and alert you once everything is ready.</p>
-        {% endif %}
+      <section class="rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm">
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Step 3</p>
+        <div class="mt-3 space-y-4">
+          <div>
+            <h2 class="text-lg font-semibold text-[#14080E]">Activate billing to continue</h2>
+            <p class="mt-1 text-sm text-slate-600">Secure your {{ trial_days }}-day free trial. You can cancel anytime before it ends.</p>
+          </div>
+          {% if subscription %}
+            <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
+              <p class="font-semibold text-[#14080E]">{{ subscription.get_status_display }}</p>
+              {% if trial_days_remaining is not None %}
+                <p class="mt-1">{{ trial_days_remaining }} day{{ trial_days_remaining|pluralize }} left in your trial.</p>
+              {% elif trial_ends %}
+                <p class="mt-1">Renews on {{ trial_ends|date:"F j, Y" }}.</p>
+              {% endif %}
+            </div>
+            {% if subscription_allows_dashboard %}
+              <a href="{{ dashboard_url }}" class="inline-flex items-center justify-center rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-600">
+                Continue to dashboard
+              </a>
+            {% elif subscription_requires_update %}
+              <form method="post" action="{% url 'billing-upgrade' %}" class="inline">
+                {% csrf_token %}
+                {% if dashboard_url %}
+                  <input type="hidden" name="next" value="{{ dashboard_url }}">
+                {% endif %}
+                <button type="submit" class="inline-flex items-center justify-center rounded-xl bg-[#FF5C00] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#e05400]">
+                  Update billing
+                </button>
+              </form>
+            {% endif %}
+          {% else %}
+            <form method="post" action="{% url 'billing-upgrade' %}" class="inline-flex flex-col gap-3 sm:flex-row sm:items-center">
+              {% csrf_token %}
+              {% if dashboard_url %}
+                <input type="hidden" name="next" value="{{ dashboard_url }}">
+              {% endif %}
+              <button type="submit" class="inline-flex items-center justify-center rounded-xl bg-[#FF5C00] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#e05400]">
+                Start {{ trial_days }}-day trial
+              </button>
+              <span class="text-xs text-slate-500">No charges until your trial ends.</span>
+            </form>
+          {% endif %}
+        </div>
+      </section>
+
+      <section class="rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm">
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Step 4</p>
+        <div class="mt-3 space-y-4">
+          <div>
+            <h2 class="text-lg font-semibold text-[#14080E]">Explore your creative workspace</h2>
+            <p class="mt-1 text-sm text-slate-600">We lined up a few tips so you can start generating concepts right away.</p>
+          </div>
+          {% include "_partials/onboarding_welcome.html" with restaurant=restaurant just_signed_up=just_signed_up dashboard_url=dashboard_url %}
+        </div>
       </section>
     </div>
   </div>
