@@ -1,0 +1,87 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ lead.name }} × Appertivo Demo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --appertivo-orange: #ff7a45;
+            --appertivo-berry: #6b1f7b;
+            --appertivo-cream: #fff6ee;
+        }
+        body { font-family: 'Inter', sans-serif; background-color: var(--appertivo-cream); }
+    </style>
+</head>
+<body class="min-h-screen">
+<div class="bg-gradient-to-br from-[#fff6ee] via-white to-[#ffe1d6]">
+    <div class="max-w-5xl mx-auto px-6 py-12">
+        <div class="flex items-center justify-between mb-12">
+            <div>
+                <p class="text-sm uppercase tracking-widest text-[#6b1f7b] font-semibold">Appertivo Demo</p>
+                <h1 class="text-4xl md:text-5xl font-bold text-[#1f2933] mt-2">{{ lead.name }}</h1>
+                {% if lead.city %}
+                <p class="text-lg text-[#4a5568] mt-2">Imagined for {{ lead.city }}</p>
+                {% endif %}
+            </div>
+            <div class="text-right hidden md:block">
+                <span class="inline-flex items-center rounded-full bg-[#6b1f7b] text-white px-4 py-2 text-sm font-semibold">Independent restaurant spotlight</span>
+            </div>
+        </div>
+
+        <section class="grid md:grid-cols-3 gap-6 mb-12">
+            {% for concept in concepts %}
+            <div class="bg-white rounded-2xl shadow-lg p-6 border border-[#ffe1d6]">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-semibold text-[#1f2933]">{{ concept.name }}</h2>
+                    {% if concept.enhanced %}
+                    <span class="text-xs font-bold uppercase tracking-wider text-white bg-[#ff7a45] px-3 py-1 rounded-full">Enhanced</span>
+                    {% endif %}
+                </div>
+                <p class="text-sm text-[#4a5568]">A high-concept tasting flight designed to wow regulars and new guests alike.</p>
+            </div>
+            {% endfor %}
+        </section>
+
+        <section class="bg-white rounded-3xl shadow-xl border border-[#ffe1d6] p-8 mb-12">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-2xl font-semibold text-[#1f2933]">Signature Dish Sketches</h3>
+                <span class="text-sm text-[#6b1f7b]">Curated for {{ lead.name }}</span>
+            </div>
+            <div class="grid md:grid-cols-3 gap-6">
+                {% for dish in dishes %}
+                <div class="border border-[#ffe1d6] rounded-2xl p-4 bg-[#fffaf5] flex flex-col gap-3">
+                    {% if dish.image_url %}
+                    <img src="{{ dish.image_url }}" alt="{{ dish.title }}" class="rounded-xl object-cover h-40 w-full">
+                    {% else %}
+                    <div class="rounded-xl bg-gradient-to-br from-[#ffe1d6] to-white h-40 flex items-center justify-center text-[#ff7a45] font-semibold text-sm">Concept sketch</div>
+                    {% endif %}
+                    <div class="flex items-center justify-between">
+                        <h4 class="text-lg font-semibold text-[#1f2933]">{{ dish.title }}</h4>
+                        {% if dish.favorited %}
+                        <span class="text-[#ff7a45]" title="Appertivo favorite">★</span>
+                        {% endif %}
+                    </div>
+                    {% if dish.concept %}
+                    <p class="text-xs uppercase tracking-wide text-[#6b1f7b]">Inspired by {{ dish.concept.name }}</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="text-center bg-[#6b1f7b] text-white rounded-3xl p-10 shadow-lg">
+            <h3 class="text-3xl font-bold mb-4">Unlock the full tasting experience</h3>
+            <p class="text-lg opacity-90 mb-6">Sign up with Appertivo to activate this concept, access more menu ideas, and schedule your launch workshop.</p>
+            <a href="/signup/?restaurant={{ lead.name|urlencode }}&city={{ lead.city|urlencode }}" class="inline-flex items-center justify-center rounded-full bg-white text-[#6b1f7b] font-semibold px-10 py-3 shadow-md hover:shadow-lg transition">Claim your spot</a>
+            <p class="mt-4 text-sm opacity-80">Already have an account? <a href="/login/" class="underline text-white">Log in</a>.</p>
+        </section>
+    </div>
+</div>
+</body>
+</html>

@@ -1,11 +1,12 @@
 from django.contrib import admin
-from django.urls import path
+from django.urls import include, path
 from django.contrib.auth import views as auth_views
 
 from app import views as app_views
 
 urlpatterns = [
     path("", app_views.home_view, name="home"),
+    path("", include("appertivo.leads.urls")),
     path("signup/", app_views.signup_view, name="signup"),
     path("login/", app_views.login_view, name="login"),
     path("logout/", app_views.logout_view, name="logout"),
