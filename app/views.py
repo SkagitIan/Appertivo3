@@ -788,6 +788,7 @@ def menus_view(request):
         "menus": menus,
         "menu_options": menu_options,
         "menu_move_url": reverse("menu-item-move"),
+        "menus_workspace_url": reverse("menus"),
     }
     return render(request, "menus/main.html", ctx)
 
@@ -1838,6 +1839,7 @@ def dish_detail_view(request, concept_id):
         "dishes": dishes,
         "menu_options": menu_options,
         "menu_move_url": reverse("menu-item-move"),
+        "menus_workspace_url": reverse("menus"),
     }
 
     return render(request, template_name, context)
@@ -1876,7 +1878,11 @@ def dish_favorite_view(request, dish_id):
 
     html = render_to_string(
         "dishes/_card.html",
-        {"dish": dish, "card_context": card_context},
+        {
+            "dish": dish,
+            "card_context": card_context,
+            "menus_workspace_url": reverse("menus"),
+        },
         request=request,
     )
     return HttpResponse(html)
@@ -2070,7 +2076,13 @@ def dish_variation_view(request, dish_id):
     decorate_dishes_with_enhancements([new_dish])
 
     html = render_to_string(
-        "dishes/_card.html", {"dish": new_dish, "card_context": "grid"}, request=request
+        "dishes/_card.html",
+        {
+            "dish": new_dish,
+            "card_context": "grid",
+            "menus_workspace_url": reverse("menus"),
+        },
+        request=request,
     )
     return HttpResponse(html)
 
@@ -2146,6 +2158,7 @@ def favorites_view(request):
         "uncategorized_favorites": uncategorized_favorites,
         "menu_options": menus_payload,
         "menu_move_url": reverse("menu-item-move"),
+        "menus_workspace_url": reverse("menus"),
     }
     return render(request, "favorites/dashboard.html", ctx)
 

@@ -97,7 +97,7 @@
                 data-menu-id="{{ menu.id }}"
                 draggable="true"
               >
-                {% include "dishes/_card.html" with dish=item.dish card_context='favorites' menu_options=menu_options menu_move_url=menu_move_url current_menu_id=menu.id %}
+                {% include "dishes/_card.html" with dish=item.dish card_context='favorites' menu_options=menu_options menu_move_url=menu_move_url current_menu_id=menu.id menus_workspace_url=menus_workspace_url %}
               </div>
             {% endfor %}
           </div>
