@@ -18,40 +18,41 @@
         class="flex flex-col gap-3 sm:flex-row sm:items-center"
       >
         <div class="relative flex-1">
-          <button
-            type="button"
-            data-inspire
-            aria-label="Inspire me"
-            class="absolute inset-y-1.5 left-2 inline-flex h-9 w-9 items-center justify-center rounded-full border border-transparent bg-gradient-to-r from-[#f08000] via-[#f69b2d] to-[#d96f00] text-white shadow-sm transition hover:from-[#f69b2d] hover:via-[#f08000] hover:to-[#f69b2d] focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-[#f08000]/60"
-          >
-            <i class="fa-solid fa-sparkles"></i>
-            <span class="sr-only">Inspire Me</span>
-          </button>
           <input
             type="text"
             name="prompt"
             id="{{ root_id }}-field"
             value="{{ initial_value|default:'' }}"
             placeholder="{{ placeholder_samples|first|default:'Try: Fall brunch specials' }}"
-            class="w-full rounded-xl border border-slate-200 bg-white/90 py-3 pl-14 pr-28 text-sm text-[#14080E] shadow-sm transition focus:border-[#B993D6] focus:outline-none focus:ring-2 focus:ring-[#B993D6]/40"
+            class="w-full rounded-xl border border-slate-200 bg-white/90 py-3 pl-4 pr-56 text-sm text-[#14080E] shadow-sm transition focus:border-[#B993D6] focus:outline-none focus:ring-2 focus:ring-[#B993D6]/40"
             autocomplete="off"
           />
-          <button
-            type="submit"
-            class="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 rounded-full bg-[#58B09C] px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition hover:bg-[#43907d] focus:outline-none focus:ring-2 focus:ring-[#58B09C]/40"
-          >
-            <span>Run</span>
-            <i class="fa-solid fa-paper-plane text-[10px]"></i>
-          </button>
+          <div class="absolute inset-y-1.5 right-2 flex items-center gap-2">
+            <button
+              type="submit"
+              class="inline-flex items-center gap-1 rounded-full bg-[#58B09C] px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition hover:bg-[#43907d] focus:outline-none focus:ring-2 focus:ring-[#58B09C]/40"
+            >
+              <span>Run</span>
+              <i class="fa-solid fa-paper-plane text-[10px]"></i>
+            </button>
+            <button
+              type="button"
+              data-inspire
+              class="inline-flex items-center gap-1.5 rounded-full bg-[#FF5C00] px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition hover:bg-[#e05400] focus:outline-none focus:ring-2 focus:ring-[#FF5C00]/40"
+            >
+              <span>I feel lucky</span>
+              <i class="fa-solid fa-sparkles text-[10px]"></i>
+            </button>
+          </div>
         </div>
       </form>
       <div
         id="{{ indicator_id }}"
-        class="pointer-events-none absolute inset-x-3 bottom-0 hidden"
+        class="pointer-events-none hidden"
         aria-live="polite"
       >
         <span class="sr-only">Mixing new ideas…</span>
-        <div class="h-1 w-full overflow-hidden rounded-full bg-[#E8DAF7]">
+        <div class="mt-2 h-2 w-full overflow-hidden rounded-full bg-[#E8DAF7]">
           <div class="indicator-bar h-full w-full"></div>
         </div>
       </div>
