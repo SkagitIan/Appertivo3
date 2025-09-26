@@ -17,7 +17,7 @@
   </script>
 {% endblock %}
 
-{% block body_class %}bg-gray-50 text-[#14080E] min-h-screen flex flex-col{% endblock %}
+{% block body_class %}bg-gradient-to-r from-[#F3E8FF] to-[#E6DAF5] text-[#14080E] min-h-screen flex flex-col{% endblock %}
 
 {% block overlay %}
   <div id="global-overlay" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-gradient-to-br from-[#B993D6] via-purple-700 to-[#49475B]">
@@ -51,11 +51,6 @@
         <div class="flex-1">
           {% block page_intro %}{% endblock %}
         </div>
-        {% if restaurant %}
-          <div class="hidden sm:flex flex-col items-end text-xs font-medium uppercase tracking-wide text-slate-400">
-            <span>{{ restaurant }}</span>
-          </div>
-        {% endif %}
       </div>
     </div>
 
