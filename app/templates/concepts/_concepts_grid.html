@@ -1,3 +1,17 @@
 {% for concept in concepts %}
   {% include "concepts/_card.html" with concept=concept %}
 {% endfor %}
+{% if concepts and concept_generate_url %}
+  <div class="col-span-full flex justify-center pt-2">
+    <button
+      type="button"
+      hx-post="{{ concept_generate_url }}"
+      hx-target="#concepts-grid"
+      hx-swap="innerHTML"
+      class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-xs font-medium text-slate-500 shadow-sm transition hover:border-slate-300 hover:text-slate-600"
+    >
+      <span>More ideas like these</span>
+      <i class="fa-solid fa-chevron-down text-[10px]"></i>
+    </button>
+  </div>
+{% endif %}
