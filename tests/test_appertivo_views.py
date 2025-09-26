@@ -282,6 +282,36 @@ class ViewSmokeTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertNotContains(resp, dish.title)
 
+    def test_dish_detail_displays_concept_metadata(self):
+        concept_run = models.IdeationRun.objects.create(
+            restaurant=self.restaurant,
+            initiated_by_user=self.user,
+            type=models.IdeationRun.RunType.CONCEPTS,
+            model_name="m",
+            temperature=0,
+            classic_creative=50,
+            context_snapshot={},
+            status=models.IdeationRun.Status.SUCCEEDED,
+        )
+        concept = models.Concept.objects.create(
+            restaurant=self.restaurant,
+            ideation_run=concept_run,
+            name="Coastal Brunch",
+            subtitle="Bright citrus and seafood pairings",
+            reasoning="Highlight local catch with citrus.\nGreat for summer afternoons.",
+            tags=["Seasonal", "Coastal"],
+            rank_order=0,
+        )
+        self._create_dishes(concept)
+
+        resp = self.client.get(reverse("dish_detail", args=[concept.id]))
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Coastal Brunch")
+        self.assertContains(resp, "Bright citrus and seafood pairings")
+        self.assertContains(resp, "Seasonal")
+        self.assertContains(resp, "Highlight local catch with citrus.")
+
     def test_dish_delete_removes_dish_and_assets(self):
         self._create_concepts()
         concept = models.Concept.objects.first()
