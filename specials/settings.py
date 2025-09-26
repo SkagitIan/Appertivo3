@@ -66,7 +66,23 @@ MESSAGE_TAGS = {
     message_constants.ERROR: 'danger',
 }
 
-STRIPE_API_KEY = 'your_stripe_secret_key_here'
+
+def _env_int(name: str, default: int) -> int:
+    """Read an integer from environment variables with a fallback."""
+
+    try:
+        return int(os.getenv(name, default))
+    except (TypeError, ValueError):
+        return default
+
+
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
+STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY", "")
+STRIPE_PRICE_ID = os.getenv("STRIPE_PRICE_ID", "")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+STRIPE_TRIAL_DAYS = _env_int("STRIPE_TRIAL_DAYS", 14)
+STRIPE_PLAN_CODE = os.getenv("STRIPE_PLAN_CODE", "pro")
+STRIPE_API_KEY = STRIPE_SECRET_KEY
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

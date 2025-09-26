@@ -11,8 +11,70 @@
 
 {% block page_content %}
   <div class="px-4 py-8">
-    <div class="rounded-2xl border border-slate-200 bg-white/90 p-6 text-slate-600">
-      <p>The onboarding flow will live here.</p>
+    <div class="mx-auto flex max-w-3xl flex-col gap-6">
+      <section class="rounded-2xl border border-slate-200 bg-white/90 p-6 text-slate-600">
+        <div class="flex flex-col gap-4">
+          <div>
+            <p class="text-xs font-semibold uppercase text-slate-400">Step 1</p>
+            <h2 class="mt-2 text-lg font-semibold text-[#14080E]">Start your {{ trial_days }}-day free trial</h2>
+            <p class="text-sm">Unlock unlimited ideation, menu polishing tools, and collaboration features.</p>
+          </div>
+
+          <div class="rounded-xl border border-slate-200 bg-white p-4">
+            {% if subscription %}
+              <p class="text-sm font-semibold text-[#14080E]">You're {{ subscription.get_status_display|lower }}.</p>
+              {% if trial_days_remaining is not None %}
+                <p class="mt-1 text-sm">Your trial ends {{ trial_ends|date:"F j, Y" }} ({{ trial_days_remaining }} days remaining).</p>
+              {% elif trial_ends %}
+                <p class="mt-1 text-sm">Renewal date: {{ trial_ends|date:"F j, Y" }}.</p>
+              {% endif %}
+              {% if subscription.cancel_at_period_end %}
+                <p class="mt-2 text-xs font-medium text-amber-600">Cancellation is scheduled at the end of this period.</p>
+              {% endif %}
+            {% else %}
+              <p class="text-sm">Add a payment method now and you won't be charged until your trial ends.</p>
+            {% endif %}
+          </div>
+
+          {% if show_start_trial %}
+            <form method="post" action="{% url 'billing-upgrade' %}">
+              {% csrf_token %}
+              <input type="hidden" name="next" value="{% url 'onboarding' %}">
+              <button type="submit" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#FF5C00] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#e05400]">
+                Start {{ trial_days }}-day trial
+              </button>
+            </form>
+          {% else %}
+            <div class="flex flex-wrap gap-3">
+              <a href="{% url 'billing' %}" class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-[#14080E] transition hover:bg-slate-100">
+                Manage billing
+              </a>
+              {% if restaurant %}
+                <a href="{% url 'dashboard' restaurant.id %}" class="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-600">
+                  Continue to dashboard
+                </a>
+              {% endif %}
+            </div>
+          {% endif %}
+        </div>
+      </section>
+
+      <section class="rounded-2xl border border-dashed border-slate-200 bg-white/70 p-6 text-slate-600">
+        <p class="text-xs font-semibold uppercase text-slate-400">Step 2</p>
+        <h2 class="mt-2 text-lg font-semibold text-[#14080E]">Track menu processing</h2>
+        {% if jobs %}
+          <ul class="mt-4 space-y-2 text-sm">
+            {% for job in jobs %}
+              <li class="flex items-center justify-between rounded-xl bg-white p-3">
+                <span>{{ job.get_kind_display|default:job.kind }}</span>
+                <span class="text-xs font-medium uppercase text-slate-400">{{ job.get_status_display|default:job.status }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="mt-4 text-sm">We'll keep an eye on your menu imports and alert you once everything is ready.</p>
+        {% endif %}
+      </section>
     </div>
   </div>
 {% endblock %}

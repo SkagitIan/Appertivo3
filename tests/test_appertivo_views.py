@@ -1,4 +1,5 @@
 import json
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
@@ -10,7 +11,12 @@ from django.utils import timezone
 from app import models, views
 
 
-@override_settings(SECURE_SSL_REDIRECT=False)
+@override_settings(
+    SECURE_SSL_REDIRECT=False,
+    STRIPE_PRICE_ID="price_test",
+    STRIPE_SECRET_KEY="sk_test",
+    STRIPE_TRIAL_DAYS=14,
+)
 class ViewSmokeTests(TestCase):
     """Ensure newly added views respond correctly."""
 
@@ -81,6 +87,7 @@ class ViewSmokeTests(TestCase):
         }
         resp = self.client.post(reverse("signup"), data)
         self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp["Location"], reverse("onboarding"))
         self.assertTrue(User.objects.filter(username="new@example.com").exists())
 
     def test_login_authenticates(self):
@@ -706,13 +713,23 @@ class ViewSmokeTests(TestCase):
         self.assertEqual(mv.source_kind, models.MenuVersion.SourceKind.IMAGE_OCR)
         mock_parse.assert_called_once()
 
-    def test_billing_views(self):
+    @patch("app.views.stripe.Subscription.modify")
+    @patch("app.views.stripe.checkout.Session.create")
+    def test_billing_views(self, mock_checkout, mock_modify):
+        mock_checkout.return_value = SimpleNamespace(url="https://stripe.test/session")
+
         resp = self.client.get(reverse("billing"))
         self.assertEqual(resp.status_code, 200)
-        up = self.client.post(reverse("billing-upgrade"))
-        self.assertEqual(up.status_code, 200)
+
+        up = self.client.post(
+            reverse("billing-upgrade"), {"next": reverse("billing")}
+        )
+        self.assertEqual(up.status_code, 302)
+        self.assertEqual(up["Location"], "https://stripe.test/session")
+        mock_checkout.assert_called_once()
+
         cancel = self.client.post(reverse("billing-cancel"))
-        self.assertEqual(cancel.status_code, 200)
+        self.assertEqual(cancel.status_code, 302)
 
     def test_job_status_and_notifications(self):
         job = models.Job.objects.create(

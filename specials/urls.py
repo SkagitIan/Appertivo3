@@ -58,6 +58,7 @@ urlpatterns = [
     path("billing/", app_views.billing_view, name="billing"),
     path("billing/upgrade/", app_views.billing_upgrade_view, name="billing-upgrade"),
     path("billing/cancel/", app_views.billing_cancel_view, name="billing-cancel"),
+    path("stripe/webhook/", app_views.stripe_webhook_view, name="stripe-webhook"),
     path("jobs/<uuid:job_id>/", app_views.job_status_view, name="job-status"),
     path("notifications/", app_views.notification_list_view, name="notification-list"),
     # Existing API and sample views

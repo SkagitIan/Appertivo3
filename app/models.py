@@ -22,6 +22,7 @@ class Account(TimestampedModel):
     """Organization account."""
 
     name = models.TextField(null=True, blank=True)
+    stripe_customer_id = models.TextField(null=True, blank=True)
 
 
 class UserProfile(TimestampedModel):
