@@ -17,22 +17,15 @@
   <div class="px-4 py-6 space-y-6">
     {% include "concepts/_card_assets.html" %}
     <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div class="space-y-5">
-        <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p class="text-xs font-semibold uppercase tracking-wide text-[#B993D6]">Idea launcher</p>
-            <h2 class="text-lg font-semibold text-[#14080E]">Jumpstart new concepts</h2>
-            <p class="text-sm text-[#49475B]">Type your own spark, tap a chip, or let Appertivo surprise you.</p>
-          </div>
-        </div>
+      <div class="space-y-4">
+        <p class="text-sm font-medium text-[#49475B]">Try a suggestion below or type your own focus to refresh the grid.</p>
         {% include "_partials/contextual_ai_input.html" with form_id="dashboard-ai-input" action_url=concept_generate_url target="#concepts-grid" placeholder_samples=concept_prompt_placeholders suggestions=concept_prompt_suggestions %}
-        <div class="rounded-xl border border-dashed border-[#B993D6]/30 bg-[#F8F5FF] px-4 py-6">
-          <div id="concepts-grid" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            <p class="col-span-full text-sm text-[#49475B]">We&rsquo;ll drop fresh ideas here the moment you launch a run.</p>
-          </div>
-        </div>
       </div>
     </section>
+
+    <div id="concepts-grid" class="grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+      {% include "concepts/_concepts_grid.html" with concepts=[] %}
+    </div>
 
 
     <section class="rounded-2xl border border-slate-200 bg-white p-6">
