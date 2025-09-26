@@ -1,7 +1,7 @@
 """Application views."""
 
 import json, logging, os, uuid
-from typing import Iterable, List, Optional
+from typing import Any, Iterable, List, Optional
 
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
@@ -166,6 +166,19 @@ def build_prompt_suggestions(
         _add_suggestion(option)
 
     return list(islice(suggestions, max_items))
+
+
+def _footer_articles(limit: int = 4) -> List[Any]:
+    """Return a small set of published articles for footer links."""
+
+    article_model = getattr(models, "Article", None)
+    if article_model is None:
+        return []
+
+    return list(
+        article_model.objects.filter(published_at__isnull=False)
+        .order_by("-published_at")[:limit]
+    )
 
 
 def _stripe_timestamp(value: Optional[int]) -> datetime.datetime:
@@ -354,9 +367,31 @@ def home_view(request):
         "demo_dish_favorite": demo_dish_favorite,
         "demo_restaurant": demo_restaurant,
         "demo_user_id": DEMO_USER_ID,
+        "footer_articles": _footer_articles(),
     }
 
     return render(request, "home.html", context)
+
+
+def privacy_view(request):
+    """Public privacy policy page."""
+
+    context = {"footer_articles": _footer_articles()}
+    return render(request, "privacy.html", context)
+
+
+def terms_view(request):
+    """Public terms of service page."""
+
+    context = {"footer_articles": _footer_articles()}
+    return render(request, "terms.html", context)
+
+
+def contact_view(request):
+    """Public contact page."""
+
+    context = {"footer_articles": _footer_articles()}
+    return render(request, "contact.html", context)
 
 
 def signup_view(request):
