@@ -1,51 +1,25 @@
 {% extends "layouts/app.html" %}
 
 {% block page_intro %}
-  <div class="flex space-y-1 justify-between items-center">
+  <div class="space-y-1">
+    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Concepts</p>
     <h1 class="text-xl font-semibold text-[#14080E]">Concept Discovery</h1>
-    <p>
-<button
-  id="generateBtn"
-  hx-get="{% url 'concepts-generate' %}"
-  hx-target="#concepts-grid"
-  hx-swap="innerHTML"
-  data-overlay="true"
-  data-messages='["Cooking up ideas…", "Almost there…", "Plating concepts!"]'
-  class="inline-flex items-center gap-2 rounded-full bg-[#FF5C00]/10 px-4 py-2 text-sm font-semibold text-[#FF5C00] transition hover:-translate-y-0.5 hover:bg-[#FF5C00]/20"
->
-  <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#FF5C00] text-white">
-    <svg
-      id="concepts-loading"
-      class="hidden h-3.5 w-3.5 animate-spin"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-    >
-      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-    </svg>
-    <i class="text-md fa-solid fa-circle-plus" aria-hidden="true"></i>
-  </span>
-  <span class="button-text">Concepts</span>
-</button>
-
-    </p>
+    <p class="text-sm text-slate-600">Keep momentum going with contextual prompts tailored to your restaurant.</p>
   </div>
 {% endblock %}
 
 {% block page_content %}
-{% include "concepts/_card_assets.html" %}
-<style>
-  #concepts-loading.htmx-request {
-    display: inline-block !important;
-  }
-</style>
-<div class="max-w-7xl mx-auto px-4 py-4 space-y-3">
+  {% include "concepts/_card_assets.html" %}
+  <div class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+    <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div class="space-y-4">
+        <p class="text-sm font-medium text-[#49475B]">Try a suggestion below or type your own focus to refresh the grid.</p>
+        {% include "_partials/contextual_ai_input.html" with form_id="concepts-ai-input" action_url=concept_generate_url target="#concepts-grid" placeholder_samples=concept_prompt_placeholders suggestions=concept_prompt_suggestions %}
+      </div>
+    </section>
 
-  <div id="concepts-grid" class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4
-            gap-0 sm:gap-0 md:gap-3 lg:gap-4 xl:gap-5">
-    {% include 'concepts/_concepts_grid.html' %}
+    <div id="concepts-grid" class="grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+      {% include 'concepts/_concepts_grid.html' %}
+    </div>
   </div>
-
-</div>
 {% endblock %}

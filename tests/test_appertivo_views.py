@@ -107,6 +107,27 @@ class ViewSmokeTests(TestCase):
         resp = self.client.get(reverse("manual-menu"))
         self.assertEqual(resp.status_code, 200)
 
+    def test_dashboard_displays_contextual_ai_component(self):
+        self.restaurant.context_json = {
+            "category": "Italian",
+            "city": "Austin",
+            "reviews_tags": ["cozy ambiance"],
+        }
+        self.restaurant.save(update_fields=["context_json"])
+
+        resp = self.client.get(reverse("dashboard", args=[self.restaurant.id]))
+        self.assertContains(resp, "Inspire Me")
+        self.assertContains(resp, "Italian chef&#x27;s table")
+
+    def test_concepts_page_includes_contextual_ai_input(self):
+        self._create_concepts()
+        self.restaurant.context_json = {"category": "Latin", "city": "Denver"}
+        self.restaurant.save(update_fields=["context_json"])
+
+        resp = self.client.get(reverse("concepts"))
+        self.assertContains(resp, "concepts-ai-input")
+        self.assertContains(resp, "Inspire Me")
+
     def test_concepts_and_generation(self):
         self._create_concepts()
         resp = self.client.get(reverse("concepts"))
