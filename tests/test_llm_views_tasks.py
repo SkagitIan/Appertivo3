@@ -285,6 +285,38 @@ class SessionHistoryTests(TestCase):
         self.assertIn("Concept Title 1", stored_concepts)
 
     @patch("app.views.client")
+    def test_concept_generation_accepts_user_prompt(self, mock_client):
+        payload = {
+            "concepts": [
+                {
+                    "title": f"Prompt Concept {i}",
+                    "subtitle": "",
+                    "reasoning": "",
+                    "tags": ["tag"],
+                }
+                for i in range(1, 10)
+            ]
+        }
+        mock_client.responses.create.return_value = self._fake_response(payload)
+
+        self.client.login(username="owner@example.com", password="safe-pass")
+        response = self.client.post(
+            reverse("concepts-generate"), {"prompt": "Vegan brunch spotlight"}
+        )
+        self.assertEqual(response.status_code, 200)
+
+        _, kwargs = mock_client.responses.create.call_args
+        messages = kwargs.get("input", [])
+        self.assertGreaterEqual(len(messages), 2)
+        system_content = messages[0]["content"]
+        context_content = messages[1]["content"]
+
+        self.assertIn("Vegan brunch spotlight", system_content)
+        self.assertIn(
+            "User special instructions: Vegan brunch spotlight", context_content
+        )
+
+    @patch("app.views.client")
     def test_dish_generation_records_session_history(self, mock_client):
         dishes_payload = {
             "dishes": [
