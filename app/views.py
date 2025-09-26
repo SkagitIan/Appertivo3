@@ -1217,7 +1217,14 @@ def concepts_generate_view(request):
             [concept.name for concept in concepts],
         )
 
-    response = render(request, "concepts/_concepts_grid.html", {"concepts": concepts})
+    response = render(
+        request,
+        "concepts/_concepts_grid.html",
+        {
+            "concepts": concepts,
+            "concept_generate_url": reverse("concepts-generate"),
+        },
+    )
 
     if request.headers.get("HX-Request") == "true":
         current_url = request.headers.get("HX-Current-URL", "")
