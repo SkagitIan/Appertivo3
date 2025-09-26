@@ -46,6 +46,57 @@
     transform: rotateY(180deg);
   }
 
+  .dish-card-scroll {
+    position: relative;
+    overflow-y: auto;
+    padding-right: 0.35rem;
+    margin-right: -0.35rem;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    overscroll-behavior: contain;
+    --dish-scroll-fade: rgba(255, 255, 255, 0.95);
+  }
+
+  .dish-card-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .dish-card-scroll::before,
+  .dish-card-scroll::after {
+    content: "";
+    position: sticky;
+    left: 0;
+    right: 0;
+    height: 1.75rem;
+    pointer-events: none;
+    z-index: 5;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
+  .dish-card-scroll::before {
+    top: 0;
+    background: linear-gradient(to bottom, var(--dish-scroll-fade), transparent);
+  }
+
+  .dish-card-scroll::after {
+    bottom: 0;
+    background: linear-gradient(to top, var(--dish-scroll-fade), transparent);
+  }
+
+  .dish-card-scroll[data-scrollable="true"]::before,
+  .dish-card-scroll[data-scrollable="true"]::after {
+    opacity: 1;
+  }
+
+  .dish-card-scroll[data-at-top="true"]::before {
+    opacity: 0;
+  }
+
+  .dish-card-scroll[data-at-bottom="true"]::after {
+    opacity: 0;
+  }
+
   .clamp-3 {
     display: -webkit-box;
     -webkit-line-clamp: 3;
@@ -354,7 +405,49 @@
       return false;
     };
 
-    document.addEventListener("DOMContentLoaded", reorderDishCards);
+    const scrollHintSelector = ".dish-card-scroll";
+
+    const updateScrollHints = (container) => {
+      if (!container) {
+        return;
+      }
+
+      const scrollTop = container.scrollTop || 0;
+      const clientHeight = container.clientHeight || 0;
+      const scrollHeight = container.scrollHeight || 0;
+      const canScroll = scrollHeight > clientHeight + 1;
+
+      container.setAttribute("data-scrollable", canScroll ? "true" : "false");
+      container.setAttribute("data-at-top", scrollTop <= 1 ? "true" : "false");
+      container.setAttribute(
+        "data-at-bottom",
+        scrollTop + clientHeight >= scrollHeight - 1 ? "true" : "false"
+      );
+    };
+
+    const bindScrollHints = (container) => {
+      if (!container) {
+        return;
+      }
+
+      if (container.dataset.scrollHintBound === "true") {
+        updateScrollHints(container);
+        return;
+      }
+
+      container.dataset.scrollHintBound = "true";
+      updateScrollHints(container);
+      container.addEventListener("scroll", () => updateScrollHints(container));
+    };
+
+    const setupScrollHints = () => {
+      document.querySelectorAll(scrollHintSelector).forEach(bindScrollHints);
+    };
+
+    document.addEventListener("DOMContentLoaded", () => {
+      reorderDishCards();
+      setupScrollHints();
+    });
 
     const shouldShowLoading = (elt) =>
       elt && (elt.classList.contains("dish-variation-btn") || elt.classList.contains("favorite-btn"));
@@ -569,6 +662,8 @@
       if (dishTargetNeedsReorder(target)) {
         scheduleDishReorder();
       }
+
+      setupScrollHints();
     });
 
     document.body.addEventListener("click", function (evt) {
@@ -591,6 +686,10 @@
       }
 
       card.classList.toggle("show-back");
+    });
+
+    window.addEventListener("resize", () => {
+      document.querySelectorAll(scrollHintSelector).forEach(updateScrollHints);
     });
   }
 </script>
