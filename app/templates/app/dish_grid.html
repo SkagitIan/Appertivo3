@@ -5,7 +5,9 @@
     <p class="text-sm">{{ dish.description }}</p>
     <div>
       {% for tag in dish.category_tags %}
-      <span class="tag bg-orange-100 text-orange-800 px-1 mr-1">{{ tag }}</span>
+      <a href="{% url 'tag-search' %}?tag={{ tag|urlencode }}" class="tag bg-orange-100 text-orange-800 px-1 mr-1 inline-block no-underline">
+        {{ tag }}
+      </a>
       {% endfor %}
     </div>
   </div>

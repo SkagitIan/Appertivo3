@@ -1,0 +1,114 @@
+{% extends "layouts/app.html" %}
+
+{% block page_intro %}
+  <div class="space-y-1">
+    <h1 class="text-xl font-semibold text-[#14080E]">Tag results</h1>
+    {% if search_tag %}
+      <p class="text-sm text-slate-500">Showing concepts and dishes tagged with “{{ search_tag }}”.</p>
+    {% else %}
+      <p class="text-sm text-slate-500">Select a tag to explore matching concepts and dishes.</p>
+    {% endif %}
+  </div>
+{% endblock %}
+
+{% block page_content %}
+  <div class="px-4 py-6 space-y-8">
+    <section class="space-y-3">
+      <header class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold text-[#14080E]">Concepts</h2>
+        <span class="text-sm text-slate-500">{{ concept_results|length }} found</span>
+      </header>
+      {% if concept_results %}
+        <ul class="space-y-4">
+          {% for concept in concept_results %}
+            <li class="rounded-xl border border-slate-200 bg-white/90 shadow-sm p-4">
+              <div class="space-y-2">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="space-y-1">
+                    <h3 class="text-base font-semibold text-[#14080E]">{{ concept.name }}</h3>
+                    {% if concept.subtitle %}
+                      <p class="text-sm text-slate-600">{{ concept.subtitle }}</p>
+                    {% endif %}
+                  </div>
+                  <a href="{% url 'dish_detail' concept.id %}"
+                     class="text-sm font-semibold text-[#f08000] transition hover:text-[#d96f00] no-underline">
+                    View dishes
+                  </a>
+                </div>
+                {% if concept.tags %}
+                  <div class="flex flex-wrap gap-2">
+                    {% for tag in concept.tags %}
+                      <a href="{% url 'tag-search' %}?tag={{ tag|urlencode }}"
+                         class="inline-flex items-center px-3 py-1 rounded-full text-xs md:text-sm font-medium bg-slate-100 text-[#49475B] no-underline">
+                        {{ tag }}
+                      </a>
+                    {% endfor %}
+                  </div>
+                {% endif %}
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-sm text-slate-500">
+          {% if search_tag %}
+            No concepts found for this tag.
+          {% else %}
+            Pick a tag to see matching concepts.
+          {% endif %}
+        </p>
+      {% endif %}
+    </section>
+
+    <section class="space-y-3">
+      <header class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold text-[#14080E]">Dishes</h2>
+        <span class="text-sm text-slate-500">{{ dish_results|length }} found</span>
+      </header>
+      {% if dish_results %}
+        <ul class="space-y-4">
+          {% for dish in dish_results %}
+            <li class="rounded-xl border border-slate-200 bg-white/90 shadow-sm p-4">
+              <div class="space-y-2">
+                <div class="space-y-1">
+                  <a href="{% url 'dish_detail' dish.parent_concept_id %}#dish-{{ dish.id }}"
+                     class="text-base font-semibold text-[#14080E] transition hover:text-[#f08000] no-underline">
+                    {{ dish.title }}
+                  </a>
+                  {% if dish.description %}
+                    <p class="text-sm text-slate-600">{{ dish.description }}</p>
+                  {% endif %}
+                  <p class="text-xs uppercase tracking-wide text-slate-400">
+                    Concept: {{ dish.parent_concept.name }}
+                  </p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                  {% for tag in dish.category_tags %}
+                    <a href="{% url 'tag-search' %}?tag={{ tag|urlencode }}"
+                       class="inline-flex items-center px-2.5 py-1 rounded-full text-xs md:text-sm font-medium bg-[#B993D6]/20 text-[#49475B] no-underline">
+                      {{ tag }}
+                    </a>
+                  {% endfor %}
+                  {% for tag in dish.ingredient_names %}
+                    <a href="{% url 'tag-search' %}?tag={{ tag|urlencode }}"
+                       class="inline-flex items-center px-2.5 py-1 rounded-full text-xs md:text-sm font-medium bg-[#58B09C]/20 text-[#49475B] no-underline">
+                      {{ tag }}
+                    </a>
+                  {% endfor %}
+                </div>
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-sm text-slate-500">
+          {% if search_tag %}
+            No dishes found for this tag.
+          {% else %}
+            Pick a tag to see matching dishes.
+          {% endif %}
+        </p>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}

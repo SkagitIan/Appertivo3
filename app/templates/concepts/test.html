@@ -42,10 +42,10 @@
         <!-- Tags -->
         <div class="mt-3 flex flex-wrap justify-center gap-2">
           {% for tag in dish.category_tags %}
-            <span class="dish-tag dish-tag--category">{{ tag }}</span>
+            <a href="{% url 'tag-search' %}?tag={{ tag|urlencode }}" class="dish-tag dish-tag--category no-underline">{{ tag }}</a>
           {% endfor %}
           {% for tag in dish.ingredient_overlap %}
-            <span class="dish-tag dish-tag--ingredient">{{ tag }}</span>
+            <a href="{% url 'tag-search' %}?tag={{ tag|urlencode }}" class="dish-tag dish-tag--ingredient no-underline">{{ tag }}</a>
           {% endfor %}
         </div>
 
