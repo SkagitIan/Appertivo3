@@ -1,0 +1,11 @@
+Hi {{ lead.name }},
+
+I pulled together a tasting experience concept for {{ lead.city|default:"your restaurant" }} and thought you'd enjoy a peek.
+
+Your private demo is ready here:
+{{ lead.landing_url }}
+
+Each concept includes launch dishes, visual inspiration, and how Appertivo can help you activate it. If it sparks anything, just reply to this email and I'll share the full plan.
+
+Cheers,
+The Appertivo Team
