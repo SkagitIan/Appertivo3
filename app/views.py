@@ -199,13 +199,10 @@ def signup_view(request):
         email = (data.get("email") or "").strip()
         restaurant_name = (data.get("restaurant_name") or "").strip()
         location = (data.get("location") or "").strip()
-        raw_menu_url = (data.get("menu_url") or "").strip()
-        menu_url = raw_menu_url or None
         form_data = {
             "email": email,
             "restaurant_name": restaurant_name,
             "location": location,
-            "menu_url": raw_menu_url,
         }
 
         if is_json:
@@ -246,36 +243,21 @@ def signup_view(request):
                     account=account,
                     name=restaurant_name,
                     location_text=location,
-                    primary_menu_url=menu_url,
-                    menu_urls=[menu_url] if menu_url else [],
                 )
-
-                if menu_url:
-                    mv = models.MenuVersion.objects.create(
-                        restaurant=restaurant,
-                        source_url=menu_url,
-                        source_kind=models.MenuVersion.SourceKind.URL_SCRAPE,
-                        raw_markdown="",
-                        status=models.MenuVersion.Status.QUEUED,
+                payload = models.OutscraperPayload.objects.create(
+                    restaurant=restaurant,
+                    status=models.OutscraperPayload.Status.QUEUED,
+                    request_params={
+                        "query": f"{restaurant_name} {location}",
+                        "async": "false",
+                        "limit": 1,
+                    },
+                )
+                transaction.on_commit(
+                    lambda payload_id=str(payload.id): run_outscraper_search.delay(
+                        payload_id
                     )
-                    transaction.on_commit(
-                        lambda mv_id=str(mv.id): scrape_menu.delay(mv_id)
-                    )
-                else:
-                    payload = models.OutscraperPayload.objects.create(
-                        restaurant=restaurant,
-                        status=models.OutscraperPayload.Status.QUEUED,
-                        request_params={
-                            "query": f"{restaurant_name} {location}",
-                            "async": "false",
-                            "limit": 1,
-                        },
-                    )
-                    transaction.on_commit(
-                        lambda payload_id=str(payload.id): run_outscraper_search.delay(
-                            payload_id
-                        )
-                    )
+                )
         except IntegrityError:
             error_message = "An account with that email already exists."
             if is_json:
@@ -289,6 +271,7 @@ def signup_view(request):
         login(request, user)
         request.session["onboarding_account_id"] = str(account.id)
         request.session["onboarding_restaurant_id"] = str(restaurant.id)
+        request.session["just_signed_up"] = True
         redirect_url = reverse("onboarding")
         if is_json:
             return JsonResponse(
@@ -608,6 +591,11 @@ def onboarding_view(request):
     account = membership.account if membership else None
     restaurant = None
     subscription = None
+    latest_payload = None
+    latest_menu_version = None
+    menu_success = False
+    menu_error = ""
+
     if account:
         restaurant = (
             models.Restaurant.objects.filter(account=account)
@@ -620,7 +608,52 @@ def onboarding_view(request):
             .first()
         )
 
-    jobs = models.Job.objects.filter(user=request.user)
+    if restaurant:
+        latest_payload = (
+            models.OutscraperPayload.objects.filter(restaurant=restaurant)
+            .order_by("-created_at")
+            .first()
+        )
+        latest_menu_version = (
+            models.MenuVersion.objects.filter(restaurant=restaurant)
+            .order_by("-created_at")
+            .first()
+        )
+
+    if request.method == "POST":
+        menu_url = (request.POST.get("menu_url") or "").strip()
+        if not restaurant:
+            menu_error = "We couldn't find your restaurant record yet."
+        elif not menu_url:
+            menu_error = "Please provide a menu URL."
+        else:
+            restaurant.add_menu_url(menu_url)
+            restaurant.save(update_fields=["menu_urls", "primary_menu_url"])
+            latest_menu_version = models.MenuVersion.objects.create(
+                restaurant=restaurant,
+                source_url=menu_url,
+                source_kind=models.MenuVersion.SourceKind.URL_SCRAPE,
+                raw_markdown="",
+                status=models.MenuVersion.Status.QUEUED,
+            )
+            transaction.on_commit(
+                lambda mv_id=str(latest_menu_version.id): scrape_menu.delay(mv_id)
+            )
+            menu_success = True
+
+    just_signed_up = request.session.pop("just_signed_up", False)
+    if request.method == "POST" and just_signed_up and not menu_success:
+        request.session["just_signed_up"] = True
+
+    subscription_allows_dashboard = False
+    subscription_requires_update = False
+    if subscription:
+        subscription_allows_dashboard = subscription.status in {
+            models.Subscription.Status.ACTIVE,
+            models.Subscription.Status.TRIALING,
+        }
+        subscription_requires_update = not subscription_allows_dashboard
+
     trial_days = getattr(settings, "STRIPE_TRIAL_DAYS", 14)
     trial_ends = subscription.current_period_end if subscription else None
     trial_days_remaining = None
@@ -628,8 +661,9 @@ def onboarding_view(request):
         remaining = subscription.current_period_end - timezone.now()
         trial_days_remaining = max(remaining.days, 0)
 
+    dashboard_url = reverse("dashboard", args=[restaurant.id]) if restaurant else ""
+
     context = {
-        "jobs": jobs,
         "restaurant": restaurant,
         "subscription": subscription,
         "trial_days": trial_days,
@@ -637,6 +671,14 @@ def onboarding_view(request):
         "trial_days_remaining": trial_days_remaining,
         "show_start_trial": not subscription
         or subscription.status == models.Subscription.Status.CANCELED,
+        "outscraper_payload": latest_payload,
+        "latest_menu_version": latest_menu_version,
+        "menu_success": menu_success,
+        "menu_error": menu_error,
+        "just_signed_up": just_signed_up,
+        "dashboard_url": dashboard_url,
+        "subscription_allows_dashboard": subscription_allows_dashboard,
+        "subscription_requires_update": subscription_requires_update,
     }
     return render(request, "onboarding.html", context)
 
