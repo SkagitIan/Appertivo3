@@ -285,6 +285,81 @@ class SessionHistoryTests(TestCase):
         self.assertIn("Concept Title 1", stored_concepts)
 
     @patch("app.views.client")
+    def test_concept_generation_accepts_user_prompt(self, mock_client):
+        payload = {
+            "concepts": [
+                {
+                    "title": f"Prompt Concept {i}",
+                    "subtitle": "",
+                    "reasoning": "",
+                    "tags": ["tag"],
+                }
+                for i in range(1, 10)
+            ]
+        }
+        mock_client.responses.create.return_value = self._fake_response(payload)
+
+        self.client.login(username="owner@example.com", password="safe-pass")
+        response = self.client.post(
+            reverse("concepts-generate"), {"prompt": "Vegan brunch spotlight"}
+        )
+        self.assertEqual(response.status_code, 200)
+
+        _, kwargs = mock_client.responses.create.call_args
+        messages = kwargs.get("input", [])
+        self.assertGreaterEqual(len(messages), 2)
+        system_content = messages[0]["content"]
+        context_content = messages[1]["content"]
+
+        self.assertIn("Vegan brunch spotlight", system_content)
+        self.assertIn(
+            "User special instructions: Vegan brunch spotlight", context_content
+        )
+
+    @patch("app.views.client")
+    def test_concept_generation_creates_run_and_links_concepts(self, mock_client):
+        payload = {
+            "concepts": [
+                {
+                    "title": f"Run Concept {i}",
+                    "subtitle": "",
+                    "reasoning": "",
+                    "tags": ["tag"],
+                }
+                for i in range(1, 10)
+            ]
+        }
+        mock_client.responses.create.return_value = self._fake_response(payload)
+
+        self.client.login(username="owner@example.com", password="safe-pass")
+        initial_runs = models.IdeationRun.objects.filter(
+            restaurant=self.restaurant,
+            type=models.IdeationRun.RunType.CONCEPTS,
+        ).count()
+
+        response = self.client.post(
+            reverse("concepts-generate"),
+            {"prompt": "Smoky BBQ night"},
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        runs = models.IdeationRun.objects.filter(
+            restaurant=self.restaurant,
+            type=models.IdeationRun.RunType.CONCEPTS,
+        ).order_by("-created_at")
+
+        self.assertEqual(runs.count(), initial_runs + 1)
+        latest_run = runs.first()
+        self.assertEqual(latest_run.status, models.IdeationRun.Status.SUCCEEDED)
+        self.assertEqual(latest_run.context_snapshot.get("prompt"), "Smoky BBQ night")
+
+        generated = models.Concept.objects.filter(ideation_run=latest_run)
+        self.assertEqual(generated.count(), 9)
+        self.assertTrue(all(concept.name.startswith("Run Concept") for concept in generated))
+
+    @patch("app.views.client")
     def test_dish_generation_records_session_history(self, mock_client):
         dishes_payload = {
             "dishes": [

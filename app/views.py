@@ -38,14 +38,19 @@ load_dotenv()
 _openai_api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=_openai_api_key) if _openai_api_key else None
 import datetime
-
-from app.tasks import create_ideation_run
+from itertools import islice
 
 stripe.api_key = settings.STRIPE_SECRET_KEY or ""
 logger = logging.getLogger(__name__)
 
 
 DEMO_USER_ID = 17
+
+DEFAULT_PROMPT_PLACEHOLDERS = [
+    "Try: Fall brunch specials",
+    "Try: Quick lunch menu",
+    "Try: New dessert twists",
+]
 
 class ConceptList(BaseModel):
     concepts: List[str]
@@ -73,6 +78,90 @@ def _get_default_plan() -> models.Plan:
         code=getattr(settings, "STRIPE_PLAN_CODE", "pro"), defaults=defaults
     )
     return plan
+
+
+def _current_season(current_date: Optional[datetime.date] = None) -> str:
+    """Return a friendly season label for the given date."""
+
+    if current_date is None:
+        try:
+            current_date = timezone.localdate()
+        except Exception:  # pragma: no cover - fallback for naive environments
+            current_date = datetime.date.today()
+
+    month = current_date.month
+    if month in {12, 1, 2}:
+        return "Winter"
+    if month in {3, 4, 5}:
+        return "Spring"
+    if month in {6, 7, 8}:
+        return "Summer"
+    return "Autumn"
+
+
+def build_prompt_suggestions(
+    restaurant: Optional[models.Restaurant],
+    *,
+    max_items: int = 4,
+) -> List[str]:
+    """Create contextual suggestion chips for the AI input component."""
+
+    seen: set[str] = set()
+    suggestions: List[str] = []
+
+    def _add_suggestion(value: Optional[str]) -> None:
+        if not value:
+            return
+        text = value.strip()
+        if not text or text.lower() in seen:
+            return
+        seen.add(text.lower())
+        suggestions.append(text)
+
+    season = _current_season()
+
+    if restaurant:
+        context_data = restaurant.context_json or {}
+        about_data = restaurant.about_json or {}
+
+        cuisine = context_data.get("category") or context_data.get("cuisine")
+        if isinstance(cuisine, (list, tuple)):
+            cuisine = cuisine[0] if cuisine else None
+        if isinstance(cuisine, str):
+            _add_suggestion(f"{cuisine} chef's table")
+
+        city = context_data.get("city") or getattr(restaurant, "location_text", "")
+        if isinstance(city, str) and city:
+            parts = city.split(",")
+            city_name = parts[0].strip()
+            if city_name:
+                _add_suggestion(f"{city_name} neighborhood favorites")
+
+        review_tags = context_data.get("reviews_tags") or []
+        if isinstance(review_tags, list) and review_tags:
+            first_tag = str(review_tags[0]).strip()
+            if first_tag:
+                _add_suggestion(f"Lean into {first_tag} vibes")
+
+        highlights = about_data.get("Highlights") if isinstance(about_data, dict) else {}
+        if isinstance(highlights, dict) and highlights:
+            first_highlight = next(iter(highlights.keys()), "")
+            if first_highlight:
+                _add_suggestion(f"Showcase {first_highlight.lower()} partners")
+
+        _add_suggestion(f"{season} market specials")
+
+    fallback_options = [
+        "Seasonal chef specials",
+        "Comfort classics night",
+        "Weekend brunch board",
+        "Happy hour upgrades",
+    ]
+
+    for option in fallback_options:
+        _add_suggestion(option)
+
+    return list(islice(suggestions, max_items))
 
 
 def _stripe_timestamp(value: Optional[int]) -> datetime.datetime:
@@ -546,6 +635,9 @@ def dashboard(request, restaurant_id):
         ),
         "tbd_message": "Personalized tips will appear here soon.",
         "prompt_for_menu": not bool(restaurant.primary_menu_url),
+        "concept_generate_url": reverse("concepts-generate"),
+        "concept_prompt_placeholders": DEFAULT_PROMPT_PLACEHOLDERS,
+        "concept_prompt_suggestions": build_prompt_suggestions(restaurant),
     }
     return render(request, "dashboard.html", context)
 
@@ -796,6 +888,17 @@ def manual_menu_view(request):
 @login_required
 def concepts_view(request):
     """Display latest concepts with favorite state for the user."""
+    membership = models.Membership.objects.filter(user=request.user).select_related(
+        "account"
+    ).first()
+    restaurant = None
+    if membership:
+        restaurant = (
+            models.Restaurant.objects.filter(account=membership.account)
+            .order_by("created_at")
+            .first()
+        )
+
     concepts_qs = models.Concept.objects.order_by("-created_at").annotate(
         has_dishes=Exists(
             models.DishIdea.objects.filter(
@@ -815,7 +918,17 @@ def concepts_view(request):
     for concept in concepts:
         favorites = getattr(concept, "_favorites_for_request_user", [])
         concept.is_favorited_for_user = bool(favorites)
-    return render(request, "concepts/grid.html", {"concepts": concepts})
+    return render(
+        request,
+        "concepts/grid.html",
+        {
+            "concepts": concepts,
+            "restaurant": restaurant,
+            "concept_generate_url": reverse("concepts-generate"),
+            "concept_prompt_placeholders": DEFAULT_PROMPT_PLACEHOLDERS,
+            "concept_prompt_suggestions": build_prompt_suggestions(restaurant),
+        },
+    )
 
 
 @login_required
@@ -873,10 +986,19 @@ def tag_search_view(request):
 def concepts_generate_view(request):
     membership = models.Membership.objects.filter(user=request.user).first()
     restaurant = models.Restaurant.objects.filter(account=membership.account).first()
+    raw_prompt = (request.POST.get("prompt") or "").strip()
+    user_prompt = raw_prompt[:280]
+
+    session_concepts = [
+        name.strip()
+        for name in (request.session.get("generated_concepts") or [])
+        if name and str(name).strip()
+    ]
     previous_concepts = list(
-            Concept.objects.filter(restaurant=restaurant)
-            .order_by("-created_at")
-            .values_list("name", flat=True)[:27])
+        models.Concept.objects.filter(restaurant=restaurant)
+        .order_by("-created_at")
+        .values_list("name", flat=True)[:27]
+    )
 
     logger.info(f"previous concepts: {previous_concepts}")
     if restaurant.active_menu_version:
@@ -889,6 +1011,13 @@ def concepts_generate_view(request):
     Current Restaurant Menu:  {restaurant_menu}
     About Services:  {restaurant.about_json}
     """
+    if session_concepts:
+        context += (
+            "\nPreviously generated concept names to avoid: "
+            + ", ".join(session_concepts[:15])
+        )
+    if user_prompt:
+        context += f"\nUser special instructions: {user_prompt}"
     # Schema definition for structured output
     schema = {
         "name": "concept_list",
@@ -968,41 +1097,75 @@ def concepts_generate_view(request):
             + "."
         )
 
-    response = client.responses.create(
-        model="gpt-4.1-mini",
-        input=[
-            {
-                "role": "system",
-                "content": system_prompt,
-            },
-            {"role": "user", "content": context},
-        ],
-        text={"format": schema},
-    )
-    logger.info(context)
-    # 👇 Extract raw text and parse
-    raw_text = response.output[0].content[0].text
-    try:
-        data = json.loads(raw_text)
-    except json.JSONDecodeError:
-        data = {"concepts": []}  # fallback if model didn’t follow schema
-
-    names = data.get("concepts", [])
-
-    task = create_ideation_run.delay(restaurant.id,request.user.id,context,)
-
-    concepts = [
-        models.Concept.objects.create(
-            restaurant=restaurant,
-            ideation_run=run,
-            name=item["title"],
-            subtitle=item["subtitle"],
-            reasoning=item["reasoning"],
-            tags=item["tags"],
-            rank_order=idx,
+    if user_prompt:
+        system_prompt += (
+            "\n                **Special Focus**: Highlight concepts inspired by: "
+            + user_prompt
         )
-        for idx, item in enumerate(names, start=1)
-    ]
+
+    context_snapshot = {
+        "prompt": user_prompt,
+        "session_concepts": session_concepts[:15],
+        "context": context,
+    }
+
+    ideation_run = models.IdeationRun.objects.create(
+        restaurant=restaurant,
+        initiated_by_user=request.user,
+        type=models.IdeationRun.RunType.CONCEPTS,
+        model_name="gpt-4.1-mini",
+        temperature=0.5,
+        classic_creative=50,
+        context_snapshot=context_snapshot,
+        status=models.IdeationRun.Status.RUNNING,
+        started_at=timezone.now(),
+    )
+
+    concepts: List[models.Concept] = []
+
+    try:
+        response = client.responses.create(
+            model="gpt-4.1-mini",
+            input=[
+                {
+                    "role": "system",
+                    "content": system_prompt,
+                },
+                {"role": "user", "content": context},
+            ],
+            text={"format": schema},
+        )
+        logger.info(context)
+        raw_text = response.output[0].content[0].text
+        try:
+            data = json.loads(raw_text)
+        except json.JSONDecodeError:
+            data = {"concepts": []}
+
+        names = data.get("concepts", [])
+
+        concepts = [
+            models.Concept.objects.create(
+                restaurant=restaurant,
+                ideation_run=ideation_run,
+                name=item["title"],
+                subtitle=item["subtitle"],
+                reasoning=item["reasoning"],
+                tags=item["tags"],
+                rank_order=idx,
+            )
+            for idx, item in enumerate(names, start=1)
+        ]
+
+        ideation_run.status = models.IdeationRun.Status.SUCCEEDED
+        ideation_run.finished_at = timezone.now()
+        ideation_run.save(update_fields=["status", "finished_at"])
+    except Exception as exc:
+        ideation_run.status = models.IdeationRun.Status.FAILED
+        ideation_run.error_message = str(exc)
+        ideation_run.finished_at = timezone.now()
+        ideation_run.save(update_fields=["status", "error_message", "finished_at"])
+        raise
 
 
     for concept in concepts:
