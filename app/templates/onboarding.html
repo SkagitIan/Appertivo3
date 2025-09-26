@@ -81,6 +81,22 @@
               {% endif %}
             </div>
           </form>
+          <div class="space-y-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
+            <div>
+              <p class="font-semibold text-[#14080E]">Need another option?</p>
+              <p class="mt-1 text-slate-600">Paste your menu or upload a file so we can ingest it manually.</p>
+            </div>
+            <button
+              type="button"
+              hx-get="{% url 'manual-menu' %}"
+              hx-target="#manual-menu-container"
+              hx-swap="innerHTML"
+              class="inline-flex items-center justify-center rounded-xl border border-[#5C008B] px-4 py-2 text-sm font-semibold text-[#5C008B] transition hover:bg-[#f3e8ff]"
+            >
+              Enter menu manually
+            </button>
+            <div id="manual-menu-container" class="pt-1"></div>
+          </div>
           {% if latest_menu_version %}
             <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
               <p class="font-semibold text-[#14080E]">Latest import: {{ latest_menu_version.get_status_display }}</p>
