@@ -264,34 +264,95 @@
 
     .lab-mini-card {
       position: relative;
+      perspective: 1200px;
+      min-height: 140px;
+    }
+
+    .lab-mini-card--flip {
+      cursor: pointer;
+    }
+
+    .lab-mini-card__inner {
+      position: relative;
+      height: 100%;
       border-radius: 1.25rem;
-      padding: 0.75rem;
-      min-height: 110px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      background: rgba(255, 255, 255, 0.7);
-      border: 1px solid rgba(94, 0, 139, 0.12);
+      overflow: hidden;
+      transform-style: preserve-3d;
+      transition: transform 0.8s ease;
       box-shadow: 0 12px 25px -18px rgba(20, 8, 14, 0.4);
     }
 
-    .lab-mini-card.is-favorited {
-      background: linear-gradient(145deg, rgba(255, 131, 0, 0.15), rgba(255, 92, 0, 0.35));
-      border-color: rgba(255, 131, 0, 0.4);
+    .lab-mini-card--flip:hover .lab-mini-card__inner,
+    .lab-mini-card--flip:focus-within .lab-mini-card__inner {
+      transform: rotateY(180deg);
     }
 
-    .lab-mini-card__name {
-      font-size: 0.8rem;
-      font-weight: 600;
-      line-height: 1.3;
+    .lab-mini-card__face {
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      backface-visibility: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 0.75rem;
+    }
+
+    .lab-mini-card__face--front {
+      color: #ffffff;
+      background: #14080E;
+    }
+
+    .lab-mini-card__face--front img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 0;
+    }
+
+    .lab-mini-card__face--front::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(20, 8, 14, 0.12), rgba(20, 8, 14, 0.75));
+      z-index: 1;
+    }
+
+    .lab-mini-card__face--back {
+      background: rgba(255, 255, 255, 0.9);
       color: #2E005D;
+      transform: rotateY(180deg);
+      border: 1px solid rgba(94, 0, 139, 0.12);
+    }
+
+    .lab-mini-card.is-favorited .lab-mini-card__face--back {
+      background: linear-gradient(145deg, rgba(255, 131, 0, 0.18), rgba(255, 92, 0, 0.3));
+      border-color: rgba(255, 131, 0, 0.28);
+    }
+
+    .lab-mini-card__details {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
     }
 
     .lab-mini-card__tag {
       font-size: 0.65rem;
       letter-spacing: 0.1em;
       text-transform: uppercase;
-      color: rgba(73, 71, 91, 0.7);
+      color: inherit;
+      opacity: 0.85;
+    }
+
+    .lab-mini-card__name {
+      font-size: 0.85rem;
+      font-weight: 600;
+      line-height: 1.3;
+      color: inherit;
     }
 
     .lab-mini-card__favorite {
@@ -300,8 +361,16 @@
       gap: 0.3rem;
       font-size: 0.65rem;
       font-weight: 600;
-      color: #FF5C00;
       text-transform: uppercase;
+      color: #FF5C00;
+    }
+
+    .lab-mini-card__face--front .lab-mini-card__favorite {
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    .lab-mini-card:focus-visible .lab-mini-card__inner {
+      box-shadow: 0 0 0 3px rgba(94, 0, 139, 0.25);
     }
 
     .data-flow-grid {
@@ -368,31 +437,53 @@
     }
 
     .social-proof-image {
+      position: relative;
       border-radius: 1.5rem;
-      padding: 1rem;
-      min-height: 150px;
-      background: linear-gradient(160deg, rgba(94, 0, 139, 0.08), rgba(255, 92, 0, 0.18));
+      overflow: hidden;
+      min-height: 180px;
       display: flex;
-      flex-direction: column;
-      justify-content: flex-end;
-      color: #2E005D;
       box-shadow: 0 18px 35px -28px rgba(20, 8, 14, 0.5);
     }
 
-    .social-proof-image--highlight {
-      background: linear-gradient(160deg, rgba(255, 131, 0, 0.25), rgba(255, 92, 0, 0.45));
-      color: #14080E;
+    .social-proof-image img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
     }
 
-    .social-proof-image span {
+    .social-proof-image::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(20, 8, 14, 0.05), rgba(20, 8, 14, 0.7));
+    }
+
+    .social-proof-image--highlight::after {
+      background: linear-gradient(180deg, rgba(255, 131, 0, 0.15), rgba(20, 8, 14, 0.75));
+    }
+
+    .social-proof-image__caption {
+      position: relative;
+      z-index: 1;
+      margin-top: auto;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      color: #ffffff;
+    }
+
+    .social-proof-image__caption span {
       font-size: 0.7rem;
       letter-spacing: 0.1em;
       text-transform: uppercase;
+      opacity: 0.9;
     }
 
-    .social-proof-image strong {
+    .social-proof-image__caption strong {
       font-size: 1rem;
-      margin-top: 0.5rem;
     }
 
     .social-proof-panel {
@@ -472,6 +563,17 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
     }
+
+    @media (prefers-reduced-motion: reduce) {
+      .lab-mini-card__inner {
+        transition: none;
+      }
+
+      .lab-mini-card--flip:hover .lab-mini-card__inner,
+      .lab-mini-card--flip:focus-within .lab-mini-card__inner {
+        transform: none;
+      }
+    }
   </style>
 {% endblock %}
 
@@ -524,6 +626,13 @@
                           loading="lazy"
                           decoding="async"
                         />
+                      {% else %}
+                        <img
+                          src="https://res.cloudinary.com/dfz4bhlzs/image/upload/v1758738489/appertivo/dishes/9cbfa6e6-fb9a-44d2-be55-0a3293e3c52e.png"
+                          alt="Concept sketch inspiration for a charred citrus salmon dish"
+                          loading="lazy"
+                          decoding="async"
+                        />
                       {% endif %}
                       <div class="hero-demo-overlay">
                         <span class="hero-demo-label">Concept sketch</span>
@@ -541,6 +650,13 @@
                           <img
                             src="{{ demo_dish.enhancement_image_url }}"
                             alt="{{ demo_dish.title }} plated photo"
+                            loading="lazy"
+                            decoding="async"
+                          />
+                        {% else %}
+                          <img
+                            src="https://res.cloudinary.com/dfz4bhlzs/image/upload/v1758488849/appertivo/dishes/fce9d119-8484-433b-aaf0-1104ca47bdc1.png"
+                            alt="Favorite dish plated with roasted carrots and greens"
                             loading="lazy"
                             decoding="async"
                           />
@@ -687,55 +803,209 @@
       </div>
       <div class="lab-grid-visual" aria-hidden="true">
         <div class="lab-grid-preview">
-          <div class="lab-mini-card is-favorited">
-            <span class="lab-mini-card__tag">Favorite</span>
-            <p class="lab-mini-card__name">
-              {% if demo_concept %}
-                {{ demo_concept.name }}
-              {% else %}
-                Charred Citrus Salmon
-              {% endif %}
-            </p>
-            <span class="lab-mini-card__favorite">★ saved</span>
+          <div class="lab-mini-card lab-mini-card--flip is-favorited" tabindex="0">
+            <div class="lab-mini-card__inner">
+              <div class="lab-mini-card__face lab-mini-card__face--front">
+                {% if demo_concept and demo_concept.sketch_image_url %}
+                  <img
+                    src="{{ demo_concept.sketch_image_url }}"
+                    alt="{{ demo_concept.name }} concept sketch"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                {% else %}
+                  <img
+                    src="https://res.cloudinary.com/dfz4bhlzs/image/upload/v1758738489/appertivo/dishes/9cbfa6e6-fb9a-44d2-be55-0a3293e3c52e.png"
+                    alt="Plated charred citrus salmon with seared citrus slices"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                {% endif %}
+                <div class="lab-mini-card__details">
+                  <span class="lab-mini-card__tag">Favorite</span>
+                  <p class="lab-mini-card__name">
+                    {% if demo_concept %}
+                      {{ demo_concept.name }}
+                    {% else %}
+                      Charred Citrus Salmon
+                    {% endif %}
+                  </p>
+                  <span class="lab-mini-card__favorite">★ saved</span>
+                </div>
+              </div>
+              <div class="lab-mini-card__face lab-mini-card__face--back">
+                <div class="lab-mini-card__details">
+                  <span class="lab-mini-card__tag">Favorite</span>
+                  <p class="lab-mini-card__name">
+                    {% if demo_concept %}
+                      {{ demo_concept.name }}
+                    {% else %}
+                      Charred Citrus Salmon
+                    {% endif %}
+                  </p>
+                  <span class="lab-mini-card__favorite">★ saved</span>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="lab-mini-card">
-            <span class="lab-mini-card__tag">Sketch</span>
-            <p class="lab-mini-card__name">
-              {% if demo_concept and demo_concept.subtitle %}
-                {{ demo_concept.subtitle|truncatechars:40 }}
-              {% else %}
-                Garden herb aioli notes
-              {% endif %}
-            </p>
+          <div class="lab-mini-card lab-mini-card--flip" tabindex="0">
+            <div class="lab-mini-card__inner">
+              <div class="lab-mini-card__face lab-mini-card__face--front">
+                <img
+                  src="https://res.cloudinary.com/dfz4bhlzs/image/upload/v1758660169/appertivo/dishes/6da827f3-9f60-4e4a-abd9-c233fd8c3645.png"
+                  alt="Chef sketching ramen concept boards"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <div class="lab-mini-card__details">
+                  <span class="lab-mini-card__tag">Sketch</span>
+                  <p class="lab-mini-card__name">
+                    {% if demo_concept and demo_concept.subtitle %}
+                      {{ demo_concept.subtitle|truncatechars:40 }}
+                    {% else %}
+                      Garden herb aioli notes
+                    {% endif %}
+                  </p>
+                </div>
+              </div>
+              <div class="lab-mini-card__face lab-mini-card__face--back">
+                <div class="lab-mini-card__details">
+                  <span class="lab-mini-card__tag">Sketch Board</span>
+                  <p class="lab-mini-card__name">
+                    {% if demo_concept and demo_concept.subtitle %}
+                      {{ demo_concept.subtitle|truncatechars:60 }}
+                    {% else %}
+                      Herb pairings for spring service
+                    {% endif %}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="lab-mini-card is-favorited">
-            <span class="lab-mini-card__tag">Dish</span>
-            <p class="lab-mini-card__name">
-              {% if demo_dish %}
-                {{ demo_dish.title|truncatechars:40 }}
-              {% else %}
-                Fire-roasted carrot tart
-              {% endif %}
-            </p>
-            <span class="lab-mini-card__favorite">★ crew pick</span>
+          <div class="lab-mini-card lab-mini-card--flip is-favorited" tabindex="0">
+            <div class="lab-mini-card__inner">
+              <div class="lab-mini-card__face lab-mini-card__face--front">
+                {% if demo_dish and demo_dish.enhancement_image_url %}
+                  <img
+                    src="{{ demo_dish.enhancement_image_url }}"
+                    alt="{{ demo_dish.title }} plated photo"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                {% else %}
+                  <img
+                    src="https://res.cloudinary.com/dfz4bhlzs/image/upload/v1758488849/appertivo/dishes/fce9d119-8484-433b-aaf0-1104ca47bdc1.png"
+                    alt="Fire-roasted carrot tart with microgreens"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                {% endif %}
+                <div class="lab-mini-card__details">
+                  <span class="lab-mini-card__tag">Dish</span>
+                  <p class="lab-mini-card__name">
+                    {% if demo_dish %}
+                      {{ demo_dish.title|truncatechars:40 }}
+                    {% else %}
+                      Fire-roasted carrot tart
+                    {% endif %}
+                  </p>
+                  <span class="lab-mini-card__favorite">★ crew pick</span>
+                </div>
+              </div>
+              <div class="lab-mini-card__face lab-mini-card__face--back">
+                <div class="lab-mini-card__details">
+                  <span class="lab-mini-card__tag">Dish Spotlight</span>
+                  <p class="lab-mini-card__name">
+                    {% if demo_dish and demo_dish.description %}
+                      {{ demo_dish.description|truncatechars:70 }}
+                    {% elif demo_dish %}
+                      {{ demo_dish.title|truncatechars:40 }}
+                    {% else %}
+                      Crew vote locked — ready for tasting notes.
+                    {% endif %}
+                  </p>
+                  <span class="lab-mini-card__favorite">★ crew pick</span>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="lab-mini-card">
-            <span class="lab-mini-card__tag">Season</span>
-            <p class="lab-mini-card__name">Spring patio board</p>
+          <div class="lab-mini-card lab-mini-card--flip" tabindex="0">
+            <div class="lab-mini-card__inner">
+              <div class="lab-mini-card__face lab-mini-card__face--front">
+                <img
+                  src="https://res.cloudinary.com/dfz4bhlzs/image/upload/v1758488188/appertivo/dishes/a1b2af61-f9bc-48de-9b77-e73ff03f7263.png"
+                  alt="Seasonal patio board with small plates"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <div class="lab-mini-card__details">
+                  <span class="lab-mini-card__tag">Season</span>
+                  <p class="lab-mini-card__name">Spring patio board</p>
+                </div>
+              </div>
+              <div class="lab-mini-card__face lab-mini-card__face--back">
+                <div class="lab-mini-card__details">
+                  <span class="lab-mini-card__tag">Seasonal Fit</span>
+                  <p class="lab-mini-card__name">Perfect for patio brunch flights.</p>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="lab-mini-card">
-            <span class="lab-mini-card__tag">Tags</span>
-            <p class="lab-mini-card__name">
-              {% if demo_concept and demo_concept.tags %}
-                {{ demo_concept.tags.0 }} &amp; more
-              {% else %}
-                Brunch · shareable
-              {% endif %}
-            </p>
+          <div class="lab-mini-card lab-mini-card--flip" tabindex="0">
+            <div class="lab-mini-card__inner">
+              <div class="lab-mini-card__face lab-mini-card__face--front">
+                <img
+                  src="https://res.cloudinary.com/dfz4bhlzs/image/upload/v1758490681/appertivo/dishes/9c961253-48e8-46ce-a223-d1919b2edfce.png"
+                  alt="Brunch shareable dish on ceramic plate"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <div class="lab-mini-card__details">
+                  <span class="lab-mini-card__tag">Tags</span>
+                  <p class="lab-mini-card__name">
+                    {% if demo_concept and demo_concept.tags %}
+                      {{ demo_concept.tags.0 }} &amp; more
+                    {% else %}
+                      Brunch · shareable
+                    {% endif %}
+                  </p>
+                </div>
+              </div>
+              <div class="lab-mini-card__face lab-mini-card__face--back">
+                <div class="lab-mini-card__details">
+                  <span class="lab-mini-card__tag">Tag Stack</span>
+                  <p class="lab-mini-card__name">
+                    {% if demo_concept and demo_concept.tags %}
+                      {{ demo_concept.tags|join:", "|truncatechars:60 }}
+                    {% else %}
+                      Crowd-pleaser, brunch highlight, shareable
+                    {% endif %}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="lab-mini-card">
-            <span class="lab-mini-card__tag">Status</span>
-            <p class="lab-mini-card__name">Ready for menu</p>
+          <div class="lab-mini-card lab-mini-card--flip" tabindex="0">
+            <div class="lab-mini-card__inner">
+              <div class="lab-mini-card__face lab-mini-card__face--front">
+                <img
+                  src="https://res.cloudinary.com/dfz4bhlzs/image/upload/v1758498908/appertivo/dishes/f57e7ae8-4e6e-4b76-bf5b-b321111ee567.png"
+                  alt="Menu ready dish with bright garnish"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <div class="lab-mini-card__details">
+                  <span class="lab-mini-card__tag">Status</span>
+                  <p class="lab-mini-card__name">Ready for menu</p>
+                </div>
+              </div>
+              <div class="lab-mini-card__face lab-mini-card__face--back">
+                <div class="lab-mini-card__details">
+                  <span class="lab-mini-card__tag">Next Step</span>
+                  <p class="lab-mini-card__name">Brief the service team and schedule the shoot.</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -794,28 +1064,60 @@
       </div>
       <div class="social-proof-grid">
         <div class="social-proof-images" aria-hidden="true">
-          <div class="social-proof-image social-proof-image--highlight">
-            <span>Harvest &amp; Hearth</span>
-            <strong>
-              {% if demo_dish %}
-                {{ demo_dish.title|truncatechars:42 }}
-              {% else %}
-                Charred Citrus Salmon Plate
-              {% endif %}
-            </strong>
-          </div>
-          <div class="social-proof-image">
-            <span>Midnight Noodle</span>
-            <strong>Black garlic ramen special</strong>
-          </div>
-          <div class="social-proof-image">
-            <span>Coastal Table</span>
-            <strong>Seared scallop ceviche</strong>
-          </div>
-          <div class="social-proof-image">
-            <span>Sunrise Cafe</span>
-            <strong>Vanilla bean dutch baby</strong>
-          </div>
+          <figure class="social-proof-image social-proof-image--highlight">
+            <img
+              src="https://res.cloudinary.com/dfz4bhlzs/image/upload/v1758738489/appertivo/dishes/9cbfa6e6-fb9a-44d2-be55-0a3293e3c52e.png"
+              alt="Charred citrus salmon plated for Harvest &amp; Hearth"
+              loading="lazy"
+              decoding="async"
+            />
+            <figcaption class="social-proof-image__caption">
+              <span>Harvest &amp; Hearth</span>
+              <strong>
+                {% if demo_dish %}
+                  {{ demo_dish.title|truncatechars:42 }}
+                {% else %}
+                  Charred Citrus Salmon Plate
+                {% endif %}
+              </strong>
+            </figcaption>
+          </figure>
+          <figure class="social-proof-image">
+            <img
+              src="https://res.cloudinary.com/dfz4bhlzs/image/upload/v1758660169/appertivo/dishes/6da827f3-9f60-4e4a-abd9-c233fd8c3645.png"
+              alt="Black garlic ramen from Midnight Noodle"
+              loading="lazy"
+              decoding="async"
+            />
+            <figcaption class="social-proof-image__caption">
+              <span>Midnight Noodle</span>
+              <strong>Black garlic ramen special</strong>
+            </figcaption>
+          </figure>
+          <figure class="social-proof-image">
+            <img
+              src="https://res.cloudinary.com/dfz4bhlzs/image/upload/v1758490681/appertivo/dishes/9c961253-48e8-46ce-a223-d1919b2edfce.png"
+              alt="Seared scallop ceviche from Coastal Table"
+              loading="lazy"
+              decoding="async"
+            />
+            <figcaption class="social-proof-image__caption">
+              <span>Coastal Table</span>
+              <strong>Seared scallop ceviche</strong>
+            </figcaption>
+          </figure>
+          <figure class="social-proof-image">
+            <img
+              src="https://res.cloudinary.com/dfz4bhlzs/image/upload/v1758498908/appertivo/dishes/f57e7ae8-4e6e-4b76-bf5b-b321111ee567.png"
+              alt="Vanilla bean dutch baby from Sunrise Cafe"
+              loading="lazy"
+              decoding="async"
+            />
+            <figcaption class="social-proof-image__caption">
+              <span>Sunrise Cafe</span>
+              <strong>Vanilla bean dutch baby</strong>
+            </figcaption>
+          </figure>
         </div>
         <div class="social-proof-panel">
           <blockquote class="testimonial-quote">
