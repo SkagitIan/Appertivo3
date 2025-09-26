@@ -1,0 +1,135 @@
+{% load static %}
+{% with root_id=form_id|default:'ai-input' %}
+  {% with placeholders_id=root_id|add:'-placeholders' suggestions_id=root_id|add:'-suggestions' indicator_id=root_id|add:'-indicator' %}
+    {{ placeholder_samples|json_script:placeholders_id }}
+    {{ suggestions|json_script:suggestions_id }}
+    <div id="{{ root_id }}-wrapper" data-ai-input="{{ root_id }}" class="space-y-3">
+      <form
+        id="{{ root_id }}"
+        hx-post="{{ action_url }}"
+        hx-target="{{ target }}"
+        hx-swap="{{ hx_swap|default:'innerHTML' }}"
+        hx-indicator="#{{ indicator_id }}"
+        class="flex flex-col gap-3 sm:flex-row sm:items-center"
+      >
+        <div class="relative flex-1">
+          <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-[#f08000]">
+            <i class="fa-solid fa-wand-magic-sparkles text-base"></i>
+          </span>
+          <input
+            type="text"
+            name="prompt"
+            id="{{ root_id }}-field"
+            value="{{ initial_value|default:'' }}"
+            placeholder="{{ placeholder_samples|first|default:'Try: Fall brunch specials' }}"
+            class="w-full rounded-xl border border-slate-200 bg-white/90 px-11 py-3 text-sm text-[#14080E] shadow-sm transition focus:border-[#B993D6] focus:outline-none focus:ring-2 focus:ring-[#B993D6]/40"
+            autocomplete="off"
+          />
+          <button
+            type="submit"
+            class="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 rounded-full bg-[#58B09C] px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition hover:bg-[#43907d] focus:outline-none focus:ring-2 focus:ring-[#58B09C]/40"
+          >
+            <span>Run</span>
+            <i class="fa-solid fa-paper-plane text-[10px]"></i>
+          </button>
+        </div>
+        <button
+          type="button"
+          data-inspire
+          class="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#f08000] via-[#f69b2d] to-[#d96f00] px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-[#f08000]/60"
+        >
+          <span>Inspire Me</span>
+          <i class="fa-solid fa-sparkles text-xs"></i>
+        </button>
+      </form>
+      <div
+        id="{{ indicator_id }}"
+        class="hidden items-center justify-start gap-2 text-sm text-[#49475B] sm:justify-end"
+      >
+        <span class="inline-flex h-2.5 w-2.5 animate-ping rounded-full bg-[#B993D6]"></span>
+        <span class="font-medium">Gathering ideas…</span>
+      </div>
+      {% if suggestions %}
+        <div class="flex flex-wrap gap-2">
+          {% for suggestion in suggestions %}
+            <button
+              type="button"
+              data-suggestion="{{ suggestion }}"
+              class="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#B993D6]/90 via-[#c7a6e6]/80 to-[#B993D6]/90 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition-transform hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-[#B993D6]/50"
+            >
+              <i class="fa-solid fa-lightbulb text-[10px]"></i>
+              <span>{{ suggestion }}</span>
+            </button>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+    <style>
+      #{{ indicator_id }}.htmx-request {
+        display: flex;
+      }
+    </style>
+    <script>
+      (function () {
+        const root = document.getElementById("{{ root_id }}-wrapper");
+        if (!root || root.dataset.aiInitialized === "true") {
+          return;
+        }
+        root.dataset.aiInitialized = "true";
+
+        const form = root.querySelector("form");
+        const input = root.querySelector('input[name="prompt"]');
+        const placeholderEl = document.getElementById("{{ placeholders_id }}");
+        const suggestionEl = document.getElementById("{{ suggestions_id }}");
+        let placeholders = [];
+        let suggestions = [];
+
+        try {
+          placeholders = JSON.parse(placeholderEl ? placeholderEl.textContent : "[]");
+        } catch (error) {
+          placeholders = [];
+        }
+        try {
+          suggestions = JSON.parse(suggestionEl ? suggestionEl.textContent : "[]");
+        } catch (error) {
+          suggestions = [];
+        }
+
+        if (placeholders.length > 1) {
+          let index = 0;
+          setInterval(function () {
+            index = (index + 1) % placeholders.length;
+            if (!input) {
+              return;
+            }
+            if (document.activeElement !== input || !input.value) {
+              input.placeholder = placeholders[index];
+            }
+          }, 4200);
+        }
+
+        root.querySelectorAll('[data-suggestion]').forEach(function (button) {
+          button.addEventListener('click', function () {
+            if (!input) {
+              return;
+            }
+            input.value = button.getAttribute('data-suggestion') || '';
+            form.requestSubmit();
+          });
+        });
+
+        const inspireButton = root.querySelector('[data-inspire]');
+        if (inspireButton) {
+          inspireButton.addEventListener('click', function () {
+            const pool = suggestions.concat(placeholders);
+            const choice = pool[Math.floor(Math.random() * pool.length)] || 'Seasonal chef specials';
+            if (input) {
+              input.value = choice;
+              form.requestSubmit();
+            }
+          });
+        }
+      })();
+    </script>
+  {% endwith %}
+{% endwith %}
