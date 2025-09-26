@@ -1217,7 +1217,15 @@ def concepts_generate_view(request):
             [concept.name for concept in concepts],
         )
 
-    return render(request, "concepts/_concepts_grid.html", {"concepts": concepts})
+    response = render(request, "concepts/_concepts_grid.html", {"concepts": concepts})
+
+    if request.headers.get("HX-Request") == "true":
+        current_url = request.headers.get("HX-Current-URL", "")
+        if "/dashboard/" in current_url:
+            response["HX-Redirect"] = reverse("concepts")
+        return response
+
+    return redirect("concepts")
 
 @login_required
 def concept_favorite_view(request, concept_id):
