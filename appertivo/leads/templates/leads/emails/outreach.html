@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Appertivo Demo</title>
+</head>
+<body style="margin:0;padding:0;background-color:#fff6ee;font-family:Arial,sans-serif;color:#1f2933;">
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color:#fff6ee;padding:32px 0;">
+    <tr>
+        <td align="center">
+            <table role="presentation" cellpadding="0" cellspacing="0" width="600" style="background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(107,31,123,0.1);">
+                <tr>
+                    <td style="background:linear-gradient(135deg,#6b1f7b,#ff7a45);padding:32px;color:#ffffff;">
+                        <h1 style="margin:0;font-size:28px;font-weight:700;">Appertivo Demo Preview</h1>
+                        <p style="margin:8px 0 0;font-size:16px;">{{ lead.name }}</p>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:32px;">
+                        <p style="font-size:16px;margin:0 0 16px 0;">Hi {{ lead.name }},</p>
+                        <p style="font-size:16px;margin:0 0 16px 0;">We crafted a tasting experience concept for {{ lead.city|default:"your restaurant" }} and saved a private preview for you.</p>
+                        <table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;">
+                            <tr>
+                                <td align="center" style="border-radius:999px;background-color:#ff7a45;">
+                                    <a href="{{ lead.landing_url }}" style="display:inline-block;padding:14px 32px;color:#ffffff;text-decoration:none;font-weight:600;font-size:16px;">View your demo</a>
+                                </td>
+                            </tr>
+                        </table>
+                        <p style="font-size:15px;margin:0 0 16px 0;">Inside you'll find three launch-ready concepts and six signature dish ideas designed to activate your regulars. Reply to this email when you'd like the full plan.</p>
+                        <p style="font-size:15px;margin:0;">Cheers,<br>The Appertivo Team</p>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:16px 32px;background-color:#fdf1e8;color:#6b1f7b;font-size:12px;text-align:center;">
+                        © {% now "Y" %} Appertivo. Curated restaurant tasting journeys.
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+</body>
+</html>

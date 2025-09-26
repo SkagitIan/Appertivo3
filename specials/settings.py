@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+from datetime import timedelta
 from pathlib import Path
 import os
 from dotenv import load_dotenv
@@ -55,6 +56,7 @@ INSTALLED_APPS = [
     'app.apps.AppConfig',
     'anymail',
     "django_htmx",
+    'appertivo.leads.apps.LeadsConfig',
 ]
 
 # Map Django message levels to Bootstrap alert classes
@@ -215,6 +217,14 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "memory://")
 CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "cache+memory://")
 CELERY_TASK_ALWAYS_EAGER = os.getenv("CELERY_TASK_ALWAYS_EAGER", "True") == "True"
+
+CELERY_BEAT_SCHEDULE = {
+    "leads-fetch-weekly": {
+        "task": "appertivo.leads.tasks.fetch_leads",
+        "schedule": timedelta(weeks=1),
+        "options": {"expires": 60 * 60 * 24},
+    },
+}
 
 
 LOGGING = {
