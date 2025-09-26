@@ -1,11 +1,8 @@
 {% extends "layouts/app.html" %}
 
 {% block page_intro %}
-  <div class="space-y-1">
-    <h1 class="text-xl font-semibold text-[#14080E]">Dish Sketch Lab  </h1>
-    <p class="text-sm text-slate-600 max-w-2xl">
-      Build on <span class="font-semibold text-[#14080E]">{{ concept.name }}</span> with plated ideas tailored to your restaurant. Regenerate dishes to test new directions before they hit the menu.
-    </p>
+  <div class="space-y-1 flex items-center justify-between">
+    <h1 class="text-xl font-semibold text-[#14080E] items-center">Dish Discovery</h1>
     <p><a
           href="{% url 'concepts' %}"
           class="inline-flex items-center gap-2 text-sm font-semibold text-[#FF5C00] transition hover:-translate-x-1"
@@ -22,8 +19,8 @@
 <div class="max-w-7xl mx-auto px-4 py-6 space-y-6">
 
 <div id="dishes-grid"
-     class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4
-            gap-2 sm:gap-3 md:gap-4 lg:gap-4 xl:gap-5">
+     class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4
+            gap-1 sm:gap-3 md:gap-4 lg:gap-4 xl:gap-5">
   {% include "dishes/grid.html" %}
 </div>
 
