@@ -2,5 +2,5 @@
 {% include "dishes/_card_assets.html" %}
 
 {% for dish in dishes %}
-  {% include "dishes/_card.html" with dish=dish card_context="grid" menu_options=menu_options menu_move_url=menu_move_url current_menu_id='' %}
+  {% include "dishes/_card.html" with dish=dish card_context="grid" menu_options=menu_options menu_move_url=menu_move_url current_menu_id='' menus_workspace_url=menus_workspace_url %}
 {% endfor %}
