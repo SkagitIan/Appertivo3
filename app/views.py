@@ -2333,13 +2333,26 @@ def update_restaurant_info(request):
             _process_menu_submission(restaurant, None, menu_text, menu_pdf)
         return redirect("settings")
 
-    raw_urls = request.POST.get("menu_urls")
-    if raw_urls is None:
-        menu_url = (request.POST.get("menu_url") or "").strip()
-        urls = [menu_url] if menu_url else []
+    submitted_values = request.POST.getlist("menu_urls")
+    if submitted_values:
+        combined = []
+        for value in submitted_values:
+            if not value:
+                continue
+            combined.append(value)
+        if combined:
+            normalized = "\n".join(combined).replace("\r", "\n").replace(",", "\n")
+            urls = [line.strip() for line in normalized.split("\n") if line.strip()]
+        else:
+            urls = []
     else:
-        normalized = raw_urls.replace("\r", "\n").replace(",", "\n")
-        urls = [line.strip() for line in normalized.split("\n") if line.strip()]
+        raw_urls = request.POST.get("menu_urls")
+        if raw_urls is None:
+            menu_url = (request.POST.get("menu_url") or "").strip()
+            urls = [menu_url] if menu_url else []
+        else:
+            normalized = raw_urls.replace("\r", "\n").replace(",", "\n")
+            urls = [line.strip() for line in normalized.split("\n") if line.strip()]
 
     restaurant.set_menu_urls(urls)
     restaurant.save(update_fields=["menu_urls", "primary_menu_url"])
