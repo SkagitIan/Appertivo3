@@ -1,77 +1,312 @@
 {% extends "layouts/marketing.html" %}
 
-{% block title %}Appertivo — AI-Powered Menu Ideation{% endblock %}
+{% block title %}Appertivo — Turn Ideas into Signature Dishes{% endblock %}
 
-{% block main_class %}flex-1 flex flex-col{% endblock %}
+{% block extra_head %}
+  <style>
+    .home-hero {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .home-hero::before,
+    .home-hero::after {
+      content: "";
+      position: absolute;
+      width: 360px;
+      height: 360px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(255, 131, 0, 0.35), transparent 65%);
+      filter: blur(0px);
+      pointer-events: none;
+    }
+
+    .home-hero::before {
+      top: -120px;
+      left: -120px;
+    }
+
+    .home-hero::after {
+      bottom: -160px;
+      right: -100px;
+    }
+
+    .home-flip-card {
+      position: relative;
+      perspective: 1200px;
+    }
+
+    .home-flip-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transform-style: preserve-3d;
+      transition: transform 0.7s ease;
+    }
+
+    .home-flip-card:hover .home-flip-inner,
+    .home-flip-card:focus-within .home-flip-inner {
+      transform: rotateY(180deg);
+    }
+
+    .home-flip-face {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      border-radius: 1.5rem;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .home-flip-back {
+      transform: rotateY(180deg);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .home-flip-inner {
+        transition: none;
+      }
+
+      .home-flip-card:hover .home-flip-inner,
+      .home-flip-card:focus-within .home-flip-inner {
+        transform: none;
+      }
+
+      .home-flip-back {
+        display: none;
+      }
+    }
+  </style>
+{% endblock %}
+
+{% block main_class %}flex-1 flex flex-col bg-[#F9F7F2]{% endblock %}
 
 {% block content %}
-  <section class="relative bg-gradient-to-r from-[#2E005D] via-[#5C008B] to-[#8E008B] text-white py-24">
-    <div class="max-w-7xl mx-auto px-6 text-center">
-      <h1 class="text-5xl md:text-6xl font-bold mb-6">AI-Powered Menu Ideation for Restaurants</h1>
-      <p class="text-lg md:text-xl mb-8">Generate new concepts and dishes tailored to your restaurant.</p>
-      <div class="flex justify-center gap-4">
-        <a href="{% url 'signup' %}" class="px-6 py-3 rounded-2xl font-semibold text-white bg-gradient-to-r from-[#FF8300] to-[#FF5C00] shadow-lg hover:scale-105 transition">Sign Up Free</a>
-        <a href="#features" class="px-6 py-3 rounded-2xl font-semibold border border-white/70 hover:bg-white/10 transition">Learn More</a>
+  <section class="home-hero relative bg-gradient-to-br from-[#2E005D] via-[#5C008B] to-[#8E008B] text-white">
+    <div class="max-w-7xl mx-auto px-6 py-24 md:py-32 grid gap-10 md:grid-cols-[minmax(0,1fr)_minmax(0,420px)] items-center">
+      <div class="space-y-6 relative z-10">
+        <span class="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-medium tracking-wide uppercase">
+          Menu Innovation, Supercharged
+        </span>
+        <h1 class="text-4xl md:text-6xl font-bold leading-tight">
+          Turn Ideas into Dishes. From Concept to Menu, Powered by AI.
+        </h1>
+        <p class="text-lg md:text-xl text-white/90 max-w-2xl">
+          Every dish begins as an idea. Appertivo helps you capture those sparks of inspiration and transform them into fully developed menu items — faster, cheaper, and with less risk. With an AI lookbook tuned to your restaurant, you can explore, test, and refine dishes before they ever reach the kitchen.
+        </p>
+        <div class="flex flex-col sm:flex-row gap-4 pt-4">
+          <a href="{% url 'signup' %}" class="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-[#FF8300] to-[#FF5C00] px-6 py-3 text-lg font-semibold shadow-lg shadow-[#FF8300]/30 transition hover:scale-105">
+            Start Free Trial
+          </a>
+          <a href="#demo" class="inline-flex items-center justify-center rounded-2xl border border-white/70 px-6 py-3 text-lg font-semibold transition hover:bg-white/10">
+            Watch Demo
+          </a>
+        </div>
+      </div>
+      <div class="relative z-10">
+        <div class="rounded-3xl border border-white/20 bg-white/10 p-6 backdrop-blur">
+          <div class="grid gap-4">
+            <div class="rounded-2xl bg-white/90 p-4 text-[#2E005D] shadow-lg shadow-[#2E005D]/10">
+              <p class="text-sm font-semibold uppercase tracking-wide text-[#5C008B]">Concept Prompt</p>
+              <p class="mt-3 text-lg font-medium">“Seasonal heirloom tomato tart with citrus basil crema.”</p>
+            </div>
+            <div class="rounded-2xl bg-[#FF8300]/10 p-4 text-white shadow-lg shadow-black/10">
+              <p class="text-sm font-semibold uppercase tracking-wide text-[#FFDFB3]">AI Insight</p>
+              <p class="mt-3 text-base">Pair with charred scallion oil and burrata for silky texture contrast.</p>
+            </div>
+            <div class="rounded-2xl bg-white/90 p-4 text-[#14080E] shadow-lg shadow-[#2E005D]/10">
+              <p class="text-sm font-semibold uppercase tracking-wide text-[#5C008B]">Menu Ready</p>
+              <p class="mt-3 text-lg font-semibold">Heirloom Tomato Tart</p>
+              <p class="text-sm text-slate-600">Citrus basil crema • Charred scallion oil • Burrata crumble</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </section>
 
-  <section id="how" class="py-20 bg-white">
-    <div class="max-w-6xl mx-auto px-6 text-center">
-      <h2 class="text-4xl font-bold mb-12">How It Works</h2>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-12">
-        <div>
-          <div class="h-16 w-16 mx-auto mb-4 bg-[#FF8300] rounded-full shadow-lg"></div>
-          <h3 class="font-semibold text-xl mb-2">Sign Up & Train AI</h3>
-          <p class="text-slate-600">We fetch your restaurant’s details and menu in the background.</p>
+  <section id="why-it-matters" class="py-20">
+    <div class="max-w-5xl mx-auto px-6 text-center space-y-6">
+      <h2 class="text-3xl md:text-4xl font-bold">Stop losing your best ideas to napkins and notes.</h2>
+      <p class="text-lg text-slate-600 leading-relaxed">
+        Restaurants live and die by their menus — but developing new items is hard work. Inspiration is fleeting. Testing is expensive. And valuable concepts often get lost in the shuffle.
+      </p>
+      <p class="text-lg text-slate-600 leading-relaxed">
+        Appertivo is your digital sketchbook for food. It gives you space to brainstorm, visualize, and organize new dishes — then refine them with AI that understands your restaurant’s style.
+      </p>
+    </div>
+  </section>
+
+  <section id="features" class="py-20 bg-white">
+    <div class="max-w-6xl mx-auto px-6">
+      <div class="text-center max-w-3xl mx-auto mb-14 space-y-4">
+        <h2 class="text-3xl md:text-4xl font-bold">Your all-in-one creative lab for the menu.</h2>
+        <p class="text-lg text-slate-600">Explore, refine, and launch dishes with the same polished experience you love inside Appertivo.</p>
+      </div>
+      <div class="grid gap-8 md:grid-cols-3">
+        <div class="home-flip-card group" tabindex="0">
+          <div class="home-flip-inner">
+            <article class="home-flip-face bg-gradient-to-br from-[#FF8300] to-[#FF5C00] p-6 text-white shadow-xl">
+              <div class="space-y-4">
+                <h3 class="text-2xl font-semibold">Generate Concepts</h3>
+                <p class="text-base text-white/85">Brainstorm with AI tuned to your cuisine.</p>
+              </div>
+              <p class="text-sm font-medium uppercase tracking-wide text-white/80">Hover to see more</p>
+            </article>
+            <article class="home-flip-face home-flip-back bg-white p-6 text-slate-700 shadow-xl">
+              <p class="text-sm font-semibold uppercase text-[#FF8300]">How it works</p>
+              <p class="mt-4 text-base leading-relaxed">Describe the vibe, season, or ingredient. Appertivo delivers concepts that already speak in your restaurant’s voice.</p>
+              <ul class="mt-6 space-y-2 text-sm">
+                <li>• Seasonal inspirations on demand</li>
+                <li>• Flavor pairings with context</li>
+                <li>• Launch ready in minutes</li>
+              </ul>
+            </article>
+          </div>
         </div>
-        <div>
-          <div class="h-16 w-16 mx-auto mb-4 bg-[#5C008B] rounded-full shadow-lg"></div>
-          <h3 class="font-semibold text-xl mb-2">Get Concepts & Dishes</h3>
-          <p class="text-slate-600">See 9 unique concepts, flip cards, and generate dishes instantly.</p>
+        <div class="home-flip-card group" tabindex="0">
+          <div class="home-flip-inner">
+            <article class="home-flip-face bg-gradient-to-br from-[#2E005D] via-[#5C008B] to-[#8E008B] p-6 text-white shadow-xl">
+              <div class="space-y-4">
+                <h3 class="text-2xl font-semibold">Dish Lookbook</h3>
+                <p class="text-base text-white/85">See your ideas in a visual grid, like a style magazine.</p>
+              </div>
+              <p class="text-sm font-medium uppercase tracking-wide text-white/80">Hover to flip</p>
+            </article>
+            <article class="home-flip-face home-flip-back bg-white p-6 text-slate-700 shadow-xl">
+              <p class="text-sm font-semibold uppercase text-[#5C008B]">Inside the card</p>
+              <p class="mt-4 text-base leading-relaxed">Images take center stage on the front. Flip to review descriptions, tags, and the story behind each concept.</p>
+              <ul class="mt-6 space-y-2 text-sm">
+                <li>• Flip for detailed descriptions</li>
+                <li>• Smart tags and price cues</li>
+                <li>• Favorite and organize instantly</li>
+              </ul>
+            </article>
+          </div>
         </div>
-        <div>
-          <div class="h-16 w-16 mx-auto mb-4 bg-[#8E008B] rounded-full shadow-lg"></div>
-          <h3 class="font-semibold text-xl mb-2">Save & Build Menus</h3>
-          <p class="text-slate-600">Favorite dishes, enhance with images, and organize into menus.</p>
+        <div class="home-flip-card group" tabindex="0">
+          <div class="home-flip-inner">
+            <article class="home-flip-face bg-gradient-to-br from-[#FFE7CC] to-white p-6 text-slate-900 shadow-xl">
+              <div class="space-y-4">
+                <h3 class="text-2xl font-semibold">Enhance with AI</h3>
+                <p class="text-base text-slate-700">Sharper wording, better visuals, smarter price cues.</p>
+              </div>
+              <p class="text-sm font-medium uppercase tracking-wide text-slate-500">Hover to flip</p>
+            </article>
+            <article class="home-flip-face home-flip-back bg-white p-6 text-slate-700 shadow-xl">
+              <p class="text-sm font-semibold uppercase text-[#2E005D]">The extras</p>
+              <p class="mt-4 text-base leading-relaxed">Move from idea to menu-ready collateral with AI enhancements tailored to your brand voice.</p>
+              <ul class="mt-6 space-y-2 text-sm">
+                <li>• Auto-tagging for ingredients & categories</li>
+                <li>• Price suggestions backed by data</li>
+                <li>• Menu builder with chef-friendly notes</li>
+              </ul>
+            </article>
+          </div>
+        </div>
+      </div>
+      <div class="mt-16 grid gap-6 md:grid-cols-2">
+        <div class="rounded-3xl border border-[#E2D6F7] bg-[#F7F2FF] p-8 shadow-sm">
+          <h3 class="text-2xl font-semibold text-[#2E005D]">Smart Tagging</h3>
+          <p class="mt-4 text-slate-600">Ingredients, categories, and price suggestions are auto-generated so you can filter and build menus faster.</p>
+        </div>
+        <div class="rounded-3xl border border-[#FFD9B5] bg-[#FFF4EB] p-8 shadow-sm">
+          <h3 class="text-2xl font-semibold text-[#FF5C00]">Organize & Favorite</h3>
+          <p class="mt-4 text-slate-600">Save winners, create menus, and refine directions without losing the energy of the brainstorm.</p>
         </div>
       </div>
     </div>
   </section>
 
-  <section id="features" class="py-20 bg-[#F9F7F2]">
-    <div class="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-      <div>
-        <h2 class="text-4xl font-bold mb-6">Designed for Busy Owners</h2>
-        <ul class="space-y-4 text-lg text-slate-700">
-          <li>✓ 9 concepts at a glance</li>
-          <li>✓ Flip cards to reveal 9 dishes</li>
-          <li>✓ Enhance favorites with images + prices</li>
-          <li>✓ Organize into custom menus</li>
-        </ul>
+  <section id="ai" class="py-20">
+    <div class="max-w-5xl mx-auto px-6 grid gap-10 md:grid-cols-[minmax(0,1fr)_minmax(0,360px)] items-center">
+      <div class="space-y-6">
+        <h2 class="text-3xl md:text-4xl font-bold">Not just AI — your AI.</h2>
+        <p class="text-lg text-slate-600 leading-relaxed">
+          Generic tools spit out generic results. Appertivo is different. It’s powered by your data — your menus, your reviews, your voice. That means the dishes it generates feel authentic to you, not copy-paste ideas from somewhere else.
+        </p>
+        <p class="text-lg text-slate-600 leading-relaxed">
+          This isn’t about replacing chefs — it’s about giving them a creative partner that knows their restaurant.
+        </p>
       </div>
-      <div class="bg-white rounded-2xl shadow-lg h-64 flex items-center justify-center text-slate-400">
-        [ Screenshot Placeholder ]
+      <div class="rounded-3xl border border-[#FF8300]/20 bg-white p-6 shadow-lg">
+        <div class="flex items-start gap-4">
+          <div class="rounded-full bg-gradient-to-br from-[#FF8300] to-[#FF5C00] px-4 py-3 text-white font-semibold">AI</div>
+          <div>
+            <p class="text-sm uppercase tracking-wide text-[#FF8300]">Personalization</p>
+            <p class="mt-2 text-base text-slate-700">Feed Appertivo your menu, favorite dishes, or reviews to fine-tune outputs.</p>
+            <p class="mt-4 text-sm text-slate-500">Every suggestion respects your brand — from plating style to portion sizes.</p>
+          </div>
+        </div>
       </div>
     </div>
   </section>
 
-  <section id="pricing" class="py-20 bg-white">
-    <div class="max-w-6xl mx-auto px-6 text-center">
-      <h2 class="text-4xl font-bold mb-12">Simple Pricing</h2>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div class="p-8 rounded-2xl shadow-md border border-slate-200 bg-[#F9F7F2]">
-          <h3 class="text-2xl font-semibold mb-4">Free</h3>
-          <p class="text-slate-600 mb-6">Explore concepts and dishes with limited saves.</p>
-          <p class="text-3xl font-bold mb-6">$0</p>
-          <a href="{% url 'signup' %}" class="block px-6 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-[#5C008B] to-[#8E008B] hover:scale-105 transition">Get Started</a>
+  <section id="social-proof" class="py-20 bg-white">
+    <div class="max-w-4xl mx-auto px-6 text-center space-y-8">
+      <h2 class="text-3xl md:text-4xl font-bold">Teams already cooking with Appertivo.</h2>
+      <div class="rounded-3xl border border-slate-200 bg-white p-10 shadow-lg">
+        <blockquote class="text-xl text-slate-700 leading-relaxed">
+          “Appertivo helped us cut menu planning from days to hours. The lookbook view made our brainstorming sessions twice as fun — and twice as productive.”
+        </blockquote>
+        <p class="mt-6 text-sm font-semibold uppercase tracking-wide text-[#5C008B]">– Chef, Skagit Valley</p>
+      </div>
+      <p class="text-sm text-slate-400">(More testimonials coming soon.)</p>
+    </div>
+  </section>
+
+  <section id="pricing" class="py-20">
+    <div class="max-w-6xl mx-auto px-6">
+      <div class="text-center max-w-3xl mx-auto mb-14 space-y-4">
+        <h2 class="text-3xl md:text-4xl font-bold">Simple pricing, built for restaurants of all sizes.</h2>
+        <p class="text-lg text-slate-600">Choose the plan that matches your pace of innovation.</p>
+      </div>
+      <div class="grid gap-8 md:grid-cols-3">
+        <div class="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+          <h3 class="text-xl font-semibold text-[#2E005D]">Free Trial</h3>
+          <p class="mt-4 text-slate-600">14 days to explore concepts, dishes, and favorites.</p>
+          <p class="mt-6 text-3xl font-bold text-[#2E005D]">$0</p>
+          <a href="{% url 'signup' %}" class="mt-6 inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-[#2E005D] to-[#5C008B] px-5 py-3 text-sm font-semibold text-white transition hover:scale-105">
+            Start Free Trial
+          </a>
         </div>
-        <div class="p-8 rounded-2xl shadow-lg border border-[#FF8300] bg-gradient-to-r from-[#FF8300]/10 to-[#FF5C00]/10">
-          <h3 class="text-2xl font-semibold mb-4">Pro</h3>
-          <p class="text-slate-600 mb-6">Unlock enhanced mode with images and pricing.</p>
-          <p class="text-3xl font-bold mb-6">$59/mo</p>
-          <a href="{% url 'signup' %}" class="block px-6 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-[#FF8300] to-[#FF5C00] hover:scale-105 transition">Upgrade Now</a>
+        <div class="rounded-3xl border-2 border-[#FF8300] bg-gradient-to-br from-[#FF8300]/10 to-[#FF5C00]/10 p-8 text-center shadow-lg">
+          <h3 class="text-xl font-semibold text-[#FF5C00]">Pro</h3>
+          <p class="mt-4 text-slate-600">Unlock enhancements, menu building, and AI-powered features.</p>
+          <p class="mt-6 text-3xl font-bold text-[#FF5C00]">$59/mo</p>
+          <a href="{% url 'signup' %}" class="mt-6 inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-[#FF8300] to-[#FF5C00] px-5 py-3 text-sm font-semibold text-white transition hover:scale-105">
+            Upgrade Now
+          </a>
         </div>
+        <div class="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+          <h3 class="text-xl font-semibold text-[#2E005D]">Enterprise</h3>
+          <p class="mt-4 text-slate-600">For groups and multi-location operators.</p>
+          <p class="mt-6 text-3xl font-bold text-[#2E005D]">Let’s talk</p>
+          <a href="#demo" class="mt-6 inline-flex items-center justify-center rounded-2xl border border-[#2E005D] px-5 py-3 text-sm font-semibold text-[#2E005D] transition hover:bg-[#2E005D] hover:text-white">
+            Book a Demo
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="demo" class="py-20 bg-gradient-to-br from-[#2E005D] via-[#5C008B] to-[#8E008B] text-white">
+    <div class="max-w-5xl mx-auto px-6 text-center space-y-6">
+      <h2 class="text-3xl md:text-4xl font-bold">Ready to turn inspiration into your next signature dish?</h2>
+      <p class="text-lg text-white/85">
+        Start creating with Appertivo today and see how quickly ideas become menu-ready.
+      </p>
+      <div class="flex flex-col sm:flex-row gap-4 justify-center">
+        <a href="{% url 'signup' %}" class="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-[#FF8300] to-[#FF5C00] px-6 py-3 text-lg font-semibold shadow-lg shadow-[#FF8300]/30 transition hover:scale-105">
+          Start Free Trial
+        </a>
+        <a href="#demo" class="inline-flex items-center justify-center rounded-2xl border border-white/80 px-6 py-3 text-lg font-semibold transition hover:bg-white/10">
+          Book a Demo
+        </a>
       </div>
     </div>
   </section>
