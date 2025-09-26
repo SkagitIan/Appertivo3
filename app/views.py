@@ -21,7 +21,9 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
+import stripe
 from pydantic import BaseModel
 from django.core.cache import cache
 import hashlib
@@ -38,8 +40,114 @@ import datetime
 
 from app.tasks import create_ideation_run
 
+stripe.api_key = settings.STRIPE_SECRET_KEY or ""
+logger = logging.getLogger(__name__)
+
 class ConceptList(BaseModel):
     concepts: List[str]
+
+
+def _ensure_stripe_api_key() -> None:
+    """Refresh the Stripe API key from settings for the current process."""
+
+    stripe.api_key = settings.STRIPE_SECRET_KEY or ""
+
+
+def _get_default_plan() -> models.Plan:
+    """Fetch or create the default plan used for subscriptions."""
+
+    defaults = {
+        "name": "Pro",
+        "limits": {"concept_runs": 100, "dish_runs": 100, "price": "199"},
+        "features": [
+            "Unlimited menu scrapes",
+            "Concept and dish generation",
+            "Team collaboration",
+        ],
+    }
+    plan, _ = models.Plan.objects.get_or_create(
+        code=getattr(settings, "STRIPE_PLAN_CODE", "pro"), defaults=defaults
+    )
+    return plan
+
+
+def _stripe_timestamp(value: Optional[int]) -> datetime.datetime:
+    """Convert a Stripe timestamp into an aware datetime."""
+
+    if not value:
+        return timezone.now()
+    return datetime.datetime.fromtimestamp(value, tz=datetime.timezone.utc)
+
+
+def _sync_subscription(subscription_data: dict) -> None:
+    """Create or update a subscription based on Stripe payload."""
+
+    sub_id = subscription_data.get("id")
+    if not sub_id:
+        return
+
+    account: Optional[models.Account] = None
+    local = models.Subscription.objects.filter(provider_sub_id=sub_id).first()
+    if local:
+        account = local.account
+
+    metadata = subscription_data.get("metadata") or {}
+    if not account:
+        account_id = metadata.get("account_id")
+        if account_id:
+            account = models.Account.objects.filter(id=account_id).first()
+
+    if not account:
+        customer_id = subscription_data.get("customer")
+        if customer_id:
+            account = models.Account.objects.filter(
+                stripe_customer_id=customer_id
+            ).first()
+
+    if not account:
+        return
+
+    customer_id = subscription_data.get("customer")
+    if customer_id and account.stripe_customer_id != customer_id:
+        account.stripe_customer_id = customer_id
+        account.save(update_fields=["stripe_customer_id"])
+
+    plan = _get_default_plan()
+    status = subscription_data.get("status", models.Subscription.Status.TRIALING)
+    defaults = {
+        "plan": plan,
+        "provider": models.Subscription.Provider.STRIPE,
+        "provider_customer_id": customer_id or "",
+        "status": status,
+        "current_period_start": _stripe_timestamp(
+            subscription_data.get("current_period_start")
+        ),
+        "current_period_end": _stripe_timestamp(
+            subscription_data.get("current_period_end")
+        ),
+        "cancel_at_period_end": subscription_data.get(
+            "cancel_at_period_end", False
+        ),
+    }
+
+    models.Subscription.objects.update_or_create(
+        account=account,
+        provider=models.Subscription.Provider.STRIPE,
+        provider_sub_id=sub_id,
+        defaults=defaults,
+    )
+
+
+def _latest_subscription_for_account(
+    account: models.Account,
+) -> Optional[models.Subscription]:
+    """Return the most recent subscription for an account."""
+
+    return (
+        models.Subscription.objects.filter(account=account)
+        .order_by("-created_at")
+        .first()
+    )
 
 
 def _get_session_list(session, key: str) -> List[str]:
@@ -179,7 +287,9 @@ def signup_view(request):
             )
 
         login(request, user)
-        redirect_url = reverse("dashboard", args=[restaurant.id])
+        request.session["onboarding_account_id"] = str(account.id)
+        request.session["onboarding_restaurant_id"] = str(restaurant.id)
+        redirect_url = reverse("onboarding")
         if is_json:
             return JsonResponse(
                 {
@@ -486,15 +596,70 @@ def menus_view(request):
     return render(request, "menus/main.html", ctx)
 
 
+@login_required
 def onboarding_view(request):
-    """Show onboarding progress."""
+    """Show onboarding progress and billing step."""
+
+    membership = (
+        models.Membership.objects.filter(user=request.user)
+        .select_related("account")
+        .first()
+    )
+    account = membership.account if membership else None
+    restaurant = None
+    subscription = None
+    if account:
+        restaurant = (
+            models.Restaurant.objects.filter(account=account)
+            .order_by("created_at")
+            .first()
+        )
+        subscription = (
+            models.Subscription.objects.filter(account=account)
+            .order_by("-created_at")
+            .first()
+        )
+
     jobs = models.Job.objects.filter(user=request.user)
-    return render(request, "onboarding.html", {"jobs": jobs})
+    trial_days = getattr(settings, "STRIPE_TRIAL_DAYS", 14)
+    trial_ends = subscription.current_period_end if subscription else None
+    trial_days_remaining = None
+    if subscription and subscription.status == models.Subscription.Status.TRIALING:
+        remaining = subscription.current_period_end - timezone.now()
+        trial_days_remaining = max(remaining.days, 0)
+
+    context = {
+        "jobs": jobs,
+        "restaurant": restaurant,
+        "subscription": subscription,
+        "trial_days": trial_days,
+        "trial_ends": trial_ends,
+        "trial_days_remaining": trial_days_remaining,
+        "show_start_trial": not subscription
+        or subscription.status == models.Subscription.Status.CANCELED,
+    }
+    return render(request, "onboarding.html", context)
 
 
+@login_required
 def onboarding_status_view(request):
     """Return simple onboarding status."""
-    return JsonResponse({"status": "pending"})
+
+    membership = models.Membership.objects.filter(user=request.user).first()
+    subscription = None
+    if membership:
+        subscription = (
+            models.Subscription.objects.filter(account=membership.account)
+            .order_by("-created_at")
+            .first()
+        )
+
+    return JsonResponse(
+        {
+            "status": "pending" if not subscription else subscription.status,
+            "subscription_started": bool(subscription),
+        }
+    )
 
 
 def manual_menu_view(request):
@@ -1836,8 +2001,6 @@ def update_creativity(request, restaurant_id):
     return JsonResponse({"status": "ok"})
 
 
-logger = logging.getLogger(__name__)
-
 @login_required
 @require_POST
 def rescrape_menu(request, restaurant_id):
@@ -1879,19 +2042,171 @@ def update_notifications(request):
 
 
 
+@login_required
 def billing_view(request):
     """Show billing page."""
-    return render(request, "billing/main.html")
+
+    membership = (
+        models.Membership.objects.filter(user=request.user)
+        .select_related("account")
+        .first()
+    )
+    account = membership.account if membership else None
+    subscription = _latest_subscription_for_account(account) if account else None
+    plan = _get_default_plan() if account else None
+    trial_days = getattr(settings, "STRIPE_TRIAL_DAYS", 14)
+    trial_end = subscription.current_period_end if subscription else None
+    trial_days_remaining = None
+    if subscription and subscription.status == models.Subscription.Status.TRIALING:
+        remaining = subscription.current_period_end - timezone.now()
+        trial_days_remaining = max(remaining.days, 0)
+
+    context = {
+        "plan": plan,
+        "subscription": subscription,
+        "trial_days": trial_days,
+        "trial_end": trial_end,
+        "trial_days_remaining": trial_days_remaining,
+        "show_start_trial": bool(account)
+        and (
+            not subscription
+            or subscription.status == models.Subscription.Status.CANCELED
+        ),
+    }
+    return render(request, "billing/main.html", context)
 
 
+@login_required
+@require_POST
 def billing_upgrade_view(request):
-    """Start upgrade flow."""
-    return JsonResponse({"status": "ok"})
+    """Create a Stripe Checkout session to start the trial subscription."""
+
+    membership = (
+        models.Membership.objects.filter(user=request.user)
+        .select_related("account")
+        .first()
+    )
+    price_id = getattr(settings, "STRIPE_PRICE_ID", "")
+    if not membership or not price_id:
+        return redirect("billing")
+
+    account = membership.account
+    _ensure_stripe_api_key()
+    metadata = {"account_id": str(account.id)}
+    next_path = request.POST.get("next") or reverse("billing")
+    if not isinstance(next_path, str) or not next_path.startswith("/"):
+        next_path = reverse("billing")
+    success_url = request.build_absolute_uri(next_path)
+    cancel_url = success_url
+
+    session_kwargs = {
+        "mode": "subscription",
+        "line_items": [{"price": price_id, "quantity": 1}],
+        "success_url": success_url,
+        "cancel_url": cancel_url,
+        "subscription_data": {
+            "trial_period_days": getattr(settings, "STRIPE_TRIAL_DAYS", 14),
+            "metadata": metadata,
+        },
+        "metadata": metadata,
+    }
+
+    if account.stripe_customer_id:
+        session_kwargs["customer"] = account.stripe_customer_id
+    else:
+        session_kwargs["customer_email"] = request.user.email
+
+    try:
+        checkout_session = stripe.checkout.Session.create(**session_kwargs)
+    except stripe.error.StripeError:
+        logger.exception("Unable to create Stripe Checkout session", exc_info=True)
+        return redirect("billing")
+
+    return redirect(checkout_session.url)
 
 
+@login_required
+@require_POST
 def billing_cancel_view(request):
-    """Cancel subscription."""
-    return JsonResponse({"status": "ok"})
+    """Cancel subscription at period end."""
+
+    membership = (
+        models.Membership.objects.filter(user=request.user)
+        .select_related("account")
+        .first()
+    )
+    if not membership:
+        return redirect("billing")
+
+    account = membership.account
+    subscription = _latest_subscription_for_account(account)
+    if not subscription:
+        return redirect("billing")
+
+    if (
+        subscription.provider == models.Subscription.Provider.STRIPE
+        and getattr(settings, "STRIPE_SECRET_KEY", "")
+    ):
+        _ensure_stripe_api_key()
+        try:
+            stripe.Subscription.modify(
+                subscription.provider_sub_id, cancel_at_period_end=True
+            )
+        except stripe.error.StripeError:
+            logger.exception("Unable to cancel Stripe subscription", exc_info=True)
+
+    if not subscription.cancel_at_period_end:
+        subscription.cancel_at_period_end = True
+        subscription.save(update_fields=["cancel_at_period_end"])
+
+    return redirect("billing")
+
+
+@csrf_exempt
+@require_POST
+def stripe_webhook_view(request):
+    """Handle Stripe webhook callbacks for subscriptions."""
+
+    payload = request.body
+    sig_header = request.META.get("HTTP_STRIPE_SIGNATURE", "")
+    secret = getattr(settings, "STRIPE_WEBHOOK_SECRET", "")
+
+    if secret:
+        try:
+            event = stripe.Webhook.construct_event(payload, sig_header, secret)
+        except ValueError:
+            return HttpResponseBadRequest("invalid_payload")
+        except stripe.error.SignatureVerificationError:
+            return HttpResponseForbidden("invalid_signature")
+    else:
+        try:
+            event = json.loads(payload or "{}")
+        except json.JSONDecodeError:
+            return HttpResponseBadRequest("invalid_json")
+
+    event_type = event.get("type")
+    data_object = event.get("data", {}).get("object", {})
+
+    if event_type == "checkout.session.completed":
+        subscription_id = data_object.get("subscription")
+        if subscription_id:
+            _ensure_stripe_api_key()
+            try:
+                subscription = stripe.Subscription.retrieve(subscription_id)
+            except stripe.error.StripeError:
+                logger.exception(
+                    "Unable to retrieve subscription %s from Stripe", subscription_id
+                )
+            else:
+                _sync_subscription(subscription)
+    elif event_type in {
+        "customer.subscription.created",
+        "customer.subscription.updated",
+        "customer.subscription.deleted",
+    }:
+        _sync_subscription(data_object)
+
+    return HttpResponse(status=200)
 
 
 def job_status_view(request, job_id):
