@@ -4,10 +4,37 @@
 
 {% block page_intro %}
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div class="space-y-1">
+      <div class="space-y-2">
         <p class="text-xs font-semibold uppercase text-slate-400">Dashboard</p>
-        <h1 class="text-xl font-semibold text-[#14080E]">Welcome back, {{ request.user.first_name|default:"Chef" }}</h1>
-        <p class="text-sm text-slate-600">Here’s a quick look at how Appertivo is supporting {{ restaurant.name }}.</p>
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+          <h1 class="text-2xl font-semibold text-[#14080E]">{{ restaurant.name }}</h1>
+          {% if restaurant.location_text %}
+            <div class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-sm text-slate-500">
+              <i class="fa-solid fa-location-dot text-slate-400" aria-hidden="true"></i>
+              <span>{{ restaurant.location_text }}</span>
+            </div>
+          {% endif %}
+        </div>
+        <p class="text-sm text-slate-600">Everything you need to keep Appertivo aligned with your dining room.</p>
+      </div>
+      <div class="flex flex-wrap items-center gap-3 text-sm text-slate-500">
+        {% if restaurant.phone %}
+          <span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1">
+            <i class="fa-solid fa-phone text-slate-400" aria-hidden="true"></i>
+            {{ restaurant.phone }}
+          </span>
+        {% endif %}
+        {% if restaurant.website %}
+          <a
+            href="{{ restaurant.website }}"
+            target="_blank"
+            rel="noopener"
+            class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 font-semibold text-[#5C008B] transition hover:text-[#3f0060]"
+          >
+            <i class="fa-solid fa-globe" aria-hidden="true"></i>
+            Website
+          </a>
+        {% endif %}
       </div>
     </div>
 {% endblock %}
@@ -220,6 +247,8 @@
     </section>
   </div>
 
+  <div id="menu-modal"></div>
+
   {% if prompt_for_menu %}
     <script>
       document.addEventListener('DOMContentLoaded', function () {
@@ -238,4 +267,112 @@
       });
     </script>
   {% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+  {{ block.super }}
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      function setupMenuManager(manager) {
+        if (!manager || manager.dataset.menuManagerReady === 'true') {
+          return;
+        }
+        manager.dataset.menuManagerReady = 'true';
+
+        const list = manager.querySelector('[data-menu-url-list]');
+        const template = manager.querySelector('[data-menu-url-template]');
+        const addButton = manager.querySelector('[data-menu-url-add]');
+        if (!list || !template) {
+          return;
+        }
+
+        function createRow(value) {
+          const fragment = template.content.firstElementChild.cloneNode(true);
+          const input = fragment.querySelector('input[name="menu_url"]');
+          if (input) {
+            input.value = value || '';
+          }
+          return fragment;
+        }
+
+        function refreshRemoveButtons() {
+          const rows = Array.from(list.querySelectorAll('[data-menu-url-row]'));
+          rows.forEach(function (row) {
+            const removeButton = row.querySelector('[data-menu-url-remove]');
+            if (!removeButton) {
+              return;
+            }
+            if (rows.length <= 1) {
+              removeButton.classList.add('invisible');
+              removeButton.setAttribute('tabindex', '-1');
+            } else {
+              removeButton.classList.remove('invisible');
+              removeButton.removeAttribute('tabindex');
+            }
+          });
+        }
+
+        function ensureAtLeastOneRow() {
+          if (!list.querySelector('[data-menu-url-row]')) {
+            list.appendChild(createRow(''));
+          }
+          refreshRemoveButtons();
+        }
+
+        if (!list.querySelector('[data-menu-url-row]')) {
+          list.appendChild(createRow(''));
+        }
+        refreshRemoveButtons();
+
+        list.addEventListener('click', function (event) {
+          const removeButton = event.target.closest('[data-menu-url-remove]');
+          if (!removeButton) {
+            return;
+          }
+          const row = removeButton.closest('[data-menu-url-row]');
+          if (row) {
+            row.remove();
+          }
+          ensureAtLeastOneRow();
+        });
+
+        if (addButton) {
+          addButton.addEventListener('click', function () {
+            list.appendChild(createRow(''));
+            refreshRemoveButtons();
+            const inputs = list.querySelectorAll('input[name="menu_url"]');
+            const lastInput = inputs[inputs.length - 1];
+            if (lastInput) {
+              lastInput.focus();
+            }
+          });
+        }
+
+        const fileInput = manager.querySelector('[data-menu-file]');
+        const fileName = manager.querySelector('[data-menu-file-name]');
+        if (fileInput && fileName) {
+          fileName.dataset.defaultText = fileName.textContent || 'No file chosen';
+          fileInput.addEventListener('change', function () {
+            if (fileInput.files && fileInput.files.length > 0) {
+              fileName.textContent = fileInput.files[0].name;
+            } else {
+              fileName.textContent = fileName.dataset.defaultText;
+            }
+          });
+        }
+      }
+
+      function initMenuManagers(root) {
+        root.querySelectorAll('[data-menu-manager]').forEach(setupMenuManager);
+      }
+
+      initMenuManagers(document);
+
+      document.body.addEventListener('htmx:afterSwap', function (event) {
+        if (event.detail && event.detail.target) {
+          initMenuManagers(event.detail.target);
+        }
+      });
+    });
+  </script>
 {% endblock %}

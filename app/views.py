@@ -40,6 +40,10 @@ client = OpenAI(api_key=_openai_api_key) if _openai_api_key else None
 import datetime
 from itertools import islice
 
+
+from app.tasks import create_ideation_run
+
+
 stripe.api_key = settings.STRIPE_SECRET_KEY or ""
 logger = logging.getLogger(__name__)
 
@@ -1119,7 +1123,6 @@ def concepts_generate_view(request):
         context_snapshot=context_snapshot,
         status=models.IdeationRun.Status.RUNNING,
         started_at=timezone.now(),
-    )
 
     concepts: List[models.Concept] = []
 
@@ -2560,7 +2563,10 @@ def notification_list_view(request):
 
 def restaurant_status(request, restaurant_id):
     """HTMX endpoint that returns current status widget."""
-    restaurant = get_object_or_404(models.Restaurant, id=restaurant_id)
+    restaurant = get_object_or_404(
+        models.Restaurant.objects.select_related("restaurantsettings"),
+        id=restaurant_id,
+    )
     payload = (
         models.OutscraperPayload.objects.filter(restaurant=restaurant)
         .order_by("-created_at")
@@ -2570,6 +2576,7 @@ def restaurant_status(request, restaurant_id):
         "restaurant": restaurant,
         "menu_version": restaurant.active_menu_version,
         "payload": payload,
+        "restaurant_settings": getattr(restaurant, "restaurantsettings", None),
     }
     return render(request, "_partials/restaurant_status.html", context)
 
@@ -2642,9 +2649,18 @@ def upload_menu(request, restaurant_id):
     restaurant = get_object_or_404(models.Restaurant, id=restaurant_id)
 
     if request.method == "POST":
-        menu_url = (request.POST.get("menu_url") or "").strip()
+        submitted_urls = request.POST.getlist("menu_url")
+        menu_urls = [url.strip() for url in submitted_urls if url and url.strip()]
+        if submitted_urls:
+            restaurant.set_menu_urls(menu_urls)
+            restaurant.save(update_fields=["menu_urls", "primary_menu_url"])
+
         menu_text = (request.POST.get("menu_text") or "").strip()
         menu_pdf = request.FILES.get("menu_pdf")
+
+        menu_url = None
+        if not menu_text and not menu_pdf and menu_urls:
+            menu_url = menu_urls[0]
 
         _process_menu_submission(restaurant, menu_url, menu_text, menu_pdf)
 

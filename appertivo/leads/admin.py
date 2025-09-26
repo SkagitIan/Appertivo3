@@ -1,0 +1,65 @@
+"""Admin configuration for the leads app."""
+from __future__ import annotations
+
+from django.contrib import admin
+from django.utils.html import format_html
+
+from . import tasks
+from .models import Concept, DishIdea, Lead
+
+
+@admin.register(Lead)
+class LeadAdmin(admin.ModelAdmin):
+    """Admin interface for managing leads."""
+
+    list_display = (
+        "name",
+        "email",
+        "city",
+        "view_demo_button",
+        "emailed",
+        "opened",
+        "followed_up",
+        "converted",
+    )
+    list_filter = ("emailed", "opened", "followed_up", "converted")
+    search_fields = ("name", "email", "city")
+    actions = ("contact_selected_leads", "mark_as_followed_up")
+
+    @admin.display(description="View Demo")
+    def view_demo_button(self, obj: Lead) -> str:
+        if not obj.landing_url:
+            return "—"
+        return format_html(
+            '<a class="button" href="{}" target="_blank" rel="noopener">View Demo</a>',
+            obj.landing_url,
+        )
+
+    @admin.action(description="Contact selected leads")
+    def contact_selected_leads(self, request, queryset):
+        for lead in queryset:
+            tasks.send_personalized_email.delay(lead.id)
+        self.message_user(request, f"Scheduled outreach for {queryset.count()} leads.")
+
+    @admin.action(description="Mark as Followed Up")
+    def mark_as_followed_up(self, request, queryset):
+        updated = queryset.update(followed_up=True)
+        self.message_user(request, f"Marked {updated} leads as followed up.")
+
+
+@admin.register(Concept)
+class ConceptAdmin(admin.ModelAdmin):
+    """Admin configuration for concepts."""
+
+    list_display = ("name", "lead", "rank_order", "enhanced")
+    list_filter = ("enhanced",)
+    search_fields = ("name", "lead__name")
+
+
+@admin.register(DishIdea)
+class DishIdeaAdmin(admin.ModelAdmin):
+    """Admin configuration for dish ideas."""
+
+    list_display = ("title", "lead", "favorited", "concept")
+    list_filter = ("favorited",)
+    search_fields = ("title", "lead__name")

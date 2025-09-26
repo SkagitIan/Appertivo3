@@ -3,6 +3,7 @@
   {% with placeholders_id=root_id|add:'-placeholders' suggestions_id=root_id|add:'-suggestions' indicator_id=root_id|add:'-indicator' %}
     {{ placeholder_samples|json_script:placeholders_id }}
     {{ suggestions|json_script:suggestions_id }}
+
     <div
       id="{{ root_id }}-wrapper"
       data-ai-input="{{ root_id }}"
@@ -22,6 +23,7 @@
           <span>Crafting fresh ideas…</span>
         </div>
       </div>
+
       <form
         id="{{ root_id }}"
         hx-post="{{ action_url }}"
@@ -60,6 +62,14 @@
           <i class="fa-solid fa-sparkles text-xs"></i>
         </button>
       </form>
+      <div
+        id="{{ indicator_id }}"
+        class="hidden items-center justify-start gap-2 text-sm text-[#49475B] sm:justify-end"
+      >
+        <span class="inline-flex h-2.5 w-2.5 animate-ping rounded-full bg-[#B993D6]"></span>
+        <span class="font-medium">Gathering ideas…</span>
+      </div>
+
       {% if suggestions %}
         <div class="flex flex-wrap gap-2">
           {% for suggestion in suggestions %}

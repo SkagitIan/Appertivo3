@@ -1,0 +1,1 @@
+"""Appertivo project package."""
