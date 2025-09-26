@@ -4,9 +4,6 @@
 
 {% block extra_head %}
   {{ block.super }}
-  {% if demo_concept %}
-    {% include "concepts/_card_assets.html" %}
-  {% endif %}
   <style>
     .home-hero {
       position: relative;
@@ -37,7 +34,7 @@
     .app-demo-frame {
       position: relative;
       border-radius: 2.25rem;
-      background: linear-gradient(180deg, rgba(20, 8, 14, 0.92) 0%, rgba(20, 8, 14, 0.85) 100%);
+      background: linear-gradient(200deg, rgba(20, 8, 14, 0.92), rgba(20, 8, 14, 0.82));
       padding: 1.75rem;
       box-shadow: 0 35px 60px -30px rgba(20, 8, 14, 0.6);
       color: #ffffff;
@@ -56,14 +53,171 @@
       opacity: 0.75;
     }
 
-    .home-demo-card-stack {
+    .hero-demo-card {
+      position: relative;
+      width: 100%;
+      perspective: 1600px;
+    }
+
+    .hero-demo-card__inner {
+      position: relative;
+      min-height: 420px;
+      border-radius: 2rem;
+      transform-style: preserve-3d;
+      transition: transform 0.8s ease;
+      box-shadow: 0 25px 45px -35px rgba(0, 0, 0, 0.7);
+    }
+
+    .hero-demo-card.is-flipped .hero-demo-card__inner {
+      transform: rotateY(180deg);
+    }
+
+    .hero-demo-face {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      backface-visibility: hidden;
+      border-radius: inherit;
+      overflow: hidden;
+    }
+
+    .hero-demo-face--front {
+      background: linear-gradient(180deg, rgba(94, 0, 139, 0.6), rgba(20, 8, 14, 0.9));
+      color: #ffffff;
+    }
+
+    .hero-demo-face--back {
+      background: #ffffff;
+      color: #14080E;
+      transform: rotateY(180deg);
+    }
+
+    .hero-demo-face__state {
+      display: none;
+      flex: 1;
+    }
+
+    .hero-demo-card[data-phase="concept-front"] .hero-demo-front--concept,
+    .hero-demo-card[data-phase="dish-front"] .hero-demo-front--dish,
+    .hero-demo-card[data-phase="concept-back"] .hero-demo-back--concept,
+    .hero-demo-card[data-phase="dish-back"] .hero-demo-back--dish {
+      display: flex;
+    }
+
+    .hero-demo-image {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 1.5rem;
+      width: 100%;
+      min-height: 420px;
+    }
+
+    .hero-demo-image img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 0;
+    }
+
+    .hero-demo-image::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(20, 8, 14, 0.05), rgba(20, 8, 14, 0.85));
+      z-index: 0;
+    }
+
+    .hero-demo-overlay {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      gap: 0.75rem;
+      color: #ffffff;
+    }
+
+    .hero-demo-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.75rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-weight: 600;
+      padding: 0.4rem 0.8rem;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(6px);
+      width: fit-content;
+    }
+
+    .hero-demo-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
+    .hero-demo-subtitle {
+      font-size: 0.95rem;
+      color: rgba(255, 255, 255, 0.85);
+      line-height: 1.6;
+    }
+
+    .hero-demo-back {
+      padding: 2rem;
       display: grid;
       gap: 1.5rem;
     }
 
-    .home-demo-card-stack .concept-card-wrapper {
-      max-width: 340px;
-      margin: 0 auto;
+    .hero-demo-back__header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+
+    .hero-demo-back__title {
+      font-size: 1.4rem;
+      font-weight: 700;
+    }
+
+    .hero-demo-back__description {
+      font-size: 0.95rem;
+      line-height: 1.6;
+      color: #4b4b5c;
+    }
+
+    .hero-demo-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .hero-demo-tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.35rem 0.75rem;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      background: rgba(94, 0, 139, 0.1);
+      color: #2E005D;
+    }
+
+    .hero-demo-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(20, 8, 14, 0.6);
     }
 
     .home-demo-footnote {
@@ -73,97 +227,81 @@
       color: rgba(255, 255, 255, 0.7);
     }
 
-    .home-demo-dish {
+    .lab-grid-visual {
       position: relative;
-      border-radius: 1.75rem;
+      border-radius: 2rem;
+      padding: 2rem;
+      background: linear-gradient(140deg, #ffffff, #f3eafb);
+      border: 1px solid rgba(94, 0, 139, 0.08);
+      box-shadow: 0 25px 45px -35px rgba(20, 8, 14, 0.4);
       overflow: hidden;
-      min-height: 220px;
-      border: 1px solid rgba(255, 255, 255, 0.16);
-      background: linear-gradient(135deg, rgba(94, 0, 139, 0.35), rgba(255, 92, 0, 0.28));
-      box-shadow: 0 20px 45px -25px rgba(14, 2, 31, 0.6);
     }
 
-    .home-demo-dish img {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-
-    .home-demo-dish::before {
+    .lab-grid-visual::before {
       content: "";
       position: absolute;
       inset: 0;
-      background: linear-gradient(180deg, rgba(20, 8, 14, 0.1) 0%, rgba(20, 8, 14, 0.78) 90%);
+      background-image: linear-gradient(
+          rgba(46, 0, 93, 0.08) 1px,
+          transparent 1px
+        ),
+        linear-gradient(
+          90deg,
+          rgba(46, 0, 93, 0.08) 1px,
+          transparent 1px
+        );
+      background-size: 32px 32px;
+      pointer-events: none;
     }
 
-    .home-demo-dish__content {
+    .lab-grid-preview {
       position: relative;
-      z-index: 1;
-      padding: 1.5rem;
       display: grid;
-      gap: 0.75rem;
-      color: #fefcf8;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1rem;
+      z-index: 1;
     }
 
-    .home-demo-dish__label {
-      font-size: 0.7rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      font-weight: 600;
-      opacity: 0.85;
-    }
-
-    .home-demo-dish__title {
-      font-size: 1.25rem;
-      font-weight: 700;
-      line-height: 1.25;
-    }
-
-    .home-demo-dish__description {
-      font-size: 0.9rem;
-      line-height: 1.5;
-      color: rgba(255, 255, 255, 0.85);
-    }
-
-    .home-demo-dish__meta {
+    .lab-mini-card {
+      position: relative;
+      border-radius: 1.25rem;
+      padding: 0.75rem;
+      min-height: 110px;
       display: flex;
-      flex-wrap: wrap;
-      gap: 0.45rem;
+      flex-direction: column;
+      justify-content: space-between;
+      background: rgba(255, 255, 255, 0.7);
+      border: 1px solid rgba(94, 0, 139, 0.12);
+      box-shadow: 0 12px 25px -18px rgba(20, 8, 14, 0.4);
     }
 
-    .home-demo-dish__badge {
+    .lab-mini-card.is-favorited {
+      background: linear-gradient(145deg, rgba(255, 131, 0, 0.15), rgba(255, 92, 0, 0.35));
+      border-color: rgba(255, 131, 0, 0.4);
+    }
+
+    .lab-mini-card__name {
+      font-size: 0.8rem;
+      font-weight: 600;
+      line-height: 1.3;
+      color: #2E005D;
+    }
+
+    .lab-mini-card__tag {
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: rgba(73, 71, 91, 0.7);
+    }
+
+    .lab-mini-card__favorite {
       display: inline-flex;
       align-items: center;
-      gap: 0.35rem;
-      padding: 0.35rem 0.75rem;
-      border-radius: 999px;
-      font-size: 0.75rem;
+      gap: 0.3rem;
+      font-size: 0.65rem;
       font-weight: 600;
-      letter-spacing: 0.05em;
+      color: #FF5C00;
       text-transform: uppercase;
-      background: rgba(255, 255, 255, 0.18);
-      color: #ffffff;
-    }
-
-    .home-demo-dish__tags {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.35rem;
-    }
-
-    .home-demo-dish__tag {
-      display: inline-flex;
-      align-items: center;
-      padding: 0.3rem 0.65rem;
-      border-radius: 999px;
-      font-size: 0.7rem;
-      font-weight: 600;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      background: rgba(255, 255, 255, 0.14);
-      color: #ffffff;
     }
 
     .data-flow-grid {
@@ -177,12 +315,12 @@
       position: relative;
       border-radius: 1.5rem;
       padding: 1.5rem;
-      background: linear-gradient(135deg, rgba(94, 0, 139, 0.12), rgba(94, 0, 139, 0.4));
-      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: linear-gradient(135deg, rgba(94, 0, 139, 0.18), rgba(20, 8, 14, 0.65));
+      border: 1px solid rgba(255, 255, 255, 0.1);
       color: #F9F7F2;
       box-shadow: 0 25px 45px -30px rgba(0, 0, 0, 0.45);
-      backdrop-filter: blur(8px);
-      text-align: center;
+      backdrop-filter: blur(10px);
+      text-align: left;
     }
 
     .data-flow-node strong {
@@ -202,12 +340,122 @@
       position: absolute;
       inset: -2px;
       border-radius: inherit;
-      border: 1px dashed rgba(255, 255, 255, 0.18);
+      border: 1px dashed rgba(255, 255, 255, 0.2);
       pointer-events: none;
     }
 
     .data-flow-node.is-highlight {
-      background: linear-gradient(135deg, rgba(255, 131, 0, 0.18), rgba(255, 92, 0, 0.55));
+      background: linear-gradient(135deg, rgba(255, 131, 0, 0.35), rgba(255, 92, 0, 0.55));
+      color: #14080E;
+    }
+
+    .social-proof-grid {
+      display: grid;
+      gap: 2rem;
+    }
+
+    @media (min-width: 1024px) {
+      .social-proof-grid {
+        grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+        align-items: stretch;
+      }
+    }
+
+    .social-proof-images {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+    }
+
+    .social-proof-image {
+      border-radius: 1.5rem;
+      padding: 1rem;
+      min-height: 150px;
+      background: linear-gradient(160deg, rgba(94, 0, 139, 0.08), rgba(255, 92, 0, 0.18));
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      color: #2E005D;
+      box-shadow: 0 18px 35px -28px rgba(20, 8, 14, 0.5);
+    }
+
+    .social-proof-image--highlight {
+      background: linear-gradient(160deg, rgba(255, 131, 0, 0.25), rgba(255, 92, 0, 0.45));
+      color: #14080E;
+    }
+
+    .social-proof-image span {
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .social-proof-image strong {
+      font-size: 1rem;
+      margin-top: 0.5rem;
+    }
+
+    .social-proof-panel {
+      border-radius: 2rem;
+      border: 1px solid rgba(20, 8, 14, 0.08);
+      background: #ffffff;
+      box-shadow: 0 30px 60px -45px rgba(20, 8, 14, 0.4);
+      padding: 2rem;
+      display: grid;
+      gap: 2rem;
+    }
+
+    .testimonial-quote {
+      font-size: 1.25rem;
+      line-height: 1.7;
+      color: #49475B;
+    }
+
+    .social-proof-list {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .social-proof-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      padding: 1rem;
+      border-radius: 1.25rem;
+      background: #F8F4FF;
+    }
+
+    .social-proof-item strong {
+      color: #2E005D;
+      font-size: 0.95rem;
+    }
+
+    .social-proof-item span {
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(73, 71, 91, 0.7);
+    }
+
+    .social-proof-item p {
+      font-size: 0.85rem;
+      color: #49475B;
+      line-height: 1.6;
+      margin: 0;
+    }
+
+    @media (max-width: 1024px) {
+      .hero-demo-card__inner {
+        min-height: 360px;
+      }
+
+      .hero-demo-image {
+        min-height: 360px;
+      }
+
+      .data-flow-grid {
+        grid-template-columns: 1fr;
+      }
     }
 
     @media (max-width: 768px) {
@@ -216,12 +464,12 @@
         padding: 1.25rem;
       }
 
-      .home-demo-card-stack {
-        gap: 1.25rem;
+      .lab-grid-preview {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
-      .data-flow-grid {
-        grid-template-columns: 1fr;
+      .social-proof-images {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
     }
   </style>
@@ -242,18 +490,6 @@
         <p class="text-lg md:text-xl text-white/90 max-w-2xl">
           Every dish begins as an idea. Appertivo helps you capture those sparks of inspiration and transform them into fully developed menu items — faster, cheaper, and with less risk. With an AI lookbook tuned to your restaurant, you can explore, test, and refine dishes before they ever reach the kitchen.
         </p>
-        {% if demo_concept %}
-          <div class="rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-sm text-white/80 shadow-inner">
-            <p>
-              <span class="font-semibold text-white">{{ demo_concept.name }}</span>
-              {% if demo_restaurant %}from {{ demo_restaurant.name }}{% endif %}
-              is streaming straight from the demo dashboard.
-            </p>
-            {% if demo_dish %}
-              <p class="mt-1">Flip the card to see the sketch and the menu-ready copy the team saved.</p>
-            {% endif %}
-          </div>
-        {% endif %}
         <div class="flex flex-col sm:flex-row gap-4 pt-4">
           <a href="{% url 'signup' %}" class="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-[#FF8300] to-[#FF5C00] px-6 py-3 text-lg font-semibold shadow-lg shadow-[#FF8300]/30 transition hover:scale-105">
             Start Free Trial
@@ -270,64 +506,134 @@
             <span>Live from demo favorites</span>
           </div>
           {% if demo_concept %}
-            <div class="home-demo-card-stack" aria-live="polite">
-              <div id="homeDemoConceptCard" class="mx-auto w-full">
-                {% include "concepts/_card.html" with concept=demo_concept favorited=True favorite_url_override='' show_delete=False %}
-              </div>
-              {% if demo_dish %}
-                <div class="home-demo-dish">
-                  {% if demo_dish.enhancement_image_url %}
-                    <img
-                      src="{{ demo_dish.enhancement_image_url }}"
-                      alt="{{ demo_dish.title }} plated photo"
-                      loading="lazy"
-                      decoding="async"
-                    />
-                  {% endif %}
-                  <div class="home-demo-dish__content">
-                    <span class="home-demo-dish__label">Menu-ready special</span>
-                    <div>
-                      <h4 class="home-demo-dish__title">{{ demo_dish.title }}</h4>
-                      {% if demo_dish.description %}
-                        <p class="home-demo-dish__description">{{ demo_dish.description }}</p>
+            <div
+              id="heroDemoCard"
+              class="hero-demo-card"
+              data-phase="concept-front"
+              {% if demo_dish %}data-has-dish="true"{% endif %}
+              aria-live="polite"
+            >
+              <div class="hero-demo-card__inner">
+                <div class="hero-demo-face hero-demo-face--front">
+                  <div class="hero-demo-face__state hero-demo-front--concept">
+                    <figure class="hero-demo-image">
+                      {% if demo_concept.sketch_image_url %}
+                        <img
+                          src="{{ demo_concept.sketch_image_url }}"
+                          alt="{{ demo_concept.name }} concept sketch"
+                          loading="lazy"
+                          decoding="async"
+                        />
                       {% endif %}
-                    </div>
-                    <div class="home-demo-dish__meta">
-                      {% if demo_dish.enhancement_price_display %}
-                        <span class="home-demo-dish__badge">
-                          <i class="fa-solid fa-tag text-xs" aria-hidden="true"></i>
-                          {{ demo_dish.enhancement_price_display }}
-                        </span>
-                      {% endif %}
-                      {% if demo_dish_favorite and demo_dish_favorite.favorited_at %}
-                        <span class="home-demo-dish__badge">
-                          <i class="fa-solid fa-star text-xs" aria-hidden="true"></i>
-                          Favorited {{ demo_dish_favorite.favorited_at|date:"M j" }}
-                        </span>
-                      {% endif %}
-                    </div>
-                    {% if demo_dish.category_tags %}
-                      <div class="home-demo-dish__tags">
-                        {% for tag in demo_dish.category_tags|slice:":3" %}
-                          <span class="home-demo-dish__tag">{{ tag }}</span>
-                        {% endfor %}
+                      <div class="hero-demo-overlay">
+                        <span class="hero-demo-label">Concept sketch</span>
+                        <h3 class="hero-demo-title">{{ demo_concept.name }}</h3>
+                        {% if demo_concept.subtitle %}
+                          <p class="hero-demo-subtitle">{{ demo_concept.subtitle }}</p>
+                        {% endif %}
                       </div>
-                    {% endif %}
+                    </figure>
                   </div>
+                  {% if demo_dish %}
+                    <div class="hero-demo-face__state hero-demo-front--dish">
+                      <figure class="hero-demo-image">
+                        {% if demo_dish.enhancement_image_url %}
+                          <img
+                            src="{{ demo_dish.enhancement_image_url }}"
+                            alt="{{ demo_dish.title }} plated photo"
+                            loading="lazy"
+                            decoding="async"
+                          />
+                        {% endif %}
+                        <div class="hero-demo-overlay">
+                          <span class="hero-demo-label">Favorite dish style</span>
+                          <h3 class="hero-demo-title">{{ demo_dish.title }}</h3>
+                          {% if demo_dish.description %}
+                            <p class="hero-demo-subtitle">{{ demo_dish.description|truncatechars:140 }}</p>
+                          {% endif %}
+                        </div>
+                      </figure>
+                    </div>
+                  {% endif %}
                 </div>
-              {% endif %}
-              <p class="home-demo-footnote">
-                {% if demo_restaurant %}{{ demo_restaurant.name }}{% else %}Demo restaurant{% endif %}
-                • Favorited by user #{{ demo_user_id }}
-                {% if demo_concept_favorite and demo_concept_favorite.favorited_at %}
-                  on {{ demo_concept_favorite.favorited_at|date:"M j, Y" }}
-                {% endif %}
-              </p>
+                <div class="hero-demo-face hero-demo-face--back">
+                  <div class="hero-demo-face__state hero-demo-back--concept">
+                    <div class="hero-demo-back">
+                      <div class="hero-demo-back__header">
+                        <div>
+                          <span class="hero-demo-label">Concept</span>
+                          <h3 class="hero-demo-back__title">{{ demo_concept.name }}</h3>
+                        </div>
+                      </div>
+                      <div class="hero-demo-meta">
+                        <span>Concept callout</span>
+                        {% if demo_concept_favorite and demo_concept_favorite.favorited_at %}
+                          <span>Favorited {{ demo_concept_favorite.favorited_at|date:"M j" }}</span>
+                        {% endif %}
+                      </div>
+                      <p class="hero-demo-back__description">
+                        {% if demo_concept.reasoning %}
+                          {{ demo_concept.reasoning|truncatechars:220 }}
+                        {% else %}
+                          Sketch notes live here the moment your team stars a concept. Keep the vibe, seasonal callouts, and service ideas linked together.
+                        {% endif %}
+                      </p>
+                      {% if demo_concept.tags %}
+                        <div class="hero-demo-tags">
+                          {% for tag in demo_concept.tags|slice:":4" %}
+                            <span class="hero-demo-tag">{{ tag }}</span>
+                          {% endfor %}
+                        </div>
+                      {% endif %}
+                    </div>
+                  </div>
+                  {% if demo_dish %}
+                    <div class="hero-demo-face__state hero-demo-back--dish">
+                      <div class="hero-demo-back">
+                        <div class="hero-demo-back__header">
+                          <div>
+                            <span class="hero-demo-label">Favorite dish</span>
+                            <h3 class="hero-demo-back__title">{{ demo_dish.title }}</h3>
+                          </div>
+                        </div>
+                        <p class="hero-demo-back__description">
+                          {% if demo_dish.description %}
+                            {{ demo_dish.description }}
+                          {% else %}
+                            Menu-ready copy shows up alongside plating cues and margins so you can publish in minutes.
+                          {% endif %}
+                        </p>
+                        <div class="hero-demo-meta">
+                          {% if demo_dish.enhancement_price_display %}
+                            <span>Price {{ demo_dish.enhancement_price_display }}</span>
+                          {% endif %}
+                          {% if demo_dish_favorite and demo_dish_favorite.favorited_at %}
+                            <span>Favorited {{ demo_dish_favorite.favorited_at|date:"M j" }}</span>
+                          {% endif %}
+                        </div>
+                        {% if demo_dish.category_tags %}
+                          <div class="hero-demo-tags">
+                            {% for tag in demo_dish.category_tags|slice:":4" %}
+                              <span class="hero-demo-tag">{{ tag }}</span>
+                            {% endfor %}
+                          </div>
+                        {% endif %}
+                      </div>
+                    </div>
+                  {% endif %}
+                </div>
+              </div>
             </div>
+            <p class="home-demo-footnote">
+              Demo workspace • Favorited by user #{{ demo_user_id }}
+              {% if demo_concept_favorite and demo_concept_favorite.favorited_at %}
+                on {{ demo_concept_favorite.favorited_at|date:"M j, Y" }}
+              {% endif %}
+            </p>
           {% else %}
             <div class="rounded-2xl bg-white/90 p-6 text-[#14080E] shadow-lg shadow-black/10 space-y-3">
               <p class="text-lg font-semibold">Demo favorites are warming up.</p>
-              <p class="text-sm text-slate-600">We surface a live concept card from the demo workspace whenever a favorited sketch is available.</p>
+              <p class="text-sm text-slate-600">We surface a live concept lookbook from the demo workspace whenever a favorited sketch is available.</p>
             </div>
           {% endif %}
         </div>
@@ -348,115 +654,90 @@
   </section>
 
   <section id="app-showcase" class="py-20 bg-white">
-    <div class="max-w-6xl mx-auto px-6 grid gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)] items-start">
+    <div class="max-w-6xl mx-auto px-6 grid gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,400px)] items-start">
       <div class="space-y-6">
         <span class="inline-flex items-center gap-2 rounded-full bg-[#FFE7CC] px-4 py-2 text-sm font-semibold text-[#FF5C00] uppercase tracking-wide">Inside the Appertivo lab</span>
-        <h2 class="text-3xl md:text-4xl font-bold text-[#14080E]">See the demo favorite we’re showing off.</h2>
+        <h2 class="text-3xl md:text-4xl font-bold text-[#14080E]">See the grid that keeps every favorite connected.</h2>
         <p class="text-lg text-slate-600 leading-relaxed">
-          We surfaced a real favorite from user #{{ demo_user_id }} so you can understand how a concept, its sketch, and the menu-ready copy stay linked inside Appertivo.
+          When a teammate hearts a concept it slots into a shared grid — sketch, notes, and menu-ready copy stay together so the whole crew can build on it.
         </p>
         <ul class="space-y-4 text-slate-600">
           <li class="flex items-start gap-3">
             <span class="mt-1 inline-flex h-2.5 w-2.5 rounded-full bg-[#FF8300]"></span>
             <div>
-              <p class="font-semibold text-[#2E005D]">Capture inspiration fast.</p>
-              <p class="text-sm">
-                {% if demo_concept and demo_concept.reasoning %}
-                  {{ demo_concept.reasoning|truncatechars:140 }}
-                {% else %}
-                  Drop in a few words, seasonal notes, or a vibe. Appertivo keeps it all organized.
-                {% endif %}
-              </p>
+              <p class="font-semibold text-[#2E005D]">Mini cards mirror the dashboard.</p>
+              <p class="text-sm">Favorites glow, sketches stay visible, and the cards stay tiny so you can scan a whole week of ideas at once.</p>
             </div>
           </li>
           <li class="flex items-start gap-3">
             <span class="mt-1 inline-flex h-2.5 w-2.5 rounded-full bg-[#5C008B]"></span>
             <div>
-              <p class="font-semibold text-[#2E005D]">Visualize before you plate.</p>
-              <p class="text-sm">
-                {% if demo_concept and demo_concept.sketch_image_url %}
-                  The sketch for {{ demo_concept.name }} stays pinned to the concept the moment it’s favorited.
-                {% else %}
-                  Concept sketches and menu-ready language appear automatically.
-                {% endif %}
-              </p>
+              <p class="font-semibold text-[#2E005D]">Everything links back to the concept.</p>
+              <p class="text-sm">Tap a tile and you jump to the full card with sketches, prompts, and the menu copy you saved.</p>
             </div>
           </li>
           <li class="flex items-start gap-3">
             <span class="mt-1 inline-flex h-2.5 w-2.5 rounded-full bg-[#FFB000]"></span>
             <div>
-              <p class="font-semibold text-[#2E005D]">Share a spotlight moment.</p>
-              <p class="text-sm">
-                {% if demo_dish %}
-                  {{ demo_dish.title }} ships with {% if demo_dish.enhancement_price_display %}{{ demo_dish.enhancement_price_display }}{% else %}a price suggestion{% endif %} and polished language ready for your menu, socials, or QR code.
-                {% else %}
-                  Highlight the hero photo and a catchy phrase when it’s time to launch.
-                {% endif %}
-              </p>
+              <p class="font-semibold text-[#2E005D]">Spot the next launch fast.</p>
+              <p class="text-sm">Favorites and shortlists stand out so service leads can plan tastings without digging through files.</p>
             </div>
           </li>
         </ul>
       </div>
-      <div class="space-y-6">
-        {% if demo_concept %}
-          <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
-            <div class="space-y-1">
-              <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Concept snapshot</p>
-              <h3 class="text-xl font-semibold text-[#14080E]">{{ demo_concept.name }}</h3>
-              {% if demo_concept.subtitle %}
-                <p class="text-sm text-slate-600">{{ demo_concept.subtitle }}</p>
+      <div class="lab-grid-visual" aria-hidden="true">
+        <div class="lab-grid-preview">
+          <div class="lab-mini-card is-favorited">
+            <span class="lab-mini-card__tag">Favorite</span>
+            <p class="lab-mini-card__name">
+              {% if demo_concept %}
+                {{ demo_concept.name }}
+              {% else %}
+                Charred Citrus Salmon
               {% endif %}
-            </div>
-            {% if demo_concept.tags %}
-              <div class="flex flex-wrap gap-2">
-                {% for tag in demo_concept.tags %}
-                  <span class="inline-flex items-center rounded-full bg-[#B993D6]/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[#2E005D]">{{ tag }}</span>
-                {% endfor %}
-              </div>
-            {% endif %}
-            {% if demo_concept.reasoning %}
-              <p class="text-sm text-slate-600 leading-relaxed">{{ demo_concept.reasoning }}</p>
-            {% endif %}
+            </p>
+            <span class="lab-mini-card__favorite">★ saved</span>
           </div>
-          {% if demo_concept.sketch_image_url %}
-            <figure class="overflow-hidden rounded-3xl border border-slate-200 bg-slate-50 shadow-sm">
-              <img
-                src="{{ demo_concept.sketch_image_url }}"
-                alt="{{ demo_concept.name }} concept sketch"
-                class="h-64 w-full object-cover"
-                loading="lazy"
-                decoding="async"
-              />
-              <figcaption class="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Sketch saved from the demo workspace</figcaption>
-            </figure>
-          {% endif %}
-          {% if demo_dish %}
-            <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-3">
-              <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Menu-ready copy</p>
-              <h3 class="text-lg font-semibold text-[#14080E]">{{ demo_dish.title }}</h3>
-              {% if demo_dish.description %}
-                <p class="text-sm text-slate-600 leading-relaxed">{{ demo_dish.description }}</p>
+          <div class="lab-mini-card">
+            <span class="lab-mini-card__tag">Sketch</span>
+            <p class="lab-mini-card__name">
+              {% if demo_concept and demo_concept.subtitle %}
+                {{ demo_concept.subtitle|truncatechars:40 }}
+              {% else %}
+                Garden herb aioli notes
               {% endif %}
-              <div class="flex flex-wrap gap-2">
-                {% if demo_dish.enhancement_price_display %}
-                  <span class="inline-flex items-center rounded-full bg-[#FF8300]/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[#FF5C00]">
-                    {{ demo_dish.enhancement_price_display }}
-                  </span>
-                {% endif %}
-                {% for tag in demo_dish.category_tags|slice:":4" %}
-                  <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase tracking-wide text-[#49475B]">{{ tag }}</span>
-                {% endfor %}
-              </div>
-              {% if demo_dish.ingredient_overlap %}
-                <p class="text-xs uppercase tracking-wide text-slate-500">Ingredients: {{ demo_dish.ingredient_overlap|join:", " }}</p>
-              {% endif %}
-            </div>
-          {% endif %}
-        {% else %}
-          <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm text-sm text-slate-600">
-            Save a concept as a favorite in the demo workspace and its sketch, copy, and menu notes will appear here.
+            </p>
           </div>
-        {% endif %}
+          <div class="lab-mini-card is-favorited">
+            <span class="lab-mini-card__tag">Dish</span>
+            <p class="lab-mini-card__name">
+              {% if demo_dish %}
+                {{ demo_dish.title|truncatechars:40 }}
+              {% else %}
+                Fire-roasted carrot tart
+              {% endif %}
+            </p>
+            <span class="lab-mini-card__favorite">★ crew pick</span>
+          </div>
+          <div class="lab-mini-card">
+            <span class="lab-mini-card__tag">Season</span>
+            <p class="lab-mini-card__name">Spring patio board</p>
+          </div>
+          <div class="lab-mini-card">
+            <span class="lab-mini-card__tag">Tags</span>
+            <p class="lab-mini-card__name">
+              {% if demo_concept and demo_concept.tags %}
+                {{ demo_concept.tags.0 }} &amp; more
+              {% else %}
+                Brunch · shareable
+              {% endif %}
+            </p>
+          </div>
+          <div class="lab-mini-card">
+            <span class="lab-mini-card__tag">Status</span>
+            <p class="lab-mini-card__name">Ready for menu</p>
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -465,56 +746,100 @@
     <div class="max-w-6xl mx-auto px-6 grid gap-12 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] items-center">
       <div class="space-y-6">
         <span class="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide">Train it on your flavor</span>
-        <h2 class="text-3xl md:text-4xl font-bold">We train Appertivo on your data, not somebody else’s trends.</h2>
+        <h2 class="text-3xl md:text-4xl font-bold">We fine-tune Appertivo on the work you already do inside the platform.</h2>
         <p class="text-base md:text-lg text-white/80 leading-relaxed">
-          Upload past menus, top-performing dishes, staff notes, or even guest reviews. Our private fine-tuning pipeline keeps everything encrypted while teaching the model the voice of your kitchen.
+          Concept prompts, sketches, favorites, and menu notes power your private model. The more you create in Appertivo, the more context the AI has for your voice, plating style, and constraints.
         </p>
         <p class="text-base md:text-lg text-white/80 leading-relaxed">
-          The result? Suggestions that sound like your chefs, respect your sourcing, and know the difference between a brunch special and a chef’s table tasting.
+          We never touch your POS system, supplier data, or guest information — and there’s no external upload required. Your workspace signals stay encrypted and never train anyone else’s account.
         </p>
       </div>
       <div class="space-y-6">
         <div class="data-flow-grid">
           <div class="data-flow-node">
-            <strong>Menus &amp; Recipes</strong>
-            <p>Import PDFs, spreadsheets, or kitchen docs. We pull structured data automatically.</p>
+            <strong>Concept Sketches</strong>
+            <p>Saved prompts, mood boards, and chef notes anchor the model in your creative direction.</p>
           </div>
           <div class="data-flow-node is-highlight">
-            <strong>Secure Training Loop</strong>
-            <p>Fine-tuned models live in your workspace. No cross-restaurant mixing, ever.</p>
+            <strong>Favorites Timeline</strong>
+            <p>Stars, shortlists, and menu placements teach the AI what deserves the spotlight.</p>
           </div>
           <div class="data-flow-node">
-            <strong>Guest Feedback</strong>
-            <p>Layer in POS notes and reviews so tone and expectations stay on point.</p>
+            <strong>Team Feedback</strong>
+            <p>Every edit and rewrite you make becomes a correction the model remembers.</p>
           </div>
           <div class="data-flow-node">
-            <strong>Supplier Details</strong>
-            <p>Tag preferred farms, purveyors, and seasonal windows for smarter sourcing.</p>
+            <strong>Seasonal Tags</strong>
+            <p>Use tags and categories to signal occasions, margins, and service windows.</p>
           </div>
           <div class="data-flow-node">
-            <strong>Chef Edits</strong>
-            <p>Approve, tweak, and lock-in language to keep the AI evolving with your team.</p>
+            <strong>Launch Notes</strong>
+            <p>Recaps from menu drops and tasting sessions stay connected to each concept.</p>
           </div>
           <div class="data-flow-node is-highlight">
             <strong>On-Brand Output</strong>
-            <p>Every generated card mirrors your plating style, margins, and storytelling.</p>
+            <p>Copy and imagery arrive sounding like your team because only your workspace trains it.</p>
           </div>
         </div>
-        <p class="text-sm text-white/70">We never use customer data to train global models. Your flavors stay yours.</p>
+        <p class="text-sm text-white/70">We never use external customer data to train global models. Your flavors stay yours.</p>
       </div>
     </div>
   </section>
 
   <section id="social-proof" class="py-20 bg-white">
-    <div class="max-w-4xl mx-auto px-6 text-center space-y-8">
-      <h2 class="text-3xl md:text-4xl font-bold">Teams already cooking with Appertivo.</h2>
-      <div class="rounded-3xl border border-slate-200 bg-white p-10 shadow-lg">
-        <blockquote class="text-xl text-slate-700 leading-relaxed">
-          “Appertivo helped us cut menu planning from days to hours. The lookbook view made our brainstorming sessions twice as fun — and twice as productive.”
-        </blockquote>
-        <p class="mt-6 text-sm font-semibold uppercase tracking-wide text-[#5C008B]">– Chef, Skagit Valley</p>
+    <div class="max-w-6xl mx-auto px-6 space-y-10">
+      <div class="text-center space-y-4">
+        <h2 class="text-3xl md:text-4xl font-bold">Teams already cooking with Appertivo.</h2>
+        <p class="text-base text-slate-600">The grid helps restaurants spot the dishes worth launching — and the photos below came straight from their testing weeks.</p>
       </div>
-      <p class="text-sm text-slate-400">(More testimonials coming soon.)</p>
+      <div class="social-proof-grid">
+        <div class="social-proof-images" aria-hidden="true">
+          <div class="social-proof-image social-proof-image--highlight">
+            <span>Harvest &amp; Hearth</span>
+            <strong>
+              {% if demo_dish %}
+                {{ demo_dish.title|truncatechars:42 }}
+              {% else %}
+                Charred Citrus Salmon Plate
+              {% endif %}
+            </strong>
+          </div>
+          <div class="social-proof-image">
+            <span>Midnight Noodle</span>
+            <strong>Black garlic ramen special</strong>
+          </div>
+          <div class="social-proof-image">
+            <span>Coastal Table</span>
+            <strong>Seared scallop ceviche</strong>
+          </div>
+          <div class="social-proof-image">
+            <span>Sunrise Cafe</span>
+            <strong>Vanilla bean dutch baby</strong>
+          </div>
+        </div>
+        <div class="social-proof-panel">
+          <blockquote class="testimonial-quote">
+            “Appertivo’s lookbook helps us line up flavor, plating, and price before we step into R&amp;D. The cards in the dashboard are exactly what you see here.”
+          </blockquote>
+          <div class="social-proof-list">
+            <div class="social-proof-item">
+              <span>Harvest &amp; Hearth • Austin, TX</span>
+              <strong>Smoked peach-glazed pork collar</strong>
+              <p>“We spotted this combo after favoriting just two sketches. The AI copy matched our voice out of the gate.”</p>
+            </div>
+            <div class="social-proof-item">
+              <span>Coastal Table • Seattle, WA</span>
+              <strong>Seared scallop ceviche</strong>
+              <p>“Tagging a dish as ‘patio launch’ let the team build an entire seafood flight from the same concept.”</p>
+            </div>
+            <div class="social-proof-item">
+              <span>Midnight Noodle • Chicago, IL</span>
+              <strong>Black garlic ramen special</strong>
+              <p>“Favorites plus notes gave us a menu-ready description and shot list for socials in one click.”</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -576,35 +901,57 @@
   {% if demo_concept %}
     <script>
       (function () {
-        const conceptCard = document.querySelector('#homeDemoConceptCard .flip-card');
-        if (!conceptCard) {
+        const card = document.getElementById('heroDemoCard');
+        if (!card) {
           return;
         }
 
+        const phases = ['concept-front', 'concept-back'];
+        if (card.dataset.hasDish === 'true') {
+          phases.push('dish-front', 'dish-back');
+        }
+
+        if (!phases.length) {
+          return;
+        }
+
+        let index = 0;
         let paused = false;
+
+        function applyPhase() {
+          const phase = phases[index] || phases[0];
+          card.dataset.phase = phase;
+          card.classList.toggle('is-flipped', phase.endsWith('back'));
+        }
+
+        applyPhase();
+
         const interval = setInterval(function () {
-          if (paused) {
+          if (paused || phases.length < 2) {
             return;
           }
-          conceptCard.classList.toggle('show-back');
-        }, 4200);
+          index = (index + 1) % phases.length;
+          applyPhase();
+        }, 5200);
 
-        const wrapper = conceptCard.closest('[data-concept-card]');
-        if (wrapper) {
-          wrapper.addEventListener('mouseenter', function () {
-            paused = true;
-          });
-          wrapper.addEventListener('mouseleave', function () {
-            paused = false;
-          });
-          wrapper.addEventListener(
-            'touchstart',
-            function () {
-              paused = !paused;
-            },
-            { passive: true }
-          );
+        function pause() {
+          paused = true;
         }
+
+        function resume() {
+          paused = false;
+        }
+
+        card.addEventListener('mouseenter', pause);
+        card.addEventListener('mouseleave', resume);
+        card.addEventListener('focusin', pause);
+        card.addEventListener('focusout', resume);
+
+        card.addEventListener('click', function () {
+          index = (index + 1) % phases.length;
+          applyPhase();
+          paused = true;
+        });
 
         window.addEventListener('beforeunload', function () {
           clearInterval(interval);
