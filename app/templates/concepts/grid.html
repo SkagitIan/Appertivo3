@@ -19,7 +19,7 @@
     </section>
 
     <div id="concepts-grid" class="grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
-      {% include 'concepts/_concepts_grid.html' %}
+      {% include 'concepts/_concepts_grid.html' with concept_generate_url=concept_generate_url %}
     </div>
   </div>
 {% endblock %}
