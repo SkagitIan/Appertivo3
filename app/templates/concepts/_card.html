@@ -50,9 +50,12 @@
             {% if concept.tags %}
               <div class="mt-3 flex flex-wrap justify-center gap-2">
                 {% for tag in concept.tags %}
-                  <span class="inline-flex items-center px-3 py-1 rounded-full text-xs md:text-sm font-medium bg-slate-100 text-[#49475B]">
+                  <a
+                    href="{% url 'tag-search' %}?tag={{ tag|urlencode }}"
+                    class="inline-flex items-center px-3 py-1 rounded-full text-xs md:text-sm font-medium bg-slate-100 text-[#49475B] no-underline"
+                  >
                     {{ tag }}
-                  </span>
+                  </a>
                 {% endfor %}
               </div>
             {% endif %}
@@ -82,9 +85,12 @@
           {% if concept.tags %}
             <div class="flex flex-wrap gap-2">
               {% for tag in concept.tags %}
-                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs md:text-sm font-medium bg-[#B993D6]/15 text-[#49475B]">
+                <a
+                  href="{% url 'tag-search' %}?tag={{ tag|urlencode }}"
+                  class="inline-flex items-center px-3 py-1 rounded-full text-xs md:text-sm font-medium bg-[#B993D6]/15 text-[#49475B] no-underline"
+                >
                   {{ tag }}
-                </span>
+                </a>
               {% endfor %}
             </div>
           {% endif %}

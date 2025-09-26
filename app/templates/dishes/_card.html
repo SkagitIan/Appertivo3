@@ -26,14 +26,20 @@
 
               <div class="flex flex-wrap gap-2 pb-2">
                 {% for tag in dish.category_tags %}
-                  <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs md:text-sm font-medium bg-[#B993D6]/20 text-[#49475B]">
+                  <a
+                    href="{% url 'tag-search' %}?tag={{ tag|urlencode }}"
+                    class="inline-flex items-center px-2.5 py-1 rounded-full text-xs md:text-sm font-medium bg-[#B993D6]/20 text-[#49475B] no-underline"
+                  >
                     {{ tag }}
-                  </span>
+                  </a>
                 {% endfor %}
                 {% for tag in dish.ingredient_overlap %}
-                  <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs md:text-sm font-medium bg-[#58B09C]/20 text-[#49475B]">
+                  <a
+                    href="{% url 'tag-search' %}?tag={{ tag|urlencode }}"
+                    class="inline-flex items-center px-2.5 py-1 rounded-full text-xs md:text-sm font-medium bg-[#58B09C]/20 text-[#49475B] no-underline"
+                  >
                     {{ tag }}
-                  </span>
+                  </a>
                 {% endfor %}
               </div>
             </div>
@@ -94,10 +100,20 @@
 
                 <div class="flex flex-wrap justify-center gap-2">
                   {% for tag in dish.category_tags %}
-                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs md:text-sm font-medium bg-[#B993D6]/20 text-[#49475B]">{{ tag }}</span>
+                    <a
+                      href="{% url 'tag-search' %}?tag={{ tag|urlencode }}"
+                      class="inline-flex items-center px-2.5 py-1 rounded-full text-xs md:text-sm font-medium bg-[#B993D6]/20 text-[#49475B] no-underline"
+                    >
+                      {{ tag }}
+                    </a>
                   {% endfor %}
                   {% for tag in dish.ingredient_overlap %}
-                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs md:text-sm font-medium bg-[#58B09C]/20 text-[#49475B]">{{ tag }}</span>
+                    <a
+                      href="{% url 'tag-search' %}?tag={{ tag|urlencode }}"
+                      class="inline-flex items-center px-2.5 py-1 rounded-full text-xs md:text-sm font-medium bg-[#58B09C]/20 text-[#49475B] no-underline"
+                    >
+                      {{ tag }}
+                    </a>
                   {% endfor %}
                 </div>
               </div>
@@ -174,14 +190,20 @@
                 </span>
               {% endif %}
               {% for tag in dish.category_tags %}
-                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs md:text-sm font-medium bg-[#B993D6]/20 text-[#49475B]">
+                <a
+                  href="{% url 'tag-search' %}?tag={{ tag|urlencode }}"
+                  class="inline-flex items-center px-2.5 py-1 rounded-full text-xs md:text-sm font-medium bg-[#B993D6]/20 text-[#49475B] no-underline"
+                >
                   {{ tag }}
-                </span>
+                </a>
               {% endfor %}
               {% for tag in dish.ingredient_overlap %}
-                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs md:text-sm font-medium bg-[#58B09C]/20 text-[#49475B]">
+                <a
+                  href="{% url 'tag-search' %}?tag={{ tag|urlencode }}"
+                  class="inline-flex items-center px-2.5 py-1 rounded-full text-xs md:text-sm font-medium bg-[#58B09C]/20 text-[#49475B] no-underline"
+                >
                   {{ tag }}
-                </span>
+                </a>
               {% endfor %}
             </div>
           </div>

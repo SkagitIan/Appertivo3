@@ -10,7 +10,8 @@ from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.db import IntegrityError, transaction
-from django.db.models import Exists, Max, OuterRef, Prefetch
+from django.db.models import Exists, Max, OuterRef, Prefetch, Q, TextField
+from django.db.models.functions import Cast
 from django.http import (
     HttpResponse,
     HttpResponseBadRequest,
@@ -734,6 +735,57 @@ def concepts_view(request):
         favorites = getattr(concept, "_favorites_for_request_user", [])
         concept.is_favorited_for_user = bool(favorites)
     return render(request, "concepts/grid.html", {"concepts": concepts})
+
+
+@login_required
+def tag_search_view(request):
+    """Search concepts and dishes by tag for the current user's restaurants."""
+
+    search_tag = (request.GET.get("tag") or request.GET.get("q") or "").strip()
+    membership = models.Membership.objects.filter(user=request.user).select_related(
+        "account"
+    ).first()
+
+    restaurant_ids: List[str] = []
+    if membership:
+        restaurant_ids = list(
+            models.Restaurant.objects.filter(account=membership.account)
+            .values_list("id", flat=True)
+        )
+
+    concept_results: List[models.Concept] = []
+    dish_results: List[models.DishIdea] = []
+
+    if search_tag and restaurant_ids:
+        concept_results = list(
+            models.Concept.objects.filter(restaurant_id__in=restaurant_ids)
+            .annotate(tags_text=Cast("tags", TextField()))
+            .filter(tags_text__icontains=search_tag)
+            .order_by("-created_at")[:25]
+        )
+
+        dish_results = list(
+            models.DishIdea.objects.filter(
+                restaurant_id__in=restaurant_ids, is_deleted=False
+            )
+            .annotate(
+                category_text=Cast("category_tags", TextField()),
+                ingredient_text=Cast("ingredient_names", TextField()),
+            )
+            .filter(
+                Q(category_text__icontains=search_tag)
+                | Q(ingredient_text__icontains=search_tag)
+            )
+            .select_related("parent_concept")
+            .order_by("-created_at")[:25]
+        )
+
+    context = {
+        "search_tag": search_tag,
+        "concept_results": concept_results,
+        "dish_results": dish_results,
+    }
+    return render(request, "search/results.html", context)
 
 
 @login_required
