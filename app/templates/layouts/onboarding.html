@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block head_scripts %}
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" />
+{% endblock %}
+
+{% block body_class %}bg-[#0F0A1F] text-[#14080E] min-h-screen flex flex-col{% endblock %}
+
+{% block header %}
+  <header class="py-6">
+    <div class="max-w-4xl mx-auto px-6 flex items-center justify-between text-white/80 text-sm">
+      <a href="{% url 'home' %}" class="text-lg font-semibold text-white">Appertivo</a>
+      <div class="flex items-center gap-3">
+        <span class="hidden sm:inline">Need a hand?</span>
+        <a href="mailto:support@appertivo.com" class="inline-flex items-center gap-2 rounded-full border border-white/30 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white/80 hover:text-white hover:border-white/60">
+          <i class="fa-solid fa-headset" aria-hidden="true"></i>
+          support@appertivo.com
+        </a>
+      </div>
+    </div>
+  </header>
+{% endblock %}
+
+{% block main_class %}flex-1 flex items-center justify-center px-4 py-10{% endblock %}
+
+{% block content %}
+  <div class="w-full max-w-3xl">
+    <div class="rounded-[28px] border border-white/10 bg-white/95 shadow-2xl shadow-[#38185A]/30">
+      {% block onboarding_content %}{% endblock %}
+    </div>
+  </div>
+{% endblock %}
+
+{% block footer %}
+  <footer class="py-6 text-center text-xs text-white/60">
+    © {% now "Y" %} Appertivo. Crafted for culinary teams.
+  </footer>
+{% endblock %}

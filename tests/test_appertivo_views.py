@@ -67,9 +67,12 @@ class ViewSmokeTests(TestCase):
             )
 
     def test_public_pages(self):
-        for name in ["home", "signup", "login"]:
-            resp = self.client.get(reverse(name))
-            self.assertEqual(resp.status_code, 200)
+        resp = self.client.get(reverse("home"))
+        self.assertEqual(resp.status_code, 200)
+        signup_resp = self.client.get(reverse("signup"))
+        self.assertEqual(signup_resp.status_code, 302)
+        login_resp = self.client.get(reverse("login"))
+        self.assertEqual(login_resp.status_code, 200)
 
     def test_signup_creates_user(self):
         self.client.logout()
@@ -81,7 +84,13 @@ class ViewSmokeTests(TestCase):
         }
         resp = self.client.post(reverse("signup"), data)
         self.assertEqual(resp.status_code, 302)
+        destination = resp.headers.get("Location")
+        self.assertIn("/onboarding/", destination)
         self.assertTrue(User.objects.filter(username="new@example.com").exists())
+        restaurant = models.Restaurant.objects.get(account__membership__user__email="new@example.com")
+        self.assertTrue(
+            models.OutscraperPayload.objects.filter(restaurant=restaurant).exists()
+        )
 
     def test_login_authenticates(self):
         self.client.logout()
@@ -90,15 +99,31 @@ class ViewSmokeTests(TestCase):
         )
         self.assertEqual(resp.status_code, 302)
 
-    def test_onboarding_views(self):
-        resp = self.client.get(reverse("onboarding"))
+    def test_onboarding_menu_flow(self):
+        url = reverse("onboarding-menu", args=[self.restaurant.id])
+        resp = self.client.get(url)
         self.assertEqual(resp.status_code, 200)
-        status_resp = self.client.get(reverse("onboarding-status"))
-        self.assertEqual(status_resp.json()["status"], "pending")
 
-    def test_manual_menu(self):
-        resp = self.client.get(reverse("manual-menu"))
+        bad = self.client.post(url, {"menu_url": ""})
+        self.assertEqual(bad.status_code, 400)
+        self.assertContains(bad, "Add a menu link")
+
+        good = self.client.post(url, {"menu_url": "https://example.com/menu"})
+        self.assertEqual(good.status_code, 302)
+        self.restaurant.refresh_from_db()
+        self.assertEqual(self.restaurant.primary_menu_url, "https://example.com/menu")
+
+    def test_onboarding_plan_flow(self):
+        menu_url = reverse("onboarding-menu", args=[self.restaurant.id])
+        self.client.post(menu_url, {"menu_url": "https://example.com/menu"})
+
+        plan_url = reverse("onboarding-plan", args=[self.restaurant.id])
+        resp = self.client.get(plan_url)
         self.assertEqual(resp.status_code, 200)
+
+        complete = self.client.post(plan_url)
+        self.assertEqual(complete.status_code, 302)
+        self.assertIn(str(self.restaurant.id), complete.headers.get("Location"))
 
     def test_concepts_and_generation(self):
         self._create_concepts()

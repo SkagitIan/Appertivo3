@@ -18,9 +18,16 @@ urlpatterns = [
 
 
     ## onboarding
-    path("onboarding/", app_views.onboarding_view, name="onboarding"),
-    path("onboarding/status/", app_views.onboarding_status_view, name="onboarding-status"),
-    path("onboarding/manual_menu/", app_views.manual_menu_view, name="manual-menu"),
+    path(
+        "onboarding/<uuid:restaurant_id>/menu/",
+        app_views.onboarding_menu_view,
+        name="onboarding-menu",
+    ),
+    path(
+        "onboarding/<uuid:restaurant_id>/plan/",
+        app_views.onboarding_plan_view,
+        name="onboarding-plan",
+    ),
     path("restaurants/<uuid:restaurant_id>/status/",app_views.restaurant_status,name="restaurant_status",),
     path("restaurants/<uuid:restaurant_id>/menu-modal/",app_views.show_menu_modal,name="show_menu_modal",),
     path("restaurants/<uuid:restaurant_id>/upload-menu/",app_views.upload_menu,name="upload_menu",),

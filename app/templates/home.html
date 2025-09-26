@@ -5,13 +5,68 @@
 {% block main_class %}flex-1 flex flex-col{% endblock %}
 
 {% block content %}
-  <section class="relative bg-gradient-to-r from-[#2E005D] via-[#5C008B] to-[#8E008B] text-white py-24">
-    <div class="max-w-7xl mx-auto px-6 text-center">
-      <h1 class="text-5xl md:text-6xl font-bold mb-6">AI-Powered Menu Ideation for Restaurants</h1>
-      <p class="text-lg md:text-xl mb-8">Generate new concepts and dishes tailored to your restaurant.</p>
-      <div class="flex justify-center gap-4">
-        <a href="{% url 'signup' %}" class="px-6 py-3 rounded-2xl font-semibold text-white bg-gradient-to-r from-[#FF8300] to-[#FF5C00] shadow-lg hover:scale-105 transition">Sign Up Free</a>
-        <a href="#features" class="px-6 py-3 rounded-2xl font-semibold border border-white/70 hover:bg-white/10 transition">Learn More</a>
+  <section class="relative bg-[#120321] text-white py-24">
+    <div class="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(92,0,139,0.35),_transparent_60%)]"></div>
+    <div class="relative max-w-7xl mx-auto px-6">
+      <div class="grid gap-12 lg:grid-cols-2 lg:items-center">
+        <div class="space-y-6">
+          <span class="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-1 text-xs font-semibold uppercase tracking-wide text-white/80">
+            <span class="h-2 w-2 rounded-full bg-emerald-400"></span>
+            New guided onboarding
+          </span>
+          <h1 class="text-4xl md:text-5xl font-semibold leading-tight">Launch concepts in minutes with an AI sous-chef built for restaurants.</h1>
+          <p class="text-lg text-white/80">Appertivo learns your restaurant’s vibe, suggests fresh concepts, and helps you turn winning ideas into beautifully organized menus.</p>
+          <ul class="space-y-3 text-sm text-white/70">
+            <li class="flex items-start gap-3"><i class="fa-solid fa-check text-emerald-400 mt-1"></i>Step-by-step onboarding pulls your restaurant profile from the web.</li>
+            <li class="flex items-start gap-3"><i class="fa-solid fa-check text-emerald-400 mt-1"></i>Drop in your menu link, let Appertivo parse the dishes, and start ideating instantly.</li>
+            <li class="flex items-start gap-3"><i class="fa-solid fa-check text-emerald-400 mt-1"></i>Secure checkout with Stripe keeps you in control—cancel anytime.</li>
+          </ul>
+        </div>
+        <div class="relative">
+          <div class="absolute inset-0 rounded-3xl bg-gradient-to-br from-[#FF8300]/20 via-transparent to-[#5C008B]/20 blur-3xl"></div>
+          <div class="relative rounded-3xl border border-white/10 bg-white/95 text-[#14080E] shadow-2xl shadow-[#2E005D]/20">
+            <div class="px-8 py-6 border-b border-slate-200/70">
+              <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Step 1 of 3</p>
+              <h2 class="mt-2 text-2xl font-semibold text-[#14080E]">Create your account</h2>
+              <p class="mt-1 text-sm text-slate-600">Start with the essentials and we’ll gather the rest in the background.</p>
+            </div>
+            <form method="post" action="{% url 'signup' %}" class="px-8 py-6 space-y-4">
+              {% csrf_token %}
+              {% if signup_error %}
+                <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                  {{ signup_error }}
+                </div>
+              {% endif %}
+              <div class="space-y-1">
+                <label class="text-xs font-semibold uppercase tracking-wide text-slate-500" for="signup-email">Work email</label>
+                <input id="signup-email" type="email" name="email" value="{{ signup_form_data.email|default:"" }}" required class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-[#14080E] outline-none focus:border-[#5C008B] focus:ring-2 focus:ring-[#5C008B]/20" placeholder="you@restaurant.com">
+              </div>
+              <div class="grid gap-4 md:grid-cols-2">
+                <div class="space-y-1">
+                  <label class="text-xs font-semibold uppercase tracking-wide text-slate-500" for="signup-password1">Password</label>
+                  <input id="signup-password1" type="password" name="password1" required class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-[#14080E] outline-none focus:border-[#5C008B] focus:ring-2 focus:ring-[#5C008B]/20" placeholder="Create a password">
+                </div>
+                <div class="space-y-1">
+                  <label class="text-xs font-semibold uppercase tracking-wide text-slate-500" for="signup-password2">Confirm password</label>
+                  <input id="signup-password2" type="password" name="password2" required class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-[#14080E] outline-none focus:border-[#5C008B] focus:ring-2 focus:ring-[#5C008B]/20" placeholder="One more time">
+                </div>
+              </div>
+              <div class="space-y-1">
+                <label class="text-xs font-semibold uppercase tracking-wide text-slate-500" for="signup-restaurant">Restaurant name</label>
+                <input id="signup-restaurant" type="text" name="restaurant_name" value="{{ signup_form_data.restaurant_name|default:"" }}" required class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-[#14080E] outline-none focus:border-[#5C008B] focus:ring-2 focus:ring-[#5C008B]/20" placeholder="Ex. Night Market Bistro">
+              </div>
+              <div class="space-y-1">
+                <label class="text-xs font-semibold uppercase tracking-wide text-slate-500" for="signup-location">City &amp; region</label>
+                <input id="signup-location" type="text" name="location" value="{{ signup_form_data.location|default:"" }}" required class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-[#14080E] outline-none focus:border-[#5C008B] focus:ring-2 focus:ring-[#5C008B]/20" placeholder="Seattle, WA">
+              </div>
+              <button type="submit" class="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#FF8300] to-[#FF5C00] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-[#FF5C00]/30 transition hover:scale-[1.01]">
+                Continue to step 2
+                <i class="fa-solid fa-arrow-right text-xs" aria-hidden="true"></i>
+              </button>
+              <p class="text-xs text-slate-500">By continuing you agree to Appertivo’s <a href="#" class="font-semibold text-[#5C008B] hover:text-[#2E005D]">terms</a> and <a href="#" class="font-semibold text-[#5C008B] hover:text-[#2E005D]">privacy policy</a>.</p>
+            </form>
+          </div>
+        </div>
       </div>
     </div>
   </section>

@@ -1,0 +1,47 @@
+{% extends "layouts/onboarding.html" %}
+
+{% block title %}Onboarding — Menu URL{% endblock %}
+
+{% block onboarding_content %}
+  <div class="px-8 py-10 space-y-8">
+    <div class="flex flex-col gap-2 text-sm text-slate-500">
+      <p class="text-xs font-semibold uppercase tracking-wide text-[#5C008B]">Step 2 of 3</p>
+      <h1 class="text-2xl font-semibold text-[#14080E]">Link your live menu</h1>
+      <p class="text-sm text-slate-600">We’ll scan the menu to learn your dishes, categories, and pricing language. You can update or upload a PDF later in settings.</p>
+    </div>
+
+    <div class="rounded-2xl border border-slate-200 bg-white/90 p-6">
+      <form method="post" class="space-y-6">
+        {% csrf_token %}
+        <div class="space-y-2">
+          <label for="menu_url" class="text-sm font-semibold text-slate-600">Restaurant menu URL</label>
+          <input type="url" id="menu_url" name="menu_url" required class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-medium text-[#14080E] outline-none focus:border-[#5C008B] focus:ring-2 focus:ring-[#5C008B]/20" placeholder="https://example.com/menu">
+          <p class="text-xs text-slate-500">Paste the link guests use to view your menu. We’ll queue a scrape immediately.</p>
+        </div>
+        {% if menu_error %}
+          <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            {{ menu_error }}
+          </div>
+        {% endif %}
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <button type="submit" class="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#FF8300] to-[#FF5C00] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-[#FF5C00]/30 transition hover:scale-[1.01]">
+            Save &amp; continue
+            <i class="fa-solid fa-arrow-right text-xs" aria-hidden="true"></i>
+          </button>
+          <button type="submit" name="skip" value="1" class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-600 transition hover:border-slate-400">
+            Skip for now
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div class="rounded-2xl border border-slate-200 bg-slate-50/80 p-5 text-sm text-slate-600">
+      <p class="font-semibold text-[#14080E]">What happens next?</p>
+      <ul class="mt-3 space-y-2">
+        <li class="flex items-start gap-3"><span class="mt-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#5C008B]/10 text-[#5C008B] text-xs font-semibold">1</span>We queue a background scrape via Outscraper to pull your hours, description, and amenities.</li>
+        <li class="flex items-start gap-3"><span class="mt-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#5C008B]/10 text-[#5C008B] text-xs font-semibold">2</span>Once the menu import finishes, you’ll see context flags in the dashboard checklist.</li>
+        <li class="flex items-start gap-3"><span class="mt-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#5C008B]/10 text-[#5C008B] text-xs font-semibold">3</span>Keep going to Stripe checkout to activate concept generation.</li>
+      </ul>
+    </div>
+  </div>
+{% endblock %}

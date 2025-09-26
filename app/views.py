@@ -72,124 +72,216 @@ def dish_grid(request, concept_name: str):
 
 
 def home_view(request):
-    """Landing page with signup/login links."""
-    return render(request, "home.html")
+    """Landing page with embedded signup form."""
+
+    context = {
+        "signup_form_data": {
+            "email": "",
+            "restaurant_name": "",
+            "location": "",
+        },
+        "signup_error": None,
+    }
+    return render(request, "home.html", context)
 
 
 def signup_view(request):
     """Register a new user and restaurant."""
-    if request.method == "POST":
-        is_json = request.content_type == "application/json"
-        if is_json:
-            try:
-                data = json.loads(request.body or "{}")
-            except json.JSONDecodeError:
-                return JsonResponse({"error": "invalid_json"}, status=400)
-        else:
-            data = request.POST
 
-        email = (data.get("email") or "").strip()
-        restaurant_name = (data.get("restaurant_name") or "").strip()
-        location = (data.get("location") or "").strip()
-        raw_menu_url = (data.get("menu_url") or "").strip()
-        menu_url = raw_menu_url or None
-        form_data = {
-            "email": email,
-            "restaurant_name": restaurant_name,
-            "location": location,
-            "menu_url": raw_menu_url,
-        }
+    if request.method != "POST":
+        return redirect("home")
 
-        if is_json:
-            password = data.get("password")
-            if not password:
-                return JsonResponse({"error": "password_required"}, status=400)
-        else:
-            password1 = data.get("password1")
-            password2 = data.get("password2")
-            if password1 != password2:
-                return render(
-                    request,
-                    "auth/signup.html",
-                    {"error": "Passwords do not match", "form_data": form_data},
-                )
-            password = password1
-
-        if not email or not restaurant_name or not location:
-            if is_json:
-                return JsonResponse({"error": "missing_fields"}, status=400)
-            return render(
-                request,
-                "auth/signup.html",
-                {"error": "Please complete all fields.", "form_data": form_data},
-            )
-
+    is_json = request.content_type == "application/json"
+    if is_json:
         try:
-            with transaction.atomic():
-                user = User.objects.create_user(
-                    username=email, email=email, password=password
-                )
-                models.UserProfile.objects.create(user=user)
-                account = models.Account.objects.create(name=restaurant_name)
-                models.Membership.objects.create(
-                    account=account, user=user, role=models.Membership.Role.OWNER
-                )
-                restaurant = models.Restaurant.objects.create(
-                    account=account,
-                    name=restaurant_name,
-                    location_text=location,
-                    primary_menu_url=menu_url,
-                    menu_urls=[menu_url] if menu_url else [],
-                )
+            data = json.loads(request.body or "{}")
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "invalid_json"}, status=400)
+    else:
+        data = request.POST
 
-                if menu_url:
-                    mv = models.MenuVersion.objects.create(
-                        restaurant=restaurant,
-                        source_url=menu_url,
-                        source_kind=models.MenuVersion.SourceKind.URL_SCRAPE,
-                        raw_markdown="",
-                        status=models.MenuVersion.Status.QUEUED,
-                    )
-                    transaction.on_commit(
-                        lambda mv_id=str(mv.id): scrape_menu.delay(mv_id)
-                    )
-                else:
-                    payload = models.OutscraperPayload.objects.create(
-                        restaurant=restaurant,
-                        status=models.OutscraperPayload.Status.QUEUED,
-                        request_params={
-                            "query": f"{restaurant_name} {location}",
-                            "async": "false",
-                            "limit": 1,
-                        },
-                    )
-                    transaction.on_commit(
-                        lambda payload_id=str(payload.id): run_outscraper_search.delay(
-                            payload_id
-                        )
-                    )
-        except IntegrityError:
-            error_message = "An account with that email already exists."
-            if is_json:
-                return JsonResponse({"error": "email_in_use"}, status=400)
+    email = (data.get("email") or "").strip()
+    restaurant_name = (data.get("restaurant_name") or "").strip()
+    location = (data.get("location") or "").strip()
+    raw_menu_url = (data.get("menu_url") or "").strip()
+    menu_url = raw_menu_url or None
+
+    form_data = {
+        "email": email,
+        "restaurant_name": restaurant_name,
+        "location": location,
+    }
+
+    if is_json:
+        password = data.get("password")
+        if not password:
+            return JsonResponse({"error": "password_required"}, status=400)
+    else:
+        password1 = data.get("password1")
+        password2 = data.get("password2")
+        if password1 != password2:
             return render(
                 request,
-                "auth/signup.html",
-                {"error": error_message, "form_data": form_data},
-            )
-
-        login(request, user)
-        redirect_url = reverse("dashboard", args=[restaurant.id])
-        if is_json:
-            return JsonResponse(
+                "home.html",
                 {
-                    "redirect_url": redirect_url,
-                    "restaurant_id": str(restaurant.id),
-                }
+                    "signup_error": "Passwords do not match",
+                    "signup_form_data": form_data,
+                },
+                status=400,
             )
-        return redirect(redirect_url)
+        password = password1
 
-    return render(request, "auth/signup.html")
+    if not email or not restaurant_name or not location:
+        if is_json:
+            return JsonResponse({"error": "missing_fields"}, status=400)
+        return render(
+            request,
+            "home.html",
+            {
+                "signup_error": "Please complete all fields.",
+                "signup_form_data": form_data,
+            },
+            status=400,
+        )
+
+    try:
+        with transaction.atomic():
+            user = User.objects.create_user(
+                username=email, email=email, password=password
+            )
+            models.UserProfile.objects.create(user=user)
+            account = models.Account.objects.create(name=restaurant_name)
+            models.Membership.objects.create(
+                account=account, user=user, role=models.Membership.Role.OWNER
+            )
+            restaurant = models.Restaurant.objects.create(
+                account=account,
+                name=restaurant_name,
+                location_text=location,
+            )
+
+            payload = models.OutscraperPayload.objects.create(
+                restaurant=restaurant,
+                status=models.OutscraperPayload.Status.QUEUED,
+                request_params={
+                    "query": f"{restaurant_name} {location}",
+                    "async": "false",
+                    "limit": 1,
+                },
+            )
+            transaction.on_commit(
+                lambda payload_id=str(payload.id): run_outscraper_search.delay(
+                    payload_id
+                )
+            )
+
+            if menu_url:
+                _process_menu_submission(restaurant, menu_url, None, None)
+    except IntegrityError:
+        error_message = "An account with that email already exists."
+        if is_json:
+            return JsonResponse({"error": "email_in_use"}, status=400)
+        return render(
+            request,
+            "home.html",
+            {
+                "signup_error": error_message,
+                "signup_form_data": form_data,
+            },
+            status=400,
+        )
+
+    login(request, user)
+    request.session["onboarding_restaurant_id"] = str(restaurant.id)
+    request.session.modified = True
+
+    redirect_url = reverse("onboarding-menu", args=[restaurant.id])
+    if is_json:
+        return JsonResponse(
+            {
+                "redirect_url": redirect_url,
+                "restaurant_id": str(restaurant.id),
+            }
+        )
+    return redirect(redirect_url)
+
+
+@login_required
+def onboarding_menu_view(request, restaurant_id):
+    """Collect a menu URL as the second step of onboarding."""
+
+    restaurant = get_object_or_404(models.Restaurant, id=restaurant_id)
+    has_access = models.Membership.objects.filter(
+        account=restaurant.account, user=request.user
+    ).exists()
+    if not has_access:
+        return HttpResponseForbidden("not allowed")
+
+    session_restaurant = request.session.get("onboarding_restaurant_id")
+    if not session_restaurant:
+        request.session["onboarding_restaurant_id"] = str(restaurant.id)
+    elif session_restaurant != str(restaurant.id):
+        request.session["onboarding_restaurant_id"] = str(restaurant.id)
+
+    if request.method == "POST":
+        if "skip" in request.POST:
+            request.session["onboarding_menu_complete"] = True
+            request.session.modified = True
+            return redirect("onboarding-plan", restaurant_id=restaurant.id)
+
+        menu_url = (request.POST.get("menu_url") or "").strip()
+        if not menu_url:
+            context = {
+                "restaurant": restaurant,
+                "menu_error": "Add a menu link or skip this step for now.",
+            }
+            return render(
+                request,
+                "onboarding/menu_url.html",
+                context,
+                status=400,
+            )
+
+        _process_menu_submission(restaurant, menu_url, None, None)
+        request.session["onboarding_menu_complete"] = True
+        request.session.modified = True
+        return redirect("onboarding-plan", restaurant_id=restaurant.id)
+
+    context = {
+        "restaurant": restaurant,
+        "menu_error": None,
+    }
+    return render(request, "onboarding/menu_url.html", context)
+
+
+@login_required
+def onboarding_plan_view(request, restaurant_id):
+    """Guide the user to Stripe checkout before entering the app."""
+
+    restaurant = get_object_or_404(models.Restaurant, id=restaurant_id)
+    has_access = models.Membership.objects.filter(
+        account=restaurant.account, user=request.user
+    ).exists()
+    if not has_access:
+        return HttpResponseForbidden("not allowed")
+
+    menu_complete = request.session.get("onboarding_menu_complete")
+    if not menu_complete and not restaurant.primary_menu_url:
+        return redirect("onboarding-menu", restaurant_id=restaurant.id)
+
+    if request.method == "POST" or request.GET.get("checkout") == "success":
+        request.session["just_signed_up_restaurant"] = str(restaurant.id)
+        request.session.pop("onboarding_restaurant_id", None)
+        request.session.pop("onboarding_menu_complete", None)
+        request.session.modified = True
+        return redirect("dashboard", restaurant_id=restaurant.id)
+
+    context = {
+        "restaurant": restaurant,
+        "checkout_url": reverse("billing-upgrade"),
+        "dashboard_url": reverse("dashboard", args=[restaurant.id]),
+    }
+    return render(request, "onboarding/plan.html", context)
 
 
 
@@ -358,6 +450,11 @@ def dashboard(request, restaurant_id):
 
     context_items = build_context_items(restaurant, settings_obj)
 
+    just_signed_up = request.session.pop("just_signed_up_restaurant", None)
+    show_new_user_guide = just_signed_up == str(restaurant.id)
+    if just_signed_up is not None:
+        request.session.modified = True
+
     context = {
         "restaurant": restaurant,
         "trial_info": trial_info,
@@ -371,6 +468,7 @@ def dashboard(request, restaurant_id):
         ),
         "tbd_message": "Personalized tips will appear here soon.",
         "prompt_for_menu": not bool(restaurant.primary_menu_url),
+        "show_new_user_guide": show_new_user_guide,
     }
     return render(request, "dashboard.html", context)
 
@@ -484,25 +582,6 @@ def menus_view(request):
         "menu_move_url": reverse("menu-item-move"),
     }
     return render(request, "menus/main.html", ctx)
-
-
-def onboarding_view(request):
-    """Show onboarding progress."""
-    jobs = models.Job.objects.filter(user=request.user)
-    return render(request, "onboarding.html", {"jobs": jobs})
-
-
-def onboarding_status_view(request):
-    """Return simple onboarding status."""
-    return JsonResponse({"status": "pending"})
-
-
-def manual_menu_view(request):
-    """Allow manual menu entry."""
-    if request.method == "POST":
-        return JsonResponse({"status": "queued"})
-    return render(request, "_partials/manual_menu.html")
-
 
 @login_required
 def concepts_view(request):

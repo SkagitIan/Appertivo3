@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 {% load navigation_tags %}
 
+{% block head_scripts %}
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" />
+{% endblock %}
+
 {% block html_attrs %} x-data="{ mobileMenuOpen: false }" class="h-full"{% endblock %}
 
 {% block body_class %}bg-[#F9F7F2] text-[#14080E] font-inter min-h-screen flex flex-col{% endblock %}

@@ -1,0 +1,23 @@
+<div class="rounded-2xl border border-slate-200 bg-gradient-to-r from-[#F9F7F2] to-white p-6">
+  <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <div class="space-y-2">
+      <p class="text-xs font-semibold uppercase tracking-wide text-[#5C008B]">You’re in!</p>
+      <h2 class="text-lg font-semibold text-[#14080E]">Let’s create your first concept run</h2>
+      <p class="text-sm text-slate-600">We’ve queued your restaurant data in the background. Kick things off with a fresh batch of ideas while we finish syncing.</p>
+      <ul class="mt-3 space-y-2 text-sm text-slate-600">
+        <li class="flex items-start gap-2"><span class="mt-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#5C008B]/10 text-[#5C008B] text-xs font-semibold">1</span>Generate nine themed concepts tuned to {{ restaurant.name }}.</li>
+        <li class="flex items-start gap-2"><span class="mt-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#5C008B]/10 text-[#5C008B] text-xs font-semibold">2</span>Flip cards to reveal dishes and favorite the ones to keep.</li>
+        <li class="flex items-start gap-2"><span class="mt-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#5C008B]/10 text-[#5C008B] text-xs font-semibold">3</span>Use the checklist below to finish filling in context when you’re ready.</li>
+      </ul>
+    </div>
+    <div class="flex flex-col gap-3">
+      <a href="{% url 'concepts-generate' %}" class="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#FF8300] to-[#FF5C00] px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-[#FF5C00]/20 transition hover:scale-[1.02]">
+        Generate concepts now
+        <i class="fa-solid fa-wand-magic-sparkles text-xs" aria-hidden="true"></i>
+      </a>
+      <a href="{% url 'settings' %}" class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:border-slate-300">
+        Review restaurant settings
+      </a>
+    </div>
+  </div>
+</div>

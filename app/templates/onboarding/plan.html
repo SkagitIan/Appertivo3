@@ -1,0 +1,50 @@
+{% extends "layouts/onboarding.html" %}
+
+{% block title %}Onboarding — Plan{% endblock %}
+
+{% block onboarding_content %}
+  <div class="px-8 py-10 space-y-8">
+    <div class="flex flex-col gap-2">
+      <p class="text-xs font-semibold uppercase tracking-wide text-[#5C008B]">Step 3 of 3</p>
+      <h1 class="text-2xl font-semibold text-[#14080E]">Activate Appertivo Pro</h1>
+      <p class="text-sm text-slate-600">Checkout securely with Stripe to unlock automated concept runs, dish inspiration, and unlimited menu exports.</p>
+    </div>
+
+    <div class="rounded-2xl border border-slate-200 bg-white/90 p-6 space-y-6">
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p class="text-sm font-semibold text-[#14080E]">Appertivo Pro</p>
+          <p class="text-xs text-slate-500">Cancel anytime • Includes 9 concept refreshes per run</p>
+        </div>
+        <p class="text-2xl font-semibold text-[#5C008B]">$59<span class="text-sm font-medium text-slate-500">/month</span></p>
+      </div>
+      <ul class="space-y-3 text-sm text-slate-600">
+        <li class="flex items-start gap-3"><i class="fa-solid fa-sparkles text-[#FF8300] mt-1" aria-hidden="true"></i>Generate fresh concepts and dishes as soon as onboarding completes.</li>
+        <li class="flex items-start gap-3"><i class="fa-solid fa-cloud-arrow-up text-[#FF8300] mt-1" aria-hidden="true"></i>Automatic context sync from Outscraper keeps your AI suggestions accurate.</li>
+        <li class="flex items-start gap-3"><i class="fa-solid fa-shield-halved text-[#FF8300] mt-1" aria-hidden="true"></i>Stripe handles billing so your payment details stay private and secure.</li>
+      </ul>
+      <div class="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
+        <a href="{{ checkout_url }}" class="inline-flex items-center justify-center gap-3 rounded-xl bg-gradient-to-r from-[#FF8300] to-[#FF5C00] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-[#FF5C00]/30 transition hover:scale-[1.01]">
+          Launch Stripe checkout
+          <i class="fa-solid fa-arrow-up-right-from-square text-xs" aria-hidden="true"></i>
+        </a>
+        <form method="post" class="flex">
+          {% csrf_token %}
+          <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-600 transition hover:border-slate-400">
+            I’m all set—go to dashboard
+          </button>
+        </form>
+      </div>
+      <p class="text-xs text-slate-500">If you’ve already completed payment, we’ll recognize it automatically when Stripe redirects you back.</p>
+    </div>
+
+    <div class="rounded-2xl border border-slate-200 bg-slate-50/80 p-5 text-sm text-slate-600">
+      <p class="font-semibold text-[#14080E]">What’s waiting on the other side?</p>
+      <ol class="mt-3 space-y-2 list-decimal list-inside">
+        <li>Guided checklist on the dashboard to finish setting restaurant context.</li>
+        <li>Nine ready-to-explore concepts with dish cards styled like the ones you just previewed.</li>
+        <li>Personalized tips for keeping specials fresh, sent straight to your inbox.</li>
+      </ol>
+    </div>
+  </div>
+{% endblock %}
