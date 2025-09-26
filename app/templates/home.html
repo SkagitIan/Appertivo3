@@ -3,6 +3,10 @@
 {% block title %}Appertivo — Turn Ideas into Signature Dishes{% endblock %}
 
 {% block extra_head %}
+  {{ block.super }}
+  {% if demo_concept %}
+    {% include "concepts/_card_assets.html" %}
+  {% endif %}
   <style>
     .home-hero {
       position: relative;
@@ -13,196 +17,153 @@
     .home-hero::after {
       content: "";
       position: absolute;
-      width: 360px;
-      height: 360px;
+      width: 340px;
+      height: 340px;
       border-radius: 999px;
-      background: radial-gradient(circle, rgba(255, 131, 0, 0.35), transparent 65%);
-      filter: blur(0px);
+      background: radial-gradient(circle, rgba(255, 131, 0, 0.3), transparent 65%);
       pointer-events: none;
     }
 
     .home-hero::before {
-      top: -120px;
-      left: -120px;
+      top: -140px;
+      left: -140px;
     }
 
     .home-hero::after {
       bottom: -160px;
-      right: -100px;
+      right: -120px;
     }
 
     .app-demo-frame {
       position: relative;
-      border-radius: 2.5rem;
+      border-radius: 2.25rem;
       background: linear-gradient(180deg, rgba(20, 8, 14, 0.92) 0%, rgba(20, 8, 14, 0.85) 100%);
-      padding: 1.5rem;
+      padding: 1.75rem;
       box-shadow: 0 35px 60px -30px rgba(20, 8, 14, 0.6);
-      color: white;
+      color: #ffffff;
       overflow: hidden;
+      display: grid;
+      gap: 1.5rem;
     }
 
     .app-demo-status {
-      display: flex;
+      display: inline-flex;
       align-items: center;
       gap: 0.5rem;
       font-size: 0.75rem;
       letter-spacing: 0.08em;
-      text-transform: uppercase;
-      opacity: 0.7;
-    }
-
-    .app-demo-card {
-      margin-top: 1.5rem;
-      position: relative;
-      perspective: 1200px;
-      height: 320px;
-    }
-
-    .app-card-inner {
-      position: relative;
-      width: 100%;
-      height: 100%;
-      transform-style: preserve-3d;
-      transition: transform 0.8s ease;
-    }
-
-    .app-card-inner.is-flipped {
-      transform: rotateY(180deg);
-    }
-
-    .app-card-face {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      border-radius: 1.75rem;
-      padding: 1.75rem;
-      backface-visibility: hidden;
-      overflow: hidden;
-      box-shadow: 0 20px 45px -25px rgba(14, 2, 31, 0.55);
-    }
-
-    .app-card-face::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      border-radius: inherit;
-      opacity: 0.14;
-      pointer-events: none;
-    }
-
-    .app-card-face[data-theme="concept"] {
-      background: linear-gradient(135deg, #ffe8cc, #fff6ee);
-      color: #2E005D;
-    }
-
-    .app-card-face[data-theme="concept"]::after {
-      background: radial-gradient(circle at top right, #ff8300, transparent 70%);
-    }
-
-    .app-card-face[data-theme="sketch"] {
-      background: linear-gradient(135deg, #f3f0ff, #ffffff);
-      color: #14080E;
-    }
-
-    .app-card-face[data-theme="sketch"]::after {
-      background: radial-gradient(circle at bottom left, #5C008B, transparent 70%);
-    }
-
-    .app-card-face[data-theme="menu"] {
-      background: linear-gradient(135deg, #2E005D, #5C008B);
-      color: #fff;
-    }
-
-    .app-card-face[data-theme="menu"]::after {
-      background: radial-gradient(circle at top left, rgba(255, 255, 255, 0.4), transparent 60%);
-    }
-
-    .app-card-face[data-theme="spotlight"] {
-      background: linear-gradient(135deg, #ff8300, #ff5c00);
-      color: #fff;
-    }
-
-    .app-card-face[data-theme="spotlight"]::after {
-      background: radial-gradient(circle at center, rgba(255, 255, 255, 0.55), transparent 65%);
-    }
-
-    .app-card-face.is-back {
-      transform: rotateY(180deg);
-    }
-
-    .app-card-face header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      font-size: 0.75rem;
-      letter-spacing: 0.1em;
       text-transform: uppercase;
       opacity: 0.75;
     }
 
-    .app-card-face h3 {
-      font-size: 1.6rem;
-      line-height: 1.2;
-      font-weight: 700;
-      margin-top: 1rem;
-    }
-
-    .app-card-face p {
-      margin-top: 0.5rem;
-      font-size: 0.95rem;
-      line-height: 1.55;
-    }
-
-    .app-card-face figure {
-      margin-top: 1.5rem;
-      border-radius: 1.25rem;
-      overflow: hidden;
-      background: rgba(255, 255, 255, 0.12);
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      min-height: 120px;
+    .home-demo-card-stack {
       display: grid;
-      place-items: center;
-      font-size: 0.85rem;
-      text-transform: uppercase;
+      gap: 1.5rem;
+    }
+
+    .home-demo-card-stack .concept-card-wrapper {
+      max-width: 340px;
+      margin: 0 auto;
+    }
+
+    .home-demo-footnote {
+      font-size: 0.7rem;
       letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.7);
     }
 
-    .app-card-face ul {
-      margin-top: 1rem;
-      font-size: 0.85rem;
+    .home-demo-dish {
+      position: relative;
+      border-radius: 1.75rem;
+      overflow: hidden;
+      min-height: 220px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: linear-gradient(135deg, rgba(94, 0, 139, 0.35), rgba(255, 92, 0, 0.28));
+      box-shadow: 0 20px 45px -25px rgba(14, 2, 31, 0.6);
+    }
+
+    .home-demo-dish img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .home-demo-dish::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(20, 8, 14, 0.1) 0%, rgba(20, 8, 14, 0.78) 90%);
+    }
+
+    .home-demo-dish__content {
+      position: relative;
+      z-index: 1;
+      padding: 1.5rem;
+      display: grid;
+      gap: 0.75rem;
+      color: #fefcf8;
+    }
+
+    .home-demo-dish__label {
+      font-size: 0.7rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-weight: 600;
+      opacity: 0.85;
+    }
+
+    .home-demo-dish__title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      line-height: 1.25;
+    }
+
+    .home-demo-dish__description {
+      font-size: 0.9rem;
       line-height: 1.5;
+      color: rgba(255, 255, 255, 0.85);
     }
 
-    .app-card-pills {
-      margin-top: 1.5rem;
+    .home-demo-dish__meta {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.5rem;
+      gap: 0.45rem;
     }
 
-    .app-card-pill {
+    .home-demo-dish__badge {
       display: inline-flex;
       align-items: center;
       gap: 0.35rem;
-      padding: 0.4rem 0.85rem;
+      padding: 0.35rem 0.75rem;
       border-radius: 999px;
       font-size: 0.75rem;
       font-weight: 600;
+      letter-spacing: 0.05em;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
-      background: rgba(255, 255, 255, 0.12);
-      color: inherit;
+      background: rgba(255, 255, 255, 0.18);
+      color: #ffffff;
     }
 
-    .app-card-cta {
-      margin-top: 1.5rem;
-      font-size: 0.85rem;
+    .home-demo-dish__tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+    }
+
+    .home-demo-dish__tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.3rem 0.65rem;
+      border-radius: 999px;
+      font-size: 0.7rem;
       font-weight: 600;
+      letter-spacing: 0.04em;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
-      opacity: 0.8;
+      background: rgba(255, 255, 255, 0.14);
+      color: #ffffff;
     }
 
     .data-flow-grid {
@@ -250,26 +211,17 @@
     }
 
     @media (max-width: 768px) {
-      .app-demo-card {
-        height: 280px;
+      .app-demo-frame {
+        border-radius: 1.75rem;
+        padding: 1.25rem;
+      }
+
+      .home-demo-card-stack {
+        gap: 1.25rem;
       }
 
       .data-flow-grid {
         grid-template-columns: 1fr;
-      }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      .app-card-inner {
-        transition: none;
-      }
-
-      .app-card-inner.is-flipped {
-        transform: none;
-      }
-
-      .app-card-face.is-back {
-        display: none;
       }
     }
   </style>
@@ -290,6 +242,18 @@
         <p class="text-lg md:text-xl text-white/90 max-w-2xl">
           Every dish begins as an idea. Appertivo helps you capture those sparks of inspiration and transform them into fully developed menu items — faster, cheaper, and with less risk. With an AI lookbook tuned to your restaurant, you can explore, test, and refine dishes before they ever reach the kitchen.
         </p>
+        {% if demo_concept %}
+          <div class="rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-sm text-white/80 shadow-inner">
+            <p>
+              <span class="font-semibold text-white">{{ demo_concept.name }}</span>
+              {% if demo_restaurant %}from {{ demo_restaurant.name }}{% endif %}
+              is streaming straight from the demo dashboard.
+            </p>
+            {% if demo_dish %}
+              <p class="mt-1">Flip the card to see the sketch and the menu-ready copy the team saved.</p>
+            {% endif %}
+          </div>
+        {% endif %}
         <div class="flex flex-col sm:flex-row gap-4 pt-4">
           <a href="{% url 'signup' %}" class="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-[#FF8300] to-[#FF5C00] px-6 py-3 text-lg font-semibold shadow-lg shadow-[#FF8300]/30 transition hover:scale-105">
             Start Free Trial
@@ -300,22 +264,72 @@
         </div>
       </div>
       <div class="relative z-10">
-        <div class="rounded-3xl border border-white/20 bg-white/10 p-6 backdrop-blur">
-          <div class="grid gap-4">
-            <div class="rounded-2xl bg-white/90 p-4 text-[#2E005D] shadow-lg shadow-[#2E005D]/10">
-              <p class="text-sm font-semibold uppercase tracking-wide text-[#5C008B]">Concept Prompt</p>
-              <p class="mt-3 text-lg font-medium">“Seasonal heirloom tomato tart with citrus basil crema.”</p>
-            </div>
-            <div class="rounded-2xl bg-[#FF8300]/10 p-4 text-white shadow-lg shadow-black/10">
-              <p class="text-sm font-semibold uppercase tracking-wide text-[#FFDFB3]">AI Insight</p>
-              <p class="mt-3 text-base">Pair with charred scallion oil and burrata for silky texture contrast.</p>
-            </div>
-            <div class="rounded-2xl bg-white/90 p-4 text-[#14080E] shadow-lg shadow-[#2E005D]/10">
-              <p class="text-sm font-semibold uppercase tracking-wide text-[#5C008B]">Menu Ready</p>
-              <p class="mt-3 text-lg font-semibold">Heirloom Tomato Tart</p>
-              <p class="text-sm text-slate-600">Citrus basil crema • Charred scallion oil • Burrata crumble</p>
-            </div>
+        <div class="app-demo-frame">
+          <div class="app-demo-status">
+            <span class="inline-flex h-2 w-2 rounded-full bg-[#6BFF9E] animate-pulse"></span>
+            <span>Live from demo favorites</span>
           </div>
+          {% if demo_concept %}
+            <div class="home-demo-card-stack" aria-live="polite">
+              <div id="homeDemoConceptCard" class="mx-auto w-full">
+                {% include "concepts/_card.html" with concept=demo_concept favorited=True favorite_url_override='' show_delete=False %}
+              </div>
+              {% if demo_dish %}
+                <div class="home-demo-dish">
+                  {% if demo_dish.enhancement_image_url %}
+                    <img
+                      src="{{ demo_dish.enhancement_image_url }}"
+                      alt="{{ demo_dish.title }} plated photo"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  {% endif %}
+                  <div class="home-demo-dish__content">
+                    <span class="home-demo-dish__label">Menu-ready special</span>
+                    <div>
+                      <h4 class="home-demo-dish__title">{{ demo_dish.title }}</h4>
+                      {% if demo_dish.description %}
+                        <p class="home-demo-dish__description">{{ demo_dish.description }}</p>
+                      {% endif %}
+                    </div>
+                    <div class="home-demo-dish__meta">
+                      {% if demo_dish.enhancement_price_display %}
+                        <span class="home-demo-dish__badge">
+                          <i class="fa-solid fa-tag text-xs" aria-hidden="true"></i>
+                          {{ demo_dish.enhancement_price_display }}
+                        </span>
+                      {% endif %}
+                      {% if demo_dish_favorite and demo_dish_favorite.favorited_at %}
+                        <span class="home-demo-dish__badge">
+                          <i class="fa-solid fa-star text-xs" aria-hidden="true"></i>
+                          Favorited {{ demo_dish_favorite.favorited_at|date:"M j" }}
+                        </span>
+                      {% endif %}
+                    </div>
+                    {% if demo_dish.category_tags %}
+                      <div class="home-demo-dish__tags">
+                        {% for tag in demo_dish.category_tags|slice:":3" %}
+                          <span class="home-demo-dish__tag">{{ tag }}</span>
+                        {% endfor %}
+                      </div>
+                    {% endif %}
+                  </div>
+                </div>
+              {% endif %}
+              <p class="home-demo-footnote">
+                {% if demo_restaurant %}{{ demo_restaurant.name }}{% else %}Demo restaurant{% endif %}
+                • Favorited by user #{{ demo_user_id }}
+                {% if demo_concept_favorite and demo_concept_favorite.favorited_at %}
+                  on {{ demo_concept_favorite.favorited_at|date:"M j, Y" }}
+                {% endif %}
+              </p>
+            </div>
+          {% else %}
+            <div class="rounded-2xl bg-white/90 p-6 text-[#14080E] shadow-lg shadow-black/10 space-y-3">
+              <p class="text-lg font-semibold">Demo favorites are warming up.</p>
+              <p class="text-sm text-slate-600">We surface a live concept card from the demo workspace whenever a favorited sketch is available.</p>
+            </div>
+          {% endif %}
         </div>
       </div>
     </div>
@@ -337,46 +351,112 @@
     <div class="max-w-6xl mx-auto px-6 grid gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)] items-start">
       <div class="space-y-6">
         <span class="inline-flex items-center gap-2 rounded-full bg-[#FFE7CC] px-4 py-2 text-sm font-semibold text-[#FF5C00] uppercase tracking-wide">Inside the Appertivo lab</span>
-        <h2 class="text-3xl md:text-4xl font-bold text-[#14080E]">See the Appertivo card come to life.</h2>
+        <h2 class="text-3xl md:text-4xl font-bold text-[#14080E]">See the demo favorite we’re showing off.</h2>
         <p class="text-lg text-slate-600 leading-relaxed">
-          We rebuilt the signature concept card from our app so you can watch it work. Every couple of seconds the card flips to show the next stage—from raw idea to plated story.
+          We surfaced a real favorite from user #{{ demo_user_id }} so you can understand how a concept, its sketch, and the menu-ready copy stay linked inside Appertivo.
         </p>
         <ul class="space-y-4 text-slate-600">
           <li class="flex items-start gap-3">
             <span class="mt-1 inline-flex h-2.5 w-2.5 rounded-full bg-[#FF8300]"></span>
             <div>
               <p class="font-semibold text-[#2E005D]">Capture inspiration fast.</p>
-              <p class="text-sm">Drop in a few words, seasonal notes, or a vibe. Appertivo keeps it all organized.</p>
+              <p class="text-sm">
+                {% if demo_concept and demo_concept.reasoning %}
+                  {{ demo_concept.reasoning|truncatechars:140 }}
+                {% else %}
+                  Drop in a few words, seasonal notes, or a vibe. Appertivo keeps it all organized.
+                {% endif %}
+              </p>
             </div>
           </li>
           <li class="flex items-start gap-3">
             <span class="mt-1 inline-flex h-2.5 w-2.5 rounded-full bg-[#5C008B]"></span>
             <div>
               <p class="font-semibold text-[#2E005D]">Visualize before you plate.</p>
-              <p class="text-sm">Concept sketches and menu-ready language appear automatically.</p>
+              <p class="text-sm">
+                {% if demo_concept and demo_concept.sketch_image_url %}
+                  The sketch for {{ demo_concept.name }} stays pinned to the concept the moment it’s favorited.
+                {% else %}
+                  Concept sketches and menu-ready language appear automatically.
+                {% endif %}
+              </p>
             </div>
           </li>
           <li class="flex items-start gap-3">
             <span class="mt-1 inline-flex h-2.5 w-2.5 rounded-full bg-[#FFB000]"></span>
             <div>
               <p class="font-semibold text-[#2E005D]">Share a spotlight moment.</p>
-              <p class="text-sm">Highlight the hero photo and a catchy phrase when it’s time to launch.</p>
+              <p class="text-sm">
+                {% if demo_dish %}
+                  {{ demo_dish.title }} ships with {% if demo_dish.enhancement_price_display %}{{ demo_dish.enhancement_price_display }}{% else %}a price suggestion{% endif %} and polished language ready for your menu, socials, or QR code.
+                {% else %}
+                  Highlight the hero photo and a catchy phrase when it’s time to launch.
+                {% endif %}
+              </p>
             </div>
           </li>
         </ul>
       </div>
-      <div class="app-demo-frame">
-        <div class="app-demo-status">
-          <span class="inline-flex h-2 w-2 rounded-full bg-[#6BFF9E] animate-pulse"></span>
-          <span>Live concept card</span>
-        </div>
-        <div class="app-demo-card" aria-live="polite">
-          <div class="app-card-inner" id="appCardInner">
-            <article class="app-card-face" id="appCardFront" data-theme="concept"></article>
-            <article class="app-card-face is-back" id="appCardBack" data-theme="sketch"></article>
+      <div class="space-y-6">
+        {% if demo_concept %}
+          <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+            <div class="space-y-1">
+              <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Concept snapshot</p>
+              <h3 class="text-xl font-semibold text-[#14080E]">{{ demo_concept.name }}</h3>
+              {% if demo_concept.subtitle %}
+                <p class="text-sm text-slate-600">{{ demo_concept.subtitle }}</p>
+              {% endif %}
+            </div>
+            {% if demo_concept.tags %}
+              <div class="flex flex-wrap gap-2">
+                {% for tag in demo_concept.tags %}
+                  <span class="inline-flex items-center rounded-full bg-[#B993D6]/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[#2E005D]">{{ tag }}</span>
+                {% endfor %}
+              </div>
+            {% endif %}
+            {% if demo_concept.reasoning %}
+              <p class="text-sm text-slate-600 leading-relaxed">{{ demo_concept.reasoning }}</p>
+            {% endif %}
           </div>
-        </div>
-        <p class="mt-6 text-sm text-white/70">The animation loops automatically. Hover or tap to pause the flip.</p>
+          {% if demo_concept.sketch_image_url %}
+            <figure class="overflow-hidden rounded-3xl border border-slate-200 bg-slate-50 shadow-sm">
+              <img
+                src="{{ demo_concept.sketch_image_url }}"
+                alt="{{ demo_concept.name }} concept sketch"
+                class="h-64 w-full object-cover"
+                loading="lazy"
+                decoding="async"
+              />
+              <figcaption class="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Sketch saved from the demo workspace</figcaption>
+            </figure>
+          {% endif %}
+          {% if demo_dish %}
+            <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-3">
+              <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Menu-ready copy</p>
+              <h3 class="text-lg font-semibold text-[#14080E]">{{ demo_dish.title }}</h3>
+              {% if demo_dish.description %}
+                <p class="text-sm text-slate-600 leading-relaxed">{{ demo_dish.description }}</p>
+              {% endif %}
+              <div class="flex flex-wrap gap-2">
+                {% if demo_dish.enhancement_price_display %}
+                  <span class="inline-flex items-center rounded-full bg-[#FF8300]/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[#FF5C00]">
+                    {{ demo_dish.enhancement_price_display }}
+                  </span>
+                {% endif %}
+                {% for tag in demo_dish.category_tags|slice:":4" %}
+                  <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase tracking-wide text-[#49475B]">{{ tag }}</span>
+                {% endfor %}
+              </div>
+              {% if demo_dish.ingredient_overlap %}
+                <p class="text-xs uppercase tracking-wide text-slate-500">Ingredients: {{ demo_dish.ingredient_overlap|join:", " }}</p>
+              {% endif %}
+            </div>
+          {% endif %}
+        {% else %}
+          <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm text-sm text-slate-600">
+            Save a concept as a favorite in the demo workspace and its sketch, copy, and menu notes will appear here.
+          </div>
+        {% endif %}
       </div>
     </div>
   </section>
@@ -493,138 +573,43 @@
 
 {% block extra_scripts %}
   {{ block.super }}
-  <script>
-    (function () {
-      const cardInner = document.getElementById("appCardInner");
-      const front = document.getElementById("appCardFront");
-      const back = document.getElementById("appCardBack");
-      const cardWrapper = document.querySelector(".app-demo-card");
-
-      if (!cardInner || !front || !back) {
-        return;
-      }
-
-      const states = [
-        {
-          theme: "concept",
-          html: `
-            <header>
-              <span>Concept prompt</span>
-              <span>Chef Rivera</span>
-            </header>
-            <div>
-              <h3>Heirloom Tomato Tart</h3>
-              <p>“Bright tomato layers with citrus basil crema and a whisper of smoked salt.”</p>
-              <div class="app-card-pills">
-                <span class="app-card-pill">Summer</span>
-                <span class="app-card-pill">Veg-forward</span>
-                <span class="app-card-pill">Brunch</span>
-              </div>
-            </div>
-            <p class="app-card-cta">Next up: sketching plating ideas…</p>
-          `,
-        },
-        {
-          theme: "sketch",
-          html: `
-            <header>
-              <span>Concept sketch</span>
-              <span>Lookbook view</span>
-            </header>
-            <div>
-              <h3>Layered tart illustration</h3>
-              <p>Top view with concentric heirloom slices, basil crema swirls, and puff pastry shell.</p>
-              <figure>
-                <span>Sketch rendering</span>
-              </figure>
-            </div>
-            <p class="app-card-cta">Flip for menu language.</p>
-          `,
-        },
-        {
-          theme: "menu",
-          html: `
-            <header>
-              <span>Menu ready</span>
-              <span>Dining room</span>
-            </header>
-            <div>
-              <h3>Heirloom Tomato Tart</h3>
-              <p>Citrus basil crema • Charred scallion oil • Burrata crumble</p>
-              <ul>
-                <li>• Suggested price: $18</li>
-                <li>• Prep time: 12 minutes</li>
-                <li>• Pairing: Sauvignon Blanc</li>
-              </ul>
-            </div>
-            <p class="app-card-cta">Ready for spotlight mode.</p>
-          `,
-        },
-        {
-          theme: "spotlight",
-          html: `
-            <header>
-              <span>Launch spotlight</span>
-              <span>Social kit</span>
-            </header>
-            <div>
-              <h3>Meet your new patio star.</h3>
-              <p>Golden puff pastry stacked with sweet tomatoes and a basil-citrus glow.</p>
-              <figure>
-                <span>Plated hero image</span>
-              </figure>
-            </div>
-            <p class="app-card-cta">“Summer never tasted this vibrant.”</p>
-          `,
-        },
-      ];
-
-      function render(face, state) {
-        face.dataset.theme = state.theme;
-        face.innerHTML = state.html;
-      }
-
-      let currentIndex = 0;
-      let isFlipped = false;
-      let paused = false;
-
-      render(front, states[0]);
-      const secondIndex = states.length > 1 ? 1 : 0;
-      render(back, states[secondIndex]);
-
-      cardInner.addEventListener("transitionend", function (event) {
-        if (event.propertyName !== "transform") {
+  {% if demo_concept %}
+    <script>
+      (function () {
+        const conceptCard = document.querySelector('#homeDemoConceptCard .flip-card');
+        if (!conceptCard) {
           return;
         }
-        currentIndex = (currentIndex + 1) % states.length;
-        isFlipped = !isFlipped;
-        const nextState = states[(currentIndex + 1) % states.length];
-        const hiddenFace = isFlipped ? front : back;
-        render(hiddenFace, nextState);
-      });
 
-      const interval = setInterval(function () {
-        if (paused || states.length <= 1) {
-          return;
+        let paused = false;
+        const interval = setInterval(function () {
+          if (paused) {
+            return;
+          }
+          conceptCard.classList.toggle('show-back');
+        }, 4200);
+
+        const wrapper = conceptCard.closest('[data-concept-card]');
+        if (wrapper) {
+          wrapper.addEventListener('mouseenter', function () {
+            paused = true;
+          });
+          wrapper.addEventListener('mouseleave', function () {
+            paused = false;
+          });
+          wrapper.addEventListener(
+            'touchstart',
+            function () {
+              paused = !paused;
+            },
+            { passive: true }
+          );
         }
-        cardInner.classList.toggle("is-flipped");
-      }, 2300);
 
-      if (cardWrapper) {
-        cardWrapper.addEventListener("mouseenter", function () {
-          paused = true;
+        window.addEventListener('beforeunload', function () {
+          clearInterval(interval);
         });
-        cardWrapper.addEventListener("mouseleave", function () {
-          paused = false;
-        });
-        cardWrapper.addEventListener("touchstart", function () {
-          paused = !paused;
-        });
-      }
-
-      window.addEventListener("beforeunload", function () {
-        clearInterval(interval);
-      });
-    })();
-  </script>
+      })();
+    </script>
+  {% endif %}
 {% endblock %}
