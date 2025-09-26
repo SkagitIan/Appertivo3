@@ -12,7 +12,7 @@ class TimestampedAdmin(admin.ModelAdmin):
 # Register core org/account/user models
 @admin.register(models.Account)
 class AccountAdmin(TimestampedAdmin):
-    list_display = ("id", "name", "created_at")
+    list_display = ("id", "name", "stripe_customer_id", "created_at")
 
 
 @admin.register(models.UserProfile)
