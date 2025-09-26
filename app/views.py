@@ -1122,7 +1122,7 @@ def concepts_generate_view(request):
         classic_creative=50,
         context_snapshot=context_snapshot,
         status=models.IdeationRun.Status.RUNNING,
-        started_at=timezone.now(),
+        started_at=timezone.now(),)
 
     concepts: List[models.Concept] = []
 
