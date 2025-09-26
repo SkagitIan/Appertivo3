@@ -104,8 +104,28 @@ class ViewSmokeTests(TestCase):
         self.assertEqual(status_resp.json()["status"], "pending")
 
     def test_manual_menu(self):
-        resp = self.client.get(reverse("manual-menu"))
+        resp = self.client.get(reverse("manual-menu"), HTTP_HX_REQUEST="true")
         self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Manual menu submission")
+
+    def test_manual_menu_creates_menu_version_from_text(self):
+        payload = {"menu_text": "Lunch\n- Soup of the Day"}
+        resp = self.client.post(
+            reverse("manual-menu"), payload, HTTP_HX_REQUEST="true"
+        )
+        self.assertEqual(resp.status_code, 204)
+        self.assertEqual(resp["HX-Redirect"], reverse("onboarding"))
+
+        menu_version = models.MenuVersion.objects.get(restaurant=self.restaurant)
+        self.assertEqual(menu_version.source_kind, models.MenuVersion.SourceKind.PASTED_TEXT)
+        self.assertEqual(menu_version.raw_markdown, "Lunch\n- Soup of the Day")
+        self.assertTrue(self.client.session.get("menu_success"))
+
+    def test_manual_menu_requires_content(self):
+        resp = self.client.post(reverse("manual-menu"), {}, HTTP_HX_REQUEST="true")
+        self.assertEqual(resp.status_code, 400)
+        self.assertContains(resp, "Paste your menu or upload a PDF", status_code=400)
+        self.assertEqual(models.MenuVersion.objects.count(), 0)
 
     def test_dashboard_displays_contextual_ai_component(self):
         self.restaurant.context_json = {
