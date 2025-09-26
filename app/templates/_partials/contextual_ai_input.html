@@ -2,7 +2,6 @@
 {% with root_id=form_id|default:'ai-input' %}
   {% with placeholders_id=root_id|add:'-placeholders' suggestions_id=root_id|add:'-suggestions' indicator_id=root_id|add:'-indicator' %}
     {{ placeholder_samples|json_script:placeholders_id }}
-    {{ suggestions|json_script:suggestions_id }}
 
     <div
       id="{{ root_id }}-wrapper"
@@ -69,21 +68,6 @@
         <span class="inline-flex h-2.5 w-2.5 animate-ping rounded-full bg-[#B993D6]"></span>
         <span class="font-medium">Gathering ideas…</span>
       </div>
-
-      {% if suggestions %}
-        <div class="flex flex-wrap gap-2">
-          {% for suggestion in suggestions %}
-            <button
-              type="button"
-              data-suggestion="{{ suggestion }}"
-              class="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#B993D6]/90 via-[#c7a6e6]/80 to-[#B993D6]/90 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition-transform hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-[#B993D6]/50"
-            >
-              <i class="fa-solid fa-lightbulb text-[10px]"></i>
-              <span>{{ suggestion }}</span>
-            </button>
-          {% endfor %}
-        </div>
-      {% endif %}
     </div>
     <style>
       #{{ indicator_id }}.htmx-request {

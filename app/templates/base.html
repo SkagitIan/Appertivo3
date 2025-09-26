@@ -10,16 +10,8 @@
   {% block extra_head %}{% endblock %}
 </head>
 <style>
-body {
-  background-color: white;
-  background-image: 
-    linear-gradient(to right, rgba(0,0,0,0.03) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(0,0,0,0.03) 1px, transparent 1px);
-  background-size: 24px 24px; /* bigger spacing feels less busy */
-}
-
 </style>
-<body class="font-inter min-h-screen flex flex-col">
+<body class="font-inter min-h-screen flex flex-col bg-gradient-to-r from-[#F3E8FF] to-[#E6DAF5]">
   {% block overlay %}{% endblock %}
   {% block header %}{% endblock %}
   <main class="{% block main_class %}flex-1{% endblock %}">
