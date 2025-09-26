@@ -29,6 +29,7 @@ urlpatterns = [
     path("concepts/favorites/", app_views.concepts_favorites_view, name="concepts-favorites"),
     path("concepts/<uuid:concept_id>/favorite/", app_views.concept_favorite_view, name="concept-favorite"),
     path("concepts/<uuid:concept_id>/background/",app_views.concept_background_view, name="concept-background",),
+    path("search/", app_views.tag_search_view, name="tag-search"),
     path("dishes/<uuid:concept_id>/generate/", app_views.dishes_generate_view, name="dishes-generate"),
     path("dishes/<uuid:concept_id>/", app_views.dish_detail_view, name="dish_detail"),
 
