@@ -1882,8 +1882,18 @@ def dish_detail_view(request, concept_id):
         template_name,
     )
 
+    concept_tags = concept.tags or []
+    if isinstance(concept_tags, (tuple, set)):
+        concept_tags = list(concept_tags)
+    elif not isinstance(concept_tags, list):
+        concept_tags = [concept_tags] if concept_tags else []
+
+    concept_tags = [str(tag) for tag in concept_tags if str(tag).strip()]
+
     context = {
         "concept": concept,
+        "concept_tags": concept_tags,
+        "concept_reasoning": concept.reasoning or "",
         "dishes": dishes,
         "menu_options": menu_options,
         "menu_move_url": reverse("menu-item-move"),
