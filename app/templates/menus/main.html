@@ -54,7 +54,7 @@
         data-menu-section="{{ menu.id }}"
         style="background-color: {% cycle '#F9F7FF' '#F3FAFF' '#FFF6F1' '#F4FFF5' '#FFF5FA' %};"
       >
-        <div class="flex flex-col gap-4 border-b border-slate-100 px-6 py-5 md:flex-row md:items-center md:justify-between">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 px-6 py-5">
           <div>
             <h2 class="text-lg font-semibold text-[#49475B]" data-menu-title>{{ menu.name }}</h2>
             <p class="text-xs font-medium uppercase tracking-wide text-slate-400" data-menu-count>
@@ -87,7 +87,7 @@
           </div>
         </div>
         <div class="space-y-4 px-6 py-6" data-menu-body>
-          <div data-menu-dishes class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div data-menu-dishes class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {% for item in menu.menu_items %}
               <div
                 id="favorite-dish-{{ item.dish.id }}"
@@ -182,7 +182,7 @@
       if (list) return list;
       list = document.createElement('div');
       list.dataset.menuDishes = '1';
-      list.className = 'grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3';
+      list.className = 'grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4';
       const empty = section.querySelector('[data-menu-empty]');
       if (empty) {
         empty.before(list);
