@@ -832,6 +832,8 @@ def onboarding_view(request):
             .order_by("-created_at")
             .first()
         )
+        if latest_menu_version and latest_menu_version.status == models.MenuVersion.Status.SUCCEEDED:
+            menu_success = True
 
     if request.method == "POST":
         menu_url = (request.POST.get("menu_url") or "").strip()
@@ -853,6 +855,10 @@ def onboarding_view(request):
                 lambda mv_id=str(latest_menu_version.id): scrape_menu.delay(mv_id)
             )
             menu_success = True
+
+    if request.session.get("menu_success"):
+        menu_success = True
+        request.session.pop("menu_success")
 
     just_signed_up = request.session.pop("just_signed_up", False)
     if request.method == "POST" and just_signed_up and not menu_success:
@@ -917,11 +923,46 @@ def onboarding_status_view(request):
     )
 
 
+@login_required
 def manual_menu_view(request):
     """Allow manual menu entry."""
-    if request.method == "POST":
-        return JsonResponse({"status": "queued"})
-    return render(request, "_partials/manual_menu.html")
+
+    membership = (
+        models.Membership.objects.filter(user=request.user)
+        .select_related("account")
+        .first()
+    )
+    restaurant = None
+    if membership:
+        restaurant = (
+            models.Restaurant.objects.filter(account=membership.account)
+            .order_by("created_at")
+            .first()
+        )
+
+    errors = []
+    menu_text = (request.POST.get("menu_text") or "").strip() if request.method == "POST" else ""
+
+    if not restaurant:
+        errors.append("We couldn't find a restaurant for your account yet.")
+    elif request.method == "POST":
+        menu_pdf = request.FILES.get("menu_pdf")
+        if not menu_text and not menu_pdf:
+            errors.append("Paste your menu or upload a PDF so we can ingest it.")
+        else:
+            menu_version = _process_menu_submission(restaurant, None, menu_text, menu_pdf)
+            if menu_version:
+                request.session["menu_success"] = True
+                if request.headers.get("HX-Request"):
+                    response = HttpResponse(status=204)
+                    response["HX-Redirect"] = reverse("onboarding")
+                    return response
+                return redirect("onboarding")
+            errors.append("We couldn't process your submission. Please try again.")
+
+    status = 400 if errors else 200
+    context = {"errors": errors, "menu_text": menu_text}
+    return render(request, "_partials/manual_menu.html", context, status=status)
 
 
 @login_required
