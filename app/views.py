@@ -43,6 +43,9 @@ from app.tasks import create_ideation_run
 stripe.api_key = settings.STRIPE_SECRET_KEY or ""
 logger = logging.getLogger(__name__)
 
+
+DEMO_USER_ID = 17
+
 class ConceptList(BaseModel):
     concepts: List[str]
 
@@ -169,6 +172,67 @@ def _extend_session_list(session, key: str, new_items: Iterable[str]) -> None:
     session[key] = existing
     session.modified = True
 
+
+def _load_home_demo_favorites():
+    """Return demo favorites (concept + dish) for the marketing homepage."""
+
+    concept = None
+    concept_favorite = None
+    dish = None
+    dish_favorite = None
+    restaurant = None
+
+    try:
+        demo_user = User.objects.filter(id=DEMO_USER_ID).first()
+        if not demo_user:
+            return concept, concept_favorite, dish, dish_favorite, restaurant
+
+        concept_favorites = list(
+            models.FavoriteConcept.objects.filter(
+                user=demo_user, concept__sketch_image_url__isnull=False
+            )
+            .select_related("concept__restaurant", "concept__ideation_run")
+            .order_by("-favorited_at")
+        )
+
+        if not concept_favorites:
+            return concept, concept_favorite, dish, dish_favorite, restaurant
+
+        concept_by_id = {fav.concept_id: fav for fav in concept_favorites}
+        concept_ids = list(concept_by_id.keys())
+
+        dish_favorite = (
+            models.FavoriteDish.objects.filter(
+                user=demo_user,
+                dish__is_deleted=False,
+                dish__parent_concept_id__in=concept_ids,
+            )
+            .select_related("dish__parent_concept__restaurant", "dish__restaurant")
+            .order_by("-favorited_at")
+            .first()
+        )
+
+        if dish_favorite:
+            dish = dish_favorite.dish
+            decorate_dishes_with_enhancements([dish])
+            dish.is_favorited = True
+            dish.favorited_at = dish_favorite.favorited_at
+            concept_favorite = concept_by_id.get(dish.parent_concept_id)
+
+        if not concept_favorite:
+            concept_favorite = concept_favorites[0]
+
+        concept = concept_favorite.concept
+        concept.is_favorited_for_user = True
+        concept.has_dishes = bool(dish) or getattr(concept, "has_dishes", False)
+        concept.favorited_at = concept_favorite.favorited_at
+        restaurant = getattr(concept, "restaurant", None)
+
+    except Exception:  # pragma: no cover - defensive to keep landing safe
+        logger.exception("Failed to load demo favorites for home view")
+
+    return concept, concept_favorite, dish, dish_favorite, restaurant
+
 from app import llm
 from .tasks import parse_pdf_menu, run_outscraper_search, scrape_menu
 
@@ -181,7 +245,24 @@ def dish_grid(request, concept_name: str):
 
 def home_view(request):
     """Landing page with signup/login links."""
-    return render(request, "home.html")
+    (
+        demo_concept,
+        demo_concept_favorite,
+        demo_dish,
+        demo_dish_favorite,
+        demo_restaurant,
+    ) = _load_home_demo_favorites()
+
+    context = {
+        "demo_concept": demo_concept,
+        "demo_concept_favorite": demo_concept_favorite,
+        "demo_dish": demo_dish,
+        "demo_dish_favorite": demo_dish_favorite,
+        "demo_restaurant": demo_restaurant,
+        "demo_user_id": DEMO_USER_ID,
+    }
+
+    return render(request, "home.html", context)
 
 
 def signup_view(request):
