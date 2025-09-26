@@ -258,6 +258,17 @@ class ViewSmokeTests(TestCase):
             [{"id": str(menu.id), "name": menu.name}],
         )
         self.assertEqual(resp.context["menu_move_url"], reverse("menu-item-move"))
+        self.assertEqual(resp.context["menus_workspace_url"], reverse("menus"))
+
+    def test_dish_detail_empty_menu_renders_workspace_cta(self):
+        self._create_concepts()
+        concept = models.Concept.objects.first()
+        self._create_dishes(concept)
+
+        resp = self.client.get(reverse("dish_detail", args=[concept.id]))
+        self.assertContains(resp, "Open menus workspace")
+        self.assertContains(resp, f'href="{reverse("menus")}"')
+        self.assertContains(resp, "data-menu-empty-cta")
 
     def test_dish_detail_excludes_deleted_dishes(self):
         self._create_concepts()

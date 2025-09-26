@@ -1,5 +1,11 @@
 {# Full dish card (lookbook-first) #}
-{% with context_name=card_context|default:"grid" menu_list=menu_options|default:"" current_menu=current_menu_id|default:"" move_url=menu_move_url|default:"" %}
+{% with
+  context_name=card_context|default:"grid"
+  menu_list=menu_options|default:""
+  current_menu=current_menu_id|default:""
+  move_url=menu_move_url|default:""
+  menus_url=menus_workspace_url|default:""
+%}
 
 
 <div
@@ -162,9 +168,19 @@
                     Remove from menus
                   </button>
                 {% else %}
-                  <p class="dish-menu-empty" data-no-flip>
-                    Create a menu to add this dish.
-                  </p>
+                  <div class="dish-menu-empty" data-no-flip>
+                    <p>Create a menu to add this dish.</p>
+                    {% if menus_url %}
+                      <a
+                        href="{{ menus_url }}"
+                        class="dish-menu-empty-link"
+                        data-menu-empty-cta
+                        data-no-flip
+                      >
+                        Open menus workspace
+                      </a>
+                    {% endif %}
+                  </div>
                 {% endif %}
               </div>
             </div>

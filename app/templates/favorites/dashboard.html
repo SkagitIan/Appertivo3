@@ -91,7 +91,7 @@
         <div data-uncategorized-list class="grid grid-cols-1 gap-4 md:grid-cols-2">
           {% for favorite in uncategorized_favorites %}
             <div id="favorite-dish-{{ favorite.dish.id }}" class="favorite-dish-card">
-              {% include "dishes/_card.html" with dish=favorite.dish card_context='favorites' menu_options=menu_options menu_move_url=menu_move_url current_menu_id='' %}
+              {% include "dishes/_card.html" with dish=favorite.dish card_context='favorites' menu_options=menu_options menu_move_url=menu_move_url current_menu_id='' menus_workspace_url=menus_workspace_url %}
             </div>
           {% endfor %}
         </div>
