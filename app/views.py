@@ -2269,13 +2269,26 @@ def update_restaurant_info(request):
             _process_menu_submission(restaurant, None, menu_text, menu_pdf)
         return redirect("settings")
 
-    raw_urls = request.POST.get("menu_urls")
-    if raw_urls is None:
-        menu_url = (request.POST.get("menu_url") or "").strip()
-        urls = [menu_url] if menu_url else []
+    submitted_values = request.POST.getlist("menu_urls")
+    if submitted_values:
+        combined = []
+        for value in submitted_values:
+            if not value:
+                continue
+            combined.append(value)
+        if combined:
+            normalized = "\n".join(combined).replace("\r", "\n").replace(",", "\n")
+            urls = [line.strip() for line in normalized.split("\n") if line.strip()]
+        else:
+            urls = []
     else:
-        normalized = raw_urls.replace("\r", "\n").replace(",", "\n")
-        urls = [line.strip() for line in normalized.split("\n") if line.strip()]
+        raw_urls = request.POST.get("menu_urls")
+        if raw_urls is None:
+            menu_url = (request.POST.get("menu_url") or "").strip()
+            urls = [menu_url] if menu_url else []
+        else:
+            normalized = raw_urls.replace("\r", "\n").replace(",", "\n")
+            urls = [line.strip() for line in normalized.split("\n") if line.strip()]
 
     restaurant.set_menu_urls(urls)
     restaurant.save(update_fields=["menu_urls", "primary_menu_url"])
@@ -2534,7 +2547,10 @@ def notification_list_view(request):
 
 def restaurant_status(request, restaurant_id):
     """HTMX endpoint that returns current status widget."""
-    restaurant = get_object_or_404(models.Restaurant, id=restaurant_id)
+    restaurant = get_object_or_404(
+        models.Restaurant.objects.select_related("restaurantsettings"),
+        id=restaurant_id,
+    )
     payload = (
         models.OutscraperPayload.objects.filter(restaurant=restaurant)
         .order_by("-created_at")
@@ -2544,6 +2560,7 @@ def restaurant_status(request, restaurant_id):
         "restaurant": restaurant,
         "menu_version": restaurant.active_menu_version,
         "payload": payload,
+        "restaurant_settings": getattr(restaurant, "restaurantsettings", None),
     }
     return render(request, "_partials/restaurant_status.html", context)
 
@@ -2616,9 +2633,18 @@ def upload_menu(request, restaurant_id):
     restaurant = get_object_or_404(models.Restaurant, id=restaurant_id)
 
     if request.method == "POST":
-        menu_url = (request.POST.get("menu_url") or "").strip()
+        submitted_urls = request.POST.getlist("menu_url")
+        menu_urls = [url.strip() for url in submitted_urls if url and url.strip()]
+        if submitted_urls:
+            restaurant.set_menu_urls(menu_urls)
+            restaurant.save(update_fields=["menu_urls", "primary_menu_url"])
+
         menu_text = (request.POST.get("menu_text") or "").strip()
         menu_pdf = request.FILES.get("menu_pdf")
+
+        menu_url = None
+        if not menu_text and not menu_pdf and menu_urls:
+            menu_url = menu_urls[0]
 
         _process_menu_submission(restaurant, menu_url, menu_text, menu_pdf)
 
