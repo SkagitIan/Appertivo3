@@ -10,6 +10,9 @@ urlpatterns = [
     path("signup/", app_views.signup_view, name="signup"),
     path("login/", app_views.login_view, name="login"),
     path("logout/", app_views.logout_view, name="logout"),
+    path("privacy/", app_views.privacy_view, name="privacy"),
+    path("terms/", app_views.terms_view, name="terms"),
+    path("contact/", app_views.contact_view, name="contact"),
     path("dashboard/<uuid:restaurant_id>/", app_views.dashboard, name="dashboard"),
     path(
         "dashboard/<uuid:restaurant_id>/context-toggle/",

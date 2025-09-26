@@ -65,12 +65,56 @@
 {% block main_class %}max-w-7xl mx-auto px-6 py-8 flex-1{% endblock %}
 
 {% block footer %}
-  <footer class="bg-[#2E005D] text-white">
-    <div class="max-w-7xl mx-auto px-6 py-6 flex flex-col md:flex-row justify-between items-center text-sm">
-      <p>&copy; {{ now|date:"Y" }} Appertivo. All rights reserved.</p>
-      <div class="flex gap-6 mt-4 md:mt-0">
-        <a href="#" class="hover:underline">Privacy</a>
-        <a href="#" class="hover:underline">Terms</a>
+  <footer class="bg-[#14080E] text-white">
+    <div class="max-w-7xl mx-auto px-6 py-12 grid gap-10 md:grid-cols-4">
+      <div class="space-y-4">
+        <a href="{% url 'home' %}" class="text-2xl font-bold tracking-tight">Appertivo</a>
+        <p class="text-sm text-white/70 leading-relaxed">
+          Turn ideas into signature dishes. Capture concepts, favor them, and send polished copy to your menu in minutes.
+        </p>
+      </div>
+      <div class="space-y-3">
+        <h3 class="text-sm font-semibold uppercase tracking-widest text-white/60">Company</h3>
+        <ul class="space-y-2 text-sm">
+          <li><a class="hover:underline" href="{% url 'privacy' %}">Privacy Policy</a></li>
+          <li><a class="hover:underline" href="{% url 'terms' %}">Terms of Service</a></li>
+          <li><a class="hover:underline" href="{% url 'contact' %}">Contact Us</a></li>
+        </ul>
+      </div>
+      <div class="space-y-3">
+        <h3 class="text-sm font-semibold uppercase tracking-widest text-white/60">Product</h3>
+        <ul class="space-y-2 text-sm">
+          <li><a class="hover:underline" href="#app-showcase">Inside the lab</a></li>
+          <li><a class="hover:underline" href="#ai">Train it on your flavor</a></li>
+          <li><a class="hover:underline" href="#social-proof">Customer stories</a></li>
+          <li><a class="hover:underline" href="#pricing">Pricing</a></li>
+        </ul>
+      </div>
+      <div class="space-y-3">
+        <h3 class="text-sm font-semibold uppercase tracking-widest text-white/60">Future Articles</h3>
+        {% with articles=footer_articles|default:None %}
+          {% if articles %}
+            <ul class="space-y-2 text-sm">
+              {% for article in articles %}
+                <li>
+                  <a class="hover:underline" href="{{ article.get_absolute_url }}">{{ article.title }}</a>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="text-sm text-white/60">Fresh field notes from the Appertivo lab are on the way.</p>
+          {% endif %}
+        {% endwith %}
+      </div>
+    </div>
+    <div class="border-t border-white/10">
+      <div class="max-w-7xl mx-auto px-6 py-6 flex flex-col md:flex-row gap-4 md:items-center md:justify-between text-sm text-white/70">
+        <p>&copy; {{ now|date:"Y" }} Appertivo. All rights reserved.</p>
+        <div class="flex gap-4">
+          <a class="hover:text-white" href="https://www.instagram.com/appertivo" rel="noopener" target="_blank">Instagram</a>
+          <a class="hover:text-white" href="https://www.linkedin.com/company/appertivo" rel="noopener" target="_blank">LinkedIn</a>
+          <a class="hover:text-white" href="https://www.youtube.com/@appertivo" rel="noopener" target="_blank">YouTube</a>
+        </div>
       </div>
     </div>
   </footer>
