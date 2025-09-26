@@ -51,7 +51,7 @@ class SignupViewTests(TestCase):
         self.assertEqual(restaurant.location_text, "City, State")
         self.assertIsNone(restaurant.primary_menu_url)
         self.assertEqual(restaurant.menu_urls, [])
-        self.assertEqual(body["redirect_url"], reverse("dashboard", args=[restaurant.id]))
+        self.assertEqual(body["redirect_url"], reverse("onboarding"))
 
         payload_obj = models.OutscraperPayload.objects.get()
         self.assertEqual(payload_obj.status, models.OutscraperPayload.Status.QUEUED)
@@ -62,7 +62,9 @@ class SignupViewTests(TestCase):
 
     @patch("app.views.run_outscraper_search")
     @patch("app.views.scrape_menu")
-    def test_form_signup_without_menu_triggers_outscraper(self, mock_scrape, mock_outscraper):
+    def test_form_signup_triggers_outscraper_and_redirects_to_onboarding(
+        self, mock_scrape, mock_outscraper
+    ):
         """HTML signup without menu URL should queue Outscraper and redirect."""
         form_data = {
             "email": "owner@example.com",
@@ -76,7 +78,7 @@ class SignupViewTests(TestCase):
             response = self.client.post(reverse("signup"), data=form_data)
 
         restaurant = models.Restaurant.objects.get()
-        self.assertRedirects(response, reverse("dashboard", args=[restaurant.id]))
+        self.assertRedirects(response, reverse("onboarding"))
         self.assertIn("_auth_user_id", self.client.session)
 
         payload_obj = models.OutscraperPayload.objects.get()
@@ -84,35 +86,57 @@ class SignupViewTests(TestCase):
         mock_outscraper.delay.assert_called_once_with(str(payload_obj.id))
         mock_scrape.delay.assert_not_called()
 
-    @patch("app.views.run_outscraper_search")
     @patch("app.views.scrape_menu")
-    def test_form_signup_with_menu_url_scrapes_immediately(self, mock_scrape, mock_outscraper):
-        """Providing a menu URL should create a queued menu version and scrape it."""
+    @patch("app.views.run_outscraper_search")
+    def test_onboarding_menu_submission_creates_menu_version(
+        self, mock_outscraper, mock_scrape
+    ):
+        """Submitting a menu URL on onboarding queues a scrape and saves the URL."""
         form_data = {
             "email": "owner@example.com",
             "password1": "pw",
             "password2": "pw",
             "restaurant_name": "Tasty Place",
             "location": "City, State",
-            "menu_url": "http://example.com/menu",
         }
 
         with self.captureOnCommitCallbacks(execute=True):
-            response = self.client.post(reverse("signup"), data=form_data)
+            self.client.post(reverse("signup"), data=form_data)
 
         restaurant = models.Restaurant.objects.get()
-        self.assertRedirects(response, reverse("dashboard", args=[restaurant.id]))
-        self.assertEqual(models.OutscraperPayload.objects.count(), 0)
 
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                reverse("onboarding"),
+                data={"menu_url": "http://example.com/menu"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        restaurant.refresh_from_db()
+        self.assertEqual(restaurant.primary_menu_url, "http://example.com/menu")
         menu_version = models.MenuVersion.objects.get()
         self.assertEqual(menu_version.source_url, "http://example.com/menu")
         self.assertEqual(menu_version.status, models.MenuVersion.Status.QUEUED)
-        self.assertEqual(menu_version.source_kind, models.MenuVersion.SourceKind.URL_SCRAPE)
         mock_scrape.delay.assert_called_once_with(str(menu_version.id))
-        mock_outscraper.delay.assert_not_called()
-        restaurant.refresh_from_db()
-        self.assertEqual(restaurant.primary_menu_url, "http://example.com/menu")
-        self.assertEqual(restaurant.menu_urls, ["http://example.com/menu"])
+        mock_outscraper.delay.assert_called()  # from signup
+
+    @patch("app.views.run_outscraper_search")
+    def test_onboarding_requires_menu_url(self, mock_outscraper):
+        """Posting without a URL should show an error message."""
+        form_data = {
+            "email": "owner@example.com",
+            "password1": "pw",
+            "password2": "pw",
+            "restaurant_name": "Tasty Place",
+            "location": "City, State",
+        }
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(reverse("signup"), data=form_data)
+
+        response = self.client.post(reverse("onboarding"), data={"menu_url": ""})
+        self.assertContains(response, "Please provide a menu URL.")
+        self.assertEqual(models.MenuVersion.objects.count(), 0)
 
     def test_form_signup_with_existing_email_shows_error(self):
         """Duplicate email addresses should not trigger a server error."""
