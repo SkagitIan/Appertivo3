@@ -132,8 +132,54 @@ class ViewSmokeTests(TestCase):
         self._create_concepts()
         resp = self.client.get(reverse("concepts"))
         self.assertContains(resp, "C0")
-        gen_resp = self.client.post(reverse("concepts-generate"))
-        self.assertEqual(gen_resp.status_code, 200)
+        payload = {
+            "concepts": [
+                {
+                    "title": f"New {i}",
+                    "subtitle": "Sub",
+                    "reasoning": "Because",
+                    "tags": ["tag1", "tag2", "tag3"],
+                }
+                for i in range(9)
+            ]
+        }
+        fake_response = SimpleNamespace(
+            output=[SimpleNamespace(content=[SimpleNamespace(text=json.dumps(payload))])]
+        )
+
+        with patch("app.views.client") as mock_client:
+            mock_client.responses.create.return_value = fake_response
+            gen_resp = self.client.post(reverse("concepts-generate"))
+        self.assertEqual(gen_resp.status_code, 302)
+        self.assertEqual(gen_resp["Location"], reverse("concepts"))
+
+    def test_dashboard_generation_hx_redirects_to_concepts(self):
+        self._create_concepts()
+        current_url = f"/dashboard/{self.restaurant.id}/"
+        payload = {
+            "concepts": [
+                {
+                    "title": f"Run {i}",
+                    "subtitle": "Sub",
+                    "reasoning": "Why",
+                    "tags": ["t1", "t2", "t3"],
+                }
+                for i in range(9)
+            ]
+        }
+        fake_response = SimpleNamespace(
+            output=[SimpleNamespace(content=[SimpleNamespace(text=json.dumps(payload))])]
+        )
+
+        with patch("app.views.client") as mock_client:
+            mock_client.responses.create.return_value = fake_response
+            response = self.client.post(
+                reverse("concepts-generate"),
+                HTTP_HX_REQUEST="true",
+                HTTP_HX_CURRENT_URL=current_url,
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["HX-Redirect"], reverse("concepts"))
 
     def test_concept_favorite(self):
         self._create_concepts()
