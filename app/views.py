@@ -40,7 +40,9 @@ client = OpenAI(api_key=_openai_api_key) if _openai_api_key else None
 import datetime
 from itertools import islice
 
+
 from app.tasks import create_ideation_run
+
 
 stripe.api_key = settings.STRIPE_SECRET_KEY or ""
 logger = logging.getLogger(__name__)
@@ -1105,41 +1107,68 @@ def concepts_generate_view(request):
             + user_prompt
         )
 
-    response = client.responses.create(
-        model="gpt-4.1-mini",
-        input=[
-            {
-                "role": "system",
-                "content": system_prompt,
-            },
-            {"role": "user", "content": context},
-        ],
-        text={"format": schema},
-    )
-    logger.info(context)
-    # 👇 Extract raw text and parse
-    raw_text = response.output[0].content[0].text
+    context_snapshot = {
+        "prompt": user_prompt,
+        "session_concepts": session_concepts[:15],
+        "context": context,
+    }
+
+    ideation_run = models.IdeationRun.objects.create(
+        restaurant=restaurant,
+        initiated_by_user=request.user,
+        type=models.IdeationRun.RunType.CONCEPTS,
+        model_name="gpt-4.1-mini",
+        temperature=0.5,
+        classic_creative=50,
+        context_snapshot=context_snapshot,
+        status=models.IdeationRun.Status.RUNNING,
+        started_at=timezone.now(),
+
+    concepts: List[models.Concept] = []
+
     try:
-        data = json.loads(raw_text)
-    except json.JSONDecodeError:
-        data = {"concepts": []}  # fallback if model didn’t follow schema
-
-    names = data.get("concepts", [])
-
-    task = create_ideation_run.delay(restaurant.id,request.user.id,context,)
-
-    concepts = [
-        models.Concept.objects.create(
-            restaurant=restaurant,
-            ideation_run=run,
-            name=item["title"],
-            subtitle=item["subtitle"],
-            reasoning=item["reasoning"],
-            tags=item["tags"],
-            rank_order=idx,
+        response = client.responses.create(
+            model="gpt-4.1-mini",
+            input=[
+                {
+                    "role": "system",
+                    "content": system_prompt,
+                },
+                {"role": "user", "content": context},
+            ],
+            text={"format": schema},
         )
-        for idx, item in enumerate(names, start=1)
-    ]
+        logger.info(context)
+        raw_text = response.output[0].content[0].text
+        try:
+            data = json.loads(raw_text)
+        except json.JSONDecodeError:
+            data = {"concepts": []}
+
+        names = data.get("concepts", [])
+
+        concepts = [
+            models.Concept.objects.create(
+                restaurant=restaurant,
+                ideation_run=ideation_run,
+                name=item["title"],
+                subtitle=item["subtitle"],
+                reasoning=item["reasoning"],
+                tags=item["tags"],
+                rank_order=idx,
+            )
+            for idx, item in enumerate(names, start=1)
+        ]
+
+        ideation_run.status = models.IdeationRun.Status.SUCCEEDED
+        ideation_run.finished_at = timezone.now()
+        ideation_run.save(update_fields=["status", "finished_at"])
+    except Exception as exc:
+        ideation_run.status = models.IdeationRun.Status.FAILED
+        ideation_run.error_message = str(exc)
+        ideation_run.finished_at = timezone.now()
+        ideation_run.save(update_fields=["status", "error_message", "finished_at"])
+        raise
 
 
     for concept in concepts:
