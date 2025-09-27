@@ -1,0 +1,24 @@
+{% with slider_value=slider_value|default:50 %}
+  <div class="{{ wrapper_classes|default:'space-y-2' }}" {% if slider_wrapper_id %}id="{{ slider_wrapper_id }}"{% endif %} data-creative-balance-slider>
+    <div class="{{ label_row_classes|default:'flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-400' }}">
+      <span class="{{ label_classes|default:'' }}">{{ classic_label|default:'Classic' }}</span>
+      {% if show_value|default:True %}
+        <span data-creative-balance-value class="{{ value_classes|default:'' }}">{{ slider_value }}/100</span>
+      {% else %}
+        <div class="{{ divider_classes|default:'h-px flex-1 bg-slate-200' }}" aria-hidden="true"></div>
+      {% endif %}
+      <span class="{{ label_classes|default:'' }}">{{ creative_label|default:'Creative' }}</span>
+    </div>
+    <input
+      type="range"
+      name="{{ slider_name|default:'classic_creative_slider' }}"
+      {% if slider_id %}id="{{ slider_id }}"{% endif %}
+      min="0"
+      max="100"
+      value="{{ slider_value }}"
+      class="{{ input_classes|default:'w-full accent-[#B993D6]' }}"
+      data-creative-balance-input
+      {{ input_attrs|default:'' }}
+    >
+  </div>
+{% endwith %}
