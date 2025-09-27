@@ -681,12 +681,22 @@ def dashboard(request, restaurant_id):
         .order_by("-created_at")
     )
     recent_concepts = list(concepts_qs[:4])
+    concept_ids = [concept.id for concept in recent_concepts]
+    favorite_concept_ids: set[str] = set()
+    if concept_ids:
+        favorite_concept_ids = set(
+            models.FavoriteConcept.objects.filter(
+                user=request.user, concept_id__in=concept_ids
+            ).values_list("concept_id", flat=True)
+        )
+
     for concept in recent_concepts:
         concept.runtime_display = format_run_duration(concept.ideation_run)
         run_finished = (
             concept.ideation_run.finished_at if concept.ideation_run else None
         )
         concept.generated_at = run_finished or concept.created_at
+        concept.is_favorited_for_user = concept.id in favorite_concept_ids
 
     favorite_dishes = list(
         models.FavoriteDish.objects.filter(
@@ -700,6 +710,23 @@ def dashboard(request, restaurant_id):
     for fav, dish in zip(favorite_dishes, recent_dishes):
         dish.is_favorited = True
         dish.favorited_at = fav.favorited_at
+
+    dish_ids = [dish.id for dish in recent_dishes]
+    pending_feedback_by_dish: dict[str, int] = {}
+    if dish_ids:
+        pending_feedback_by_dish = {
+            row["feedback__dish_id"]: row["count"]
+            for row in models.FeedbackAction.objects.filter(
+                feedback__dish_id__in=dish_ids,
+                status=models.FeedbackAction.Status.PENDING,
+            )
+            .values("feedback__dish_id")
+            .annotate(count=Count("id"))
+        }
+
+    for dish in recent_dishes:
+        dish.pending_feedback_count = pending_feedback_by_dish.get(dish.id, 0)
+        dish.needs_collab_attention = dish.pending_feedback_count > 0
 
     menus = list(
         models.MenuCollection.objects.filter(restaurant=restaurant)
@@ -722,12 +749,51 @@ def dashboard(request, restaurant_id):
         ]
         menu.menu_items = items
 
+    menu_ids = [menu.id for menu in menus]
+    pending_feedback_by_menu: dict[str, int] = {}
+    if menu_ids:
+        pending_feedback_by_menu = {
+            row["feedback__menu_id"]: row["count"]
+            for row in models.FeedbackAction.objects.filter(
+                feedback__menu_id__in=menu_ids,
+                status=models.FeedbackAction.Status.PENDING,
+            )
+            .values("feedback__menu_id")
+            .annotate(count=Count("id"))
+        }
+
+    for menu in menus:
+        menu.pending_feedback_count = pending_feedback_by_menu.get(menu.id, 0)
+
+    collaboration_actions_qs = models.FeedbackAction.objects.filter(
+        feedback__menu__restaurant=restaurant,
+        status=models.FeedbackAction.Status.PENDING,
+    ).select_related("feedback__menu", "feedback__dish")
+
+    collaboration_updates = [
+        {
+            "id": action.id,
+            "message": _format_feedback_activity(action.feedback),
+            "menu_name": getattr(action.feedback.menu, "name", ""),
+            "dish_title": getattr(getattr(action.feedback, "dish", None), "title", ""),
+            "created_at": action.feedback.created_at,
+        }
+        for action in collaboration_actions_qs.order_by("-created_at")[:5]
+    ]
+    pending_collaboration_total = collaboration_actions_qs.count()
+    collaboration_updates_more = max(
+        pending_collaboration_total - len(collaboration_updates), 0
+    )
+
     context = {
         "restaurant": restaurant,
         "trial_info": trial_info,
         "recent_concepts": recent_concepts,
         "recent_dishes": recent_dishes,
         "menus": menus,
+        "collaboration_updates": collaboration_updates,
+        "pending_collaboration_total": pending_collaboration_total,
+        "collaboration_updates_more": collaboration_updates_more,
         "empty_concepts": [],
         "settings_url": reverse("settings"),
         "tbd_message": "Personalized tips will appear here soon.",
