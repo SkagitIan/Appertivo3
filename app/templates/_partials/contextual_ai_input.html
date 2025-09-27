@@ -1,8 +1,7 @@
 {% load static %}
 {% with root_id=form_id|default:'ai-input' %}
-  {% with placeholders_id=root_id|add:'-placeholders' suggestions_id=root_id|add:'-suggestions' indicator_id=root_id|add:'-indicator' %}
+  {% with placeholders_id=root_id|add:'-placeholders' indicator_id=root_id|add:'-indicator' %}
     {{ placeholder_samples|json_script:placeholders_id }}
-    {{ suggestions|json_script:suggestions_id }}
 
     <div
       id="{{ root_id }}-wrapper"
@@ -10,13 +9,17 @@
       class="relative space-y-4 pt-1 sm:pt-0"
     >
 
+      {% if instructions_text %}
+        <p class="text-xs text-slate-500">{{ instructions_text }}</p>
+      {% endif %}
+
       <form
         id="{{ root_id }}"
         hx-post="{{ action_url }}"
         hx-target="{{ target }}"
         hx-swap="{{ hx_swap|default:'innerHTML' }}"
         hx-indicator="#{{ indicator_id }}"
-        class="flex flex-col gap-3 sm:flex-row sm:items-center"
+        class="space-y-4"
       >
         <div class="relative flex-1">
           <input
@@ -45,24 +48,27 @@
             </button>
           </div>
         </div>
+        <div class="space-y-2">
+          <div class="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            <span>Classic</span>
+            <span data-slider-value>{{ slider_value|default:50 }}/100</span>
+            <span>Creative</span>
+          </div>
+          <input
+            type="range"
+            name="classic_creative_slider"
+            id="{{ root_id }}-slider"
+            min="0"
+            max="100"
+            value="{{ slider_value|default:50 }}"
+            class="w-full accent-[#B993D6]"
+          >
+        </div>
       </form>
       {% if creative_bias_label %}
         <p class="text-xs text-slate-500">
           {{ creative_bias_label }}
         </p>
-      {% endif %}
-      {% if suggestions %}
-        <div class="flex flex-wrap gap-2">
-          {% for suggestion in suggestions %}
-            <button
-              type="button"
-              class="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-[#49475B] transition hover:bg-slate-100"
-              data-suggestion="{{ suggestion }}"
-            >
-              {{ suggestion }}
-            </button>
-          {% endfor %}
-        </div>
       {% endif %}
       <div
         id="{{ indicator_id }}"
@@ -104,19 +110,12 @@
         const form = root.querySelector("form");
         const input = root.querySelector('input[name="prompt"]');
         const placeholderEl = document.getElementById("{{ placeholders_id }}");
-        const suggestionEl = document.getElementById("{{ suggestions_id }}");
         let placeholders = [];
-        let suggestions = [];
 
         try {
           placeholders = JSON.parse(placeholderEl ? placeholderEl.textContent : "[]");
         } catch (error) {
           placeholders = [];
-        }
-        try {
-          suggestions = JSON.parse(suggestionEl ? suggestionEl.textContent : "[]");
-        } catch (error) {
-          suggestions = [];
         }
 
         if (placeholders.length > 1) {
@@ -132,26 +131,26 @@
           }, 4200);
         }
 
-        root.querySelectorAll('[data-suggestion]').forEach(function (button) {
-          button.addEventListener('click', function () {
-            if (!input) {
-              return;
-            }
-            input.value = button.getAttribute('data-suggestion') || '';
-            form.requestSubmit();
-          });
-        });
-
         const inspireButton = root.querySelector('[data-inspire]');
         if (inspireButton) {
           inspireButton.addEventListener('click', function () {
-            const pool = suggestions.concat(placeholders);
+            const pool = placeholders.length ? placeholders : ['Seasonal chef specials'];
             const choice = pool[Math.floor(Math.random() * pool.length)] || 'Seasonal chef specials';
             if (input) {
               input.value = choice;
               form.requestSubmit();
             }
           });
+        }
+
+        const slider = root.querySelector('#{{ root_id }}-slider');
+        const sliderValue = root.querySelector('[data-slider-value]');
+        if (slider && sliderValue) {
+          const updateSliderValue = function () {
+            sliderValue.textContent = slider.value + '/100';
+          };
+          slider.addEventListener('input', updateSliderValue);
+          updateSliderValue();
         }
       })();
     </script>
