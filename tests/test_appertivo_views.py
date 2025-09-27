@@ -1,4 +1,5 @@
 import json
+from datetime import timedelta
 from types import SimpleNamespace
 from decimal import Decimal
 from unittest.mock import patch
@@ -140,6 +141,96 @@ class ViewSmokeTests(TestCase):
         self.assertContains(resp, "Inspire Me")
         self.assertContains(resp, "Italian chef&#x27;s table")
         self.assertContains(resp, "Creative bias: 50/100")
+
+    def test_dashboard_shows_collaboration_feedback_summary(self):
+        concept_run = models.IdeationRun.objects.create(
+            restaurant=self.restaurant,
+            initiated_by_user=self.user,
+            type=models.IdeationRun.RunType.CONCEPTS,
+            model_name="concept",
+            temperature=0,
+            classic_creative=50,
+            context_snapshot={},
+            status=models.IdeationRun.Status.SUCCEEDED,
+        )
+        concept = models.Concept.objects.create(
+            restaurant=self.restaurant,
+            ideation_run=concept_run,
+            name="Signature",
+            rank_order=1,
+        )
+        concept.sketch_image_url = "https://example.com/sketch.jpg"
+        concept.save(update_fields=["sketch_image_url"])
+        models.FavoriteConcept.objects.create(
+            user=self.user,
+            concept=concept,
+            favorited_at=timezone.now(),
+        )
+
+        dish_run = models.IdeationRun.objects.create(
+            restaurant=self.restaurant,
+            initiated_by_user=self.user,
+            type=models.IdeationRun.RunType.DISHES,
+            model_name="dish",
+            temperature=0,
+            classic_creative=50,
+            context_snapshot={},
+            parent_concept=concept,
+            status=models.IdeationRun.Status.SUCCEEDED,
+        )
+        dish = models.DishIdea.objects.create(
+            restaurant=self.restaurant,
+            ideation_run=dish_run,
+            parent_concept=concept,
+            title="Seared Scallops",
+            description="Rich",
+            ingredient_names=[],
+            category_tags=[],
+        )
+        models.FavoriteDish.objects.create(
+            user=self.user,
+            dish=dish,
+            favorited_at=timezone.now(),
+        )
+
+        menu = models.MenuCollection.objects.create(
+            restaurant=self.restaurant,
+            created_by_user=self.user,
+            name="Chef's Table",
+        )
+        models.MenuItem.objects.create(menu=menu, dish=dish, position=1)
+        link = models.CollaborationLink.objects.create(
+            menu=menu,
+            expires_at=timezone.now() + timedelta(days=7),
+            is_active=True,
+        )
+        feedback = models.Feedback.objects.create(
+            menu=menu,
+            dish=dish,
+            link=link,
+            type=models.Feedback.Type.COMMENT,
+            payload={"comment": "Consider extra citrus"},
+            anon_id="abc123",
+        )
+        models.FeedbackAction.objects.create(feedback=feedback)
+
+        resp = self.client.get(reverse("dashboard", args=[self.restaurant.id]))
+
+        recent_concepts = resp.context["recent_concepts"]
+        self.assertTrue(recent_concepts)
+        self.assertTrue(recent_concepts[0].is_favorited_for_user)
+        self.assertEqual(recent_concepts[0].sketch_image_url, "https://example.com/sketch.jpg")
+
+        recent_dishes = resp.context["recent_dishes"]
+        self.assertTrue(recent_dishes)
+        self.assertTrue(recent_dishes[0].needs_collab_attention)
+        self.assertEqual(recent_dishes[0].pending_feedback_count, 1)
+
+        self.assertEqual(resp.context["pending_collaboration_total"], 1)
+        self.assertEqual(resp.context["collaboration_updates_more"], 0)
+        updates = resp.context["collaboration_updates"]
+        self.assertTrue(updates)
+        self.assertEqual(updates[0]["menu_name"], menu.name)
 
     def test_concepts_page_includes_contextual_ai_input(self):
         self._create_concepts()
