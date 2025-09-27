@@ -153,6 +153,74 @@
     outline-offset: 2px;
   }
 
+  .card-bottom-bar {
+    background: linear-gradient(to top, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0));
+    backdrop-filter: blur(10px);
+    border-top: 1px solid rgba(148, 163, 184, 0.25);
+    padding-top: 0.75rem;
+    padding-bottom: 0.25rem;
+  }
+
+  .price-tag {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 1.15rem 0.35rem 1.05rem;
+    background: linear-gradient(135deg, #ff6b6b, #ffaf7b);
+    color: #ffffff;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    border-radius: 999px 0 0 999px;
+    clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%);
+    box-shadow: 0 12px 24px rgba(255, 107, 107, 0.3);
+    z-index: 2;
+  }
+
+  .price-tag::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0.55rem;
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.85);
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.45);
+    transform: translateY(-50%);
+  }
+
+  .tag-delete-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.85rem;
+    border-radius: 9999px;
+    background: rgba(248, 113, 113, 0.12);
+    color: #dc2626;
+    border: 1px solid rgba(248, 113, 113, 0.35);
+    font-weight: 600;
+    font-size: 0.75rem;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  }
+
+  .tag-delete-btn:hover {
+    background: rgba(248, 113, 113, 0.2);
+    border-color: rgba(248, 113, 113, 0.55);
+    color: #b91c1c;
+    transform: translateY(-1px);
+  }
+
+  .tag-delete-btn:focus-visible {
+    outline: 2px solid rgba(248, 113, 113, 0.75);
+    outline-offset: 2px;
+  }
+
+  .tag-delete-btn i {
+    font-size: 0.85rem;
+  }
+
   .dish-menu-control {
     position: relative;
   }

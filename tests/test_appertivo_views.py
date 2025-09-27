@@ -259,6 +259,10 @@ class ViewSmokeTests(TestCase):
         )
         self.assertEqual(resp.context["menu_move_url"], reverse("menu-item-move"))
         self.assertEqual(resp.context["menus_workspace_url"], reverse("menus"))
+        self.assertEqual(
+            resp.context["dishes_generate_url"],
+            reverse("dishes-generate", args=[concept.id]),
+        )
 
     def test_dish_detail_empty_menu_renders_workspace_cta(self):
         self._create_concepts()
