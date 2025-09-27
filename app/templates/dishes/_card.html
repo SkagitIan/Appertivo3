@@ -4,8 +4,8 @@
   id="dish-{{ dish.id }}"
   data-dish-card
   data-dish-id="{{ dish.id }}"
-  data-current-menu="{{ current_menu_id|default:'' }}"
-  data-move-url="{{ menu_move_url|default:'' }}"
+  data-current-menu="{{ current_menu_id|default:"" }}"
+  data-move-url="{{ menu_move_url|default:"" }}"
   data-favorited="{% if dish.is_favorited %}true{% else %}false{% endif %}"
 >
   <div class="flip-scene h-full">
@@ -52,7 +52,6 @@
                 </button>
               </div>
             </div>
-
             <footer class="card-bottom-bar flex justify-end gap-2">
               {% include "dishes/_favorite_button.html" with dish=dish card_context=card_context|default:"grid" btn_class='favorite-btn card-action-button bg-white/90 text-slate-500 hover:text-red-400' %}
               <button
