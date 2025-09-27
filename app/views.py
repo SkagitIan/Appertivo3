@@ -1,6 +1,7 @@
 """Application views."""
 
 import json, logging, os, uuid
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Iterable, List, Optional
 
 from django.conf import settings
@@ -67,6 +68,24 @@ DEFAULT_PROMPT_PLACEHOLDERS = [
     "Try: Quick lunch menu",
     "Try: New dessert twists",
 ]
+
+
+def _resolve_creativity_settings(
+    restaurant: "models.Restaurant",
+) -> tuple[int, Decimal]:
+    """Return the slider value and mapped temperature for a restaurant."""
+
+    settings = getattr(restaurant, "restaurantsettings", None)
+    if not settings:
+        settings, _ = models.RestaurantSettings.objects.get_or_create(
+            restaurant=restaurant
+        )
+
+    slider = int(getattr(settings, "classic_creative_slider", 50) or 50)
+    slider = max(0, min(100, slider))
+    temperature = Decimal("0.1") + Decimal(slider) * Decimal("0.008")
+    temperature = temperature.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return slider, temperature
 
 class ConceptList(BaseModel):
     concepts: List[str]
@@ -583,6 +602,12 @@ def dashboard(request, restaurant_id):
     settings_obj, _ = models.RestaurantSettings.objects.get_or_create(
         restaurant=restaurant
     )
+    slider_value, slider_temperature = _resolve_creativity_settings(restaurant)
+    slider_temperature_float = float(slider_temperature)
+    creative_bias_label = (
+        "Creative bias: "
+        f"{slider_value}/100 (0 = Classic, 100 = Inventive) · Temp {slider_temperature_float:.2f}"
+    )
 
     subscription = (
         models.Subscription.objects.filter(account=restaurant.account)
@@ -706,6 +731,7 @@ def dashboard(request, restaurant_id):
         "recent_concepts": recent_concepts,
         "recent_dishes": recent_dishes,
         "menus": menus,
+        "empty_concepts": [],
         "settings_url": reverse("settings"),
         "context_toggle_url": reverse(
             "dashboard-context-toggle", args=[restaurant.id]
@@ -715,6 +741,9 @@ def dashboard(request, restaurant_id):
         "concept_generate_url": reverse("concepts-generate"),
         "concept_prompt_placeholders": DEFAULT_PROMPT_PLACEHOLDERS,
         "concept_prompt_suggestions": build_prompt_suggestions(restaurant),
+        "classic_creative_slider": slider_value,
+        "classic_creative_temperature": slider_temperature_float,
+        "creative_bias_label": creative_bias_label,
     }
     return render(request, "dashboard.html", context)
 
@@ -1043,6 +1072,17 @@ def concepts_view(request):
             .first()
         )
 
+    slider_value = 50
+    slider_temperature = 0.5
+    creative_bias_label = ""
+    if restaurant:
+        slider_value, temperature_decimal = _resolve_creativity_settings(restaurant)
+        slider_temperature = float(temperature_decimal)
+        creative_bias_label = (
+            "Creative bias: "
+            f"{slider_value}/100 (0 = Classic, 100 = Inventive) · Temp {slider_temperature:.2f}"
+        )
+
     concepts_qs = models.Concept.objects.order_by("-created_at").annotate(
         has_dishes=Exists(
             models.DishIdea.objects.filter(
@@ -1071,6 +1111,9 @@ def concepts_view(request):
             "concept_generate_url": reverse("concepts-generate"),
             "concept_prompt_placeholders": DEFAULT_PROMPT_PLACEHOLDERS,
             "concept_prompt_suggestions": build_prompt_suggestions(restaurant),
+            "classic_creative_slider": slider_value,
+            "classic_creative_temperature": slider_temperature,
+            "creative_bias_label": creative_bias_label,
         },
     )
 
@@ -1133,6 +1176,9 @@ def concepts_generate_view(request):
     raw_prompt = (request.POST.get("prompt") or "").strip()
     user_prompt = raw_prompt[:280]
 
+    slider_value, slider_temperature = _resolve_creativity_settings(restaurant)
+    temperature_float = float(slider_temperature)
+
     session_concepts = [
         name.strip()
         for name in (request.session.get("generated_concepts") or [])
@@ -1155,6 +1201,10 @@ def concepts_generate_view(request):
     Current Restaurant Menu:  {restaurant_menu}
     About Services:  {restaurant.about_json}
     """
+    context += (
+        "\nCreative direction slider: "
+        f"{slider_value}/100 (0 = classic, 100 = highly inventive)."
+    )
     if session_concepts:
         context += (
             "\nPreviously generated concept names to avoid: "
@@ -1221,6 +1271,9 @@ def concepts_generate_view(request):
                 - Cultural heritage nights (Italian Nonna Night, Korean Comfort, etc.)
                 - Weather-responsive themes (Cozy Soup Sundays, Summer Grill Nights)
 
+                **Creative Direction Slider**: {slider_value}/100 where 0 = classic and 100 = highly inventive.
+                Match the ambition of the slider when balancing comforting favorites with bold experimentation.
+
                 **Example Structure**:
                 ```
                 1. **Name**: "Harvest Moon Monday"
@@ -1251,6 +1304,8 @@ def concepts_generate_view(request):
         "prompt": user_prompt,
         "session_concepts": session_concepts[:15],
         "context": context,
+        "classic_creative_slider": slider_value,
+        "temperature": temperature_float,
     }
 
     ideation_run = models.IdeationRun.objects.create(
@@ -1258,8 +1313,8 @@ def concepts_generate_view(request):
         initiated_by_user=request.user,
         type=models.IdeationRun.RunType.CONCEPTS,
         model_name="gpt-4.1-mini",
-        temperature=0.5,
-        classic_creative=50,
+        temperature=slider_temperature,
+        classic_creative=slider_value,
         context_snapshot=context_snapshot,
         status=models.IdeationRun.Status.RUNNING,
         started_at=timezone.now(),)
@@ -1277,6 +1332,7 @@ def concepts_generate_view(request):
                 {"role": "user", "content": context},
             ],
             text={"format": schema},
+            temperature=temperature_float,
         )
         logger.info(context)
         raw_text = response.output[0].content[0].text
@@ -1764,6 +1820,8 @@ def dishes_generate_view(request, concept_id):
     concept = models.Concept.objects.select_related("restaurant").get(id=concept_id)
     restaurant = concept.restaurant
     membership = models.Membership.objects.filter(user=request.user).first()
+    slider_value, slider_temperature = _resolve_creativity_settings(restaurant)
+    temperature_float = float(slider_temperature)
     if restaurant.active_menu_version:
         restaurant_menu = restaurant.active_menu_version.raw_markdown
     else:
@@ -1775,6 +1833,10 @@ def dishes_generate_view(request, concept_id):
         Current Restaurant Menu:  {restaurant_menu}
         About Services:  {restaurant.about_json}
     """
+    context_text += (
+        "\n        Creative direction slider: "
+        f"{slider_value}/100 (0 = classic, 100 = highly inventive)."
+    )
 
     deleted_dishes = list(
         models.DishIdea.objects.filter(restaurant=restaurant, is_deleted=True)
@@ -1785,6 +1847,8 @@ def dishes_generate_view(request, concept_id):
     context_payload = {
         "context": context_text,
         "deleted_dishes": deleted_dishes,
+        "classic_creative_slider": slider_value,
+        "temperature": temperature_float,
     }
 
     logger.info("Starting dish generation: concept=%s, restaurant=%s", concept.name, restaurant.name)
@@ -1837,8 +1901,8 @@ def dishes_generate_view(request, concept_id):
         initiated_by_user=request.user,
         type=models.IdeationRun.RunType.DISHES,
         model_name="gpt-4o-mini",
-        temperature=0.7,
-        classic_creative=50,
+        temperature=slider_temperature,
+        classic_creative=slider_value,
         context_snapshot=context_payload,
         parent_concept=concept,
         status=models.IdeationRun.Status.RUNNING,
@@ -1852,6 +1916,12 @@ def dishes_generate_view(request, concept_id):
         Each dish must include: title, description, ingredient_overlap, category_tags.
         """
 
+        instruction += (
+            "\nCreative direction slider: "
+            f"{slider_value}/100 (0 = classic, 100 = highly inventive)."
+            " Follow this bias when proposing dish riffs."
+        )
+
         if previous_titles:
             instruction += "\nAvoid repeating these dish names: " + ", ".join(previous_titles)
 
@@ -1863,6 +1933,7 @@ def dishes_generate_view(request, concept_id):
                 {"role": "user", "content": json.dumps(context_payload, indent=2)},
             ],
             text={"format": schema},
+            temperature=temperature_float,
         )
 
         raw_text = response.output[0].content[0].text
