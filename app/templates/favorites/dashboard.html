@@ -21,13 +21,6 @@
   id="favorites-root"
   class="px-4 py-8 space-y-8"
 >
-  <div class="rounded-2xl border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur">
-    {% if restaurant %}
-      <p class="text-sm text-slate-600">Favorites tailored for <span class="font-semibold text-[#14080E]">{{ restaurant.name }}</span>. Organize them into menus whenever you are ready.</p>
-    {% else %}
-      <p class="text-sm text-slate-600">Save your favorite ideas to keep them within reach. Use the menu actions below to organize them.</p>
-    {% endif %}
-  </div>
 
   <details open class="favorites-section group rounded-3xl border border-slate-200/70 bg-white/90 shadow-sm backdrop-blur">
     <summary class="flex cursor-pointer select-none items-center justify-between gap-4 px-6 py-5">
