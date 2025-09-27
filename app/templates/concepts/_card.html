@@ -113,6 +113,7 @@
               hx-trigger="click"
               data-overlay="true"
               data-messages='["Cooking up ideas…", "Almost there…", "Plating concepts!"]'
+              data-generate-button
             >
               <i class="fa-solid fa-utensils text-[0.8rem]"></i>
               <span>Generate</span>
@@ -138,6 +139,10 @@
       <div class="concept-loading-face">
         <div class="concept-loading-spinner" aria-hidden="true"></div>
         <p class="text-sm font-semibold tracking-wide uppercase">Preparing your concept sketch…</p>
+      </div>
+
+      <div class="concept-progress" aria-hidden="true">
+        <div class="concept-progress__bar"></div>
       </div>
 
       {% if loading %}

@@ -30,8 +30,10 @@
           hx-swap="beforeend"
           hx-include="#concepts-ai-input-slider"
           class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-xs font-medium text-slate-500 shadow-sm transition hover:border-slate-300 hover:text-slate-600"
+          data-more-ideas
         >
-          <span>More ideas like these</span>
+          <span class="more-ideas-spinner" aria-hidden="true"></span>
+          <span class="more-ideas-text">More ideas like these</span>
           <i class="fa-solid fa-chevron-down text-[10px]"></i>
         </button>
       </div>

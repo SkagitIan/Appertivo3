@@ -283,6 +283,34 @@ class ViewSmokeTests(TestCase):
         self.assertAlmostEqual(run.context_snapshot["temperature"], 0.26, places=2)
         self.assertAlmostEqual(call_kwargs["temperature"], 0.26, places=2)
 
+    def test_dishes_generate_htmx_redirects(self):
+        self._create_concepts()
+        concept = models.Concept.objects.first()
+        payload = {
+            "dishes": [
+                {
+                    "title": "Dish",
+                    "description": "Desc",
+                    "ingredient_overlap": ["Item"],
+                    "category_tags": ["Tag"],
+                }
+                for _ in range(9)
+            ]
+        }
+        fake_response = SimpleNamespace(
+            output=[SimpleNamespace(content=[SimpleNamespace(text=json.dumps(payload))])]
+        )
+
+        with patch("app.views.client") as mock_client:
+            mock_client.responses.create.return_value = fake_response
+            resp = self.client.post(
+                reverse("dishes-generate", args=[concept.id]),
+                HTTP_HX_REQUEST="true",
+            )
+
+        self.assertEqual(resp.status_code, 204)
+        self.assertEqual(resp["HX-Redirect"], reverse("dish_detail", args=[concept.id]))
+
     def test_concept_favorite(self):
         self._create_concepts()
         concept = models.Concept.objects.first()
@@ -291,6 +319,18 @@ class ViewSmokeTests(TestCase):
         self.assertTrue(
             models.FavoriteConcept.objects.filter(user=self.user, concept=concept).exists()
         )
+
+    def test_concept_favorite_htmx_redirects_to_dishes(self):
+        self._create_concepts()
+        concept = models.Concept.objects.first()
+
+        resp = self.client.post(
+            reverse("concept-favorite", args=[concept.id]),
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(resp.status_code, 204)
+        self.assertEqual(resp["HX-Redirect"], reverse("dish_detail", args=[concept.id]))
 
     def test_concepts_page_marks_existing_favorites(self):
         self._create_concepts()
