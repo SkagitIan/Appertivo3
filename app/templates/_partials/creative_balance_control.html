@@ -1,0 +1,71 @@
+{% with slider_value=slider_value|default:restaurant_settings.classic_creative_slider|default:50 %}
+  <section
+    class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm {{ section_classes|default:'' }}"
+    data-creative-balance
+  >
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        {% if eyebrow %}
+          <p class="text-xs font-semibold uppercase tracking-wide text-[#B993D6]">{{ eyebrow }}</p>
+        {% endif %}
+        <h2 class="text-lg font-semibold text-[#14080E]">{{ title|default:"Dial in classic versus adventurous ideas" }}</h2>
+        {% if description %}
+          <p class="text-sm text-slate-600">{{ description }}</p>
+        {% endif %}
+      </div>
+      <span
+        class="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500"
+      >
+        <i class="fa-solid fa-sliders" aria-hidden="true"></i>
+        <span data-creative-balance-value>{{ slider_value }}/100</span>
+      </span>
+    </div>
+    <form
+      hx-post="{{ action_url }}"
+      hx-trigger="{{ hx_trigger|default:'change delay:150ms' }}"
+      hx-target="{{ hx_target|default:'none' }}"
+      class="mt-6 flex flex-col gap-3"
+    >
+      <div class="flex items-center gap-4 text-xs font-semibold uppercase tracking-wide text-slate-400">
+        <span>Classic</span>
+        <div class="h-px flex-1 bg-slate-200"></div>
+        <span>Creative</span>
+      </div>
+      <input
+        type="range"
+        name="classic_creative_slider"
+        min="0"
+        max="100"
+        value="{{ slider_value }}"
+        class="w-full accent-[#B993D6]"
+        data-creative-balance-input
+      >
+    </form>
+  </section>
+  <script>
+    (function () {
+      var script = document.currentScript;
+      if (!script) {
+        return;
+      }
+      var section = script.previousElementSibling;
+      if (!section || !section.matches('[data-creative-balance]')) {
+        return;
+      }
+      if (section.dataset.creativeBalanceInit === 'true') {
+        return;
+      }
+      section.dataset.creativeBalanceInit = 'true';
+      var slider = section.querySelector('[data-creative-balance-input]');
+      var display = section.querySelector('[data-creative-balance-value]');
+      if (!slider || !display) {
+        return;
+      }
+      var update = function () {
+        display.textContent = slider.value + '/100';
+      };
+      slider.addEventListener('input', update);
+      update();
+    })();
+  </script>
+{% endwith %}
