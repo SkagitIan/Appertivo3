@@ -14,12 +14,6 @@ urlpatterns = [
     path("terms/", app_views.terms_view, name="terms"),
     path("contact/", app_views.contact_view, name="contact"),
     path("dashboard/<uuid:restaurant_id>/", app_views.dashboard, name="dashboard"),
-    path(
-        "dashboard/<uuid:restaurant_id>/context-toggle/",
-        app_views.dashboard_context_toggle,
-        name="dashboard-context-toggle",
-    ),
-
 
     ## onboarding
     path("onboarding/", app_views.onboarding_view, name="onboarding"),
