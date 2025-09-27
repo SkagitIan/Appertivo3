@@ -1826,13 +1826,11 @@ def ensure_dish_enhancement(dish: models.DishIdea, user: Optional[User]) -> Opti
 
 @login_required
 def dishes_generate_view(request, concept_id):
-    """
-    Generate 9 dish ideas for a given concept.
-    Returns HX-Redirect → dish_detail_view so HTMX can load the page.
-    """
+    """Generate nine dish ideas for a concept and return updated content."""
     concept = models.Concept.objects.select_related("restaurant").get(id=concept_id)
     restaurant = concept.restaurant
     membership = models.Membership.objects.filter(user=request.user).first()
+    htmx_request = request.headers.get("HX-Request") == "true"
     slider_value, slider_temperature = _resolve_creativity_settings(restaurant)
     temperature_float = float(slider_temperature)
     if restaurant.active_menu_version:
@@ -1921,6 +1919,8 @@ def dishes_generate_view(request, concept_id):
         status=models.IdeationRun.Status.RUNNING,
     )
 
+    dish_objects: List[models.DishIdea] = []
+
     try:
         # Build instruction text
         instruction = f"""
@@ -1956,7 +1956,6 @@ def dishes_generate_view(request, concept_id):
         logger.info("LLM generated %d dishes for concept=%s", len(dishes), concept.name)
 
         # Persist dish ideas
-        dish_objects = []
         for dish in dishes:
             obj = models.DishIdea.objects.create(
                 restaurant=restaurant,
@@ -1988,10 +1987,29 @@ def dishes_generate_view(request, concept_id):
         ideation_run.error_message = str(e)
         ideation_run.save(update_fields=["status", "error_message"])
 
-    # Tell HTMX to redirect (overlay handles spinner/messages)
-    response = HttpResponse()
-    response["HX-Redirect"] = reverse("dish_detail", args=[concept_id])
-    return response
+    if htmx_request:
+        decorate_dishes_with_enhancements(dish_objects)
+        for dish in dish_objects:
+            dish.is_favorited = False
+        menu_options: List[dict[str, str]] = []
+        if request.user.is_authenticated:
+            menu_queryset = models.MenuCollection.objects.filter(
+                restaurant=restaurant,
+                restaurant__account__membership__user=request.user,
+            ).order_by("created_at")
+            menu_options = [
+                {"id": str(menu.id), "name": menu.name} for menu in menu_queryset
+            ]
+
+        context = {
+            "dishes": dish_objects,
+            "menu_options": menu_options,
+            "menu_move_url": reverse("menu-item-move"),
+            "menus_workspace_url": reverse("menus"),
+        }
+        return render(request, "dishes/grid.html", context)
+
+    return dish_detail_view(request, concept_id)
 
 
 @login_required
@@ -2193,9 +2211,36 @@ def dish_variation_view(request, dish_id):
     concept = dish.parent_concept
     restaurant = dish.restaurant
 
-    restaurant_payload = restaurant.context_json or {}
-    menu_markdown = restaurant.primary_menu_url or ""
-    context = serialize_restaurant_context(restaurant_payload, menu_markdown, concept)
+    slider_value, slider_temperature = _resolve_creativity_settings(restaurant)
+    temperature_float = float(slider_temperature)
+    if restaurant.active_menu_version:
+        restaurant_menu = restaurant.active_menu_version.raw_markdown
+    else:
+        restaurant_menu = ""
+
+    context_text = f"""
+        Restaurant: {restaurant.name}, {restaurant.location_text}.  \n
+        Description: {restaurant.description}. \n
+        Current Restaurant Menu:  {restaurant_menu}
+        About Services:  {restaurant.about_json}
+    """
+    context_text += (
+        "\n        Creative direction slider: "
+        f"{slider_value}/100 (0 = classic, 100 = highly inventive)."
+    )
+
+    deleted_dishes = list(
+        models.DishIdea.objects.filter(restaurant=restaurant, is_deleted=True)
+        .order_by("-created_at")
+        .values_list("title", flat=True)[:15]
+    )
+
+    context_payload = {
+        "context": context_text,
+        "deleted_dishes": deleted_dishes,
+        "classic_creative_slider": slider_value,
+        "temperature": temperature_float,
+    }
 
     existing_variations = list(
         models.DishIdea.objects.filter(parent_dish=base_dish, is_deleted=False)
@@ -2233,7 +2278,7 @@ def dish_variation_view(request, dish_id):
     }
 
     variation_payload = {
-        "context": context,
+        "context": context_payload,
         "original_dish": {
             "title": base_dish.title,
             "description": base_dish.description,
@@ -2273,6 +2318,7 @@ def dish_variation_view(request, dish_id):
                         {"role": "user", "content": json.dumps(variation_payload, indent=2)},
                     ],
                     text={"format": schema},
+                    temperature=temperature_float,
                 )
                 raw_text = response.output[0].content[0].text
                 candidate = json.loads(raw_text)
