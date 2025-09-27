@@ -32,6 +32,13 @@
             autocomplete="off"
           />
           <div class="absolute inset-y-1.5 right-2 flex items-center gap-2">
+            <span
+              class="hidden sm:inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs font-semibold text-slate-500"
+              data-creative-balance-value
+            >
+              <i class="fa-solid fa-sliders text-[10px]" aria-hidden="true"></i>
+              {{ slider_value|default:50 }}/100
+            </span>
             <button
               type="submit"
               class="inline-flex items-center gap-1 rounded-full bg-[#58B09C] px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition hover:bg-[#43907d] focus:outline-none focus:ring-2 focus:ring-[#58B09C]/40"
@@ -48,22 +55,7 @@
             </button>
           </div>
         </div>
-        <div class="space-y-2">
-          <div class="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-            <span>Classic</span>
-            <span data-slider-value>{{ slider_value|default:50 }}/100</span>
-            <span>Creative</span>
-          </div>
-          <input
-            type="range"
-            name="classic_creative_slider"
-            id="{{ root_id }}-slider"
-            min="0"
-            max="100"
-            value="{{ slider_value|default:50 }}"
-            class="w-full accent-[#B993D6]"
-          >
-        </div>
+        {% include "_partials/creative_balance_slider.html" with slider_value=slider_value slider_id=root_id|add:'-slider' label_row_classes='flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-slate-400' %}
       </form>
       {% if creative_bias_label %}
         <p class="text-xs text-slate-500">
@@ -144,10 +136,13 @@
         }
 
         const slider = root.querySelector('#{{ root_id }}-slider');
-        const sliderValue = root.querySelector('[data-slider-value]');
-        if (slider && sliderValue) {
+        const displays = root.querySelectorAll('[data-creative-balance-value]');
+        if (slider && displays.length) {
           const updateSliderValue = function () {
-            sliderValue.textContent = slider.value + '/100';
+            const value = slider.value + '/100';
+            displays.forEach(function (el) {
+              el.textContent = value;
+            });
           };
           slider.addEventListener('input', updateSliderValue);
           updateSliderValue();

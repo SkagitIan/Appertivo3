@@ -26,20 +26,7 @@
       hx-target="{{ hx_target|default:'none' }}"
       class="mt-6 flex flex-col gap-3"
     >
-      <div class="flex items-center gap-4 text-xs font-semibold uppercase tracking-wide text-slate-400">
-        <span>Classic</span>
-        <div class="h-px flex-1 bg-slate-200"></div>
-        <span>Creative</span>
-      </div>
-      <input
-        type="range"
-        name="classic_creative_slider"
-        min="0"
-        max="100"
-        value="{{ slider_value }}"
-        class="w-full accent-[#B993D6]"
-        data-creative-balance-input
-      >
+      {% include "_partials/creative_balance_slider.html" with slider_value=slider_value %}
     </form>
   </section>
   <script>
@@ -57,12 +44,15 @@
       }
       section.dataset.creativeBalanceInit = 'true';
       var slider = section.querySelector('[data-creative-balance-input]');
-      var display = section.querySelector('[data-creative-balance-value]');
-      if (!slider || !display) {
+      var displays = section.querySelectorAll('[data-creative-balance-value]');
+      if (!slider || !displays.length) {
         return;
       }
       var update = function () {
-        display.textContent = slider.value + '/100';
+        var value = slider.value + '/100';
+        displays.forEach(function (el) {
+          el.textContent = value;
+        });
       };
       slider.addEventListener('input', update);
       update();
