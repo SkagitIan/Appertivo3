@@ -2,6 +2,7 @@
 {% with root_id=form_id|default:'ai-input' %}
   {% with placeholders_id=root_id|add:'-placeholders' suggestions_id=root_id|add:'-suggestions' indicator_id=root_id|add:'-indicator' %}
     {{ placeholder_samples|json_script:placeholders_id }}
+    {{ suggestions|json_script:suggestions_id }}
 
     <div
       id="{{ root_id }}-wrapper"
@@ -45,6 +46,24 @@
           </div>
         </div>
       </form>
+      {% if creative_bias_label %}
+        <p class="text-xs text-slate-500">
+          {{ creative_bias_label }}
+        </p>
+      {% endif %}
+      {% if suggestions %}
+        <div class="flex flex-wrap gap-2">
+          {% for suggestion in suggestions %}
+            <button
+              type="button"
+              class="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-[#49475B] transition hover:bg-slate-100"
+              data-suggestion="{{ suggestion }}"
+            >
+              {{ suggestion }}
+            </button>
+          {% endfor %}
+        </div>
+      {% endif %}
       <div
         id="{{ indicator_id }}"
         class="pointer-events-none hidden"

@@ -1,5 +1,6 @@
 import json
 from types import SimpleNamespace
+from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
@@ -138,6 +139,7 @@ class ViewSmokeTests(TestCase):
         resp = self.client.get(reverse("dashboard", args=[self.restaurant.id]))
         self.assertContains(resp, "Inspire Me")
         self.assertContains(resp, "Italian chef&#x27;s table")
+        self.assertContains(resp, "Creative bias: 50/100")
 
     def test_concepts_page_includes_contextual_ai_input(self):
         self._create_concepts()
@@ -147,6 +149,7 @@ class ViewSmokeTests(TestCase):
         resp = self.client.get(reverse("concepts"))
         self.assertContains(resp, "concepts-ai-input")
         self.assertContains(resp, "Inspire Me")
+        self.assertContains(resp, "Creative bias: 50/100")
 
     def test_concepts_and_generation(self):
         self._create_concepts()
@@ -172,6 +175,43 @@ class ViewSmokeTests(TestCase):
             gen_resp = self.client.post(reverse("concepts-generate"))
         self.assertEqual(gen_resp.status_code, 302)
         self.assertEqual(gen_resp["Location"], reverse("concepts"))
+
+    def test_concept_generation_respects_creativity_slider(self):
+        settings = self.restaurant.restaurantsettings
+        settings.classic_creative_slider = 80
+        settings.save(update_fields=["classic_creative_slider"])
+
+        payload = {
+            "concepts": [
+                {
+                    "title": f"Spice {i}",
+                    "subtitle": "Sub",
+                    "reasoning": "Because",
+                    "tags": ["tag1", "tag2", "tag3"],
+                }
+                for i in range(9)
+            ]
+        }
+        fake_response = SimpleNamespace(
+            output=[SimpleNamespace(content=[SimpleNamespace(text=json.dumps(payload))])]
+        )
+
+        with patch("app.views.client") as mock_client:
+            mock_client.responses.create.return_value = fake_response
+            self.client.post(reverse("concepts-generate"))
+            _, call_kwargs = mock_client.responses.create.call_args
+
+        run = (
+            models.IdeationRun.objects.filter(type=models.IdeationRun.RunType.CONCEPTS)
+            .order_by("-created_at")
+            .first()
+        )
+        self.assertIsNotNone(run)
+        self.assertEqual(run.classic_creative, 80)
+        self.assertEqual(run.temperature, Decimal("0.74"))
+        self.assertEqual(run.context_snapshot["classic_creative_slider"], 80)
+        self.assertAlmostEqual(run.context_snapshot["temperature"], 0.74, places=2)
+        self.assertAlmostEqual(call_kwargs["temperature"], 0.74, places=2)
 
     def test_dashboard_generation_hx_redirects_to_concepts(self):
         self._create_concepts()
@@ -200,6 +240,48 @@ class ViewSmokeTests(TestCase):
             )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["HX-Redirect"], reverse("concepts"))
+
+    def test_dish_generation_respects_creativity_slider(self):
+        self._create_concepts()
+        concept = models.Concept.objects.first()
+
+        settings = self.restaurant.restaurantsettings
+        settings.classic_creative_slider = 20
+        settings.save(update_fields=["classic_creative_slider"])
+
+        payload = {
+            "dishes": [
+                {
+                    "title": f"Dish {i}",
+                    "description": "Desc",
+                    "ingredient_overlap": ["Item"],
+                    "category_tags": ["Tag"],
+                }
+                for i in range(9)
+            ]
+        }
+        fake_response = SimpleNamespace(
+            output=[SimpleNamespace(content=[SimpleNamespace(text=json.dumps(payload))])]
+        )
+
+        with patch("app.views.client") as mock_client:
+            mock_client.responses.create.return_value = fake_response
+            self.client.post(reverse("dishes-generate", args=[concept.id]))
+            _, call_kwargs = mock_client.responses.create.call_args
+
+        run = (
+            models.IdeationRun.objects.filter(
+                type=models.IdeationRun.RunType.DISHES, parent_concept=concept
+            )
+            .order_by("-created_at")
+            .first()
+        )
+        self.assertIsNotNone(run)
+        self.assertEqual(run.classic_creative, 20)
+        self.assertEqual(run.temperature, Decimal("0.26"))
+        self.assertEqual(run.context_snapshot["classic_creative_slider"], 20)
+        self.assertAlmostEqual(run.context_snapshot["temperature"], 0.26, places=2)
+        self.assertAlmostEqual(call_kwargs["temperature"], 0.26, places=2)
 
     def test_concept_favorite(self):
         self._create_concepts()
