@@ -2411,14 +2411,17 @@ def favorites_view(request):
         .select_related("account")
         .first()
     )
-    favorite_concepts = list(
+    favorite_concepts: list[models.FavoriteConcept] = []
+    for favorite in (
         models.FavoriteConcept.objects.filter(user=request.user)
         .select_related("concept", "concept__restaurant")
         .order_by("-favorited_at")
-    )
-    for favorite in favorite_concepts:
-        if favorite.concept:
-            favorite.concept.is_favorited_for_user = True
+    ):
+        concept = favorite.concept
+        if not concept:
+            continue
+        concept.is_favorited_for_user = True
+        favorite_concepts.append(favorite)
     favorite_dishes = list(
         models.FavoriteDish.objects.filter(user=request.user)
         .select_related("dish__parent_concept", "dish__restaurant")
@@ -2448,6 +2451,24 @@ def favorites_view(request):
             for item in items:
                 menu_dishes.append(item.dish)
 
+    concept_menu_map: dict[uuid.UUID, list[str]] = {}
+    dish_menu_map: dict[uuid.UUID, list[str]] = {}
+    for menu in menus:
+        menu_name = menu.name
+        for item in getattr(menu, "menu_items", []) or []:
+            dish = getattr(item, "dish", None)
+            if not dish:
+                continue
+            dish_entry = dish_menu_map.setdefault(dish.id, [])
+            if menu_name not in dish_entry:
+                dish_entry.append(menu_name)
+            concept = getattr(dish, "parent_concept", None)
+            if not concept:
+                continue
+            concept_entry = concept_menu_map.setdefault(concept.id, [])
+            if menu_name not in concept_entry:
+                concept_entry.append(menu_name)
+
     all_dishes = [fav.dish for fav in favorite_dishes] + menu_dishes
     decorate_dishes_with_enhancements(all_dishes)
     for dish in all_dishes:
@@ -2475,6 +2496,8 @@ def favorites_view(request):
         "menu_options": menus_payload,
         "menu_move_url": reverse("menu-item-move"),
         "menus_workspace_url": reverse("menus"),
+        "concept_menu_map": concept_menu_map,
+        "dish_menu_map": dish_menu_map,
     }
     return render(request, "favorites/dashboard.html", ctx)
 
