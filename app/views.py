@@ -2317,6 +2317,7 @@ def favorites_view(request):
 
     menus = []
     menu_dishes = []
+    menu_color_map: dict[str, str] = {}
     if restaurant:
         menus = list(
             models.MenuCollection.objects.filter(restaurant=restaurant)
@@ -2332,7 +2333,9 @@ def favorites_view(request):
             )
             .order_by("created_at")
         )
-        for menu in menus:
+        menu_palette = ["#F9F7FF", "#F3FAFF", "#FFF6F1", "#F4FFF5", "#FFF5FA"]
+        for index, menu in enumerate(menus):
+            menu_color_map[menu.name] = menu_palette[index % len(menu_palette)]
             items = list(menu.menuitem_set.all())
             menu.menu_items = items
             for item in items:
@@ -2385,6 +2388,7 @@ def favorites_view(request):
         "menus_workspace_url": reverse("menus"),
         "concept_menu_map": concept_menu_map,
         "dish_menu_map": dish_menu_map,
+        "menu_color_map": menu_color_map,
     }
     return render(request, "favorites/dashboard.html", ctx)
 
