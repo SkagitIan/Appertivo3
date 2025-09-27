@@ -785,12 +785,9 @@ def dashboard(request, restaurant_id):
         pending_collaboration_total - len(collaboration_updates), 0
     )
 
-    context_items = build_context_items(restaurant, settings_obj)
-
     context = {
         "restaurant": restaurant,
         "trial_info": trial_info,
-        "context_items": context_items,
         "recent_concepts": recent_concepts,
         "recent_dishes": recent_dishes,
         "menus": menus,
@@ -799,9 +796,6 @@ def dashboard(request, restaurant_id):
         "collaboration_updates_more": collaboration_updates_more,
         "empty_concepts": [],
         "settings_url": reverse("settings"),
-        "context_toggle_url": reverse(
-            "dashboard-context-toggle", args=[restaurant.id]
-        ),
         "tbd_message": "Personalized tips will appear here soon.",
         "prompt_for_menu": not bool(restaurant.primary_menu_url),
         "concept_generate_url": reverse("concepts-generate"),
@@ -812,51 +806,6 @@ def dashboard(request, restaurant_id):
         "creative_bias_label": creative_bias_label,
     }
     return render(request, "dashboard.html", context)
-
-
-@login_required
-@require_POST
-def dashboard_context_toggle(request, restaurant_id):
-    restaurant = get_object_or_404(models.Restaurant, id=restaurant_id)
-    membership_exists = models.Membership.objects.filter(
-        account=restaurant.account, user=request.user
-    ).exists()
-    if not membership_exists:
-        return HttpResponseForbidden("not_allowed")
-
-    settings_obj, _ = models.RestaurantSettings.objects.get_or_create(
-        restaurant=restaurant
-    )
-
-    key = request.POST.get("key")
-    valid_keys = {item[0] for item in CONTEXT_ITEM_DEFINITIONS}
-    if key not in valid_keys:
-        return HttpResponseBadRequest("invalid_key")
-
-    include_values = request.POST.getlist("include")
-    include_raw = include_values[-1] if include_values else "false"
-    include = str(include_raw).lower() in {"1", "true", "yes", "on"}
-
-    context_flags = dict(settings_obj.llm_defaults.get("context_flags", {}))
-    context_flags[key] = include
-    settings_obj.llm_defaults["context_flags"] = context_flags
-    settings_obj.save(update_fields=["llm_defaults"])
-
-    context_items = build_context_items(restaurant, settings_obj)
-    item = next((item for item in context_items if item["key"] == key), None)
-    if not item:
-        return HttpResponseBadRequest("unknown_item")
-
-    html = render_to_string(
-        "dashboard/_context_item.html",
-        {
-            "item": item,
-            "settings_url": reverse("settings"),
-            "toggle_url": reverse("dashboard-context-toggle", args=[restaurant.id]),
-        },
-        request=request,
-    )
-    return HttpResponse(html)
 
 
 @login_required
@@ -1263,13 +1212,8 @@ def concepts_generate_view(request):
         for name in (request.session.get("generated_concepts") or [])
         if name and str(name).strip()
     ]
-    previous_concepts = list(
-        models.Concept.objects.filter(restaurant=restaurant)
-        .order_by("-created_at")
-        .values_list("name", flat=True)[:27]
-    )
 
-    logger.info(f"previous concepts: {previous_concepts}")
+    logger.info(f"previous concepts: {session_concepts}")
     if restaurant.active_menu_version:
         restaurant_menu = restaurant.active_menu_version.raw_markdown
     else:
@@ -1364,14 +1308,6 @@ def concepts_generate_view(request):
                 **Goal**: Create concepts that restaurant owners can easily adapt to their local region and seasonal availability while building customer excitement and loyalty.
 
     """
-
-    if previous_concepts:
-        system_prompt += (
-            " The user has already explored these concept names. Do not repeat or "
-            "closely duplicate them: "
-            + ", ".join(previous_concepts)
-            + "."
-        )
 
     if user_prompt:
         system_prompt += (
@@ -1702,110 +1638,6 @@ def _context_items_cache_key(
         "about": restaurant.about_json or {},
     }
     return f"context-items:{_stable_hash(payload)}"
-
-
-def build_context_items(
-    restaurant: models.Restaurant, settings_obj: models.RestaurantSettings
-) -> List[dict]:
-    """Return context checklist items with presence + preference state."""
-
-    cache_key = _context_items_cache_key(restaurant, settings_obj)
-    cached = cache.get(cache_key)
-    if cached is not None:
-        return cached
-
-    context_flags = dict(settings_obj.llm_defaults.get("context_flags", {}))
-    items: List[dict] = []
-
-    def _has_content(value) -> bool:
-        if value is None:
-            return False
-        if isinstance(value, str):
-            return bool(value.strip())
-        if isinstance(value, dict):
-            return any(_has_content(item) for item in value.values())
-        if isinstance(value, (list, tuple, set)):
-            return any(_has_content(item) for item in value)
-        return bool(value)
-
-    menu_urls = [url for url in (restaurant.menu_urls or []) if (url or "").strip()]
-    has_menu_link = bool(restaurant.primary_menu_url or menu_urls)
-
-    if (
-        restaurant.active_menu_version
-        and _has_content(restaurant.active_menu_version.raw_markdown)
-    ):
-        has_menu_content = True
-    else:
-        has_menu_content = models.MenuVersion.objects.filter(
-            restaurant=restaurant,
-            raw_markdown__isnull=False,
-        ).exclude(raw_markdown="").exists()
-
-    about_data = restaurant.about_json or {}
-    services_sections = []
-    if isinstance(about_data, dict):
-        for key, value in about_data.items():
-            if isinstance(key, str) and "service" in key.lower():
-                services_sections.append(value)
-    has_services_info = any(_has_content(section) for section in services_sections)
-
-    context_data = restaurant.context_json or {}
-    review_sources = [
-        restaurant.review_count,
-        restaurant.rating,
-    ]
-    if isinstance(context_data, dict):
-        review_sources.extend(
-            context_data.get(key)
-            for key in ["reviews", "reviews_tags", "review_snippets"]
-            if key in context_data
-        )
-    has_reviews = any(_has_content(value) for value in review_sources)
-
-    has_ingredients = models.Ingredient.objects.filter(restaurant=restaurant).exists()
-
-    presence_map = {
-        "menu": has_menu_link,
-        "menu_content": has_menu_content,
-        "services": has_services_info,
-        "story": _has_content(restaurant.description),
-        "reviews": has_reviews,
-        "ingredients": has_ingredients,
-    }
-
-    updated = False
-    for key, _ in CONTEXT_ITEM_DEFINITIONS:
-        if key not in context_flags:
-            context_flags[key] = presence_map.get(key, False)
-            updated = True
-
-    if updated:
-        settings_obj.llm_defaults["context_flags"] = context_flags
-        settings_obj.save(update_fields=["llm_defaults"])
-
-    for key, label in CONTEXT_ITEM_DEFINITIONS:
-        present = presence_map.get(key, False)
-        include_preference = bool(context_flags.get(key))
-        included = include_preference and present
-        status = "missing"
-        if present and included:
-            status = "included"
-        elif present:
-            status = "excluded"
-        items.append(
-            {
-                "key": key,
-                "label": label,
-                "present": present,
-                "included": included,
-                "status": status,
-            }
-        )
-
-    cache_key = _context_items_cache_key(restaurant, settings_obj)
-    cache.set(cache_key, items, timeout=SHORT_CACHE_TIMEOUT)
-    return items
 
 
 def format_run_duration(run: Optional[models.IdeationRun]) -> Optional[str]:
@@ -2466,14 +2298,17 @@ def favorites_view(request):
         .select_related("account")
         .first()
     )
-    favorite_concepts = list(
+    favorite_concepts: list[models.FavoriteConcept] = []
+    for favorite in (
         models.FavoriteConcept.objects.filter(user=request.user)
         .select_related("concept", "concept__restaurant")
         .order_by("-favorited_at")
-    )
-    for favorite in favorite_concepts:
-        if favorite.concept:
-            favorite.concept.is_favorited_for_user = True
+    ):
+        concept = favorite.concept
+        if not concept:
+            continue
+        concept.is_favorited_for_user = True
+        favorite_concepts.append(favorite)
     favorite_dishes = list(
         models.FavoriteDish.objects.filter(user=request.user)
         .select_related("dish__parent_concept", "dish__restaurant")
@@ -2503,6 +2338,24 @@ def favorites_view(request):
             for item in items:
                 menu_dishes.append(item.dish)
 
+    concept_menu_map: dict[uuid.UUID, list[str]] = {}
+    dish_menu_map: dict[uuid.UUID, list[str]] = {}
+    for menu in menus:
+        menu_name = menu.name
+        for item in getattr(menu, "menu_items", []) or []:
+            dish = getattr(item, "dish", None)
+            if not dish:
+                continue
+            dish_entry = dish_menu_map.setdefault(dish.id, [])
+            if menu_name not in dish_entry:
+                dish_entry.append(menu_name)
+            concept = getattr(dish, "parent_concept", None)
+            if not concept:
+                continue
+            concept_entry = concept_menu_map.setdefault(concept.id, [])
+            if menu_name not in concept_entry:
+                concept_entry.append(menu_name)
+
     all_dishes = [fav.dish for fav in favorite_dishes] + menu_dishes
     decorate_dishes_with_enhancements(all_dishes)
     for dish in all_dishes:
@@ -2530,6 +2383,8 @@ def favorites_view(request):
         "menu_options": menus_payload,
         "menu_move_url": reverse("menu-item-move"),
         "menus_workspace_url": reverse("menus"),
+        "concept_menu_map": concept_menu_map,
+        "dish_menu_map": dish_menu_map,
     }
     return render(request, "favorites/dashboard.html", ctx)
 

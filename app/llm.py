@@ -43,8 +43,8 @@ def _concept_sketch_prompt(name: str, subtitle: str) -> str:
     return (
         "Create a monochrome pencil sketch that could serve as background art for a "
         "restaurant concept card. Keep the lines clean with minimal shading so the image "
-        "stays lightweight, but output it at a high-definition resolution. Avoid text, "
-        "logos, or color.  Should only be of a singular item, not a spread or motif.\n"
+        "stays lightweight, but output it at a high-definition resolution. DO not include any text ever, "
+        "no logos, or color.  Should only be of a singular item, not a spread or motif.\n"
         f"Concept name: {name}\n"
         f"Concept subtitle: {subtitle_text}"
     )
