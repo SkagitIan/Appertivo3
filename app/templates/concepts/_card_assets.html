@@ -84,6 +84,10 @@
     opacity: 0;
   }
 
+  .concept-card-wrapper .flip-card.concept-generating .flip-face {
+    opacity: 1;
+  }
+
   .concept-favorite-btn--favorited {
     background: rgba(254, 226, 226, 0.95) !important;
     border-color: rgba(254, 202, 202, 0.9) !important;
@@ -99,9 +103,104 @@
     animation: concept-card-spin 1s linear infinite;
   }
 
+  .concept-card-wrapper .concept-progress {
+    position: absolute;
+    left: 0.75rem;
+    right: 0.75rem;
+    bottom: 0.75rem;
+    height: 4px;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.55);
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(4px);
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+
+  .concept-card-wrapper .concept-progress__bar {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, #f08000, #b993d6);
+    transform-origin: left center;
+    animation: concept-progress-bar 1.6s ease-in-out infinite;
+    animation-play-state: paused;
+  }
+
+  .concept-card-wrapper .flip-card.concept-generating .concept-progress {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .concept-card-wrapper .flip-card.concept-generating .concept-progress__bar {
+    animation-play-state: running;
+  }
+
+  .concept-favorite-btn--busy {
+    position: relative;
+    pointer-events: none;
+    color: #f43f5e !important;
+  }
+
+  .concept-favorite-btn--busy span {
+    opacity: 0;
+  }
+
+  .concept-favorite-btn--busy::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 9999px;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    animation: concept-card-spin 0.8s linear infinite;
+  }
+
+  [data-generate-button].concept-generate-btn--busy {
+    pointer-events: none;
+    opacity: 0.75;
+  }
+
+  [data-more-ideas] .more-ideas-spinner {
+    display: none;
+    width: 0.9rem;
+    height: 0.9rem;
+    border-radius: 9999px;
+    border: 2px solid rgba(148, 163, 184, 0.55);
+    border-top-color: rgba(79, 70, 229, 0.8);
+  }
+
+  [data-more-ideas].is-loading .more-ideas-spinner {
+    display: inline-block;
+    animation: concept-card-spin 0.9s linear infinite;
+  }
+
+  [data-more-ideas].is-loading .more-ideas-text {
+    opacity: 0.6;
+  }
+
+  [data-more-ideas].is-loading i {
+    opacity: 0;
+  }
+
   @keyframes concept-card-spin {
     to {
       transform: rotate(360deg);
+    }
+  }
+
+  @keyframes concept-progress-bar {
+    0% {
+      transform: scaleX(0.1);
+    }
+    50% {
+      transform: scaleX(0.6);
+    }
+    100% {
+      transform: scaleX(1);
     }
   }
 </style>
@@ -178,36 +277,76 @@
       return wrapper ? wrapper.querySelector('.flip-card') : null;
     };
 
+    const isConceptFavoriteButton = (elt) => elt && elt.classList.contains('concept-favorite-btn');
+    const isConceptDeleteButton = (elt) => elt && elt.classList.contains('concept-delete-btn');
+    const isConceptSketchLoader = (elt) => elt && elt.classList.contains('concept-sketch-loader');
+    const isConceptGenerateButton = (elt) => elt && elt.hasAttribute('data-generate-button');
+    const isMoreIdeasButton = (elt) => elt && elt.hasAttribute('data-more-ideas');
+
     const shouldShowConceptLoading = (elt) => {
       if (!elt) {
         return false;
       }
-      return (
-        elt.classList.contains('concept-favorite-btn') ||
-        elt.classList.contains('concept-delete-btn') ||
-        elt.classList.contains('concept-sketch-loader')
-      );
+      return isConceptDeleteButton(elt) || isConceptSketchLoader(elt);
+    };
+
+    const clearConceptTriggerState = (trigger) => {
+      if (!trigger) {
+        return;
+      }
+      const card = findConceptCard(trigger);
+      if (card) {
+        if (shouldShowConceptLoading(trigger)) {
+          card.classList.remove('loading');
+        }
+        if (isConceptGenerateButton(trigger)) {
+          card.classList.remove('concept-generating');
+        }
+      }
+      if (isConceptFavoriteButton(trigger)) {
+        trigger.classList.remove('concept-favorite-btn--busy');
+      }
+      if (isConceptGenerateButton(trigger)) {
+        trigger.classList.remove('concept-generate-btn--busy');
+        trigger.removeAttribute('disabled');
+      }
+      if (isMoreIdeasButton(trigger)) {
+        trigger.classList.remove('is-loading');
+        trigger.removeAttribute('disabled');
+      }
     };
 
     document.body.addEventListener('htmx:beforeRequest', function (evt) {
       const trigger = evt.detail && evt.detail.elt;
-      if (!shouldShowConceptLoading(trigger)) {
-        return;
-      }
       const card = findConceptCard(trigger);
-      if (!card) {
-        return;
+
+      if (isConceptFavoriteButton(trigger)) {
+        trigger.classList.add('concept-favorite-btn--busy');
       }
-      card.classList.remove('show-back');
-      card.classList.add('loading');
+
+      if (isConceptGenerateButton(trigger)) {
+        if (card) {
+          card.classList.remove('show-back');
+          card.classList.add('concept-generating');
+        }
+        trigger.classList.add('concept-generate-btn--busy');
+        trigger.setAttribute('disabled', 'disabled');
+      } else if (shouldShowConceptLoading(trigger)) {
+        if (card) {
+          card.classList.remove('show-back');
+          card.classList.add('loading');
+        }
+      }
+
+      if (isMoreIdeasButton(trigger)) {
+        trigger.classList.add('is-loading');
+        trigger.setAttribute('disabled', 'disabled');
+      }
     });
 
     document.body.addEventListener('htmx:responseError', function (evt) {
       const trigger = evt.detail && evt.detail.elt;
-      const card = findConceptCard(trigger);
-      if (card) {
-        card.classList.remove('loading');
-      }
+      clearConceptTriggerState(trigger);
     });
 
     document.body.addEventListener('htmx:afterSwap', function (evt) {
@@ -216,21 +355,17 @@
 
       if (shouldShowConceptLoading(trigger)) {
         if (!target) {
-          const card = findConceptCard(trigger);
-          if (card) {
-            card.classList.remove('loading');
-          }
+          clearConceptTriggerState(trigger);
         } else if (
           (typeof target.matches === 'function' && target.matches(conceptCardSelector)) ||
           (typeof target.querySelector === 'function' && target.querySelector(conceptCardSelector))
         ) {
-          // Replaced with a fresh card, no need to toggle loading.
+          // replaced card
         } else {
-          const card = findConceptCard(trigger);
-          if (card) {
-            card.classList.remove('loading');
-          }
+          clearConceptTriggerState(trigger);
         }
+      } else {
+        clearConceptTriggerState(trigger);
       }
 
       if (conceptTargetNeedsReorder(target)) {
@@ -243,7 +378,7 @@
       if (!card) {
         return;
       }
-      if (card.classList.contains('loading')) {
+      if (card.classList.contains('loading') || card.classList.contains('concept-generating')) {
         return;
       }
       const wrapper = card.closest('[data-concept-card]');

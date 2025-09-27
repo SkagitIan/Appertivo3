@@ -1414,11 +1414,17 @@ def concept_favorite_view(request, concept_id):
     fav, created = models.FavoriteConcept.objects.get_or_create(
         user=request.user, concept=concept, defaults={"favorited_at": timezone.now()}
     )
-    favorited = created
 
+    if created:
+        if request.headers.get("HX-Request") == "true":
+            response = HttpResponse(status=204)
+            response["HX-Redirect"] = reverse("dish_detail", args=[concept.id])
+            return response
+        return redirect("dish_detail", concept_id=concept.id)
+
+    favorited = False
     if not created:
         fav.delete()
-        favorited = False
         if concept.sketch_image_url:
             concept.sketch_image_url = None
             concept.save(update_fields=["sketch_image_url"])
@@ -1988,26 +1994,9 @@ def dishes_generate_view(request, concept_id):
         ideation_run.save(update_fields=["status", "error_message"])
 
     if htmx_request:
-        decorate_dishes_with_enhancements(dish_objects)
-        for dish in dish_objects:
-            dish.is_favorited = False
-        menu_options: List[dict[str, str]] = []
-        if request.user.is_authenticated:
-            menu_queryset = models.MenuCollection.objects.filter(
-                restaurant=restaurant,
-                restaurant__account__membership__user=request.user,
-            ).order_by("created_at")
-            menu_options = [
-                {"id": str(menu.id), "name": menu.name} for menu in menu_queryset
-            ]
-
-        context = {
-            "dishes": dish_objects,
-            "menu_options": menu_options,
-            "menu_move_url": reverse("menu-item-move"),
-            "menus_workspace_url": reverse("menus"),
-        }
-        return render(request, "dishes/grid.html", context)
+        response = HttpResponse(status=204)
+        response["HX-Redirect"] = reverse("dish_detail", args=[concept.id])
+        return response
 
     return dish_detail_view(request, concept_id)
 
