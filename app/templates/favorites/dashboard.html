@@ -41,13 +41,13 @@
       </div>
 
       {% if favorite_concepts %}
-        <ul class="space-y-3">
+        <ul class="space-y-2">
           {% for favorite in favorite_concepts %}
             {% with concept=favorite.concept concept_menus=concept_menu_map|dict_lookup:favorite.concept.id %}
               {% if concept %}
                 <li
                   id="favorite-concept-{{ concept.id }}"
-                  class="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+                  class="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:gap-4"
                 >
                   <div class="h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl bg-slate-100">
                     {% if concept.sketch_image_url %}
@@ -65,13 +65,13 @@
                     {% endif %}
                   </div>
                   <div class="flex-1 space-y-1">
-                    <h3 class="text-base font-semibold text-[#49475B]">{{ concept.name }}</h3>
+                    <h3 class="text-sm font-semibold text-[#49475B] sm:text-base">{{ concept.name }}</h3>
                     {% if concept.subtitle %}
-                      <p class="text-sm text-slate-600">{{ concept.subtitle }}</p>
+                      <p class="text-sm text-slate-600 leading-snug">{{ concept.subtitle }}</p>
                     {% endif %}
                   </div>
-                  <div class="flex flex-col items-end gap-2 text-right">
-                    <span class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-[#49475B]">
+                  <div class="flex flex-col items-start gap-2 text-left sm:items-end sm:text-right">
+                    <span class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-2.5 py-1 text-[0.7rem] font-semibold uppercase tracking-wide text-[#49475B]">
                       <i class="fa-solid fa-bookmark text-[0.65rem]" aria-hidden="true"></i>
                       {% if concept_menus %}
                         {{ concept_menus|join:", " }}
@@ -79,7 +79,7 @@
                         Not in a menu
                       {% endif %}
                     </span>
-                    <div class="flex items-center gap-2">
+                    <div class="flex flex-wrap items-center gap-2">
                       <a
                         href="{% url 'dish_detail' concept.id %}"
                         class="inline-flex items-center gap-2 rounded-full bg-[#FF5C00] px-3 py-1.5 text-xs font-semibold text-white shadow hover:bg-[#e05400]"
@@ -125,14 +125,14 @@
     </summary>
     <div class="space-y-4 px-6 pb-6">
       {% if favorite_dishes %}
-        <ul class="space-y-3">
+        <ul class="space-y-2">
           {% for favorite in favorite_dishes %}
             {% with dish=favorite.dish %}
               {% if dish %}
                 {% with dish_menus=dish_menu_map|dict_lookup:dish.id %}
                   <li
                     id="favorite-dish-{{ dish.id }}"
-                    class="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+                    class="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:gap-4"
                   >
                     <div class="h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl bg-slate-100">
                       {% if dish.enhancement_image_url %}
@@ -150,16 +150,16 @@
                       {% endif %}
                     </div>
                     <div class="flex-1 space-y-1">
-                      <h3 class="text-base font-semibold text-[#49475B]">{{ dish.title }}</h3>
+                      <h3 class="text-sm font-semibold text-[#49475B] sm:text-base">{{ dish.title }}</h3>
                       {% if dish.description %}
-                        <p class="text-sm text-slate-600">{{ dish.description }}</p>
+                        <p class="text-sm text-slate-600 leading-snug">{{ dish.description }}</p>
                       {% endif %}
                       {% if dish.parent_concept %}
                         <p class="text-xs text-slate-400">Concept: {{ dish.parent_concept.name }}</p>
                       {% endif %}
                     </div>
-                    <div class="flex flex-col items-end gap-2 text-right">
-                      <span class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-[#49475B]">
+                    <div class="flex flex-col items-start gap-2 text-left sm:items-end sm:text-right">
+                      <span class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-2.5 py-1 text-[0.7rem] font-semibold uppercase tracking-wide text-[#49475B]">
                         <i class="fa-solid fa-bookmark text-[0.65rem]" aria-hidden="true"></i>
                         {% if dish_menus %}
                           {{ dish_menus|join:", " }}
@@ -167,7 +167,7 @@
                           Unassigned
                         {% endif %}
                       </span>
-                      <div class="flex items-center gap-2">
+                      <div class="flex flex-wrap items-center gap-2">
                         {% if dish.parent_concept_id %}
                           <a
                             href="{% url 'dish_detail' dish.parent_concept_id %}#dish-{{ dish.id }}"
