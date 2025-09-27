@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Enter passcode — Appertivo{% endblock %}
+{% block body_class %}bg-[#F9F7FF] min-h-screen font-inter flex items-center justify-center text-[#14080E]{% endblock %}
+{% block content %}
+  <div class="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 shadow-xl">
+    <h1 class="text-2xl font-semibold text-[#2E005D]">Enter passcode</h1>
+    <p class="mt-2 text-sm text-slate-600">This collaboration link is protected. Ask the chef for the current passcode.</p>
+    <form method="post" class="mt-6 space-y-4">
+      {% csrf_token %}
+      <input type="password" name="passcode" autofocus class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="Passcode" />
+      {% if error %}
+        <p class="text-sm font-semibold text-red-600">That passcode didn't match. Try again.</p>
+      {% endif %}
+      <button type="submit" class="w-full rounded-xl bg-[#2E005D] px-4 py-2 text-sm font-semibold text-white shadow hover:bg-[#3a0a75]">Unlock</button>
+    </form>
+    <p class="mt-6 text-center text-xs text-slate-400">Link for {{ link.menu.name }} · Expires {{ link.expires_at|date:"M j, Y" }}</p>
+  </div>
+{% endblock %}

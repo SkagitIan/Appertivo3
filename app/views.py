@@ -10,7 +10,7 @@ from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.db import IntegrityError, transaction
-from django.db.models import Exists, Max, OuterRef, Prefetch, Q, TextField
+from django.db.models import Count, Exists, Max, OuterRef, Prefetch, Q, TextField
 from django.db.models.functions import Cast
 from django.http import (
     HttpResponse,
@@ -767,6 +767,31 @@ def menus_view(request):
         for menu in menus:
             items = list(menu.menuitem_set.all())
             menu.menu_items = items
+
+        menu_ids = [menu.id for menu in menus]
+        active_links = {
+            link.menu_id: link
+            for link in models.CollaborationLink.objects.filter(
+                menu_id__in=menu_ids, is_active=True
+            )
+        }
+        pending_counts = {
+            row["feedback__menu_id"]: row["count"]
+            for row in models.FeedbackAction.objects.filter(
+                feedback__menu_id__in=menu_ids,
+                status=models.FeedbackAction.Status.PENDING,
+            )
+            .values("feedback__menu_id")
+            .annotate(count=Count("id"))
+        }
+        for menu in menus:
+            link = active_links.get(menu.id)
+            menu.collaboration_link = link
+            menu.pending_feedback_count = pending_counts.get(menu.id, 0)
+            if link:
+                menu.collaboration_url = request.build_absolute_uri(
+                    reverse("collaboration-dashboard", args=[link.id])
+                )
 
     all_dishes = [
         item.dish for menu in menus for item in getattr(menu, "menu_items", [])
@@ -2409,6 +2434,335 @@ def menu_item_move_view(request):
             menu_item.save(update_fields=["position"])
 
     return JsonResponse({"moved": True, "created": created})
+
+
+@login_required
+@require_http_methods(["POST"])
+def menu_collaboration_manage_view(request, collection_id):
+    """Create, update, or disable collaboration links for a menu."""
+
+    menu = get_object_or_404(
+        models.MenuCollection,
+        id=collection_id,
+        restaurant__account__membership__user=request.user,
+    )
+
+    action = (request.POST.get("action") or "").strip().lower()
+    expires_days_raw = request.POST.get("expires_in_days") or "7"
+    try:
+        expires_in_days = max(1, min(90, int(expires_days_raw)))
+    except ValueError:
+        expires_in_days = 7
+    passcode = (request.POST.get("passcode") or "").strip() or None
+
+    existing = (
+        models.CollaborationLink.objects.filter(menu=menu, is_active=True)
+        .order_by("-created_at")
+        .first()
+    )
+
+    if action == "disable":
+        models.CollaborationLink.objects.filter(menu=menu, is_active=True).update(
+            is_active=False
+        )
+        return redirect("menus")
+
+    if action == "expire" and existing:
+        existing.expires_at = timezone.now()
+        existing.save(update_fields=["expires_at"])
+        return redirect("menus")
+
+    if action not in {"enable", "regenerate"}:
+        return JsonResponse({"error": "unknown_action"}, status=400)
+
+    if existing:
+        existing.is_active = False
+        existing.save(update_fields=["is_active"])
+        if passcode is None:
+            passcode = existing.passcode
+
+    expires_at = timezone.now() + datetime.timedelta(days=expires_in_days)
+    models.CollaborationLink.objects.create(
+        menu=menu,
+        expires_at=expires_at,
+        passcode=passcode,
+    )
+    return redirect("menus")
+
+
+def _collaboration_session_keys(link_id: uuid.UUID) -> tuple[str, str]:
+    """Return keys used for session storage for collaboration links."""
+
+    access_key = f"collab_access_{link_id}"
+    visit_key = f"collab_visit_{link_id}"
+    return access_key, visit_key
+
+
+def _format_feedback_activity(feedback: models.Feedback) -> str:
+    """Create a readable description of a feedback item."""
+
+    dish_name = getattr(getattr(feedback, "dish", None), "title", "")
+    anon_label = feedback.anon_label
+
+    if feedback.type == models.Feedback.Type.THUMBS_UP:
+        return f"{anon_label} gave 👍 to {dish_name or 'the menu'}."
+    if feedback.type == models.Feedback.Type.THUMBS_DOWN:
+        return f"{anon_label} gave 👎 to {dish_name or 'the menu'}."
+    if feedback.type == models.Feedback.Type.COMMENT:
+        text = feedback.payload.get("comment", "")
+        target = dish_name or "the menu"
+        return f"{anon_label} commented on {target}: \"{text}\""
+    if feedback.type == models.Feedback.Type.EDIT_SUGGESTION:
+        target = dish_name or "the menu"
+        title = feedback.payload.get("title") or "Edit suggestion"
+        return f"{anon_label} suggested an edit for {target}: {title}."
+    if feedback.type == models.Feedback.Type.NEW_IDEA:
+        title = feedback.payload.get("title") or "New idea"
+        return f"{anon_label} suggested a new dish: {title}."
+    if feedback.type == models.Feedback.Type.REORDER:
+        return f"{anon_label} proposed a new dish order."
+    return f"{anon_label} shared feedback."
+
+
+@require_http_methods(["GET", "POST"])
+def collaboration_dashboard_view(request, link_id):
+    """Public dashboard for staff collaboration."""
+
+    link = get_object_or_404(models.CollaborationLink, id=link_id)
+    if not link.is_active or link.is_expired():
+        return render(
+            request,
+            "collaboration/link_expired.html",
+            {"link": link},
+            status=410,
+        )
+
+    access_key, visit_key = _collaboration_session_keys(link.id)
+    passcode_valid = not link.passcode or request.session.get(access_key)
+
+    if link.passcode and request.method == "POST" and not passcode_valid:
+        submitted = (request.POST.get("passcode") or "").strip()
+        if submitted and submitted == link.passcode:
+            request.session[access_key] = True
+            return redirect("collaboration-dashboard", link_id=link.id)
+        return render(
+            request,
+            "collaboration/passcode.html",
+            {"link": link, "error": True},
+            status=403,
+        )
+
+    if not passcode_valid:
+        return render(request, "collaboration/passcode.html", {"link": link})
+
+    if not request.session.get(visit_key):
+        link.mark_accessed()
+        request.session[visit_key] = True
+
+    menu = link.menu
+    items = list(
+        menu.menuitem_set.select_related(
+            "dish",
+            "dish__parent_concept",
+        ).order_by("position", "created_at")
+    )
+    menu.menu_items = items
+
+    thumb_counts: dict[uuid.UUID, dict[str, int]] = {}
+    feedback_items = list(
+        link.feedback.select_related("dish").order_by("-created_at")[:50]
+    )
+    for feedback in feedback_items:
+        if feedback.dish_id:
+            thumb_counts.setdefault(feedback.dish_id, {"up": 0, "down": 0})
+            if feedback.type == models.Feedback.Type.THUMBS_UP:
+                thumb_counts[feedback.dish_id]["up"] += 1
+            elif feedback.type == models.Feedback.Type.THUMBS_DOWN:
+                thumb_counts[feedback.dish_id]["down"] += 1
+
+    for item in items:
+        thumb_counts.setdefault(item.dish_id, {"up": 0, "down": 0})
+
+    activity_feed = [
+        {
+            "message": _format_feedback_activity(feedback),
+            "created_at": feedback.created_at,
+        }
+        for feedback in feedback_items
+    ]
+
+    anon_session_key = f"collab_anon_{link.id}"
+    anon_id = request.session.get(anon_session_key)
+    if not anon_id:
+        anon_id = uuid.uuid4().hex[:8]
+        request.session[anon_session_key] = anon_id
+
+    ctx = {
+        "link": link,
+        "menu": menu,
+        "items": items,
+        "thumb_counts": thumb_counts,
+        "activity_feed": activity_feed,
+        "anon_id": anon_id,
+        "models": models,
+    }
+    return render(request, "collaboration/dashboard.html", ctx)
+
+
+@require_POST
+def collaboration_feedback_submit_view(request, link_id):
+    """Store feedback from the public collaboration dashboard."""
+
+    link = get_object_or_404(models.CollaborationLink, id=link_id, is_active=True)
+    if link.is_expired():
+        return HttpResponseForbidden("link_expired")
+
+    access_key, _ = _collaboration_session_keys(link.id)
+    if link.passcode and not request.session.get(access_key):
+        return HttpResponseForbidden("passcode_required")
+
+    feedback_type = (request.POST.get("type") or "").strip()
+    if feedback_type not in {choice for choice, _ in models.Feedback.Type.choices}:
+        return JsonResponse({"error": "invalid_type"}, status=400)
+
+    anon_id = (request.POST.get("anon_id") or "").strip()
+    if not anon_id:
+        anon_id = uuid.uuid4().hex[:8]
+
+    menu = link.menu
+    dish = None
+    dish_id = request.POST.get("dish_id")
+    if dish_id:
+        dish = (
+            models.DishIdea.objects.filter(id=dish_id, menuitem__menu=menu)
+            .distinct()
+            .first()
+        )
+        if not dish:
+            return JsonResponse({"error": "invalid_dish"}, status=400)
+
+    payload: dict[str, Any]
+    payload = {}
+
+    if feedback_type in {
+        models.Feedback.Type.THUMBS_UP,
+        models.Feedback.Type.THUMBS_DOWN,
+    }:
+        payload = {}
+    elif feedback_type == models.Feedback.Type.COMMENT:
+        comment = (request.POST.get("comment") or "").strip()
+        if not comment:
+            return JsonResponse({"error": "comment_required"}, status=400)
+        payload = {"comment": comment}
+    elif feedback_type == models.Feedback.Type.EDIT_SUGGESTION:
+        title = (request.POST.get("title") or "").strip()
+        description = (request.POST.get("description") or "").strip()
+        category = (request.POST.get("category") or "").strip()
+        if not title and not description:
+            return JsonResponse({"error": "edit_required"}, status=400)
+        payload = {
+            "title": title,
+            "description": description,
+            "category": category,
+        }
+    elif feedback_type == models.Feedback.Type.REORDER:
+        order_raw = request.POST.get("order") or "[]"
+        try:
+            order = json.loads(order_raw)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "invalid_order"}, status=400)
+        if not isinstance(order, list):
+            return JsonResponse({"error": "invalid_order"}, status=400)
+        payload = {"order": order}
+    elif feedback_type == models.Feedback.Type.NEW_IDEA:
+        title = (request.POST.get("title") or "").strip()
+        notes = (request.POST.get("notes") or "").strip()
+        payload = {"title": title, "notes": notes}
+    else:  # pragma: no cover - safeguard
+        payload = {}
+
+    feedback = models.Feedback.objects.create(
+        menu=menu,
+        dish=dish,
+        link=link,
+        type=feedback_type,
+        payload=payload,
+        anon_id=anon_id,
+    )
+    models.FeedbackAction.objects.create(feedback=feedback)
+
+    return redirect("collaboration-dashboard", link_id=link.id)
+
+
+@login_required
+def menu_feedback_review_view(request, collection_id):
+    """Show collaboration feedback for a menu to the chef."""
+
+    menu = get_object_or_404(
+        models.MenuCollection,
+        id=collection_id,
+        restaurant__account__membership__user=request.user,
+    )
+
+    feedback_queryset = (
+        models.Feedback.objects.filter(menu=menu)
+        .select_related("dish", "link", "action")
+        .order_by("-created_at")
+    )
+
+    pending_feedback: List[dict[str, Any]] = []
+    history_feedback: List[dict[str, Any]] = []
+    dish_titles = {
+        str(dish.id): dish.title
+        for dish in models.DishIdea.objects.filter(menuitem__menu=menu).distinct()
+    }
+    for item in feedback_queryset:
+        action = getattr(item, "action", None)
+        entry = {
+            "feedback": item,
+            "message": _format_feedback_activity(item),
+            "status": action.status if action else models.FeedbackAction.Status.PENDING,
+        }
+        if action and action.status != models.FeedbackAction.Status.PENDING:
+            history_feedback.append(entry)
+        else:
+            pending_feedback.append(entry)
+
+    ctx = {
+        "menu": menu,
+        "pending_feedback": pending_feedback,
+        "history_feedback": history_feedback,
+        "models": models,
+        "dish_titles": dish_titles,
+    }
+    return render(request, "menus/collaboration_review.html", ctx)
+
+
+@login_required
+@require_POST
+def menu_feedback_action_view(request, feedback_id):
+    """Approve or reject a feedback item."""
+
+    feedback = get_object_or_404(
+        models.Feedback.objects.select_related("menu", "menu__restaurant"),
+        id=feedback_id,
+        menu__restaurant__account__membership__user=request.user,
+    )
+
+    status = (request.POST.get("status") or "").strip().lower()
+    if status not in {
+        models.FeedbackAction.Status.APPROVED,
+        models.FeedbackAction.Status.REJECTED,
+    }:
+        return JsonResponse({"error": "invalid_status"}, status=400)
+
+    notes = (request.POST.get("notes") or "").strip()
+    action = getattr(feedback, "action", None)
+    if not action:
+        action = models.FeedbackAction.objects.create(feedback=feedback)
+    action.mark(status, user=request.user, notes=notes)
+
+    return redirect("menu-feedback-review", collection_id=feedback.menu_id)
 
 
 @login_required

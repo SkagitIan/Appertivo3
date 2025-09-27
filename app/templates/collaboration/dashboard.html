@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+{% load collaboration_tags %}
+{% block title %}{{ menu.name }} Collaboration — Appertivo{% endblock %}
+{% block body_class %}bg-[#F5F4FF] min-h-screen font-inter text-[#14080E]{% endblock %}
+{% block content %}
+  <div class="mx-auto flex max-w-6xl flex-col gap-10 px-4 py-10">
+    <header class="rounded-3xl bg-gradient-to-r from-[#2E005D] to-[#8E008B] p-8 text-white shadow-lg">
+      <div class="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+        <div class="space-y-2">
+          <p class="text-sm uppercase tracking-wide text-white/70">Appertivo collaboration</p>
+          <h1 class="text-3xl font-semibold">{{ menu.name }}</h1>
+          <p class="max-w-2xl text-sm text-white/80">Drag dishes, react with quick votes, or leave notes for the chef. Everything here is a suggestion until it is approved.</p>
+          <div class="flex flex-wrap gap-4 text-xs text-white/60">
+            <span>Link active until {{ link.expires_at|date:"M j, Y" }}</span>
+            {% if link.passcode %}<span>Passcode: <strong class="font-semibold text-white">{{ link.passcode }}</strong></span>{% endif %}
+            <span>{{ link.access_count }} visit{{ link.access_count|pluralize }}</span>
+          </div>
+        </div>
+        <div class="flex items-center gap-3 rounded-2xl bg-white/10 px-5 py-4 text-sm">
+          <div class="h-12 w-12 rounded-full bg-white/20 text-center text-lg font-semibold leading-[3rem]" data-anon-avatar>--</div>
+          <div>
+            <p class="text-xs uppercase tracking-wide text-white/70">You are</p>
+            <p class="text-base font-semibold" data-anon-label>Anon</p>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <section class="space-y-6">
+      <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h2 class="text-2xl font-semibold text-[#2E005D]">Menu dishes</h2>
+          <p class="text-sm text-slate-600">Quickly react or open the panels to share more detailed thoughts.</p>
+        </div>
+      </div>
+      <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+        {% for item in items %}
+          {% with dish=item.dish %}
+            {% with counts=thumb_counts|dict_lookup:dish.id %}
+              <article class="flex h-full flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm" draggable="true" data-reorder-source data-dish-id="{{ dish.id }}">
+                <div class="aspect-[4/3] w-full overflow-hidden rounded-2xl bg-gradient-to-br from-[#F3E8FF] to-[#E6DAF5]">
+                  <div class="flex h-full items-center justify-center text-4xl text-[#8E008B]">
+                    <span>{{ dish.title|first|default:"🍽" }}</span>
+                  </div>
+                </div>
+                <div class="space-y-2">
+                  <h3 class="text-lg font-semibold text-[#14080E]">{{ dish.title }}</h3>
+                  <p class="text-sm text-slate-600">{{ dish.description }}</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <form method="post" action="{% url 'collaboration-feedback' link.id %}" class="inline-flex" data-collab-form>
+                    {% csrf_token %}
+                    <input type="hidden" name="type" value="{{ models.Feedback.Type.THUMBS_UP }}" />
+                    <input type="hidden" name="dish_id" value="{{ dish.id }}" />
+                    <input type="hidden" name="anon_id" value="{{ anon_id }}" data-anon-field />
+                    <button type="submit" class="inline-flex items-center gap-1 rounded-full bg-[#F5F0FF] px-3 py-1 text-sm font-semibold text-[#2E005D] hover:bg-[#E8DFFF]">
+                      👍 <span>{{ counts.up|default:0 }}</span>
+                    </button>
+                  </form>
+                  <form method="post" action="{% url 'collaboration-feedback' link.id %}" class="inline-flex" data-collab-form>
+                    {% csrf_token %}
+                    <input type="hidden" name="type" value="{{ models.Feedback.Type.THUMBS_DOWN }}" />
+                    <input type="hidden" name="dish_id" value="{{ dish.id }}" />
+                    <input type="hidden" name="anon_id" value="{{ anon_id }}" data-anon-field />
+                    <button type="submit" class="inline-flex items-center gap-1 rounded-full bg-[#FFE8E8] px-3 py-1 text-sm font-semibold text-[#A0153E] hover:bg-[#FFD8D8]">
+                      👎 <span>{{ counts.down|default:0 }}</span>
+                    </button>
+                  </form>
+                  <details class="w-full rounded-2xl border border-slate-200 bg-white/60 p-3 text-sm">
+                    <summary class="cursor-pointer font-semibold text-[#2E005D]">Add comment</summary>
+                    <form method="post" action="{% url 'collaboration-feedback' link.id %}" class="mt-3 space-y-2" data-collab-form>
+                      {% csrf_token %}
+                      <input type="hidden" name="type" value="{{ models.Feedback.Type.COMMENT }}" />
+                      <input type="hidden" name="dish_id" value="{{ dish.id }}" />
+                      <input type="hidden" name="anon_id" value="{{ anon_id }}" data-anon-field />
+                      <textarea name="comment" rows="3" placeholder="Share quick notes for {{ dish.title }}" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"></textarea>
+                      <button type="submit" class="inline-flex items-center rounded-lg bg-[#2E005D] px-4 py-2 text-sm font-semibold text-white">Submit comment</button>
+                    </form>
+                  </details>
+                  <details class="w-full rounded-2xl border border-slate-200 bg-white/60 p-3 text-sm">
+                    <summary class="cursor-pointer font-semibold text-[#FF8300]">Suggest edit</summary>
+                    <form method="post" action="{% url 'collaboration-feedback' link.id %}" class="mt-3 space-y-2" data-collab-form>
+                      {% csrf_token %}
+                      <input type="hidden" name="type" value="{{ models.Feedback.Type.EDIT_SUGGESTION }}" />
+                      <input type="hidden" name="dish_id" value="{{ dish.id }}" />
+                      <input type="hidden" name="anon_id" value="{{ anon_id }}" data-anon-field />
+                      <input type="text" name="title" placeholder="Proposed title" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+                      <textarea name="description" rows="3" placeholder="Describe your update" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"></textarea>
+                      <input type="text" name="category" placeholder="Category (optional)" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+                      <button type="submit" class="inline-flex items-center rounded-lg bg-[#FF8300] px-4 py-2 text-sm font-semibold text-white">Send suggestion</button>
+                    </form>
+                  </details>
+                </div>
+              </article>
+            {% endwith %}
+          {% endwith %}
+        {% empty %}
+          <p class="text-sm text-slate-600">No dishes yet.</p>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="grid gap-8 md:grid-cols-2">
+      <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 class="text-xl font-semibold text-[#2E005D]">Propose a new order</h2>
+        <p class="mt-1 text-sm text-slate-600">Drag cards below and submit to send a suggested arrangement.</p>
+        <form method="post" action="{% url 'collaboration-feedback' link.id %}" class="mt-4 space-y-4" data-reorder-form>
+          {% csrf_token %}
+          <input type="hidden" name="type" value="{{ models.Feedback.Type.REORDER }}" />
+          <input type="hidden" name="anon_id" value="{{ anon_id }}" data-anon-field />
+          <input type="hidden" name="order" data-reorder-input />
+          <ul class="space-y-2" data-reorder-list>
+            {% for item in items %}
+              <li class="flex cursor-move items-center justify-between rounded-2xl border border-slate-200 bg-[#F8F7FF] px-4 py-3 text-sm font-medium text-[#2E005D]" draggable="true" data-dish-id="{{ item.dish.id }}">
+                <span>{{ forloop.counter }}. {{ item.dish.title }}</span>
+                <span class="text-xs text-slate-500">Drag</span>
+              </li>
+            {% endfor %}
+          </ul>
+          <button type="submit" class="inline-flex items-center rounded-lg bg-[#2E005D] px-4 py-2 text-sm font-semibold text-white">Submit arrangement</button>
+        </form>
+      </div>
+      <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 class="text-xl font-semibold text-[#2E005D]">Share a new idea</h2>
+        <p class="mt-1 text-sm text-slate-600">Dreaming up something new? Drop it here.</p>
+        <form method="post" action="{% url 'collaboration-feedback' link.id %}" class="mt-4 space-y-3" data-collab-form>
+          {% csrf_token %}
+          <input type="hidden" name="type" value="{{ models.Feedback.Type.NEW_IDEA }}" />
+          <input type="hidden" name="anon_id" value="{{ anon_id }}" data-anon-field />
+          <input type="text" name="title" placeholder="Name of the dish" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+          <textarea name="notes" rows="4" placeholder="Flavor notes, plating ideas, inspiration" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"></textarea>
+          <button type="submit" class="inline-flex items-center rounded-lg bg-[#FF8300] px-4 py-2 text-sm font-semibold text-white">Send idea</button>
+        </form>
+      </div>
+    </section>
+
+    <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 class="text-xl font-semibold text-[#2E005D]">Activity feed</h2>
+      <p class="mt-1 text-sm text-slate-600">Recently shared feedback appears here.</p>
+      <ul class="mt-4 space-y-3">
+        {% for entry in activity_feed %}
+          <li class="rounded-2xl border border-slate-100 bg-[#F8F7FF] px-4 py-3 text-sm text-[#14080E]">
+            <p>{{ entry.message }}</p>
+            <p class="text-xs text-slate-500">{{ entry.created_at|timesince }} ago</p>
+          </li>
+        {% empty %}
+          <li class="rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-500">No feedback yet. Try sending a thumbs up or idea.</li>
+        {% endfor %}
+      </ul>
+    </section>
+  </div>
+{% endblock %}
+
+{% block extra_scripts %}
+  <script>
+    (function () {
+      const linkId = "{{ link.id }}";
+      const storageKey = `appertivo-collab-${linkId}`;
+      let profile = { id: "{{ anon_id }}" };
+      try {
+        const stored = localStorage.getItem(storageKey);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed && typeof parsed === "object") {
+            profile = Object.assign(profile, parsed);
+          }
+        }
+      } catch (err) {
+        profile = { id: "{{ anon_id }}" };
+      }
+
+      if (!profile.id) {
+        profile.id = "{{ anon_id }}";
+      }
+      if (!profile.color) {
+        const palette = ["#FF8300", "#2E005D", "#00A676", "#FF5C00", "#0F4C81"];
+        profile.color = palette[Math.floor(Math.random() * palette.length)];
+      }
+      localStorage.setItem(storageKey, JSON.stringify(profile));
+
+      document.querySelectorAll('[data-anon-field]').forEach((input) => {
+        input.value = profile.id;
+      });
+      const label = document.querySelector('[data-anon-label]');
+      if (label) {
+        label.textContent = `Anon ${profile.id.slice(-4).toUpperCase()}`;
+      }
+      const avatar = document.querySelector('[data-anon-avatar]');
+      if (avatar) {
+        avatar.style.backgroundColor = profile.color;
+        avatar.textContent = profile.id.slice(-2).toUpperCase();
+      }
+
+      const reorderForm = document.querySelector('[data-reorder-form]');
+      const reorderList = document.querySelector('[data-reorder-list]');
+      const reorderInput = document.querySelector('[data-reorder-input]');
+      if (reorderList && reorderInput) {
+        let dragged = null;
+
+        const updateOrder = () => {
+          const ids = Array.from(reorderList.querySelectorAll('[data-dish-id]')).map((node) => node.getAttribute('data-dish-id'));
+          reorderInput.value = JSON.stringify(ids);
+        };
+
+        reorderList.addEventListener('dragstart', (event) => {
+          const target = event.target.closest('[data-dish-id]');
+          if (!target) return;
+          dragged = target;
+          target.classList.add('opacity-60');
+        });
+        reorderList.addEventListener('dragend', (event) => {
+          const target = event.target.closest('[data-dish-id]');
+          if (target) {
+            target.classList.remove('opacity-60');
+          }
+          dragged = null;
+        });
+        reorderList.addEventListener('dragover', (event) => {
+          event.preventDefault();
+          const target = event.target.closest('[data-dish-id]');
+          if (!dragged || !target || dragged === target) return;
+          const rect = target.getBoundingClientRect();
+          const before = event.clientY < rect.top + rect.height / 2;
+          if (before) {
+            reorderList.insertBefore(dragged, target);
+          } else {
+            reorderList.insertBefore(dragged, target.nextSibling);
+          }
+          updateOrder();
+        });
+
+        updateOrder();
+        reorderForm?.addEventListener('submit', updateOrder);
+      }
+    })();
+  </script>
+{% endblock %}
