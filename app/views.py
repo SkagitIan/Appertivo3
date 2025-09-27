@@ -1898,6 +1898,7 @@ def dish_detail_view(request, concept_id):
         "menu_options": menu_options,
         "menu_move_url": reverse("menu-item-move"),
         "menus_workspace_url": reverse("menus"),
+        "dishes_generate_url": reverse("dishes-generate", args=[concept.id]),
     }
 
     return render(request, template_name, context)
