@@ -4,3 +4,17 @@
 {% for dish in dishes %}
   {% include "dishes/_card.html" with dish=dish card_context="grid" menu_options=menu_options menu_move_url=menu_move_url current_menu_id='' menus_workspace_url=menus_workspace_url %}
 {% endfor %}
+{% if dishes and dishes_generate_url %}
+  <div class="col-span-full flex justify-center pt-2">
+    <button
+      type="button"
+      hx-post="{{ dishes_generate_url }}"
+      hx-target="#dishes-grid"
+      hx-swap="innerHTML"
+      class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-xs font-medium text-slate-500 shadow-sm transition hover:border-slate-300 hover:text-slate-600"
+    >
+      <span>More dishes like these</span>
+      <i class="fa-solid fa-chevron-down text-[10px]"></i>
+    </button>
+  </div>
+{% endif %}
