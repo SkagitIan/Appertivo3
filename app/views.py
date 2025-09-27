@@ -75,7 +75,10 @@ def _resolve_creativity_settings(
 ) -> tuple[int, Decimal]:
     """Return the slider value and mapped temperature for a restaurant."""
 
-    settings = getattr(restaurant, "restaurantsettings", None)
+    try:
+        settings = restaurant.restaurantsettings
+    except models.RestaurantSettings.DoesNotExist:
+        settings = None
     if not settings:
         settings, _ = models.RestaurantSettings.objects.get_or_create(
             restaurant=restaurant
@@ -86,6 +89,33 @@ def _resolve_creativity_settings(
     temperature = Decimal("0.1") + Decimal(slider) * Decimal("0.008")
     temperature = temperature.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     return slider, temperature
+
+
+def _sanitize_slider_value(raw_value: Any) -> Optional[int]:
+    """Return a sanitized slider integer if the raw value is valid."""
+
+    if raw_value in (None, ""):
+        return None
+    try:
+        value = int(raw_value)
+    except (TypeError, ValueError):
+        return None
+    return max(0, min(100, value))
+
+
+def _persist_slider_value(
+    restaurant: "models.Restaurant", slider_value: int
+) -> "models.RestaurantSettings":
+    """Ensure the restaurant's settings reflect the provided slider value."""
+
+    settings, _ = models.RestaurantSettings.objects.get_or_create(
+        restaurant=restaurant
+    )
+    if settings.classic_creative_slider != slider_value:
+        settings.classic_creative_slider = slider_value
+        settings.save(update_fields=["classic_creative_slider"])
+    setattr(restaurant, "restaurantsettings", settings)
+    return settings
 
 class ConceptList(BaseModel):
     concepts: List[str]
@@ -1192,18 +1222,15 @@ def concepts_generate_view(request):
     user_prompt = raw_prompt[:280]
 
     slider_value, slider_temperature = _resolve_creativity_settings(restaurant)
-    slider_override_raw = request.POST.get("classic_creative_slider")
-    if slider_override_raw is not None:
-        try:
-            slider_override = int(slider_override_raw)
-        except (TypeError, ValueError):
-            slider_override = None
-        if slider_override is not None:
-            slider_override = max(0, min(100, slider_override))
-            slider_value = slider_override
-            slider_temperature = (
-                Decimal("0.1") + Decimal(slider_value) * Decimal("0.008")
-            ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    slider_override = _sanitize_slider_value(
+        request.POST.get("classic_creative_slider")
+    )
+    if slider_override is not None:
+        _persist_slider_value(restaurant, slider_override)
+        slider_value = slider_override
+        slider_temperature = (
+            Decimal("0.1") + Decimal(slider_value) * Decimal("0.008")
+        ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
     temperature_float = float(slider_temperature)
 
@@ -1736,6 +1763,15 @@ def dishes_generate_view(request, concept_id):
     membership = models.Membership.objects.filter(user=request.user).first()
     htmx_request = request.headers.get("HX-Request") == "true"
     slider_value, slider_temperature = _resolve_creativity_settings(restaurant)
+    slider_override = _sanitize_slider_value(
+        request.POST.get("classic_creative_slider")
+    )
+    if slider_override is not None:
+        _persist_slider_value(restaurant, slider_override)
+        slider_value = slider_override
+        slider_temperature = (
+            Decimal("0.1") + Decimal(slider_value) * Decimal("0.008")
+        ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     temperature_float = float(slider_temperature)
     if restaurant.active_menu_version:
         restaurant_menu = restaurant.active_menu_version.raw_markdown
@@ -2963,10 +2999,9 @@ def rescrape_restaurant(request, restaurant_id):
 @require_POST
 def update_creativity(request, restaurant_id):
     restaurant = get_object_or_404(models.Restaurant, id=restaurant_id)
-    slider_value = request.POST.get("classic_creative_slider")
+    slider_value = _sanitize_slider_value(request.POST.get("classic_creative_slider"))
     if slider_value is not None:
-        restaurant.restaurantsettings.classic_creative_slider = int(slider_value)
-        restaurant.restaurantsettings.save(update_fields=["classic_creative_slider"])
+        _persist_slider_value(restaurant, slider_value)
     return JsonResponse({"status": "ok"})
 
 
