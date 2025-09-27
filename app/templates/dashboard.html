@@ -14,6 +14,16 @@
 {% endblock %}
 
 {% block page_content %}
+  <style>
+    @keyframes dashboard-progress-sweep {
+      0% {
+        transform: translateX(-100%);
+      }
+      100% {
+        transform: translateX(100%);
+      }
+    }
+  </style>
   <div class="px-4 py-6 space-y-6">
     {% include "concepts/_card_assets.html" %}
     <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -40,7 +50,7 @@
       </ul>
     </section>
 
-    <div class="grid gap-4 lg:grid-cols-2">
+    <div class="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
       <section class="rounded-2xl border border-slate-200 bg-white p-6">
         <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h2 class="text-lg font-semibold text-[#14080E]">Recent concepts</h2>
@@ -55,18 +65,47 @@
         {% if recent_concepts %}
           <ul class="mt-4 space-y-3">
             {% for concept in recent_concepts %}
-              <li class="rounded-xl border border-slate-200 p-4">
+              <li class="relative overflow-hidden rounded-xl border border-slate-200 bg-white/80 p-4 shadow-sm transition hover:border-[#FF5C00]/40" data-concept-item>
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p class="text-sm font-semibold text-[#14080E]">{{ concept.name }}</p>
-                    <p class="text-xs text-slate-500">
-                      {% if concept.runtime_display %}
-                        Ran in {{ concept.runtime_display }} •
+                  <div class="flex flex-1 items-start gap-3">
+                    {% if concept.is_favorited_for_user %}
+                      <div class="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg border border-white/60 bg-slate-100 shadow-sm">
+                        {% if concept.sketch_image_url %}
+                          <img
+                            src="{{ concept.sketch_image_url }}"
+                            alt="{{ concept.name }} concept sketch"
+                            class="h-full w-full object-cover"
+                          />
+                        {% else %}
+                          <div class="flex h-full w-full items-center justify-center text-slate-400">
+                            <i class="fa-solid fa-palette text-base" aria-hidden="true"></i>
+                          </div>
+                        {% endif %}
+                        <span class="absolute right-1 top-1 inline-flex items-center justify-center rounded-full bg-white/90 px-1.5 py-0.5 text-[10px] font-semibold text-[#FF5C00] shadow">
+                          <i class="fa-solid fa-star" aria-hidden="true"></i>
+                        </span>
+                      </div>
+                    {% endif %}
+                    <div class="flex-1 space-y-1">
+                      <p class="text-sm font-semibold text-[#14080E]">{{ concept.name }}</p>
+                      <p class="text-xs text-slate-500">
+                        {% if concept.runtime_display %}
+                          Ran in {{ concept.runtime_display }} •
+                        {% endif %}
+                        {{ concept.generated_at|date:"M j, Y g:i a" }}
+                      </p>
+                      {% if concept.is_favorited_for_user %}
+                        <span class="inline-flex items-center gap-1 rounded-full bg-[#FFE6D8] px-2 py-0.5 text-[11px] font-semibold text-[#FF5C00]">
+                          Favorited
+                        </span>
                       {% endif %}
-                      {{ concept.generated_at|date:"M j, Y g:i a" }}
-                    </p>
+                    </div>
                   </div>
-                  <a href="{% if concept.has_dishes %}{% url 'dish_detail' concept.id %}{% else %}{% url 'dishes-generate' concept.id %}{% endif %}" class="inline-flex items-center gap-2 text-sm font-semibold text-[#FF5C00] hover:text-[#e05400]">
+                  <a
+                    href="{% if concept.has_dishes %}{% url 'dish_detail' concept.id %}{% else %}{% url 'dishes-generate' concept.id %}{% endif %}"
+                    class="inline-flex items-center gap-2 text-sm font-semibold {% if concept.has_dishes %}text-[#2E005D] hover:text-[#250047]{% else %}text-[#FF5C00] hover:text-[#e05400]{% endif %}"
+                    {% if not concept.has_dishes %}data-generate-progress{% endif %}
+                  >
                     {% if concept.has_dishes %}
                       See dish ideas
                     {% else %}
@@ -74,6 +113,9 @@
                     {% endif %}
                     <i class="fa-solid fa-arrow-right text-xs" aria-hidden="true"></i>
                   </a>
+                </div>
+                <div class="pointer-events-none absolute inset-x-0 bottom-0 hidden h-1 overflow-hidden bg-[#FF5C00]/20" data-progress-bar>
+                  <div class="h-full w-1/2 bg-[#FF5C00]" style="animation: dashboard-progress-sweep 1.2s ease-in-out infinite;"></div>
                 </div>
               </li>
             {% endfor %}
@@ -97,7 +139,7 @@
         {% if recent_dishes %}
           <ul class="mt-4 space-y-3">
             {% for dish in recent_dishes %}
-              <li class="flex gap-3 rounded-xl border border-slate-200 p-4">
+              <li class="relative flex gap-3 rounded-xl border border-slate-200 bg-white/80 p-4 shadow-sm transition hover:border-[#2E005D]/40 {% if dish.needs_collab_attention %}border-[#2E005D] bg-[#F4ECFF]/80{% endif %}">
                 {% if dish.enhancement_image_url %}
                   <img src="{{ dish.enhancement_image_url }}" alt="{{ dish.title }}" class="h-16 w-16 rounded-lg object-cover" />
                 {% else %}
@@ -109,6 +151,15 @@
                   <p class="text-sm font-semibold text-[#14080E]">{{ dish.title }}</p>
                   <p class="text-xs text-slate-500">Concept: {{ dish.parent_concept.name }}</p>
                   <p class="text-xs text-slate-500">Favorited {{ dish.favorited_at|timesince }} ago</p>
+                  {% if dish.needs_collab_attention %}
+                    <span class="inline-flex items-center gap-1 rounded-full bg-[#2E005D]/10 px-2 py-0.5 text-[11px] font-semibold text-[#2E005D]">
+                      <i class="fa-solid fa-circle-exclamation text-[10px]" aria-hidden="true"></i>
+                      Needs attention
+                      {% if dish.pending_feedback_count > 0 %}
+                        <span aria-hidden="true">({{ dish.pending_feedback_count }})</span>
+                      {% endif %}
+                    </span>
+                  {% endif %}
                 </div>
                 <a href="{% url 'dish_detail' dish.parent_concept.id %}" class="self-center text-sm font-semibold text-[#FF5C00] hover:text-[#e05400]">&rsaquo;&rsaquo;</a>
               </li>
@@ -117,6 +168,45 @@
         {% else %}
           <p class="mt-4 text-sm text-slate-600">Generate dishes from a concept to see them here.</p>
         {% endif %}
+      </section>
+
+      <section class="rounded-2xl border border-slate-200 bg-white p-6">
+        <div class="flex items-center justify-between gap-2">
+          <h2 class="text-lg font-semibold text-[#14080E]">Collaboration updates</h2>
+          {% if pending_collaboration_total %}
+            <span class="inline-flex items-center gap-1 rounded-full bg-[#2E005D]/10 px-2 py-0.5 text-[11px] font-semibold text-[#2E005D]">
+              <i class="fa-solid fa-users" aria-hidden="true"></i>
+              {{ pending_collaboration_total }}
+            </span>
+          {% endif %}
+        </div>
+        {% if collaboration_updates %}
+          <ul class="mt-4 space-y-3">
+            {% for update in collaboration_updates %}
+              <li class="rounded-xl border border-slate-200 bg-slate-50/70 p-3 shadow-sm">
+                <p class="text-sm font-medium text-[#14080E]">{{ update.message }}</p>
+                <p class="mt-1 text-xs text-slate-500">
+                  {{ update.menu_name }}
+                  {% if update.dish_title %}
+                    • {{ update.dish_title }}
+                  {% endif %}
+                  • {{ update.created_at|timesince }} ago
+                </p>
+              </li>
+            {% endfor %}
+          </ul>
+          {% if collaboration_updates_more %}
+            <p class="mt-3 text-xs font-medium text-[#2E005D]">+{{ collaboration_updates_more }} more pending feedback item{{ collaboration_updates_more|pluralize }} in the collaboration hub.</p>
+          {% endif %}
+        {% else %}
+          <p class="mt-4 text-sm text-slate-600">No collaboration feedback pending. Share a menu to gather quick reactions.</p>
+        {% endif %}
+        <div class="mt-4 flex items-center gap-2 text-xs">
+          <a href="{% url 'menus' %}" class="inline-flex items-center gap-1 text-[#2E005D] font-semibold hover:text-[#250047]">
+            <i class="fa-solid fa-arrow-up-right-from-square text-[10px]" aria-hidden="true"></i>
+            Open collaboration hub
+          </a>
+        </div>
       </section>
     </div>
 
@@ -131,23 +221,48 @@
       {% if menus %}
         <div class="mt-4 space-y-3">
           {% for menu in menus %}
-            <details class="rounded-xl border border-slate-200 p-4" {% if forloop.first %}open{% endif %}>
-              <summary class="flex cursor-pointer items-center justify-between gap-2 text-sm font-semibold text-[#14080E]">
-                <span>{{ menu.name }}</span>
-                <span class="text-xs font-medium text-slate-500">{{ menu.menu_items|length }} dishes</span>
+            <details class="group relative overflow-hidden rounded-2xl border border-slate-200 p-4 shadow-sm" style="background-color: {% cycle '#F9F7FF' '#F3FAFF' '#FFF6F1' '#F4FFF5' '#FFF5FA' %};" {% if forloop.first %}open{% endif %}>
+              <summary class="flex cursor-pointer items-center justify-between gap-3 text-sm font-semibold text-[#14080E]">
+                <div class="flex items-center gap-2">
+                  <i class="fa-solid fa-book-open text-xs text-[#2E005D]" aria-hidden="true"></i>
+                  <span>{{ menu.name }}</span>
+                </div>
+                <div class="flex items-center gap-2 text-xs text-slate-500">
+                  <span class="inline-flex items-center gap-1 rounded-full bg-white/60 px-2 py-0.5 font-medium text-[#49475B] shadow-sm">{{ menu.menu_items|length }} dish{{ menu.menu_items|length|pluralize }}</span>
+                  {% if menu.pending_feedback_count %}
+                    <span class="inline-flex items-center gap-1 rounded-full bg-[#2E005D]/15 px-2 py-0.5 font-semibold text-[#2E005D]">
+                      <i class="fa-solid fa-comment-dots text-[10px]" aria-hidden="true"></i>
+                      {{ menu.pending_feedback_count }}
+                    </span>
+                  {% endif %}
+                </div>
               </summary>
-              <ul class="mt-3 space-y-2 text-sm text-slate-600">
+              <div class="mt-3 rounded-2xl bg-white/70 p-4 shadow-sm">
                 {% if menu.menu_items %}
-                  {% for item in menu.menu_items %}
-                    <li class="flex items-center justify-between gap-3">
-                      <span>{{ item.dish.title }}</span>
-                      <a href="{% url 'dish_detail' item.dish.parent_concept.id %}" class="text-xs font-semibold text-[#FF5C00] hover:text-[#e05400]">Open</a>
-                    </li>
-                  {% endfor %}
+                  <ul class="grid gap-2 text-sm text-[#49475B] sm:grid-cols-2">
+                    {% for item in menu.menu_items %}
+                      <li class="flex items-center justify-between gap-3 rounded-xl border border-white/70 bg-white/80 px-3 py-2 shadow-sm">
+                        <div class="flex flex-col">
+                          <span class="font-medium">{{ item.dish.title }}</span>
+                          <span class="text-[11px] text-slate-500">{{ item.dish.parent_concept.name }}</span>
+                        </div>
+                        <a href="{% url 'dish_detail' item.dish.parent_concept.id %}" class="inline-flex items-center gap-1 text-xs font-semibold text-[#2E005D] hover:text-[#250047]">
+                          Open
+                          <i class="fa-solid fa-arrow-up-right-from-square text-[9px]" aria-hidden="true"></i>
+                        </a>
+                      </li>
+                    {% endfor %}
+                  </ul>
                 {% else %}
-                  <li>No dishes added yet.</li>
+                  <div class="flex items-center justify-between gap-3 rounded-xl border border-dashed border-slate-300 bg-white/60 px-3 py-3 text-sm text-slate-500">
+                    <span>No dishes added yet.</span>
+                    <a href="{% url 'menus' %}" class="inline-flex items-center gap-1 text-xs font-semibold text-[#FF5C00] hover:text-[#e05400]">
+                      Add dishes
+                      <i class="fa-solid fa-plus text-[9px]" aria-hidden="true"></i>
+                    </a>
+                  </div>
                 {% endif %}
-              </ul>
+              </div>
             </details>
           {% endfor %}
         </div>
@@ -193,6 +308,31 @@
   {{ block.super }}
   <script>
     document.addEventListener('DOMContentLoaded', function () {
+      function initConceptProgress(root) {
+        if (!root) {
+          return;
+        }
+        root.querySelectorAll('[data-generate-progress]').forEach(function (link) {
+          if (!link || link.dataset.progressReady === 'true') {
+            return;
+          }
+          link.dataset.progressReady = 'true';
+          link.addEventListener('click', function () {
+            const item = link.closest('[data-concept-item]');
+            if (!item || item.dataset.progressActive === 'true') {
+              return;
+            }
+            item.dataset.progressActive = 'true';
+            const progress = item.querySelector('[data-progress-bar]');
+            if (progress) {
+              progress.classList.remove('hidden');
+            }
+          });
+        });
+      }
+
+      initConceptProgress(document);
+
       function setupMenuManager(manager) {
         if (!manager || manager.dataset.menuManagerReady === 'true') {
           return;
@@ -291,6 +431,7 @@
       document.body.addEventListener('htmx:afterSwap', function (event) {
         if (event.detail && event.detail.target) {
           initMenuManagers(event.detail.target);
+          initConceptProgress(event.detail.target);
         }
       });
     });
