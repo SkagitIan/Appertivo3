@@ -23,32 +23,11 @@
       </div>
     </section>
 
-    <div id="concepts-grid" class="grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
-      {% include "concepts/_concepts_grid.html" with concepts=concepts %}
-    </div>
-
-
-    <section class="rounded-2xl border border-slate-200 bg-white p-6">
-      <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h2 class="text-lg font-semibold text-[#14080E]">Restaurant context checklist</h2>
-        <a href="{{ settings_url }}" class="inline-flex items-center gap-2 text-sm font-semibold text-[#FF5C00] hover:text-[#e05400]">Update settings</a>
-      </div>
-      <ul class="mt-4 grid gap-3 sm:grid-cols-3">
-        {% for item in context_items %}
-          {% include "dashboard/_context_item.html" with item=item toggle_url=context_toggle_url settings_url=settings_url %}
-        {% endfor %}
-      </ul>
-    </section>
-
     <div class="grid gap-4 lg:grid-cols-2">
       <section class="rounded-2xl border border-slate-200 bg-white p-6">
         <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h2 class="text-lg font-semibold text-[#14080E]">Recent concepts</h2>
           <div class="flex items-center gap-2">
-            <a href="{% url 'concepts-generate' %}" class="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-[#14080E] transition hover:bg-slate-100">
-              <i class="fa-solid fa-sparkles text-[10px]" aria-hidden="true"></i>
-              New run
-            </a>
             <a href="{% url 'concepts' %}" class="text-sm font-semibold text-[#FF5C00] hover:text-[#e05400]">View all</a>
           </div>
         </div>
@@ -87,10 +66,6 @@
         <div class="flex items-center justify-between gap-2">
           <div class="flex items-center gap-2">
             <h2 class="text-lg font-semibold text-[#14080E]">Favorite dishes</h2>
-            <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
-              <i class="fa-solid fa-star text-[9px]" aria-hidden="true"></i>
-              Saved
-            </span>
           </div>
           <a href="{% url 'favorites' %}" class="text-sm font-semibold text-[#FF5C00] hover:text-[#e05400]">See favorites</a>
         </div>
