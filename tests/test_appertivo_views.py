@@ -304,6 +304,35 @@ class ViewSmokeTests(TestCase):
         self.assertAlmostEqual(run.context_snapshot["temperature"], 0.74, places=2)
         self.assertAlmostEqual(call_kwargs["temperature"], 0.74, places=2)
 
+    def test_concept_generation_updates_slider_setting(self):
+        models.RestaurantSettings.objects.filter(restaurant=self.restaurant).delete()
+
+        payload = {
+            "concepts": [
+                {
+                    "title": f"Idea {i}",
+                    "subtitle": "Sub",
+                    "reasoning": "Why",
+                    "tags": ["t1", "t2", "t3"],
+                }
+                for i in range(9)
+            ]
+        }
+        fake_response = SimpleNamespace(
+            output=[SimpleNamespace(content=[SimpleNamespace(text=json.dumps(payload))])]
+        )
+
+        with patch("app.views.client") as mock_client:
+            mock_client.responses.create.return_value = fake_response
+            response = self.client.post(
+                reverse("concepts-generate"),
+                {"classic_creative_slider": "72"},
+            )
+
+        self.assertEqual(response.status_code, 302)
+        settings = models.RestaurantSettings.objects.get(restaurant=self.restaurant)
+        self.assertEqual(settings.classic_creative_slider, 72)
+
     def test_dashboard_generation_hx_redirects_to_concepts(self):
         self._create_concepts()
         current_url = f"/dashboard/{self.restaurant.id}/"
