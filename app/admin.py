@@ -128,6 +128,31 @@ class MenuItemAdmin(TimestampedAdmin):
     list_display = ("id", "menu", "dish", "position")
 
 
+@admin.register(models.CollaborationLink)
+class CollaborationLinkAdmin(TimestampedAdmin):
+    list_display = (
+        "id",
+        "menu",
+        "is_active",
+        "expires_at",
+        "last_accessed_at",
+        "access_count",
+    )
+    list_filter = ("is_active", "menu__restaurant")
+
+
+@admin.register(models.Feedback)
+class FeedbackAdmin(TimestampedAdmin):
+    list_display = ("id", "menu", "dish", "type", "anon_id", "created_at")
+    list_filter = ("type", "menu__restaurant")
+
+
+@admin.register(models.FeedbackAction)
+class FeedbackActionAdmin(TimestampedAdmin):
+    list_display = ("id", "feedback", "status", "decided_by", "decided_at")
+    list_filter = ("status",)
+
+
 # Notifications
 @admin.register(models.NotificationPref)
 class NotificationPrefAdmin(TimestampedAdmin):
