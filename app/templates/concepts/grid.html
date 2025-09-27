@@ -13,13 +13,28 @@
   <div class="max-w-7xl mx-auto px-4 py-6 space-y-6">
     <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <div class="space-y-4">
-        <p class="text-sm font-medium text-[#49475B]">Try a suggestion below or type your own focus to refresh the grid.</p>
-        {% include "_partials/contextual_ai_input.html" with form_id="concepts-ai-input" action_url=concept_generate_url target="#concepts-grid" placeholder_samples=concept_prompt_placeholders suggestions=concept_prompt_suggestions %}
+        <p class="text-sm font-medium text-[#49475B]">Set the vibe you want to explore and let Appertivo riff on it.</p>
+        {% include "_partials/contextual_ai_input.html" with form_id="concepts-ai-input" action_url=concept_generate_url target="#concepts-grid" placeholder_samples=concept_prompt_placeholders instructions_text="Describe a theme and adjust the slider to balance classic and creative energy." slider_value=classic_creative_slider %}
       </div>
     </section>
 
-    <div id="concepts-grid" class="grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
-      {% include 'concepts/_concepts_grid.html' with concept_generate_url=concept_generate_url %}
+    <div class="space-y-4">
+      <div id="concepts-grid" class="grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+        {% include 'concepts/_concepts_grid.html' %}
+      </div>
+      <div class="flex justify-center">
+        <button
+          type="button"
+          hx-post="{{ concept_generate_url }}"
+          hx-target="#concepts-grid"
+          hx-swap="beforeend"
+          hx-include="#concepts-ai-input-slider"
+          class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-xs font-medium text-slate-500 shadow-sm transition hover:border-slate-300 hover:text-slate-600"
+        >
+          <span>More ideas like these</span>
+          <i class="fa-solid fa-chevron-down text-[10px]"></i>
+        </button>
+      </div>
     </div>
   </div>
 {% endblock %}
