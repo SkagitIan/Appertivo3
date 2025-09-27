@@ -6,6 +6,7 @@ from typing import Iterable, List
 from django.conf import settings
 from django.db import models
 from django.db.models import Q
+from django.utils import timezone
 
 
 class TimestampedModel(models.Model):
@@ -397,6 +398,107 @@ class Plan(TimestampedModel):
     name = models.TextField()
     limits = models.JSONField()
     features = models.JSONField()
+
+
+class CollaborationLink(TimestampedModel):
+    """Shareable link that exposes a collaboration dashboard."""
+
+    menu = models.ForeignKey(MenuCollection, on_delete=models.CASCADE)
+    expires_at = models.DateTimeField()
+    passcode = models.TextField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    last_accessed_at = models.DateTimeField(null=True, blank=True)
+    access_count = models.IntegerField(default=0)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["menu", "is_active", "expires_at"]),
+        ]
+
+    def is_expired(self) -> bool:
+        """Return whether the link has passed its expiration."""
+
+        if not self.expires_at:
+            return False
+        return timezone.now() >= self.expires_at
+
+    def mark_accessed(self) -> None:
+        """Record that the link was opened."""
+
+        self.last_accessed_at = timezone.now()
+        self.access_count = (self.access_count or 0) + 1
+        self.save(update_fields=["last_accessed_at", "access_count"])
+
+
+class Feedback(TimestampedModel):
+    """Feedback submitted through a collaboration link."""
+
+    class Type(models.TextChoices):
+        THUMBS_UP = "thumbs_up", "Thumbs up"
+        THUMBS_DOWN = "thumbs_down", "Thumbs down"
+        COMMENT = "comment", "Comment"
+        EDIT_SUGGESTION = "edit_suggestion", "Suggest edit"
+        REORDER = "reorder", "Reorder"
+        NEW_IDEA = "new_idea", "New idea"
+
+    menu = models.ForeignKey(MenuCollection, on_delete=models.CASCADE)
+    dish = models.ForeignKey(DishIdea, null=True, blank=True, on_delete=models.CASCADE)
+    link = models.ForeignKey(
+        CollaborationLink, on_delete=models.CASCADE, related_name="feedback"
+    )
+    type = models.TextField(choices=Type.choices)
+    payload = models.JSONField(default=dict)
+    anon_id = models.TextField()
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["menu", "type", "-created_at"]),
+        ]
+
+    @property
+    def anon_label(self) -> str:
+        """Return a friendly label for the anonymous participant."""
+
+        if not self.anon_id:
+            return "Anon"
+        suffix = str(self.anon_id).strip().replace(" ", "")[-4:]
+        return f"Anon #{suffix.upper()}"
+
+
+class FeedbackAction(TimestampedModel):
+    """Status for feedback items managed by the chef."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+
+    feedback = models.OneToOneField(
+        Feedback, on_delete=models.CASCADE, related_name="action"
+    )
+    status = models.TextField(choices=Status.choices, default=Status.PENDING)
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL
+    )
+    decided_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(null=True, blank=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["status", "-created_at"])]
+
+    def mark(self, status: str, *, user=None, notes: str = "") -> None:
+        """Update the status while capturing audit info."""
+
+        if status not in {choice for choice, _ in self.Status.choices}:
+            raise ValueError("Unknown status")
+        self.status = status
+        self.decided_by = user
+        self.decided_at = timezone.now()
+        update_fields = ["status", "decided_by", "decided_at"]
+        if notes:
+            self.notes = notes
+            update_fields.append("notes")
+        self.save(update_fields=update_fields)
 
 
 class Subscription(TimestampedModel):

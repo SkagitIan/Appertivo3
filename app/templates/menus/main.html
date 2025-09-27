@@ -87,6 +87,72 @@
           </div>
         </div>
         <div class="space-y-4 px-6 py-6" data-menu-body>
+          <div class="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
+            <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p class="text-sm font-semibold text-[#49475B]">Collaboration mode</p>
+                {% if menu.collaboration_link %}
+                  {% if menu.collaboration_link.is_expired %}
+                    <p class="text-sm text-red-600">This link expired on {{ menu.collaboration_link.expires_at|date:"M j, Y" }}.</p>
+                  {% else %}
+                    <p class="text-sm text-slate-600">Share this link with staff to collect feedback.</p>
+                    <p class="break-all text-xs font-medium text-[#2E005D]">{{ menu.collaboration_url }}</p>
+                    {% if menu.collaboration_link.passcode %}
+                      <p class="text-xs text-slate-500">Passcode: <span class="font-semibold">{{ menu.collaboration_link.passcode }}</span></p>
+                    {% endif %}
+                    <p class="text-xs text-slate-400">Expires {{ menu.collaboration_link.expires_at|date:"M j, Y" }} · {{ menu.collaboration_link.access_count }} visit{{ menu.collaboration_link.access_count|pluralize }}</p>
+                  {% endif %}
+                {% else %}
+                  <p class="text-sm text-slate-600">Generate a secure link for lightweight staff feedback.</p>
+                {% endif %}
+              </div>
+              {% if menu.collaboration_link %}
+                <a href="{% url 'menu-feedback-review' menu.id %}" class="inline-flex items-center justify-center rounded-xl bg-[#2E005D] px-4 py-2 text-sm font-semibold text-white shadow hover:bg-[#3a0a75]">
+                  Review feedback
+                  {% if menu.pending_feedback_count %}
+                    <span class="ml-2 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-white/20 text-xs font-semibold">{{ menu.pending_feedback_count }}</span>
+                  {% endif %}
+                </a>
+              {% endif %}
+            </div>
+            <div class="mt-4 grid gap-3 md:grid-cols-2">
+              {% if menu.collaboration_link %}
+                <form method="post" action="{% url 'menu-collaboration-manage' menu.id %}" class="space-y-3 rounded-xl border border-slate-200 bg-white/60 p-4">
+                  {% csrf_token %}
+                  <div class="flex flex-col gap-2">
+                    <label class="text-xs font-semibold uppercase tracking-wide text-slate-500">Extend &amp; regenerate</label>
+                    <div class="grid gap-2 md:grid-cols-2">
+                      <label class="text-xs text-slate-500">Duration (days)
+                        <input type="number" name="expires_in_days" value="7" min="1" max="90" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+                      </label>
+                      <label class="text-xs text-slate-500">Passcode (optional)
+                        <input type="text" name="passcode" value="{{ menu.collaboration_link.passcode }}" placeholder="e.g. dinner-2024" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+                      </label>
+                    </div>
+                  </div>
+                  <div class="flex flex-wrap gap-2">
+                    <button type="submit" name="action" value="regenerate" class="inline-flex items-center rounded-lg bg-[#FF8300] px-3 py-2 text-sm font-semibold text-white shadow hover:bg-[#ff6f00]">Regenerate link</button>
+                    <button type="submit" name="action" value="expire" class="inline-flex items-center rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100">Expire now</button>
+                    <button type="submit" name="action" value="disable" class="inline-flex items-center rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50">Disable</button>
+                  </div>
+                </form>
+              {% else %}
+                <form method="post" action="{% url 'menu-collaboration-manage' menu.id %}" class="space-y-3 rounded-xl border border-dashed border-slate-300 bg-white/60 p-4">
+                  {% csrf_token %}
+                  <label class="text-xs font-semibold uppercase tracking-wide text-slate-500">Expires in (days)
+                    <input type="number" name="expires_in_days" value="7" min="1" max="90" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+                  </label>
+                  <label class="text-xs font-semibold uppercase tracking-wide text-slate-500">Passcode (optional)
+                    <input type="text" name="passcode" placeholder="e.g. brunch-team" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+                  </label>
+                  <button type="submit" name="action" value="enable" class="inline-flex items-center justify-center gap-2 rounded-lg bg-[#2E005D] px-4 py-2 text-sm font-semibold text-white shadow hover:bg-[#3a0a75]">
+                    <i class="fa-solid fa-users" aria-hidden="true"></i>
+                    Enable collaboration
+                  </button>
+                </form>
+              {% endif %}
+            </div>
+          </div>
           <div data-menu-dishes class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {% for item in menu.menu_items %}
               <div
