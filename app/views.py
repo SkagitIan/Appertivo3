@@ -1177,6 +1177,19 @@ def concepts_generate_view(request):
     user_prompt = raw_prompt[:280]
 
     slider_value, slider_temperature = _resolve_creativity_settings(restaurant)
+    slider_override_raw = request.POST.get("classic_creative_slider")
+    if slider_override_raw is not None:
+        try:
+            slider_override = int(slider_override_raw)
+        except (TypeError, ValueError):
+            slider_override = None
+        if slider_override is not None:
+            slider_override = max(0, min(100, slider_override))
+            slider_value = slider_override
+            slider_temperature = (
+                Decimal("0.1") + Decimal(slider_value) * Decimal("0.008")
+            ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
     temperature_float = float(slider_temperature)
 
     session_concepts = [
