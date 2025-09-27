@@ -1,20 +1,11 @@
 {# Full dish card (lookbook-first) #}
-{% with
-  context_name=card_context|default:"grid"
-  menu_list=menu_options|default:""
-  current_menu=current_menu_id|default:""
-  move_url=menu_move_url|default:""
-  menus_url=menus_workspace_url|default:""
-%}
-
-
 <div
   class="dish-card-wrapper"
   id="dish-{{ dish.id }}"
   data-dish-card
   data-dish-id="{{ dish.id }}"
-  data-current-menu="{{ current_menu }}"
-  data-move-url="{{ move_url }}"
+  data-current-menu="{{ current_menu_id|default:'' }}"
+  data-move-url="{{ menu_move_url|default:'' }}"
   data-favorited="{% if dish.is_favorited %}true{% else %}false{% endif %}"
 >
   <div class="flip-scene h-full">
@@ -30,7 +21,7 @@
                 {% endif %}
               </header>
 
-              <div class="flex flex-wrap gap-2 pb-2">
+              <div class="flex flex-wrap items-center gap-2 pb-2">
                 {% for tag in dish.category_tags %}
                   <a
                     href="{% url 'tag-search' %}?tag={{ tag|urlencode }}"
@@ -47,11 +38,23 @@
                     {{ tag }}
                   </a>
                 {% endfor %}
+                <button
+                  type="button"
+                  class="dish-delete-btn tag-delete-btn"
+                  hx-post="{% url 'dish-delete' dish.id %}"
+                  hx-trigger="click"
+                  hx-target="closest .dish-card-wrapper"
+                  hx-swap="outerHTML"
+                  aria-label="Dismiss {{ dish.title }}"
+                >
+                  <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
+                  <span>Dismiss</span>
+                </button>
               </div>
             </div>
 
-            <footer class="flex justify-end gap-2 pt-1">
-              {% include "dishes/_favorite_button.html" with dish=dish card_context=context_name btn_class='favorite-btn card-action-button bg-white/90 text-slate-500 hover:text-red-400' %}
+            <footer class="card-bottom-bar flex justify-end gap-2">
+              {% include "dishes/_favorite_button.html" with dish=dish card_context=card_context|default:"grid" btn_class='favorite-btn card-action-button bg-white/90 text-slate-500 hover:text-red-400' %}
               <button
                 type="button"
                 class="dish-variation-btn card-action-button bg-white/90 text-slate-600 hover:text-slate-800"
@@ -63,17 +66,6 @@
               >
                 <i class="fa-solid fa-arrows-rotate"></i>
               </button>
-              <button
-                type="button"
-                class="dish-delete-btn card-action-button bg-white/90 text-red-500 hover:text-red-600"
-                hx-post="{% url 'dish-delete' dish.id %}"
-                hx-trigger="click"
-                hx-target="closest .dish-card-wrapper"
-                hx-swap="outerHTML"
-                aria-label="Dismiss {{ dish.title }}"
-              >
-                <i class="fa-solid fa-thumbs-down"></i>
-              </button>
             </footer>
           </article>
         </div>
@@ -82,21 +74,21 @@
         <div class="flip-face front relative rounded-2xl overflow-hidden shadow-md border border-slate-200 bg-white">
           {% if dish.enhancement_image_url %}
             <!-- Lookbook image -->
-            <img
-              src="{{ dish.enhancement_image_url }}"
-              alt="{{ dish.title }}"
-              class="absolute inset-0 w-full h-full object-cover"
-            />
-            <!-- Top gradient so price badge stays readable -->
-            <div class="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/25 to-transparent"></div>
+              <img
+                src="{{ dish.enhancement_image_url }}"
+                alt="{{ dish.title }}"
+                class="absolute inset-0 w-full h-full object-cover"
+              />
+              <!-- Top gradient so price badge stays readable -->
+              <div class="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/25 to-transparent"></div>
 
-            {% if dish.enhancement_price_display %}
-              <span class="absolute top-2 right-2 bg-white/90 text-[#49475B] text-xs md:text-sm font-semibold px-3 py-1 rounded-full shadow">
+              {% if dish.enhancement_price_display %}
+              <span class="price-tag absolute top-2 right-2 text-xs md:text-sm">
                 {{ dish.enhancement_price_display }}
               </span>
-            {% endif %}
-          {% else %}
-            <!-- No image? Show a clean, centered info front -->
+              {% endif %}
+            {% else %}
+              <!-- No image? Show a clean, centered info front -->
             <div class="relative flex h-full flex-col text-center p-4 {{HSM}} {{HMD}} {{HLG}}">
               <div class="dish-card-scroll flex-1 w-full flex flex-col items-center justify-center gap-3 pb-6">
                 <h3 class="text-lg md:text-xl font-bold text-[#49475B]">{{ dish.title }}</h3>
@@ -141,9 +133,9 @@
                 <i class="fa-solid fa-ellipsis"></i>
               </button>
               <div class="dish-menu-panel" data-menu-panel data-no-flip aria-hidden="true">
-                {% if menu_list %}
+                {% if menu_options %}
                   <div class="dish-menu-options" data-no-flip>
-                    {% for menu in menu_list %}
+                    {% for menu in menu_options %}
                       <button
                         type="button"
                         class="dish-menu-option"
@@ -170,9 +162,9 @@
                 {% else %}
                   <div class="dish-menu-empty" data-no-flip>
                     <p>Create a menu to add this dish.</p>
-                    {% if menus_url %}
+                    {% if menus_workspace_url %}
                       <a
-                        href="{{ menus_url }}"
+                        href="{{ menus_workspace_url }}"
                         class="dish-menu-empty-link"
                         data-menu-empty-cta
                         data-no-flip
@@ -199,9 +191,9 @@
             </div>
 
             <!-- Tags -->
-            <div class="flex flex-wrap justify-center gap-2 pb-1">
+            <div class="flex flex-wrap justify-center items-center gap-2 pb-1">
               {% if dish.enhancement_price_display %}
-                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs md:text-sm font-semibold bg-[#ff4c4c] text-light border border-slate-200 shadow-sm">
+                <span class="price-tag text-xs md:text-sm">
                   {{ dish.enhancement_price_display }}
                 </span>
               {% endif %}
@@ -221,22 +213,20 @@
                   {{ tag }}
                 </a>
               {% endfor %}
+              <button
+                type="button"
+                class="dish-delete-btn tag-delete-btn"
+                hx-post="{% url 'dish-delete' dish.id %}"
+                hx-trigger="click"
+                hx-target="closest .dish-card-wrapper"
+                hx-swap="outerHTML"
+                aria-label="Dismiss {{ dish.title }}"
+                data-no-flip
+              >
+                <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
+                <span>Dismiss</span>
+              </button>
             </div>
-          </div>
-
-          <!-- Actions (again, on BACK) -->
-          <div class="flex justify-end gap-2 border-t border-slate-200 pt-3" data-no-flip>
-            <button
-              type="button"
-              class="dish-delete-btn card-action-button text-red-500 hover:text-red-600"
-              hx-post="{% url 'dish-delete' dish.id %}"
-              hx-trigger="click"
-              hx-target="closest .dish-card-wrapper"
-              hx-swap="outerHTML"
-              aria-label="Delete {{ dish.title }}"
-            >
-              🗑️
-            </button>
           </div>
         </div>
       {% endif %}
@@ -251,6 +241,4 @@
     </div>
   </div>
 </div>
-
-{% endwith %}
 
