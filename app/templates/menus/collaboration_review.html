@@ -1,0 +1,93 @@
+{% extends "layouts/app.html" %}
+{% load collaboration_tags %}
+{% block title %}{{ menu.name }} feedback — Appertivo{% endblock %}
+{% block page_intro %}
+  <div class="space-y-2">
+    <h1 class="text-xl font-semibold text-[#14080E]">{{ menu.name }} collaboration feedback</h1>
+    <p class="text-sm text-slate-600">Approve or archive suggestions from the shared staff dashboard. Nothing updates your menu until you confirm it here.</p>
+  </div>
+{% endblock %}
+{% block page_content %}
+  <div class="space-y-8">
+    <section class="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm">
+      <h2 class="text-lg font-semibold text-[#2E005D]">Pending review</h2>
+      <p class="text-sm text-slate-600">These items are waiting for a decision.</p>
+      <div class="mt-4 space-y-4">
+        {% for entry in pending_feedback %}
+          {% with feedback=entry.feedback %}
+            <article class="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+              <header class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p class="text-sm font-semibold text-[#14080E]">{{ entry.message }}</p>
+                  <p class="text-xs text-slate-500">{{ feedback.created_at|date:"M j, Y g:i a" }}</p>
+                </div>
+                <span class="inline-flex items-center rounded-full bg-[#FFF3E0] px-3 py-1 text-xs font-semibold text-[#FF8300]">Pending</span>
+              </header>
+              <div class="space-y-2 text-sm text-slate-600">
+                {% if feedback.type == models.Feedback.Type.COMMENT %}
+                  <p class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[#14080E]">{{ feedback.payload.comment }}</p>
+                {% elif feedback.type == models.Feedback.Type.EDIT_SUGGESTION %}
+                  <dl class="grid gap-2 text-sm text-slate-700">
+                    {% if feedback.payload.title %}<div><dt class="font-semibold text-[#14080E]">Title</dt><dd>{{ feedback.payload.title }}</dd></div>{% endif %}
+                    {% if feedback.payload.description %}<div><dt class="font-semibold text-[#14080E]">Description</dt><dd>{{ feedback.payload.description }}</dd></div>{% endif %}
+                    {% if feedback.payload.category %}<div><dt class="font-semibold text-[#14080E]">Category</dt><dd>{{ feedback.payload.category }}</dd></div>{% endif %}
+                  </dl>
+                {% elif feedback.type == models.Feedback.Type.REORDER %}
+                  <div>
+                    <p class="font-semibold text-[#14080E]">Suggested order</p>
+                    <ol class="mt-2 list-decimal space-y-1 pl-5">
+                      {% for dish_id in feedback.payload.order %}
+                        {% with key=dish_id|stringformat:"s" %}
+                          {% with title=dish_titles|dict_lookup:key %}
+                            <li>{{ title|default:dish_id }}</li>
+                          {% endwith %}
+                        {% endwith %}
+                      {% endfor %}
+                    </ol>
+                  </div>
+                {% elif feedback.type == models.Feedback.Type.NEW_IDEA %}
+                  <dl class="grid gap-2 text-sm text-slate-700">
+                    {% if feedback.payload.title %}<div><dt class="font-semibold text-[#14080E]">Idea</dt><dd>{{ feedback.payload.title }}</dd></div>{% endif %}
+                    {% if feedback.payload.notes %}<div><dt class="font-semibold text-[#14080E]">Notes</dt><dd>{{ feedback.payload.notes }}</dd></div>{% endif %}
+                  </dl>
+                {% endif %}
+              </div>
+              <form method="post" action="{% url 'menu-feedback-action' feedback.id %}" class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                {% csrf_token %}
+                <textarea name="notes" rows="2" placeholder="Optional notes" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm md:flex-1"></textarea>
+                <div class="flex flex-wrap gap-2">
+                  <button type="submit" name="status" value="approved" class="inline-flex items-center rounded-lg bg-[#2E005D] px-4 py-2 text-sm font-semibold text-white hover:bg-[#3a0a75]">Approve</button>
+                  <button type="submit" name="status" value="rejected" class="inline-flex items-center rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100">Reject</button>
+                </div>
+              </form>
+            </article>
+          {% endwith %}
+        {% empty %}
+          <div class="rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-500">Nothing pending right now. Share the collaboration link to gather more feedback.</div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm">
+      <h2 class="text-lg font-semibold text-[#2E005D]">Activity log</h2>
+      <p class="text-sm text-slate-600">Accepted or rejected suggestions stay here for reference.</p>
+      <div class="mt-4 space-y-3">
+        {% for entry in history_feedback %}
+          {% with feedback=entry.feedback %}
+            <article class="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-[#14080E]">
+              <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <p>{{ entry.message }}</p>
+                <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold {% if entry.status == models.FeedbackAction.Status.APPROVED %}bg-[#E6FFFA] text-[#00796B]{% else %}bg-[#FFE8E8] text-[#A0153E]{% endif %}">
+                  {{ entry.status|capfirst }}
+                </span>
+              </div>
+              <p class="mt-1 text-xs text-slate-500">{{ feedback.created_at|date:"M j, Y g:i a" }}</p>
+            </article>
+          {% endwith %}
+        {% empty %}
+          <div class="rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-500">No decisions recorded yet.</div>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+{% endblock %}

@@ -47,7 +47,12 @@ urlpatterns = [
     path("menus/add/<uuid:dish_id>/<uuid:collection_id>/", app_views.menu_item_add_view, name="menu-item-add"),
     path("menus/<uuid:collection_id>/rename/", app_views.menu_collection_update_view, name="menu-collection-rename"),
     path("menus/<uuid:collection_id>/delete/", app_views.menu_collection_delete_view, name="menu-collection-delete"),
+    path("menus/<uuid:collection_id>/collaboration/", app_views.menu_collaboration_manage_view, name="menu-collaboration-manage"),
+    path("menus/<uuid:collection_id>/feedback/", app_views.menu_feedback_review_view, name="menu-feedback-review"),
+    path("menus/feedback/<uuid:feedback_id>/action/", app_views.menu_feedback_action_view, name="menu-feedback-action"),
     path("menus/item/move/", app_views.menu_item_move_view, name="menu-item-move"),
+    path("collab/<uuid:link_id>/", app_views.collaboration_dashboard_view, name="collaboration-dashboard"),
+    path("collab/<uuid:link_id>/feedback/", app_views.collaboration_feedback_submit_view, name="collaboration-feedback"),
     ##settings page
     path("settings/", app_views.settings_view, name="settings"),
     path("settings/info/", app_views.update_restaurant_info, name="update_restaurant_info"),
