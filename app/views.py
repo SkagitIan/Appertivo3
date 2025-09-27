@@ -49,6 +49,18 @@ logger = logging.getLogger(__name__)
 
 
 DEMO_USER_ID = 17
+DEFAULT_CACHE_TIMEOUT = 600
+SHORT_CACHE_TIMEOUT = 300
+
+
+def _stable_hash(value: Any) -> str:
+    """Return a stable md5 hash for nested JSON-like data."""
+
+    try:
+        serialized = json.dumps(value, sort_keys=True, default=str)
+    except TypeError:
+        serialized = str(value)
+    return hashlib.md5(serialized.encode("utf-8")).hexdigest()
 
 DEFAULT_PROMPT_PLACEHOLDERS = [
     "Try: Fall brunch specials",
@@ -113,6 +125,24 @@ def build_prompt_suggestions(
     seen: set[str] = set()
     suggestions: List[str] = []
 
+    season = _current_season()
+    cache_key: Optional[str] = None
+    if restaurant and getattr(restaurant, "id", None):
+        cache_payload = {
+            "restaurant": str(restaurant.id),
+            "season": season,
+            "context": restaurant.context_json or {},
+            "about": restaurant.about_json or {},
+            "location": restaurant.location_text,
+            "menu_urls": restaurant.menu_urls or [],
+            "primary_menu_url": restaurant.primary_menu_url or "",
+            "max_items": max_items,
+        }
+        cache_key = f"prompt-suggestions:{_stable_hash(cache_payload)}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+
     def _add_suggestion(value: Optional[str]) -> None:
         if not value:
             return
@@ -121,8 +151,6 @@ def build_prompt_suggestions(
             return
         seen.add(text.lower())
         suggestions.append(text)
-
-    season = _current_season()
 
     if restaurant:
         context_data = restaurant.context_json or {}
@@ -165,7 +193,10 @@ def build_prompt_suggestions(
     for option in fallback_options:
         _add_suggestion(option)
 
-    return list(islice(suggestions, max_items))
+    result = list(islice(suggestions, max_items))
+    if cache_key:
+        cache.set(cache_key, result, timeout=DEFAULT_CACHE_TIMEOUT)
+    return result
 
 
 def _footer_articles(limit: int = 4) -> List[Any]:
@@ -175,10 +206,17 @@ def _footer_articles(limit: int = 4) -> List[Any]:
     if article_model is None:
         return []
 
-    return list(
+    cache_key = f"footer-articles:{limit}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    articles = list(
         article_model.objects.filter(published_at__isnull=False)
         .order_by("-published_at")[:limit]
     )
+    cache.set(cache_key, articles, timeout=DEFAULT_CACHE_TIMEOUT)
+    return articles
 
 
 def _stripe_timestamp(value: Optional[int]) -> datetime.datetime:
@@ -1503,10 +1541,37 @@ CONTEXT_ITEM_DEFINITIONS = (
 )
 
 
+def _context_items_cache_key(
+    restaurant: models.Restaurant, settings_obj: models.RestaurantSettings
+) -> str:
+    payload = {
+        "restaurant": str(getattr(restaurant, "id", "")),
+        "settings": settings_obj.llm_defaults,
+        "settings_updated": (
+            settings_obj.updated_at.isoformat() if getattr(settings_obj, "updated_at", None) else ""
+        ),
+        "menu_version": str(
+            getattr(getattr(restaurant, "active_menu_version", None), "id", "")
+        ),
+        "menu_urls": restaurant.menu_urls or [],
+        "primary_menu_url": restaurant.primary_menu_url or "",
+        "review_count": restaurant.review_count,
+        "rating": str(restaurant.rating) if restaurant.rating is not None else "",
+        "context": restaurant.context_json or {},
+        "about": restaurant.about_json or {},
+    }
+    return f"context-items:{_stable_hash(payload)}"
+
+
 def build_context_items(
     restaurant: models.Restaurant, settings_obj: models.RestaurantSettings
 ) -> List[dict]:
     """Return context checklist items with presence + preference state."""
+
+    cache_key = _context_items_cache_key(restaurant, settings_obj)
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
 
     context_flags = dict(settings_obj.llm_defaults.get("context_flags", {}))
     items: List[dict] = []
@@ -1597,6 +1662,8 @@ def build_context_items(
             }
         )
 
+    cache_key = _context_items_cache_key(restaurant, settings_obj)
+    cache.set(cache_key, items, timeout=SHORT_CACHE_TIMEOUT)
     return items
 
 
