@@ -1910,6 +1910,20 @@ def dish_favorite_view(request, dish_id):
         models.DishIdea.objects.filter(is_deleted=False), id=dish_id
     )
     card_context = request.POST.get("context") or request.GET.get("context") or "grid"
+    current_menu_id = (
+        request.POST.get("current_menu_id")
+        or request.GET.get("current_menu_id")
+        or ""
+    )
+    menu_options: List[dict[str, str]] = []
+    if request.user.is_authenticated:
+        menu_queryset = models.MenuCollection.objects.filter(
+            restaurant=dish.restaurant,
+            restaurant__account__membership__user=request.user,
+        ).order_by("created_at")
+        menu_options = [
+            {"id": str(menu.id), "name": menu.name} for menu in menu_queryset
+        ]
     fav, created = models.FavoriteDish.objects.get_or_create(
         user=request.user, dish=dish, defaults={"favorited_at": timezone.now()}
     )
@@ -1940,6 +1954,9 @@ def dish_favorite_view(request, dish_id):
         {
             "dish": dish,
             "card_context": card_context,
+            "menu_options": menu_options,
+            "menu_move_url": reverse("menu-item-move"),
+            "current_menu_id": current_menu_id,
             "menus_workspace_url": reverse("menus"),
         },
         request=request,
@@ -2134,11 +2151,29 @@ def dish_variation_view(request, dish_id):
 
     decorate_dishes_with_enhancements([new_dish])
 
+    menu_options: List[dict[str, str]] = []
+    if request.user.is_authenticated:
+        menu_queryset = models.MenuCollection.objects.filter(
+            restaurant=restaurant,
+            restaurant__account__membership__user=request.user,
+        ).order_by("created_at")
+        menu_options = [
+            {"id": str(menu.id), "name": menu.name} for menu in menu_queryset
+        ]
+    current_menu_id = (
+        request.POST.get("current_menu_id")
+        or request.GET.get("current_menu_id")
+        or ""
+    )
+
     html = render_to_string(
         "dishes/_card.html",
         {
             "dish": new_dish,
             "card_context": "grid",
+            "menu_options": menu_options,
+            "menu_move_url": reverse("menu-item-move"),
+            "current_menu_id": current_menu_id,
             "menus_workspace_url": reverse("menus"),
         },
         request=request,
