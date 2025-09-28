@@ -367,6 +367,19 @@ def _extend_session_list(session, key: str, new_items: Iterable[str]) -> None:
     session.modified = True
 
 
+def _record_unfavorited_concept(session, concept_name: str) -> None:
+    """Store a trimmed history of concept names the user removed from favorites."""
+
+    name = (concept_name or "").strip()
+    if not name:
+        return
+    _extend_session_list(session, "disliked_concepts", [name])
+    disliked = _get_session_list(session, "disliked_concepts")
+    if len(disliked) > 30:
+        session["disliked_concepts"] = disliked[-30:]
+        session.modified = True
+
+
 def _load_home_demo_favorites():
     """Return demo favorites (concept + dish) for the marketing homepage."""
 
@@ -1147,6 +1160,9 @@ def concepts_view(request):
     for concept in concepts:
         favorites = getattr(concept, "_favorites_for_request_user", [])
         concept.is_favorited_for_user = bool(favorites)
+
+    disliked_concepts = _get_session_list(request.session, "disliked_concepts")
+    recent_disliked = list(reversed(disliked_concepts[-6:])) if disliked_concepts else []
     return render(
         request,
         "concepts/grid.html",
@@ -1159,6 +1175,7 @@ def concepts_view(request):
             "classic_creative_slider": slider_value,
             "classic_creative_temperature": slider_temperature,
             "creative_bias_label": creative_bias_label,
+            "disliked_concepts": recent_disliked,
         },
     )
 
@@ -1239,6 +1256,8 @@ def concepts_generate_view(request):
         for name in (request.session.get("generated_concepts") or [])
         if name and str(name).strip()
     ]
+    disliked_concepts = _get_session_list(request.session, "disliked_concepts")
+    disliked_context = disliked_concepts[-15:]
 
     logger.info(f"previous concepts: {session_concepts}")
     if restaurant.active_menu_version:
@@ -1259,6 +1278,12 @@ def concepts_generate_view(request):
         context += (
             "\nPreviously generated concept names to avoid: "
             + ", ".join(session_concepts[:15])
+        )
+    if disliked_context:
+        context += (
+            "\nConcepts the team previously passed on: "
+            + ", ".join(disliked_context)
+            + ". Consider why they missed the mark and suggest improved twists or alternatives instead of repeating them."
         )
     if user_prompt:
         context += f"\nUser special instructions: {user_prompt}"
@@ -1345,6 +1370,7 @@ def concepts_generate_view(request):
     context_snapshot = {
         "prompt": user_prompt,
         "session_concepts": session_concepts[:15],
+        "disliked_concepts": disliked_context,
         "context": context,
         "classic_creative_slider": slider_value,
         "temperature": temperature_float,
@@ -1457,6 +1483,7 @@ def concept_favorite_view(request, concept_id):
         if concept.sketch_image_url:
             concept.sketch_image_url = None
             concept.save(update_fields=["sketch_image_url"])
+        _record_unfavorited_concept(request.session, concept.name)
 
     concept.is_favorited_for_user = favorited
     concept.has_dishes = models.DishIdea.objects.filter(
@@ -2442,6 +2469,7 @@ def favorite_remove_view(request, type, id):
         if concept.sketch_image_url:
             concept.sketch_image_url = None
             concept.save(update_fields=["sketch_image_url"])
+        _record_unfavorited_concept(request.session, concept.name)
     else:
         models.FavoriteDish.objects.filter(user=request.user, dish_id=id).delete()
     if request.headers.get("HX-Request"):
