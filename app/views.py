@@ -1470,14 +1470,9 @@ def concept_favorite_view(request, concept_id):
         user=request.user, concept=concept, defaults={"favorited_at": timezone.now()}
     )
 
-    if created:
-        if request.headers.get("HX-Request") == "true":
-            response = HttpResponse(status=204)
-            response["HX-Redirect"] = reverse("dish_detail", args=[concept.id])
-            return response
-        return redirect("dish_detail", concept_id=concept.id)
+    is_htmx = request.headers.get("HX-Request") == "true"
+    favorited = created
 
-    favorited = False
     if not created:
         fav.delete()
         if concept.sketch_image_url:
@@ -1490,13 +1485,21 @@ def concept_favorite_view(request, concept_id):
         parent_concept=concept, is_deleted=False
     ).exists()
 
-    # Always return the refreshed card so the UI stays in sync
-    card_html = render_to_string(
-        "concepts/_card.html",
-        {"concept": concept, "loading": favorited},
-        request=request,
-    )
-    return HttpResponse(card_html)
+    if is_htmx:
+        card_html = render_to_string(
+            "concepts/_card.html",
+            {
+                "concept": concept,
+                "loading": favorited and not concept.sketch_image_url,
+            },
+            request=request,
+        )
+        return HttpResponse(card_html)
+
+    if favorited:
+        return redirect("dish_detail", concept_id=concept.id)
+
+    return redirect("concepts")
 
 
 
