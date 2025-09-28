@@ -57,4 +57,4 @@ def admin_dashboard(request):
 
 @staff_member_required
 def dashboard_redirect(request):  # pragma: no cover - convenience redirect
-    return redirect("articles_admin_dashboard")
+    return redirect("admin:articles_admin_dashboard")

@@ -26,7 +26,7 @@ class ArticleRunAdmin(admin.ModelAdmin):
         extra_context = extra_context or {}
         extra_context.setdefault(
             "articles_dashboard_url",
-            reverse("articles_admin_dashboard"),
+            reverse("admin:articles_admin_dashboard"),
         )
         return super().changelist_view(request, extra_context=extra_context)
 
@@ -51,7 +51,7 @@ class ArticleAdmin(admin.ModelAdmin):
         extra_context = extra_context or {}
         extra_context.setdefault(
             "articles_dashboard_url",
-            reverse("articles_admin_dashboard"),
+            reverse("admin:articles_admin_dashboard"),
         )
         return super().changelist_view(request, extra_context=extra_context)
 
@@ -62,7 +62,11 @@ def _inject_dashboard_link(original_index):  # pragma: no cover - glue code
         extra_context = extra_context or {}
         extra_context.setdefault(
             "articles_dashboard",
-            format_html("<a href='{}'>{}</a>", reverse("articles_admin_dashboard"), _( "Articles")),
+            format_html(
+                "<a href='{}'>{}</a>",
+                reverse("admin:articles_admin_dashboard"),
+                _("Articles"),
+            ),
         )
         return original_index(request, extra_context=extra_context)
 
