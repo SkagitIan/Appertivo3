@@ -1,0 +1,19 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+<div class="articles-dashboard">
+  <h1>{% trans "Articles Pipeline" %}</h1>
+  <p class="help">{% trans "Quick access to prompts, queued runs, and draft articles." %}</p>
+  <div class="tabs" style="display:flex; gap:1rem; flex-wrap:wrap;">
+    {% for tab in tabs %}
+      <div style="flex:1 1 200px; border:1px solid #ddd; padding:1rem; border-radius:6px; background-color:#fff;">
+        <h2 style="margin-top:0; font-size:1.1rem;">
+          <a href="{{ tab.url }}">{{ tab.label }}</a>
+        </h2>
+        <p style="margin:0; color:#555;">{{ tab.description }}</p>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
