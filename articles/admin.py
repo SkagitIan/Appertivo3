@@ -26,7 +26,7 @@ class ArticleRunAdmin(admin.ModelAdmin):
         extra_context = extra_context or {}
         extra_context.setdefault(
             "articles_dashboard_url",
-            reverse("admin:articles_admin_dashboard"),
+            reverse("articles_admin_dashboard"),
         )
         return super().changelist_view(request, extra_context=extra_context)
 
@@ -51,24 +51,20 @@ class ArticleAdmin(admin.ModelAdmin):
         extra_context = extra_context or {}
         extra_context.setdefault(
             "articles_dashboard_url",
-            reverse("admin:articles_admin_dashboard"),
+            reverse("articles_admin_dashboard"),
         )
         return super().changelist_view(request, extra_context=extra_context)
 
 
 # Hook the custom dashboard into the default admin site navigation.
 def _inject_dashboard_link(original_index):  # pragma: no cover - glue code
-    def wrapped(request, extra_context=None):
+    def wrapped(self, request, extra_context=None):
         extra_context = extra_context or {}
         extra_context.setdefault(
             "articles_dashboard",
-            format_html(
-                "<a href='{}'>{}</a>",
-                reverse("admin:articles_admin_dashboard"),
-                _("Articles"),
-            ),
+            format_html("<a href='{}'>{}</a>", reverse("articles_admin_dashboard"), _( "Articles")),
         )
-        return original_index(request, extra_context=extra_context)
+        return original_index(self, request, extra_context=extra_context)
 
     return wrapped
 
