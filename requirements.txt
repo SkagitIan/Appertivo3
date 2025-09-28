@@ -12,6 +12,7 @@ python-dotenv  # to manage env vars locally
 requests
 stripe
 whitenoise
+django-q2
 celery
 cloudinary
 Django

@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.sites',
+    'django.contrib.sitemaps',
     'cloudinary',
     'django_extensions',
     'corsheaders',
@@ -57,6 +58,8 @@ INSTALLED_APPS = [
     'anymail',
     "django_htmx",
     'appertivo.leads.apps.LeadsConfig',
+    'articles.apps.ArticlesConfig',
+    'django_q',
 ]
 
 # Map Django message levels to Bootstrap alert classes
@@ -224,6 +227,16 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": timedelta(weeks=1),
         "options": {"expires": 60 * 60 * 24},
     },
+}
+
+Q_CLUSTER = {
+    "name": "articles",
+    "workers": 2,
+    "timeout": 120,
+    "retry": 120,
+    "queue_limit": 50,
+    "bulk": 10,
+    "orm": "default",
 }
 
 
