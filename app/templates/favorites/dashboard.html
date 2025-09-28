@@ -21,6 +21,14 @@
     padding-right: 0.5rem;
     margin-right: -0.25rem;
   }
+  @media (max-width: 640px) {
+    .favorites-scroll {
+      max-height: none;
+      overflow: visible;
+      padding-right: 0;
+      margin-right: 0;
+    }
+  }
   .favorites-scroll::-webkit-scrollbar {
     width: 6px;
   }
@@ -49,21 +57,21 @@
 <div class="px-4 py-8 space-y-8">
 
   <details open class="favorites-section group rounded-3xl border border-slate-200/70 bg-white/90 shadow-sm backdrop-blur">
-    <summary class="flex cursor-pointer select-none items-center justify-between gap-4 px-6 py-5">
-      <div>
+    <summary class="flex cursor-pointer select-none flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+      <div class="space-y-1">
         <h2 class="text-lg font-semibold text-[#49475B] md:text-xl">Favorited concepts</h2>
         <p class="text-xs font-medium uppercase tracking-wide text-slate-400">Quickly open concepts and see where they land.</p>
       </div>
-      <span class="ml-auto inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-[#B993D6] transition-transform duration-200 group-open:rotate-180">
+      <span class="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center self-end rounded-full bg-slate-100 text-[#B993D6] transition-transform duration-200 group-open:rotate-180 sm:ml-4 sm:self-auto">
         <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
       </span>
     </summary>
     <div class="space-y-6 px-6 pb-6">
-      <div class="flex flex-wrap items-center justify-between gap-4">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <p class="text-sm text-slate-500">Keep building on the ideas you loved. Generate dishes straight from these concepts.</p>
         <a
           href="{% url 'concepts' %}"
-          class="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#f08000] to-[#FF5C00] px-4 py-2 text-sm font-semibold text-white shadow transition hover:scale-[1.02]"
+          class="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#f08000] to-[#FF5C00] px-4 py-2 text-sm font-semibold text-white shadow transition hover:scale-[1.02]"
         >
           <i class="fa-solid fa-compass" aria-hidden="true"></i>
           <span>Explore concepts</span>
@@ -77,9 +85,9 @@
               {% if concept %}
                 <li
                   id="favorite-concept-{{ concept.id }}"
-                  class="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:gap-4"
+                  class="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:gap-4"
                 >
-                  <div class="h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl bg-slate-100">
+                  <div class="h-14 w-14 flex-shrink-0 overflow-hidden rounded-xl bg-slate-100 sm:h-16 sm:w-16">
                     {% if concept.sketch_image_url %}
                       <img
                         src="{{ concept.sketch_image_url }}"
@@ -95,12 +103,12 @@
                     {% endif %}
                   </div>
                   <div class="flex-1 space-y-1">
-                    <h3 class="text-sm font-semibold text-[#49475B] sm:text-base">{{ concept.name }}</h3>
+                    <h3 class="text-base font-semibold text-[#49475B]">{{ concept.name }}</h3>
                     {% if concept.subtitle %}
-                      <p class="text-sm text-slate-600 leading-snug">{{ concept.subtitle }}</p>
+                      <p class="text-sm leading-snug text-slate-600">{{ concept.subtitle }}</p>
                     {% endif %}
                   </div>
-                  <div class="flex flex-col items-start gap-2 text-left sm:items-end sm:text-right">
+                  <div class="flex flex-col items-start gap-3 text-left sm:items-end sm:text-right">
                     <div class="flex flex-wrap items-center gap-1.5 sm:justify-end">
                       {% if concept_menus %}
                         {% for menu_name in concept_menus %}
@@ -153,12 +161,12 @@
   </details>
 
   <details open class="favorites-section group rounded-3xl border border-slate-200/70 bg-white/90 shadow-sm backdrop-blur">
-    <summary class="flex cursor-pointer select-none items-center justify-between gap-4 px-6 py-5">
-      <div>
+    <summary class="flex cursor-pointer select-none flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+      <div class="space-y-1">
         <h2 class="text-lg font-semibold text-[#49475B] md:text-xl">Favorited dishes</h2>
         <p class="text-xs font-medium uppercase tracking-wide text-slate-400">Jump into the latest dish run and check menu placement.</p>
       </div>
-      <span class="ml-auto inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-[#B993D6] transition-transform duration-200 group-open:rotate-180">
+      <span class="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center self-end rounded-full bg-slate-100 text-[#B993D6] transition-transform duration-200 group-open:rotate-180 sm:ml-4 sm:self-auto">
         <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
       </span>
     </summary>
@@ -171,9 +179,9 @@
                 {% with dish_menus=dish_menu_map|dict_lookup:dish.id %}
                   <li
                     id="favorite-dish-{{ dish.id }}"
-                    class="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:gap-4"
+                    class="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:gap-4"
                   >
-                    <div class="h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl bg-slate-100">
+                    <div class="h-14 w-14 flex-shrink-0 overflow-hidden rounded-xl bg-slate-100 sm:h-16 sm:w-16">
                       {% if dish.enhancement_image_url %}
                         <img
                           src="{{ dish.enhancement_image_url }}"
@@ -189,7 +197,7 @@
                       {% endif %}
                     </div>
                     <div class="flex-1 space-y-1">
-                      <h3 class="text-sm font-semibold text-[#49475B] sm:text-base">{{ dish.title }}</h3>
+                      <h3 class="text-base font-semibold text-[#49475B]">{{ dish.title }}</h3>
                       {% if dish.description %}
                         {% with description=dish.description %}
                           <p class="text-sm text-slate-600 leading-snug">
@@ -198,7 +206,7 @@
                         {% endwith %}
                       {% endif %}
                     </div>
-                    <div class="flex flex-col items-start gap-2 text-left sm:items-end sm:text-right">
+                    <div class="flex flex-col items-start gap-3 text-left sm:items-end sm:text-right">
                       <div class="flex flex-wrap items-center gap-1.5 sm:justify-end">
                         {% if dish_menus %}
                           {% for menu_name in dish_menus %}
