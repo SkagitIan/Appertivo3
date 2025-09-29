@@ -1,0 +1,41 @@
+{% extends "admin/base_site.html" %}
+{% load admin_theme i18n %}
+
+{% block content %}
+  <section class="global-search">
+    <form action="" method="get" role="search" class="search-form">
+      <label for="global-search-input">{% translate "Search all models" %}</label>
+      <div class="search-row">
+        <input id="global-search-input" type="search" name="q" value="{{ query }}" placeholder="{% translate 'Search…' %}" />
+        <button class="cta-button" type="submit">{% translate "Search" %}</button>
+      </div>
+    </form>
+
+    {% if query %}
+      {% if search_results %}
+        <div class="search-results">
+          {% for result in search_results %}
+            <article class="search-result-card">
+              <header>
+                <h3>{{ result.opts.verbose_name_plural|capfirst }}</h3>
+                <a class="link-muted" href="{% url 'admin:app_list' result.opts.app_label %}">{% translate "View all" %}</a>
+              </header>
+              <ul>
+                {% for item in result.items %}
+                  <li>
+                    <a href="{{ item.change_url }}">{{ item.object|admin_object_display }}</a>
+                  </li>
+                {% endfor %}
+              </ul>
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="empty-state">{% translate "No matches found." %}</p>
+      {% endif %}
+    {% else %}
+      <p class="empty-state">{% translate "Enter a keyword to search across admin models." %}</p>
+    {% endif %}
+  </section>
+{% endblock %}
+
