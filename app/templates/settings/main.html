@@ -200,6 +200,37 @@
       </section>
 
       <section class="rounded-xl bg-white p-6 m-4 shadow">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 class="text-xl font-bold text-[#49475B]">Guest reviews</h2>
+            <p class="text-sm text-slate-500">Latest Outscraper snapshot of your public reviews.</p>
+          </div>
+          {% if restaurant %}
+            <form
+              action="{% url 'refresh_reviews' restaurant.id %}"
+              method="post"
+              class="shrink-0"
+            >
+              {% csrf_token %}
+              <button
+                type="submit"
+                class="inline-flex items-center justify-center rounded-lg bg-[#f08000] px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-[#d96f00]"
+              >
+                Update reviews
+              </button>
+            </form>
+          {% endif %}
+        </div>
+        <div class="mt-4 max-h-72 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm font-mono whitespace-pre-wrap break-all">
+          {% if restaurant and restaurant.reviews_json %}
+            {{ restaurant.reviews_json }}
+          {% else %}
+            No reviews have been saved yet.
+          {% endif %}
+        </div>
+      </section>
+
+      <section class="rounded-xl bg-white p-6 m-4 shadow">
         <details class="group">
           <summary class="flex cursor-pointer list-none items-center justify-between gap-2 text-left">
             <div>
