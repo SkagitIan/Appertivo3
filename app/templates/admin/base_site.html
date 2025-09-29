@@ -1,0 +1,13 @@
+{% extends "admin/base.html" %}
+{% load i18n static %}
+
+{% block title %}{{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block branding %}
+<h1 id="site-name"><a href="{% url 'admin:index' %}">{{ site_header|default:_('Django administration') }}</a></h1>
+{% endblock %}
+
+{% block nav-global %}
+{{ block.super }}
+<a class="manual-qa-nav-link" href="{% url 'admin:qa-checklist' %}">Manual QA Checklist</a>
+{% endblock %}
