@@ -11,7 +11,7 @@ import json
 import logging
 import os
 import uuid
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 import io
 
 import cloudinary
@@ -73,6 +73,41 @@ def _dish_image_prompt(title: str, description: str) -> str:
     return prompt
 
 
+def _summarize_for_logging(value: Any, *, limit: int = 200) -> Any:
+    """Return a lightweight summary of Replicate values for logging."""
+
+    if isinstance(value, bytes):
+        return f"<bytes length={len(value)}>"
+
+    if isinstance(value, str):
+        if len(value) <= limit:
+            return value
+        return value[:limit] + "..."
+
+    if isinstance(value, list):
+        summary = [_summarize_for_logging(item, limit=limit) for item in value[:5]]
+        if len(value) > 5:
+            summary.append("...")
+        return summary
+
+    if isinstance(value, dict):
+        summary: dict[str, Any] = {}
+        for index, (key, item) in enumerate(value.items()):
+            if index >= 5:
+                summary["..."] = f"{len(value) - index} more"
+                break
+            summary[str(key)] = _summarize_for_logging(item, limit=limit)
+        return summary
+
+    try:
+        return json.loads(json.dumps(value))
+    except Exception:  # pragma: no cover - fallback for unserializable objects
+        text = repr(value)
+        if len(text) <= limit:
+            return text
+        return text[:limit] + "..."
+
+
 def _extract_output_values(output) -> list[bytes | str]:
     """Normalize Replicate output into a list of byte blobs or URLs."""
 
@@ -90,6 +125,15 @@ def _extract_output_values(output) -> list[bytes | str]:
     if isinstance(output, list):
         for item in output:
             values.extend(_extract_output_values(item))
+        return values
+
+    if isinstance(output, dict):
+        for item in output.values():
+            values.extend(_extract_output_values(item))
+        return values
+
+    if isinstance(output, bytes):
+        values.append(output)
         return values
 
     if isinstance(output, str):
@@ -110,6 +154,10 @@ def _generate_replicate_asset(
     """Generate an image via Replicate, upload to Cloudinary, and return the URL."""
 
     if not replicate_client:
+        logger.info(
+            "Replicate client unavailable. Returning default asset for folder %s.",
+            folder,
+        )
         return default_url
 
     try:
@@ -124,6 +172,12 @@ def _generate_replicate_asset(
     except Exception as exc:  # pragma: no cover - defensive guard
         logger.warning("Replicate image generation failed: %s", exc, exc_info=True)
         return default_url
+
+    logger.info(
+        "Replicate response received for folder %s: %s",
+        folder,
+        _summarize_for_logging(output),
+    )
 
     for candidate in _extract_output_values(output):
         try:
@@ -144,6 +198,11 @@ def _generate_replicate_asset(
                 crop="fill",
                 quality="auto",
                 fetch_format="auto",
+            )
+            logger.info(
+                "Replicate candidate uploaded for folder %s: %s",
+                folder,
+                _summarize_for_logging(candidate),
             )
             return optimized_url
         except Exception as exc:  # pragma: no cover - defensive guard
