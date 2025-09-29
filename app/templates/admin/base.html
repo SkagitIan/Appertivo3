@@ -1,0 +1,122 @@
+{% load i18n static %}
+<!DOCTYPE html>
+<html lang="{{ LANGUAGE_CODE|default:'en-us' }}" class="appertivo-admin-html">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}{{ title }} | {{ site_title|default:_('Appertivo admin') }}{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'admin/css/appertivo-admin.css' %}" />
+    {% if admin_brand_colors %}
+      <style>
+        :root {
+          --color-primary: {{ admin_brand_colors.primary }};
+          --color-accent: {{ admin_brand_colors.accent }};
+          --color-secondary: {{ admin_brand_colors.secondary }};
+          --color-dark: {{ admin_brand_colors.dark }};
+          --color-background: {{ admin_brand_colors.background }};
+        }
+      </style>
+    {% endif %}
+    {% block extrastyle %}{% endblock %}
+    {% block extrahead %}{% endblock %}
+  </head>
+  <body class="appertivo-admin-body {% block bodyclass %}{% endblock %}">
+    <header class="admin-header" role="banner">
+      <button class="sidebar-toggle" type="button" data-sidebar-toggle aria-label="Toggle navigation">
+        <span aria-hidden="true">☰</span>
+      </button>
+      <a class="admin-brand" href="{% url 'admin:index' %}">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-text">
+          <span class="brand-title">Appertivo</span>
+          <span class="brand-subtitle">Control Center</span>
+        </span>
+      </a>
+      {% if request.user.is_authenticated %}
+        <form class="admin-search" action="{% url 'admin:global-search' %}" method="get" role="search">
+          <label for="admin-global-search" class="sr-only">{% translate 'Search admin content' %}</label>
+          <input
+            id="admin-global-search"
+            type="search"
+            name="q"
+            value="{{ request.GET.q|default_if_none:'' }}"
+            placeholder="{% translate 'Search across models…' %}"
+            autocomplete="off"
+          />
+          <button type="submit" class="cta-button">{% translate 'Search' %}</button>
+        </form>
+        <nav class="admin-user-actions" aria-label="Account">
+          <span class="user-pill">{{ request.user.get_full_name|default:request.user.get_username }}</span>
+          <a href="{% url 'admin:logout' %}" class="link-muted">{% translate 'Log out' %}</a>
+        </nav>
+      {% else %}
+        <span class="login-helper">{% translate 'Sign in to manage content.' %}</span>
+      {% endif %}
+    </header>
+
+    <div class="admin-shell">
+      <aside class="admin-sidebar" data-collapsed="false">
+        <div class="sidebar-groups" role="navigation" aria-label="Primary">
+          {% if request.user.is_authenticated %}
+            {% for group in admin_nav_groups %}
+              <section class="sidebar-group">
+                <button
+                  class="group-toggle"
+                type="button"
+                data-group-index="{{ forloop.counter0 }}"
+                aria-expanded="true"
+              >
+                <span>{{ group.title }}</span>
+                <span class="toggle-icon" aria-hidden="true">⌄</span>
+              </button>
+              <ul id="sidebar-group-{{ forloop.counter0 }}" class="sidebar-links">
+                {% for item in group.items %}
+                  <li>
+                    <a href="{{ item.url }}" class="sidebar-link">
+                      <span>{{ item.name }}</span>
+                    </a>
+                    {% if item.add_url %}
+                      <a
+                        class="sidebar-add"
+                        href="{{ item.add_url }}"
+                        aria-label="{% blocktranslate with name=item.name %}Add new {{ name }}{% endblocktranslate %}"
+                      >+</a>
+                    {% endif %}
+                  </li>
+                {% endfor %}
+              </ul>
+              </section>
+            {% empty %}
+              <p class="sidebar-empty">{% translate 'No sections available.' %}</p>
+            {% endfor %}
+          {% else %}
+            <p class="sidebar-empty">{% translate 'Navigation is available after signing in.' %}</p>
+          {% endif %}
+        </div>
+      </aside>
+
+      <div class="admin-main">
+        <div class="admin-content">
+          <div class="content-header">
+            <div class="breadcrumbs">
+              {% block breadcrumbs %}{% include "admin/breadcrumbs.html" %}{% endblock %}
+            </div>
+            <div class="content-title">
+              {% block content_title %}{% if title %}<h1>{{ title }}</h1>{% endif %}{% endblock %}
+            </div>
+          </div>
+          {% block messages %}{% include "admin/includes/messages.html" %}{% endblock %}
+          <main class="content-body" role="main">
+            {% block content %}{% endblock %}
+          </main>
+        </div>
+        <footer class="admin-footer">
+          <p>© {% now "Y" %} Appertivo. Crafted for operators.</p>
+        </footer>
+      </div>
+    </div>
+
+    <script src="{% static 'admin/js/appertivo-admin.js' %}" defer></script>
+    {% block extrajs %}{% endblock %}
+  </body>
+</html>
