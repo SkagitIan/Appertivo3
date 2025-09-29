@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from decimal import Decimal, ROUND_HALF_UP
+import copy
 from typing import Any, Dict, Iterable, List, Optional
 
 from django.conf import settings
@@ -19,7 +20,22 @@ def _per_million_to_per_1k(dollars_per_million: str) -> Decimal:
     return Decimal(dollars_per_million) / Decimal("1000")
 
 
-DEFAULT_PRICING: Dict[str, Dict[str, Dict[str, Decimal]]] = {
+def _build_tiers(*tiers: Any) -> List[Dict[str, Decimal]]:
+    """Create a tier configuration from (limit, rate) tuples."""
+
+    tier_configs: List[Dict[str, Decimal]] = []
+    for tier in tiers:
+        if not isinstance(tier, (tuple, list)) or len(tier) != 2:
+            continue
+        limit, rate = tier
+        entry: Dict[str, Decimal] = {"rate_per_1k": _per_million_to_per_1k(str(rate))}
+        if limit is not None:
+            entry["upto_tokens"] = int(limit)
+        tier_configs.append(entry)
+    return tier_configs
+
+
+DEFAULT_PRICING: Dict[str, Dict[str, Dict[str, Any]]] = {
     "openai": {
         "gpt-5": {
             "input_per_1k": _per_million_to_per_1k("1.25"),
@@ -169,27 +185,132 @@ DEFAULT_PRICING: Dict[str, Dict[str, Dict[str, Decimal]]] = {
         "dall-e-3": {"per_call": Decimal("0.04000")},
     },
     "gemini": {
-        "gemini-2.5-flash-image-preview": {"per_call": Decimal("0.00250")},
+        "gemini-2.5-pro": {
+            "input_tiers": _build_tiers((200_000, "1.25"), (None, "2.50")),
+            "output_tiers": _build_tiers((200_000, "10.00"), (None, "15.00")),
+            "cached_input_tiers": _build_tiers((200_000, "0.31"), (None, "0.625")),
+        },
+        "gemini-2.5": {
+            "input_tiers": _build_tiers((200_000, "1.25"), (None, "2.50")),
+            "output_tiers": _build_tiers((200_000, "10.00"), (None, "15.00")),
+            "cached_input_tiers": _build_tiers((200_000, "0.31"), (None, "0.625")),
+        },
+        "gemini-2.5-flash": {
+            "input_per_1k": _per_million_to_per_1k("0.30"),
+            "output_per_1k": _per_million_to_per_1k("2.50"),
+            "cached_input_per_1k": _per_million_to_per_1k("0.075"),
+        },
+        "gemini-2.5-flash-preview": {
+            "input_per_1k": _per_million_to_per_1k("0.30"),
+            "output_per_1k": _per_million_to_per_1k("2.50"),
+            "cached_input_per_1k": _per_million_to_per_1k("0.075"),
+        },
+        "gemini-2.5-flash-lite": {
+            "input_per_1k": _per_million_to_per_1k("0.10"),
+            "output_per_1k": _per_million_to_per_1k("0.40"),
+            "cached_input_per_1k": _per_million_to_per_1k("0.025"),
+        },
+        "gemini-2.5-flash-lite-preview": {
+            "input_per_1k": _per_million_to_per_1k("0.10"),
+            "output_per_1k": _per_million_to_per_1k("0.40"),
+            "cached_input_per_1k": _per_million_to_per_1k("0.025"),
+        },
+        "gemini-2.5-flash-native-audio": {
+            "input_per_1k": _per_million_to_per_1k("3.00"),
+            "output_per_1k": _per_million_to_per_1k("12.00"),
+        },
+        "gemini-2.5-flash-preview-tts": {
+            "input_per_1k": _per_million_to_per_1k("0.50"),
+            "output_per_1k": _per_million_to_per_1k("10.00"),
+        },
+        "gemini-2.5-pro-preview-tts": {
+            "input_per_1k": _per_million_to_per_1k("1.00"),
+            "output_per_1k": _per_million_to_per_1k("20.00"),
+        },
+        "gemini-2.0-flash": {
+            "input_per_1k": _per_million_to_per_1k("0.10"),
+            "output_per_1k": _per_million_to_per_1k("0.40"),
+            "cached_input_per_1k": _per_million_to_per_1k("0.025"),
+        },
+        "gemini-2.0-flash-lite": {
+            "input_per_1k": _per_million_to_per_1k("0.075"),
+            "output_per_1k": _per_million_to_per_1k("0.30"),
+        },
+        "gemini-1.5-flash": {
+            "input_tiers": _build_tiers((128_000, "0.075"), (None, "0.15")),
+            "output_tiers": _build_tiers((128_000, "0.30"), (None, "0.60")),
+            "cached_input_tiers": _build_tiers((128_000, "0.01875"), (None, "0.0375")),
+        },
+        "gemini-1.5-flash-8b": {
+            "input_tiers": _build_tiers((128_000, "0.0375"), (None, "0.075")),
+            "output_tiers": _build_tiers((128_000, "0.15"), (None, "0.30")),
+            "cached_input_tiers": _build_tiers((128_000, "0.01"), (None, "0.02")),
+        },
+        "gemini-1.5-pro": {
+            "input_tiers": _build_tiers((128_000, "1.25"), (None, "2.50")),
+            "output_tiers": _build_tiers((128_000, "5.00"), (None, "10.00")),
+            "cached_input_tiers": _build_tiers((128_000, "0.3125"), (None, "0.625")),
+        },
+        "gemini-embedding": {
+            "input_per_1k": _per_million_to_per_1k("0.15"),
+        },
+        "gemini-2.5-flash-image-preview": {"per_call": Decimal("0.03900")},
     },
 }
 
 
-def _get_pricing() -> Dict[str, Dict[str, Dict[str, Decimal]]]:
+def _normalize_pricing_value(value: Any) -> Any:
+    """Convert pricing configuration values to usable types."""
+
+    if isinstance(value, Decimal):
+        return value
+    if isinstance(value, (int, float, str)):
+        try:
+            return Decimal(str(value))
+        except Exception:  # pragma: no cover - defensive
+            return value
+    if isinstance(value, dict):
+        normalized: Dict[str, Any] = {}
+        for key, item in value.items():
+            if key in {"upto_tokens", "limit", "token_limit"}:
+                normalized[key] = int(item) if item is not None else None
+            else:
+                normalized[key] = _normalize_pricing_value(item)
+        return normalized
+    if isinstance(value, (list, tuple)):
+        normalized_list: List[Any] = []
+        for item in value:
+            if isinstance(item, dict):
+                normalized_item: Dict[str, Any] = {}
+                for key, val in item.items():
+                    if key in {"upto_tokens", "limit", "token_limit"}:
+                        normalized_item[key] = int(val) if val is not None else None
+                    else:
+                        normalized_item[key] = _normalize_pricing_value(val)
+                normalized_list.append(normalized_item)
+            else:
+                normalized_list.append(_normalize_pricing_value(item))
+        return normalized_list
+    return value
+
+
+def _get_pricing() -> Dict[str, Dict[str, Dict[str, Any]]]:
     """Return the configured pricing table."""
 
     configured = getattr(settings, "LLM_PRICING", None)
     if not configured:
         return DEFAULT_PRICING
-    pricing: Dict[str, Dict[str, Dict[str, Decimal]]] = {}
+    pricing: Dict[str, Dict[str, Dict[str, Any]]] = copy.deepcopy(DEFAULT_PRICING)
     for provider, models_config in configured.items():
-        pricing[provider] = {}
+        provider_pricing = pricing.setdefault(provider, {})
         for model_name, values in models_config.items():
-            pricing[provider][model_name] = {}
+            model_pricing = provider_pricing.setdefault(model_name, {})
             for key, value in values.items():
-                try:
-                    pricing[provider][model_name][key] = Decimal(str(value))
-                except Exception:  # pragma: no cover - defensive
+                normalized = _normalize_pricing_value(value)
+                if normalized is None:
                     logger.debug("Skipping invalid pricing value for %s/%s", provider, model_name)
+                    continue
+                model_pricing[key] = normalized
     return pricing
 
 
@@ -287,6 +408,46 @@ def _extract_response_text(value: Any) -> Optional[str]:
     return "\n".join(segments)
 
 
+def _calculate_tiered_cost(tokens: Optional[int], tiers: Iterable[Dict[str, Any]]) -> Decimal:
+    """Compute the Decimal cost for a token count across pricing tiers."""
+
+    if not tokens or tokens <= 0:
+        return Decimal("0")
+    tier_list = [tier for tier in tiers if isinstance(tier, dict)]
+    if not tier_list:
+        return Decimal("0")
+
+    remaining = Decimal(tokens)
+    total = Decimal("0")
+    consumed = Decimal("0")
+
+    for tier in tier_list:
+        rate = tier.get("rate_per_1k")
+        if not isinstance(rate, Decimal):
+            continue
+        limit = tier.get("upto_tokens")
+        if limit is None:
+            chunk = remaining
+        else:
+            limit_decimal = Decimal(limit)
+            chunk = min(remaining, max(limit_decimal - consumed, Decimal("0")))
+        if chunk <= 0:
+            continue
+        total += (chunk / Decimal(1000)) * rate
+        remaining -= chunk
+        consumed += chunk
+        if remaining <= 0:
+            break
+
+    if remaining > 0:
+        for tier in reversed(tier_list):
+            rate = tier.get("rate_per_1k")
+            if isinstance(rate, Decimal):
+                total += (remaining / Decimal(1000)) * rate
+                break
+    return total
+
+
 def _estimate_cost_cents(
     provider: str,
     model_name: str,
@@ -305,12 +466,20 @@ def _estimate_cost_cents(
         if per_call:
             total = per_call
     else:
+        input_tiers = model_pricing.get("input_tiers")
+        output_tiers = model_pricing.get("output_tiers")
         input_rate = model_pricing.get("input_per_1k", Decimal("0"))
         output_rate = model_pricing.get("output_per_1k", Decimal("0"))
         if input_tokens:
-            total += Decimal(input_tokens) / Decimal(1000) * input_rate
+            if input_tiers:
+                total += _calculate_tiered_cost(input_tokens, input_tiers)
+            else:
+                total += Decimal(input_tokens) / Decimal(1000) * input_rate
         if output_tokens:
-            total += Decimal(output_tokens) / Decimal(1000) * output_rate
+            if output_tiers:
+                total += _calculate_tiered_cost(output_tokens, output_tiers)
+            else:
+                total += Decimal(output_tokens) / Decimal(1000) * output_rate
 
     cents = int((total * Decimal(100)).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
     return max(cents, 0)
