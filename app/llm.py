@@ -7,12 +7,13 @@ tests can run without network access.
 
 from __future__ import annotations
 
+import hashlib
+import io
 import json
 import logging
 import os
 import uuid
 from typing import Any, Dict, Optional
-import io
 
 import cloudinary
 from openai import OpenAI
@@ -20,6 +21,7 @@ from replicate.client import Client as ReplicateClient  # type: ignore
 
 
 from dotenv import load_dotenv
+from django.core.cache import cache
 
 from . import models
 
@@ -38,6 +40,7 @@ REPLICATE_MODEL = "prunaai/flux.1-dev:b0306d92aa025bb747dc74162f3c27d6ed83798e08
 DEFAULT_IMAGE_URL = "https://placehold.co/800x600?text=Dish"
 DEFAULT_CONCEPT_IMAGE_URL = "https://placehold.co/1200x800?text=Concept"
 DEFAULT_PRICE_CENTS = 1500
+PRICE_CACHE_TTL_SECONDS = 15 * 60
 
 cloudinary.config( 
   cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME"), 
@@ -243,10 +246,30 @@ def _format_menu_snapshot(restaurant: models.Restaurant) -> Dict[str, Optional[s
     }
 
 
+def _menu_snapshot_hash(menu_snapshot: Dict[str, Optional[str]]) -> str:
+    """Return a stable hash for the menu snapshot payload."""
+
+    serialized = json.dumps(menu_snapshot, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
+def _pricing_cache_key(
+    dish: models.DishIdea,
+    menu_snapshot_hash: str,
+) -> str:
+    """Build a cache key for OpenAI price responses."""
+
+    dish_id = getattr(dish, "pk", None) or getattr(dish, "id", None) or "unsaved"
+    updated_at = getattr(dish, "updated_at", None)
+    updated_value = updated_at.isoformat() if updated_at else "no-updated-at"
+    return f"dish-price:{dish_id}:{updated_value}:{menu_snapshot_hash}"
+
+
 def _call_openai_for_price(
     dish: models.DishIdea,
     menu_snapshot: Dict[str, Optional[str]],
     *,
+    menu_snapshot_hash: Optional[str] = None,
     user=None,
 ) -> Dict[str, Optional[str]]:
     """Return pricing info using OpenAI or deterministic fallback."""
@@ -275,6 +298,13 @@ def _call_openai_for_price(
             "additionalProperties": False,
         },
     }
+
+    menu_snapshot_hash = menu_snapshot_hash or _menu_snapshot_hash(menu_snapshot)
+    cache_key = _pricing_cache_key(dish, menu_snapshot_hash)
+
+    cached_response = cache.get(cache_key)
+    if cached_response is not None:
+        return cached_response
 
     payload = {
         "dish": {
@@ -310,11 +340,13 @@ def _call_openai_for_price(
         price_cents = int(data.get("price_cents", fallback["price_cents"]))
         currency = data.get("currency") or fallback["currency"]
         rationale = data.get("rationale") or fallback["rationale"]
-        return {
+        parsed_response = {
             "price_cents": price_cents,
             "currency": currency,
             "rationale": rationale,
         }
+        cache.set(cache_key, parsed_response, PRICE_CACHE_TTL_SECONDS)
+        return parsed_response
     except Exception as exc:  # pragma: no cover - defensive
         logger.warning("OpenAI pricing request failed: %s", exc, exc_info=True)
         return fallback
@@ -328,7 +360,13 @@ def enhance_dish(
 ) -> Dict[str, Optional[str]]:
     """Generate enhanced mode assets for a dish."""
     snapshot = _format_menu_snapshot(restaurant)
-    price_info = _call_openai_for_price(dish, snapshot, user=user)
+    snapshot_hash = _menu_snapshot_hash(snapshot)
+    price_info = _call_openai_for_price(
+        dish,
+        snapshot,
+        menu_snapshot_hash=snapshot_hash,
+        user=user,
+    )
 
     return {
         "price_cents": price_info.get("price_cents"),
