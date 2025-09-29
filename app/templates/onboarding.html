@@ -6,104 +6,65 @@
   <div class="space-y-1">
     <p class="text-xs font-semibold uppercase tracking-wide text-[#5C008B]/70">Onboarding</p>
     <h1 class="text-2xl font-semibold text-[#14080E]">Let's get your restaurant set up</h1>
-    <p class="text-sm text-slate-600">Follow these steps to personalize Appertivo before you dive into concepts and dishes.</p>
+    <p class="text-sm text-slate-600">We use these steps to secure billing, gather data safely, and prepare your creative workspace.</p>
   </div>
 {% endblock %}
 
 {% block page_content %}
   <div class="px-4 py-10">
-    <div class="mx-auto flex max-w-4xl flex-col gap-6">
-      <section class="rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm">
-        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Step 1</p>
-        <div class="mt-3 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div>
-            <h2 class="text-lg font-semibold text-[#14080E]">Confirm your restaurant details</h2>
-            <p class="mt-1 text-sm text-slate-600">We're pulling public data to preload your dashboard.</p>
-            {% if restaurant %}
-              <dl class="mt-4 grid gap-2 text-sm text-slate-600">
-                <div class="flex flex-wrap items-center gap-2">
-                  <dt class="font-medium text-[#14080E]">Restaurant:</dt>
-                  <dd>{{ restaurant.name }}</dd>
-                </div>
-                <div class="flex flex-wrap items-center gap-2">
-                  <dt class="font-medium text-[#14080E]">Location:</dt>
-                  <dd>{{ restaurant.location_text }}</dd>
-                </div>
-              </dl>
-            {% endif %}
-          </div>
-          <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
-            {% if outscraper_payload %}
-              <p class="font-semibold text-[#14080E]">Status: {{ outscraper_payload.get_status_display }}</p>
-              {% if outscraper_payload.discovered_menu_url %}
-                <p class="mt-1 break-all text-slate-600">We found a menu link: <a class="text-[#5C008B] underline" href="{{ outscraper_payload.discovered_menu_url }}" target="_blank" rel="noopener">{{ outscraper_payload.discovered_menu_url }}</a></p>
-              {% else %}
-                <p class="mt-1 text-slate-600">We'll notify you as soon as the search finishes.</p>
-              {% endif %}
-            {% else %}
-              <p class="font-semibold text-[#14080E]">Queued</p>
-              <p class="mt-1 text-slate-600">Your lookup request is in progress.</p>
-            {% endif %}
-          </div>
-        </div>
-      </section>
+    <div class="mx-auto flex max-w-3xl flex-col gap-6">
+      {% if consent_required %}
+        <section class="rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm">
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Step 1</p>
+          <h2 class="mt-3 text-lg font-semibold text-[#14080E]">Confirm consent and data permissions</h2>
+          <p class="mt-2 text-sm text-slate-600">We need your acknowledgement before fetching any public data or sending onboarding emails.</p>
+          <form method="post" class="mt-4 space-y-4">
+            {% csrf_token %}
+            <input type="hidden" name="form" value="consent">
+            <label class="flex items-start gap-3 text-sm text-slate-600">
+              <input type="checkbox" name="accepted_terms" value="1" class="mt-1 h-4 w-4 rounded border-slate-300 text-[#5C008B] focus:ring-[#5C008B]" {% if onboarding.accepted_terms %}checked{% endif %}>
+              <span>I agree to the <a class="text-[#5C008B] underline" href="{% url 'terms' %}" target="_blank" rel="noopener">Terms of Service</a>.</span>
+            </label>
+            <label class="flex items-start gap-3 text-sm text-slate-600">
+              <input type="checkbox" name="accepted_privacy" value="1" class="mt-1 h-4 w-4 rounded border-slate-300 text-[#5C008B] focus:ring-[#5C008B]" {% if onboarding.accepted_privacy %}checked{% endif %}>
+              <span>I have read and accept the <a class="text-[#5C008B] underline" href="{% url 'privacy' %}" target="_blank" rel="noopener">Privacy Policy</a>.</span>
+            </label>
+            <label class="flex items-start gap-3 text-sm text-slate-600">
+              <input type="checkbox" name="authorized_data_fetch" value="1" class="mt-1 h-4 w-4 rounded border-slate-300 text-[#5C008B] focus:ring-[#5C008B]" {% if onboarding.authorized_data_fetch %}checked{% endif %}>
+              <span>
+                {% if restaurant %}
+                  I authorize Appertivo to fetch public data about {{ restaurant.name }} to personalize the experience.
+                {% else %}
+                  I authorize Appertivo to fetch public data about my restaurant to personalize the experience.
+                {% endif %}
+              </span>
+            </label>
+            <button type="submit" class="inline-flex items-center justify-center rounded-xl bg-[#5C008B] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#4a0178]">Save consent</button>
+          </form>
+        </section>
+      {% endif %}
 
       <section class="rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm">
         <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Step 2</p>
         <div class="mt-3 space-y-4">
           <div>
-            <h2 class="text-lg font-semibold text-[#14080E]">Add your live menu link</h2>
-            <p class="mt-1 text-sm text-slate-600">We use your menu to tailor concept ideas and dish recommendations.</p>
+            <h2 class="text-lg font-semibold text-[#14080E]">Activate billing to unlock onboarding</h2>
+            <p class="mt-1 text-sm text-slate-600">We queue Outscraper and AI steps only after Stripe confirms payment so you never incur costs prematurely.</p>
           </div>
-          {% if menu_success %}
+          {% if subscription_allows_dashboard %}
             <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-              Menu received! We're processing it now.
+              Subscription active. You can continue to your workspace at any time.
             </div>
-          {% elif menu_error %}
-            <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-              {{ menu_error }}
-            </div>
-          {% endif %}
-          <form method="post" class="space-y-3">
-            {% csrf_token %}
-            <label class="block text-sm font-medium text-slate-700" for="menu_url">Restaurant menu URL</label>
-            <input id="menu_url" name="menu_url" type="url" required placeholder="https://"
-                   value="{{ restaurant.primary_menu_url }}"
-                   class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm focus:border-[#5C008B] focus:outline-none focus:ring-2 focus:ring-[#B993D6]">
-            <div class="flex flex-wrap items-center gap-3">
-              <button type="submit" class="inline-flex items-center justify-center rounded-xl bg-[#5C008B] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#4a0178]">
-                Save menu link
-              </button>
-              {% if restaurant and restaurant.primary_menu_url %}
-                <a href="{{ restaurant.primary_menu_url }}" target="_blank" rel="noopener" class="text-sm font-medium text-[#5C008B] underline">
-                  Preview current link
-                </a>
-              {% endif %}
-            </div>
-          </form>
-          <div class="space-y-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
-            <div>
-              <p class="font-semibold text-[#14080E]">Need another option?</p>
-              <p class="mt-1 text-slate-600">Paste your menu or upload a file so we can ingest it manually.</p>
-            </div>
-            <button
-              type="button"
-              hx-get="{% url 'manual-menu' %}"
-              hx-target="#manual-menu-container"
-              hx-swap="innerHTML"
-              class="inline-flex items-center justify-center rounded-xl border border-[#5C008B] px-4 py-2 text-sm font-semibold text-[#5C008B] transition hover:bg-[#f3e8ff]"
-            >
-              Enter menu manually
-            </button>
-            <div id="manual-menu-container" class="pt-1"></div>
-          </div>
-          {% if latest_menu_version %}
-            <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
-              <p class="font-semibold text-[#14080E]">Latest import: {{ latest_menu_version.get_status_display }}</p>
-              {% if latest_menu_version.source_url %}
-                <p class="mt-1 break-all">Source: {{ latest_menu_version.source_url }}</p>
-              {% endif %}
-            </div>
+            {% if dashboard_url %}
+              <a href="{{ dashboard_url }}" class="inline-flex items-center justify-center rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-600">Open dashboard</a>
+            {% endif %}
+          {% else %}
+            <form method="post" action="{% url 'billing-upgrade' %}" class="flex flex-col gap-3 sm:flex-row sm:items-center">
+              {% csrf_token %}
+              <input type="hidden" name="next" value="{% url 'onboarding' %}">
+              <button type="submit" class="inline-flex items-center justify-center rounded-xl bg-[#FF5C00] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#e05400]">Start {{ trial_days }}-day trial</button>
+              <span class="text-xs text-slate-500">No charges until {{ trial_days }} days have passed. Cancelling is instant.</span>
+            </form>
           {% endif %}
         </div>
       </section>
@@ -112,56 +73,24 @@
         <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Step 3</p>
         <div class="mt-3 space-y-4">
           <div>
-            <h2 class="text-lg font-semibold text-[#14080E]">Activate billing to continue</h2>
-            <p class="mt-1 text-sm text-slate-600">Secure your {{ trial_days }}-day free trial. You can cancel anytime before it ends.</p>
+            <h2 class="text-lg font-semibold text-[#14080E]">Track onboarding progress</h2>
+            <p class="mt-1 text-sm text-slate-600">We poll every few seconds with HTMX to keep you in the loop. If a step fails you can retry from here.</p>
           </div>
-          {% if subscription %}
-            <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
-              <p class="font-semibold text-[#14080E]">{{ subscription.get_status_display }}</p>
-              {% if trial_days_remaining is not None %}
-                <p class="mt-1">{{ trial_days_remaining }} day{{ trial_days_remaining|pluralize }} left in your trial.</p>
-              {% elif trial_ends %}
-                <p class="mt-1">Renews on {{ trial_ends|date:"F j, Y" }}.</p>
-              {% endif %}
-            </div>
-            {% if subscription_allows_dashboard %}
-              <a href="{{ dashboard_url }}" class="inline-flex items-center justify-center rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-600">
-                Continue to dashboard
-              </a>
-            {% elif subscription_requires_update %}
-              <form method="post" action="{% url 'billing-upgrade' %}" class="inline">
-                {% csrf_token %}
-                {% if dashboard_url %}
-                  <input type="hidden" name="next" value="{{ dashboard_url }}">
-                {% endif %}
-                <button type="submit" class="inline-flex items-center justify-center rounded-xl bg-[#FF5C00] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#e05400]">
-                  Update billing
-                </button>
-              </form>
-            {% endif %}
-          {% else %}
-            <form method="post" action="{% url 'billing-upgrade' %}" class="inline-flex flex-col gap-3 sm:flex-row sm:items-center">
-              {% csrf_token %}
-              {% if dashboard_url %}
-                <input type="hidden" name="next" value="{{ dashboard_url }}">
-              {% endif %}
-              <button type="submit" class="inline-flex items-center justify-center rounded-xl bg-[#FF5C00] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#e05400]">
-                Start {{ trial_days }}-day trial
-              </button>
-              <span class="text-xs text-slate-500">No charges until your trial ends.</span>
-            </form>
-          {% endif %}
+          <div id="onboarding-progress"
+               hx-get="{% url 'onboarding-status' %}"
+               hx-trigger="load, every 3s"
+               hx-target="this"
+               hx-swap="outerHTML">
+            {% include "onboarding/progress_fragment.html" with onboarding=onboarding status=status dashboard_url=dashboard_url retry_url=retry_url state_label=state_label %}
+          </div>
         </div>
       </section>
 
       <section class="rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm">
-        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Step 4</p>
-        <div class="mt-3 space-y-4">
-          <div>
-            <h2 class="text-lg font-semibold text-[#14080E]">Explore your creative workspace</h2>
-            <p class="mt-1 text-sm text-slate-600">We lined up a few tips so you can start generating concepts right away.</p>
-          </div>
-          {% include "_partials/onboarding_welcome.html" with restaurant=restaurant just_signed_up=just_signed_up dashboard_url=dashboard_url %}
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Defaults</p>
+        <div class="mt-3 space-y-2 text-sm text-slate-600">
+          <p>Timezone: {{ onboarding.default_timezone }} · Currency: {{ onboarding.default_currency }} · Email theme color: {{ onboarding.brand_color }}</p>
+          <p>These defaults can be updated later in Settings → Workspace.</p>
         </div>
       </section>
     </div>
