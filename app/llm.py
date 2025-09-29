@@ -16,11 +16,8 @@ import io
 
 import cloudinary
 from openai import OpenAI
+from replicate.client import Client as ReplicateClient  # type: ignore
 
-try:  # pragma: no cover - optional dependency during tests
-    from replicate.client import Client as ReplicateClient  # type: ignore
-except ImportError:  # pragma: no cover - handled when replicate isn't installed
-    ReplicateClient = None
 
 from dotenv import load_dotenv
 
@@ -32,7 +29,7 @@ load_dotenv()
 
 _openai_api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=_openai_api_key) if _openai_api_key else None
-_replicate_token = os.getenv("REPLICATE_API_TOKEN")
+_replicate_token = os.getenv("REPLICATE_API_KEY")
 if ReplicateClient and _replicate_token:
     replicate_client = ReplicateClient(api_token=_replicate_token)
 else:  # pragma: no cover - fallback when library or token missing
@@ -57,6 +54,8 @@ def _concept_sketch_prompt(name: str, subtitle: str) -> str:
         "restaurant concept card. Keep the lines clean with minimal shading so the image "
         "stays lightweight, but output it at a high-definition resolution. DO not include any text ever, "
         "no logos, or color.  Should only be of a singular item, not a spread or motif.\n"
+        "Ideal image is one that captures the culinary concept, a sketch vignette"
+        "should not be of a singular dish but represent a the culiary concept."
         f"Concept name: {name}\n"
         f"Concept subtitle: {subtitle_text}"
     )

@@ -560,6 +560,7 @@ def signup_view(request):
                         "query": f"{restaurant_name} {location}",
                         "async": "false",
                         "limit": 1,
+                        "fields":"query,name,place_id,full_address,latitude,longitude,site,phone,type,description,category,subtypes,about,menu_link,order_links"
                     },
                 )
                 transaction.on_commit(
