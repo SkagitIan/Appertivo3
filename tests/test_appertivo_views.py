@@ -130,11 +130,15 @@ class ViewSmokeTests(TestCase):
         self.assertEqual(models.MenuVersion.objects.count(), 0)
 
     def test_outscraper_webhook_saves_reviews(self):
+        self.restaurant.google_place_id = "place-123"
+        self.restaurant.save(update_fields=["google_place_id"])
+
         payload = {
             "data": [
                 [
                     {
                         "name": "R",
+                        "place_id": "place-123",
                         "rating": 4.7,
                         "reviews_count": 25,
                         "reviews_data": [
@@ -144,9 +148,8 @@ class ViewSmokeTests(TestCase):
                 ]
             ]
         }
-        url = reverse("outscraper_webhook") + f"?restaurant_id={self.restaurant.id}"
         resp = self.client.post(
-            url,
+            reverse("outscraper_webhook"),
             data=json.dumps(payload),
             content_type="application/json",
         )
