@@ -299,7 +299,7 @@
         if (shouldShowConceptLoading(trigger)) {
           card.classList.remove('loading');
         }
-        if (isConceptGenerateButton(trigger)) {
+        if (isConceptGenerateButton(trigger) || isConceptFavoriteButton(trigger)) {
           card.classList.remove('concept-generating');
         }
       }
@@ -322,6 +322,10 @@
 
       if (isConceptFavoriteButton(trigger)) {
         trigger.classList.add('concept-favorite-btn--busy');
+        if (card) {
+          card.classList.remove('show-back');
+          card.classList.add('concept-generating');
+        }
       }
 
       if (isConceptGenerateButton(trigger)) {
