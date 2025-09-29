@@ -3178,7 +3178,6 @@ def refresh_reviews(request, restaurant_id):
     if not query_value:
         logger.warning("No query value available for Outscraper reviews on %s", restaurant.id)
         return redirect("settings")
-
     token = onboarding.sign_restaurant_token(restaurant.id)
     webhook_url = request.build_absolute_uri(
         reverse("outscraper_webhook", args=[restaurant.id, token])
@@ -3192,7 +3191,7 @@ def refresh_reviews(request, restaurant_id):
         "webhook": webhook_url,
         "sort":"newest",
         "ignoreEmpty": "true",
-        "fields":"place_id,reviews_data",
+        "fields":"place_id,reviews_data.review_text",
 
     }
     headers = {"X-API-KEY": api_key}
