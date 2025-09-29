@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from datetime import timedelta
+from decimal import Decimal
 from pathlib import Path
 import os
 from dotenv import load_dotenv
@@ -278,6 +279,34 @@ print(f"BREVO_API_KEY: {BREVO_API_KEY}")  # Debugging line to check if the key i
 # if BREVO_API_KEY:
 EMAIL_BACKEND = 'anymail.backends.brevo.EmailBackend'
 ANYMAIL = {'BREVO_API_KEY': BREVO_API_KEY}
+
+
+LLM_COST_TRACKING_ENABLED = True
+
+LLM_PRICING = {
+    "openai": {
+        "gpt-4.1-mini": {
+            "input_per_1k": Decimal("0.00015"),
+            "output_per_1k": Decimal("0.00060"),
+        },
+        "gpt-4o-mini": {
+            "input_per_1k": Decimal("0.00015"),
+            "output_per_1k": Decimal("0.00060"),
+        },
+        "gpt-4.1-nano": {
+            "input_per_1k": Decimal("0.00004"),
+            "output_per_1k": Decimal("0.00016"),
+        },
+        "gpt-4.1": {
+            "input_per_1k": Decimal("0.00250"),
+            "output_per_1k": Decimal("0.01000"),
+        },
+        "dall-e-3": {"per_call": Decimal("0.04000")},
+    },
+    "gemini": {
+        "gemini-2.5-flash-image-preview": {"per_call": Decimal("0.00250")},
+    },
+}
 
 
 CRONJOBS = [("0 * * * *", "app.cron.unpublish_expired_specials")]
