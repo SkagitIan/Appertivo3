@@ -1,6 +1,7 @@
 """Application views."""
 
 import json, logging, os, uuid
+from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Iterable, List, Optional
 
@@ -1748,21 +1749,30 @@ def ensure_dish_enhancement(dish: models.DishIdea, user: Optional[User]) -> Opti
     if existing:
         return existing
 
-    try:
-        payload = llm.enhance_dish(
+    user_context = user if getattr(user, "is_authenticated", False) else None
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        enhancement_future = executor.submit(
+            llm.enhance_dish,
             dish,
             dish.restaurant,
-            user=user if getattr(user, "is_authenticated", False) else None,
+            user=user_context,
         )
-    except Exception as exc:  # pragma: no cover - defensive guard
-        logger.warning("Enhancement request failed: %s", exc, exc_info=True)
-        return None
+        image_future = executor.submit(
+            llm.generate_dish_image_from_prompt,
+            prompt=f"Plated dish photo of {dish.title}: {dish.description}",
+            default_url=llm.DEFAULT_IMAGE_URL,
+            user=user_context,
+        )
 
-    image_url = llm.generate_dish_image_from_prompt(
-        prompt=f"Plated dish photo of {dish.title}: {dish.description}",
-        default_url=llm.DEFAULT_IMAGE_URL,
-        user=user if getattr(user, "is_authenticated", False) else None,
-    )
+        try:
+            payload = enhancement_future.result()
+        except Exception as exc:  # pragma: no cover - defensive guard
+            logger.warning("Enhancement request failed: %s", exc, exc_info=True)
+            image_future.cancel()
+            return None
+
+        image_url = image_future.result()
     price_cents = payload.get("price_cents")
     currency = payload.get("currency") or "USD"
     pricing_notes = payload.get("pricing_notes")
