@@ -21,13 +21,13 @@ from replicate.client import Client as ReplicateClient  # type: ignore
 
 
 from dotenv import load_dotenv
+load_dotenv()
+
 from django.core.cache import cache
 
 from . import models
 
 logger = logging.getLogger(__name__)
-
-load_dotenv()
 
 _openai_api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=_openai_api_key) if _openai_api_key else None
