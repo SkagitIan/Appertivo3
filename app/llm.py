@@ -11,15 +11,20 @@ import json
 import logging
 import os
 import uuid
-from typing import Dict, List, Optional
-from openai import OpenAI
+from typing import Dict, Optional
+import io
+
 import cloudinary
-import base64
+from openai import OpenAI
+
+try:  # pragma: no cover - optional dependency during tests
+    from replicate.client import Client as ReplicateClient  # type: ignore
+except ImportError:  # pragma: no cover - handled when replicate isn't installed
+    ReplicateClient = None
 
 from dotenv import load_dotenv
 
 from . import models
-from .llm_logging import log_llm_call
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +32,12 @@ load_dotenv()
 
 _openai_api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=_openai_api_key) if _openai_api_key else None
+_replicate_token = os.getenv("REPLICATE_API_TOKEN")
+if ReplicateClient and _replicate_token:
+    replicate_client = ReplicateClient(api_token=_replicate_token)
+else:  # pragma: no cover - fallback when library or token missing
+    replicate_client = None
+REPLICATE_MODEL = "prunaai/flux.1-dev:b0306d92aa025bb747dc74162f3c27d6ed83798e08e5f8977adf3d859d0536a3"
 DEFAULT_IMAGE_URL = "https://placehold.co/800x600?text=Dish"
 DEFAULT_CONCEPT_IMAGE_URL = "https://placehold.co/1200x800?text=Concept"
 DEFAULT_PRICE_CENTS = 1500
@@ -38,7 +49,7 @@ cloudinary.config(
 )
 
 def _concept_sketch_prompt(name: str, subtitle: str) -> str:
-    """Describe a lightweight concept sketch request for OpenAI image generation."""
+    """Describe a lightweight concept sketch request for image generation."""
 
     subtitle_text = subtitle or ""
     return (
@@ -62,46 +73,71 @@ def _dish_image_prompt(title: str, description: str) -> str:
     return prompt
 
 
-def _fetch_openai_sketch(prompt: str, default_url: str, *, user=None) -> str:
-    """Generate an image via OpenAI, upload to Cloudinary, return optimized URL."""
-    if not client:
+def _extract_output_values(output) -> list[bytes | str]:
+    """Normalize Replicate output into a list of byte blobs or URLs."""
+
+    values: list[bytes | str] = []
+    if output is None:
+        return values
+
+    if hasattr(output, "read"):
+        try:
+            values.append(output.read())
+        except Exception as exc:  # pragma: no cover - defensive guard
+            logger.warning("Failed to read Replicate output stream: %s", exc, exc_info=True)
+        return values
+
+    if isinstance(output, list):
+        for item in output:
+            values.extend(_extract_output_values(item))
+        return values
+
+    if isinstance(output, str):
+        values.append(output)
+        return values
+
+    logger.warning("Unexpected Replicate output type: %s", type(output))
+    return values
+
+
+def _generate_replicate_asset(
+    prompt: str,
+    default_url: str,
+    *,
+    folder: str,
+    output_quality: int,
+) -> str:
+    """Generate an image via Replicate, upload to Cloudinary, and return the URL."""
+
+    if not replicate_client:
         return default_url
 
     try:
-        response = client.images.generate(
-            model="dall-e-3",
-            prompt=prompt,
-            quality="standard",
-            style="vivid",
-            #n=1,
-            size="1024x1024",
-            #output_format="png",
-            response_format='b64_json'
+        output = replicate_client.run(
+            REPLICATE_MODEL,
+            input={
+                "prompt": prompt,
+                "output_format": "png",
+                "output_quality": output_quality,
+            },
         )
-        log_llm_call(
-            user=user,
-            provider="openai",
-            model_name="dall-e-3",
-            call_type=models.LlmCallLog.CallType.IMAGE,
-            step="concept_sketch",
-            function_name="app.llm._fetch_openai_sketch",
-            response=response,
-            metadata={"prompt_length": len(prompt)},
-        )
-        if response.data and getattr(response.data[0], "b64_json", None):
-            base64_data = response.data[0].b64_json
-            image_bytes = base64.b64decode(base64_data)
+    except Exception as exc:  # pragma: no cover - defensive guard
+        logger.warning("Replicate image generation failed: %s", exc, exc_info=True)
+        return default_url
 
-            # Upload to Cloudinary
+    for candidate in _extract_output_values(output):
+        try:
+            file_obj = candidate
+            if isinstance(candidate, bytes):
+                file_obj = io.BytesIO(candidate)
+
             upload_result = cloudinary.uploader.upload(
-                image_bytes,
-                folder="appertivo/dishes",
+                file_obj,
+                folder=folder,
                 public_id=str(uuid.uuid4()),
                 overwrite=True,
                 resource_type="image",
             )
-
-            # Cloudinary can deliver resized/optimized variants with URL params
             optimized_url = cloudinary.CloudinaryImage(upload_result["public_id"]).build_url(
                 width=500,
                 height=500,
@@ -110,144 +146,33 @@ def _fetch_openai_sketch(prompt: str, default_url: str, *, user=None) -> str:
                 fetch_format="auto",
             )
             return optimized_url
+        except Exception as exc:  # pragma: no cover - defensive guard
+            logger.warning("Cloudinary upload failed: %s", exc, exc_info=True)
 
-        logger.warning("OpenAI image response did not include b64_json data.")
-
-    except Exception as exc:
-        logger.warning("OpenAI image generation failed: %s", exc, exc_info=True)
-
-    return default_url
-
-def _fetch_gemini_image(prompt: str, default_url: str, *, user=None) -> str:
-    """Generate an image via Gemini, upload to Cloudinary, return optimized URL."""
-    try:
-        from google import genai
-        from io import BytesIO
-        import base64
-        import uuid
-        import cloudinary
-        import cloudinary.uploader
-        import cloudinary.api
-
-        client = genai.Client()
-
-        response = client.models.generate_content(
-            model="gemini-2.5-flash-image-preview",
-            contents=[prompt],
-        )
-        log_llm_call(
-            user=user,
-            provider="gemini",
-            model_name="gemini-2.5-flash-image-preview",
-            call_type=models.LlmCallLog.CallType.IMAGE,
-            step="dish_image",
-            function_name="app.llm._fetch_gemini_image",
-            response=response,
-            metadata={"prompt_length": len(prompt)},
-        )
-
-        # Loop through response parts looking for image data
-        for candidate in response.candidates:
-            for part in candidate.content.parts:
-                if getattr(part, "inline_data", None):
-                    image_bytes = BytesIO(part.inline_data.data)
-
-                    # Upload to Cloudinary
-                    upload_result = cloudinary.uploader.upload(
-                        image_bytes,
-                        folder="appertivo/dishes",
-                        public_id=str(uuid.uuid4()),
-                        overwrite=True,
-                        resource_type="image",
-                    )
-
-                    # Build optimized URL
-                    optimized_url = cloudinary.CloudinaryImage(upload_result["public_id"]).build_url(
-                        width=500,
-                        height=500,
-                        crop="fill",
-                        quality="auto",
-                        fetch_format="auto",
-                    )
-                    return optimized_url
-
-        logger.warning("Gemini image response did not include inline_data.")
-    except Exception as exc:
-        logger.warning("Gemini image generation failed: %s", exc, exc_info=True)
-
+    logger.warning("Replicate output did not yield a usable image.")
     return default_url
 
 
-def _fetch_openai_image(prompt: str, default_url: str, *, user=None) -> str:
-    """Generate an image via OpenAI, upload to Cloudinary, return optimized URL."""
-    if not client:
-        return default_url
+def generate_dish_image_from_prompt(prompt: str, default_url: str, *, user=None) -> str:
+    """Generate a high quality dish image via Replicate for the provided prompt."""
 
-    try:
-        response = client.images.generate(
-            model="dall-e-3",
-            prompt=prompt,
-            quality="hd",
-            style="natural",
-            #n=1,
-            size="1024x1024",
-            #output_format="png",
-            response_format='b64_json'
-        )
-        log_llm_call(
-            user=user,
-            provider="openai",
-            model_name="dall-e-3",
-            call_type=models.LlmCallLog.CallType.IMAGE,
-            step="dish_image",
-            function_name="app.llm._fetch_openai_image",
-            response=response,
-            metadata={"prompt_length": len(prompt)},
-        )
-        if response.data and getattr(response.data[0], "b64_json", None):
-            base64_data = response.data[0].b64_json
-            image_bytes = base64.b64decode(base64_data)
-
-            # Upload to Cloudinary
-            upload_result = cloudinary.uploader.upload(
-                image_bytes,
-                folder="appertivo/dishes",
-                public_id=str(uuid.uuid4()),
-                overwrite=True,
-                resource_type="image",
-            )
-
-            # Cloudinary can deliver resized/optimized variants with URL params
-            optimized_url = cloudinary.CloudinaryImage(upload_result["public_id"]).build_url(
-                width=500,
-                height=500,
-                crop="fill",
-                quality="auto",
-                fetch_format="auto",
-            )
-            return optimized_url
-
-        logger.warning("OpenAI image response did not include b64_json data.")
-
-    except Exception as exc:
-        logger.warning("OpenAI image generation failed: %s", exc, exc_info=True)
-
-    return default_url
+    return _generate_replicate_asset(
+        prompt,
+        default_url,
+        folder="appertivo/dishes",
+        output_quality=95,
+    )
 
 
-def _call_openai_for_image(title: str, description: str, *, user=None) -> str:
-    """Return a data URL for the generated dish image using the OpenAI Images API."""
+def generate_concept_sketch_from_prompt(prompt: str, default_url: str, *, user=None) -> str:
+    """Generate a lightweight sketch via Replicate for the provided prompt."""
 
-    prompt = _dish_image_prompt(title, description)
-    return _fetch_gemini_image(prompt, DEFAULT_IMAGE_URL, user=user)
-
-
-def _call_openai_for_concept_sketch(name: str, subtitle: str, *, user=None) -> str:
-    """Return an OpenAI generated concept sketch or a placeholder image."""
-
-    prompt = _concept_sketch_prompt(name, subtitle)
-    return _fetch_openai_sketch(prompt, DEFAULT_CONCEPT_IMAGE_URL, user=user)
-
+    return _generate_replicate_asset(
+        prompt,
+        default_url,
+        folder="appertivo/sketches",
+        output_quality=60,
+    )
 
 
 def _format_menu_snapshot(restaurant: models.Restaurant) -> Dict[str, Optional[str]]:
@@ -322,19 +247,6 @@ def _call_openai_for_price(
             ],
             text={"format": schema},
         )
-        log_llm_call(
-            user=user,
-            provider="openai",
-            model_name="gpt-4.1-nano",
-            call_type=models.LlmCallLog.CallType.TEXT,
-            step="enhance_pricing",
-            function_name="app.llm._call_openai_for_price",
-            response=response,
-            metadata={
-                "dish_id": str(getattr(dish, "id", "")),
-                "restaurant_id": str(getattr(dish, "restaurant_id", "")),
-            },
-        )
         raw_text = response.output[0].content[0].text
         data = json.loads(raw_text)
         price_cents = int(data.get("price_cents", fallback["price_cents"]))
@@ -371,11 +283,23 @@ def enhance_dish(
     }
 
 
+def generate_dish_image_from_details(title: str, description: str, *, user=None) -> str:
+    """Return a dish image generated from title and description prompts."""
+
+    prompt = _dish_image_prompt(title, description)
+    return generate_dish_image_from_prompt(
+        prompt,
+        DEFAULT_IMAGE_URL,
+        user=user,
+    )
+
+
 def generate_concept_sketch(concept: models.Concept, user=None) -> str:
     """Return a concept background sketch for the provided concept."""
 
-    return _call_openai_for_concept_sketch(
-        concept.name,
-        concept.subtitle,
+    prompt = _concept_sketch_prompt(concept.name, concept.subtitle)
+    return generate_concept_sketch_from_prompt(
+        prompt,
+        DEFAULT_CONCEPT_IMAGE_URL,
         user=user,
     )

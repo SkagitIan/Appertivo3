@@ -33,8 +33,6 @@ from . import models
 import base64
 import cloudinary.uploader
 from openai import OpenAI
-from app.llm import _fetch_openai_image, _fetch_gemini_image
-from app.llm_logging import log_llm_call
 from dotenv import load_dotenv
 load_dotenv()
 _openai_api_key = os.getenv("OPENAI_API_KEY")
@@ -1403,19 +1401,6 @@ def concepts_generate_view(request):
             text={"format": schema},
             temperature=temperature_float,
         )
-        log_llm_call(
-            user=request.user if request.user.is_authenticated else None,
-            provider="openai",
-            model_name="gpt-4.1-mini",
-            call_type=models.LlmCallLog.CallType.TEXT,
-            step="concept_generation",
-            function_name="concepts_generate_view",
-            response=response,
-            metadata={
-                "restaurant_id": str(restaurant.id),
-                "ideation_run_id": str(ideation_run.id),
-            },
-        )
         logger.info(context)
         raw_text = response.output[0].content[0].text
         try:
@@ -1772,7 +1757,7 @@ def ensure_dish_enhancement(dish: models.DishIdea, user: Optional[User]) -> Opti
         logger.warning("Enhancement request failed: %s", exc, exc_info=True)
         return None
 
-    image_url = _fetch_gemini_image(
+    image_url = llm.generate_dish_image_from_prompt(
         prompt=f"Plated dish photo of {dish.title}: {dish.description}",
         default_url=llm.DEFAULT_IMAGE_URL,
         user=user if getattr(user, "is_authenticated", False) else None,
@@ -1940,21 +1925,6 @@ def dishes_generate_view(request, concept_id):
             text={"format": schema},
             temperature=temperature_float,
         )
-        log_llm_call(
-            user=request.user if request.user.is_authenticated else None,
-            provider="openai",
-            model_name="gpt-4o-mini",
-            call_type=models.LlmCallLog.CallType.TEXT,
-            step="dish_generation",
-            function_name="dishes_generate_view",
-            response=response,
-            metadata={
-                "restaurant_id": str(restaurant.id),
-                "ideation_run_id": str(ideation_run.id),
-                "concept_id": str(concept.id),
-            },
-        )
-
         raw_text = response.output[0].content[0].text
         parsed = json.loads(raw_text)
         dishes = parsed["dishes"]
@@ -2308,20 +2278,6 @@ def dish_variation_view(request, dish_id):
                     ],
                     text={"format": schema},
                     temperature=temperature_float,
-                )
-                log_llm_call(
-                    user=request.user if request.user.is_authenticated else None,
-                    provider="openai",
-                    model_name="gpt-4.1",
-                    call_type=models.LlmCallLog.CallType.TEXT,
-                    step="dish_variation",
-                    function_name="dish_variation_view",
-                    response=response,
-                    metadata={
-                        "dish_id": str(dish.id),
-                        "base_dish_id": str(base_dish.id),
-                        "attempt": attempt_number,
-                    },
                 )
                 raw_text = response.output[0].content[0].text
                 candidate = json.loads(raw_text)

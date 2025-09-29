@@ -7,6 +7,7 @@ django-crontab
 django-extensions  # for development utilities
 gunicorn                # for production WSGI
 openai
+replicate
 outscraper
 python-dotenv  # to manage env vars locally
 requests
