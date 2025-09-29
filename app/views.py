@@ -397,17 +397,50 @@ def _extend_session_list(session, key: str, new_items: Iterable[str]) -> None:
     session.modified = True
 
 
-def _record_unfavorited_concept(session, concept_name: str) -> None:
-    """Store a trimmed history of concept names the user removed from favorites."""
+def _record_unfavorited_concept(session, concept: models.Concept) -> bool:
+    """Persist and surface a concept the user removed from favorites.
 
-    name = (concept_name or "").strip()
+    Returns True when the concept unfavorite state changed.
+    """
+
+    if not concept:
+        return False
+
+    changed = False
+    if not concept.is_unfavorite:
+        concept.is_unfavorite = True
+        changed = True
+
+    concept.is_unfavorited_for_user = True
+
+    name = (concept.name or "").strip()
     if not name:
-        return
+        return changed
+
     _extend_session_list(session, "disliked_concepts", [name])
     disliked = _get_session_list(session, "disliked_concepts")
     if len(disliked) > 30:
         session["disliked_concepts"] = disliked[-30:]
         session.modified = True
+    return changed
+
+
+def _get_unfavorited_concept_names(
+    restaurant: Optional[models.Restaurant], limit: int
+) -> List[str]:
+    """Return the most recent unfavorited concept names for a restaurant."""
+
+    if not restaurant:
+        return []
+
+    names = list(
+        models.Concept.objects.filter(
+            restaurant=restaurant, is_unfavorite=True
+        )
+        .order_by("-created_at")
+        .values_list("name", flat=True)[:limit]
+    )
+    return [name for name in names if name]
 
 
 def _load_home_demo_favorites():
@@ -461,6 +494,7 @@ def _load_home_demo_favorites():
 
         concept = concept_favorite.concept
         concept.is_favorited_for_user = True
+        concept.is_unfavorited_for_user = concept.is_unfavorite
         concept.has_dishes = bool(dish) or getattr(concept, "has_dishes", False)
         concept.favorited_at = concept_favorite.favorited_at
         restaurant = getattr(concept, "restaurant", None)
@@ -766,6 +800,7 @@ def dashboard(request, restaurant_id):
         )
         concept.generated_at = run_finished or concept.created_at
         concept.is_favorited_for_user = concept.id in favorite_concept_ids
+        concept.is_unfavorited_for_user = concept.is_unfavorite
 
     favorite_dishes = list(
         models.FavoriteDish.objects.filter(
@@ -1189,9 +1224,9 @@ def concepts_view(request):
     for concept in concepts:
         favorites = getattr(concept, "_favorites_for_request_user", [])
         concept.is_favorited_for_user = bool(favorites)
+        concept.is_unfavorited_for_user = concept.is_unfavorite
 
-    disliked_concepts = _get_session_list(request.session, "disliked_concepts")
-    recent_disliked = list(reversed(disliked_concepts[-6:])) if disliked_concepts else []
+    recent_disliked = _get_unfavorited_concept_names(restaurant, 6)
     return render(
         request,
         "concepts/grid.html",
@@ -1285,8 +1320,7 @@ def concepts_generate_view(request):
         for name in (request.session.get("generated_concepts") or [])
         if name and str(name).strip()
     ]
-    disliked_concepts = _get_session_list(request.session, "disliked_concepts")
-    disliked_context = disliked_concepts[-15:]
+    disliked_context = _get_unfavorited_concept_names(restaurant, 15)
 
     logger.info(f"previous concepts: {session_concepts}")
     if restaurant.active_menu_version:
@@ -1467,6 +1501,7 @@ def concepts_generate_view(request):
     for concept in concepts:
         concept.is_favorited_for_user = False
         concept.has_dishes = False
+        concept.is_unfavorited_for_user = concept.is_unfavorite
 
     if request.user.is_authenticated:
         _extend_session_list(
@@ -1504,10 +1539,20 @@ def concept_favorite_view(request, concept_id):
 
     if not created:
         fav.delete()
+        update_fields: List[str] = []
         if concept.sketch_image_url:
             concept.sketch_image_url = None
-            concept.save(update_fields=["sketch_image_url"])
-        _record_unfavorited_concept(request.session, concept.name)
+            update_fields.append("sketch_image_url")
+        unfavorite_changed = _record_unfavorited_concept(request.session, concept)
+        if unfavorite_changed:
+            update_fields.append("is_unfavorite")
+        if update_fields:
+            concept.save(update_fields=update_fields)
+    else:
+        concept.is_unfavorited_for_user = False
+        if concept.is_unfavorite:
+            concept.is_unfavorite = False
+            concept.save(update_fields=["is_unfavorite"])
 
     concept.is_favorited_for_user = favorited
     concept.has_dishes = models.DishIdea.objects.filter(
@@ -1553,6 +1598,7 @@ def concept_background_view(request, concept_id):
     concept.has_dishes = models.DishIdea.objects.filter(
         parent_concept=concept, is_deleted=False
     ).exists()
+    concept.is_unfavorited_for_user = concept.is_unfavorite
 
     return render(
         request,
@@ -1578,6 +1624,7 @@ def concepts_favorites_view(request):
         if concept is None:
             continue
         concept.is_favorited_for_user = True
+        concept.is_unfavorited_for_user = concept.is_unfavorite
         concepts.append(concept)
 
     concept_ids = [concept.id for concept in concepts]
@@ -2438,6 +2485,7 @@ def favorites_view(request):
         if not concept:
             continue
         concept.is_favorited_for_user = True
+        concept.is_unfavorited_for_user = concept.is_unfavorite
         favorite_concepts.append(favorite)
     favorite_dishes = list(
         models.FavoriteDish.objects.filter(user=request.user)
@@ -2547,10 +2595,14 @@ def favorite_remove_view(request, type, id):
         )
         concept = favorite.concept
         favorite.delete()
+        update_fields: List[str] = []
         if concept.sketch_image_url:
             concept.sketch_image_url = None
-            concept.save(update_fields=["sketch_image_url"])
-        _record_unfavorited_concept(request.session, concept.name)
+            update_fields.append("sketch_image_url")
+        if _record_unfavorited_concept(request.session, concept):
+            update_fields.append("is_unfavorite")
+        if update_fields:
+            concept.save(update_fields=update_fields)
     else:
         models.FavoriteDish.objects.filter(user=request.user, dish_id=id).delete()
     if request.headers.get("HX-Request"):

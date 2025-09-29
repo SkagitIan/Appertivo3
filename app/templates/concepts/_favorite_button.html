@@ -23,6 +23,10 @@
                   🤍
                 {% endif %}
               </span>
+              {% if not is_favorited and concept.is_unfavorited_for_user|default:False %}
+                <span aria-hidden="true" class="ml-1 text-base leading-none">👎</span>
+                <span class="sr-only">Marked as not a fit</span>
+              {% endif %}
             </button>
           {% endwith %}
         {% else %}
@@ -47,6 +51,10 @@
                   🤍
                 {% endif %}
               </span>
+              {% if not is_favorited and concept.is_unfavorited_for_user|default:False %}
+                <span aria-hidden="true" class="ml-1 text-base leading-none">👎</span>
+                <span class="sr-only">Marked as not a fit</span>
+              {% endif %}
             </button>
           {% endwith %}
         {% endif %}
