@@ -25,6 +25,25 @@
         </div>
       {% endif %}
 
+      {% if disliked_concepts %}
+        <section class="space-y-4 rounded-xl bg-white p-6 m-4 shadow">
+          <div class="flex items-center justify-between gap-2">
+            <h2 class="text-lg font-semibold text-[#14080E]">Passed on concepts</h2>
+            <span class="text-xs font-medium uppercase tracking-wide text-slate-400">We will remix these</span>
+          </div>
+          <p class="text-sm text-slate-600">We&apos;ll remember the ideas that missed and tilt future generations toward better fits.</p>
+          <ul class="space-y-2">
+            {% for name in disliked_concepts %}
+              <li class="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+                <span aria-hidden="true" class="text-base leading-none">👎</span>
+                <span class="sr-only">Not a fit:</span>
+                <span class="font-medium text-[#49475B]">{{ name }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        </section>
+      {% endif %}
+
       <section class="space-y-6 rounded-xl bg-white p-6 m-4 shadow" data-menu-manager>
         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div class="space-y-1">

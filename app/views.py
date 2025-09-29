@@ -118,6 +118,35 @@ def _persist_slider_value(
     setattr(restaurant, "restaurantsettings", settings)
     return settings
 
+
+def _queue_outscraper_payload(
+    restaurant: "models.Restaurant",
+    *,
+    restaurant_name: Optional[str] = None,
+    location: Optional[str] = None,
+) -> "models.OutscraperPayload":
+    """Create a queued Outscraper payload for the given restaurant."""
+
+    name = (restaurant_name or getattr(restaurant, "name", "") or "").strip()
+    location_text = (
+        location if location is not None else getattr(restaurant, "location_text", "")
+    )
+    location_text = (location_text or "").strip()
+    query_parts = [part for part in (name, location_text) if part]
+    query = " ".join(query_parts) if query_parts else name
+
+    payload = models.OutscraperPayload.objects.create(
+        restaurant=restaurant,
+        status=models.OutscraperPayload.Status.QUEUED,
+        request_params={
+            "query": query,
+            "async": "false",
+            "limit": 1,
+            "fields": "query,name,place_id,full_address,latitude,longitude,site,phone,type,description,category,subtypes,about,menu_link,order_links",
+        },
+    )
+    return payload
+
 class ConceptList(BaseModel):
     concepts: List[str]
 
@@ -555,15 +584,10 @@ def signup_view(request):
                     name=restaurant_name,
                     location_text=location,
                 )
-                payload = models.OutscraperPayload.objects.create(
-                    restaurant=restaurant,
-                    status=models.OutscraperPayload.Status.QUEUED,
-                    request_params={
-                        "query": f"{restaurant_name} {location}",
-                        "async": "false",
-                        "limit": 1,
-                        "fields":"query,name,place_id,full_address,latitude,longitude,site,phone,type,description,category,subtypes,about,menu_link,order_links"
-                    },
+                payload = _queue_outscraper_payload(
+                    restaurant,
+                    restaurant_name=restaurant_name,
+                    location=location,
                 )
                 transaction.on_commit(
                     lambda payload_id=str(payload.id): run_outscraper_search.delay(
@@ -778,19 +802,22 @@ def dashboard(request, restaurant_id):
         .prefetch_related(
             Prefetch(
                 "menuitem_set",
-                queryset=models.MenuItem.objects.select_related(
+                queryset=models.MenuItem.objects.filter(
+                    dish__is_deleted=False
+                )
+                .select_related(
                     "dish",
                     "dish__parent_concept",
-                ).order_by("position", "created_at"),
+                )
+                .order_by("position", "created_at"),
+                to_attr="prefetched_menu_items",
             )
         )
         .order_by("-created_at")[:4]
     )
     for menu in menus:
         items = [
-            item
-            for item in menu.menuitem_set.all()
-            if item.dish and not item.dish.is_deleted
+            item for item in getattr(menu, "prefetched_menu_items", []) if item.dish
         ]
         menu.menu_items = items
 
@@ -1994,8 +2021,27 @@ def dish_detail_view(request, concept_id):
         id=concept_id,
     )
 
+    run_param = (request.GET.get("run") or "").strip()
+    selected_run = None
+    if run_param:
+        try:
+            uuid.UUID(run_param)
+        except (TypeError, ValueError):
+            run_param = ""
+        else:
+            selected_run = (
+                models.IdeationRun.objects.filter(
+                    id=run_param,
+                    parent_concept=concept,
+                    type=models.IdeationRun.RunType.DISHES,
+                    status=models.IdeationRun.Status.SUCCEEDED,
+                )
+                .order_by("-created_at")
+                .first()
+            )
+
     # Get the most recent ideation run for this concept
-    latest_run = (
+    latest_run = selected_run or (
         models.IdeationRun.objects.filter(
             parent_concept=concept,
             type=models.IdeationRun.RunType.DISHES,
@@ -2395,7 +2441,11 @@ def favorites_view(request):
         favorite_concepts.append(favorite)
     favorite_dishes = list(
         models.FavoriteDish.objects.filter(user=request.user)
-        .select_related("dish__parent_concept", "dish__restaurant")
+        .select_related(
+            "dish__parent_concept",
+            "dish__restaurant",
+            "dish__ideation_run",
+        )
         .order_by("-favorited_at")
     )
 
@@ -2408,11 +2458,17 @@ def favorites_view(request):
             .prefetch_related(
                 Prefetch(
                     "menuitem_set",
-                    queryset=models.MenuItem.objects.select_related(
+                    queryset=models.MenuItem.objects.filter(
+                        dish__is_deleted=False
+                    )
+                    .select_related(
                         "dish",
                         "dish__parent_concept",
                         "dish__restaurant",
-                    ).order_by("position", "created_at"),
+                        "dish__ideation_run",
+                    )
+                    .order_by("position", "created_at"),
+                    to_attr="prefetched_menu_items",
                 )
             )
             .order_by("created_at")
@@ -2420,7 +2476,11 @@ def favorites_view(request):
         menu_palette = ["#F9F7FF", "#F3FAFF", "#FFF6F1", "#F4FFF5", "#FFF5FA"]
         for index, menu in enumerate(menus):
             menu_color_map[menu.name] = menu_palette[index % len(menu_palette)]
-            items = list(menu.menuitem_set.all())
+            items = [
+                item
+                for item in getattr(menu, "prefetched_menu_items", [])
+                if item.dish
+            ]
             menu.menu_items = items
             for item in items:
                 menu_dishes.append(item.dish)
@@ -2973,12 +3033,15 @@ def settings_view(request):
     )
     prefs = getattr(request.user, "notificationpref", None)
     active_menu = restaurant.active_menu_version if restaurant else None
+    disliked_concepts = _get_session_list(request.session, "disliked_concepts")
+    recent_disliked = list(reversed(disliked_concepts[-6:])) if disliked_concepts else []
     return render(request, "settings/main.html", {
         "restaurant": restaurant,
         "ingredients": ingredients,
         "prefs": prefs,
         "restaurant_settings": getattr(restaurant, "restaurantsettings", None),
         "active_menu_version": active_menu,
+        "disliked_concepts": recent_disliked,
     })
 
 
@@ -3036,11 +3099,7 @@ def update_restaurant_info(request):
 @require_POST
 def rescrape_restaurant(request, restaurant_id):
     restaurant = get_object_or_404(models.Restaurant, id=restaurant_id)
-    payload = models.OutscraperPayload.objects.create(
-        restaurant=restaurant,
-        status=models.OutscraperPayload.Status.QUEUED,
-        request_params={"query": restaurant.name, "limit": 1, "async": "false"},
-    )
+    payload = _queue_outscraper_payload(restaurant)
     run_outscraper_search.delay(str(payload.id))
     return HttpResponse("rescrape_complete", content_type="text/plain")
 

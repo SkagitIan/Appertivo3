@@ -61,11 +61,11 @@ class ConceptDislikeTests(TestCase):
         self._favorite_and_unfavorite(concept)
         self.assertIn(concept.name, self.client.session.get("disliked_concepts", []))
 
-    def test_concepts_page_displays_disliked_section(self):
+    def test_settings_page_displays_disliked_section(self):
         concept = self._create_concepts(1)[0]
         self._favorite_and_unfavorite(concept)
 
-        response = self.client.get(reverse("concepts"))
+        response = self.client.get(reverse("settings"))
         self.assertContains(response, "Passed on concepts")
         self.assertContains(response, "👎")
         self.assertContains(response, concept.name)
