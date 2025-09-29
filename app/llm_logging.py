@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from decimal import Decimal, ROUND_HALF_UP
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 from django.conf import settings
 
@@ -97,6 +97,60 @@ def _usage_to_dict(usage: Any) -> Dict[str, Any]:
     return data
 
 
+def _ensure_iterable(value: Any) -> Iterable[Any]:
+    """Return an iterable view of the value."""
+
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple, set)):
+        return value
+    if isinstance(value, dict):
+        return [value]
+    if isinstance(value, (str, bytes)):
+        return [value]
+    if hasattr(value, "__iter__"):
+        return list(value)
+    return [value]
+
+
+def _collect_text_segments(value: Any) -> List[str]:
+    """Walk nested OpenAI response data and gather text segments."""
+
+    segments: List[str] = []
+    for item in _ensure_iterable(value):
+        if isinstance(item, (str, bytes)):
+            if item:
+                segments.append(str(item))
+            continue
+
+        text = getattr(item, "text", None)
+        if isinstance(text, (str, bytes)):
+            if text:
+                segments.append(str(text))
+
+        if isinstance(item, dict):
+            if isinstance(item.get("text"), (str, bytes)):
+                segments.append(str(item["text"]))
+            if "content" in item:
+                segments.extend(_collect_text_segments(item["content"]))
+            continue
+
+        content = getattr(item, "content", None)
+        if content is not None:
+            segments.extend(_collect_text_segments(content))
+
+    return segments
+
+
+def _extract_response_text(value: Any) -> Optional[str]:
+    """Return joined text segments from a response field."""
+
+    segments = [segment.strip() for segment in _collect_text_segments(value) if segment.strip()]
+    if not segments:
+        return None
+    return "\n".join(segments)
+
+
 def _estimate_cost_cents(
     provider: str,
     model_name: str,
@@ -165,6 +219,14 @@ def log_llm_call(
         payload.setdefault("usage", usage_dict)
     if response is not None and getattr(response, "id", None):
         payload.setdefault("response_id", getattr(response, "id"))
+
+    response_input = _extract_response_text(getattr(response, "input", None)) if response else None
+    if response_input:
+        payload.setdefault("response_input_text", response_input)
+
+    response_output = _extract_response_text(getattr(response, "output", None)) if response else None
+    if response_output:
+        payload.setdefault("response_output_text", response_output)
 
     try:
         models.LlmCallLog.objects.create(
