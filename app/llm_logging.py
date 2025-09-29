@@ -12,23 +12,159 @@ from . import models
 
 logger = logging.getLogger(__name__)
 
+
+def _per_million_to_per_1k(dollars_per_million: str) -> Decimal:
+    """Convert a per-million dollar amount to a per-thousand Decimal."""
+
+    return Decimal(dollars_per_million) / Decimal("1000")
+
+
 DEFAULT_PRICING: Dict[str, Dict[str, Dict[str, Decimal]]] = {
     "openai": {
-        "gpt-4.1-mini": {
-            "input_per_1k": Decimal("0.00015"),
-            "output_per_1k": Decimal("0.00060"),
+        "gpt-5": {
+            "input_per_1k": _per_million_to_per_1k("1.25"),
+            "cached_input_per_1k": _per_million_to_per_1k("0.125"),
+            "output_per_1k": _per_million_to_per_1k("10.00"),
         },
-        "gpt-4o-mini": {
-            "input_per_1k": Decimal("0.00015"),
-            "output_per_1k": Decimal("0.00060"),
+        "gpt-5-mini": {
+            "input_per_1k": _per_million_to_per_1k("0.25"),
+            "cached_input_per_1k": _per_million_to_per_1k("0.025"),
+            "output_per_1k": _per_million_to_per_1k("2.00"),
         },
-        "gpt-4.1-nano": {
-            "input_per_1k": Decimal("0.00004"),
-            "output_per_1k": Decimal("0.00016"),
+        "gpt-5-nano": {
+            "input_per_1k": _per_million_to_per_1k("0.05"),
+            "cached_input_per_1k": _per_million_to_per_1k("0.005"),
+            "output_per_1k": _per_million_to_per_1k("0.40"),
+        },
+        "gpt-5-chat-latest": {
+            "input_per_1k": _per_million_to_per_1k("1.25"),
+            "cached_input_per_1k": _per_million_to_per_1k("0.125"),
+            "output_per_1k": _per_million_to_per_1k("10.00"),
+        },
+        "gpt-5-codex": {
+            "input_per_1k": _per_million_to_per_1k("1.25"),
+            "cached_input_per_1k": _per_million_to_per_1k("0.125"),
+            "output_per_1k": _per_million_to_per_1k("10.00"),
         },
         "gpt-4.1": {
-            "input_per_1k": Decimal("0.00250"),
-            "output_per_1k": Decimal("0.01000"),
+            "input_per_1k": _per_million_to_per_1k("2.00"),
+            "cached_input_per_1k": _per_million_to_per_1k("0.50"),
+            "output_per_1k": _per_million_to_per_1k("8.00"),
+        },
+        "gpt-4.1-mini": {
+            "input_per_1k": _per_million_to_per_1k("0.40"),
+            "cached_input_per_1k": _per_million_to_per_1k("0.10"),
+            "output_per_1k": _per_million_to_per_1k("1.60"),
+        },
+        "gpt-4.1-nano": {
+            "input_per_1k": _per_million_to_per_1k("0.10"),
+            "cached_input_per_1k": _per_million_to_per_1k("0.025"),
+            "output_per_1k": _per_million_to_per_1k("0.40"),
+        },
+        "gpt-4o": {
+            "input_per_1k": _per_million_to_per_1k("2.50"),
+            "cached_input_per_1k": _per_million_to_per_1k("1.25"),
+            "output_per_1k": _per_million_to_per_1k("10.00"),
+        },
+        "gpt-4o-2024-05-13": {
+            "input_per_1k": _per_million_to_per_1k("5.00"),
+            "output_per_1k": _per_million_to_per_1k("15.00"),
+        },
+        "gpt-4o-mini": {
+            "input_per_1k": _per_million_to_per_1k("0.15"),
+            "cached_input_per_1k": _per_million_to_per_1k("0.075"),
+            "output_per_1k": _per_million_to_per_1k("0.60"),
+        },
+        "gpt-realtime": {
+            "input_per_1k": _per_million_to_per_1k("4.00"),
+            "cached_input_per_1k": _per_million_to_per_1k("0.40"),
+            "output_per_1k": _per_million_to_per_1k("16.00"),
+        },
+        "gpt-4o-realtime-preview": {
+            "input_per_1k": _per_million_to_per_1k("5.00"),
+            "cached_input_per_1k": _per_million_to_per_1k("2.50"),
+            "output_per_1k": _per_million_to_per_1k("20.00"),
+        },
+        "gpt-4o-mini-realtime-preview": {
+            "input_per_1k": _per_million_to_per_1k("0.60"),
+            "cached_input_per_1k": _per_million_to_per_1k("0.30"),
+            "output_per_1k": _per_million_to_per_1k("2.40"),
+        },
+        "gpt-audio": {
+            "input_per_1k": _per_million_to_per_1k("2.50"),
+            "output_per_1k": _per_million_to_per_1k("10.00"),
+        },
+        "gpt-4o-audio-preview": {
+            "input_per_1k": _per_million_to_per_1k("2.50"),
+            "output_per_1k": _per_million_to_per_1k("10.00"),
+        },
+        "gpt-4o-mini-audio-preview": {
+            "input_per_1k": _per_million_to_per_1k("0.15"),
+            "output_per_1k": _per_million_to_per_1k("0.60"),
+        },
+        "o1": {
+            "input_per_1k": _per_million_to_per_1k("15.00"),
+            "cached_input_per_1k": _per_million_to_per_1k("7.50"),
+            "output_per_1k": _per_million_to_per_1k("60.00"),
+        },
+        "o1-pro": {
+            "input_per_1k": _per_million_to_per_1k("150.00"),
+            "output_per_1k": _per_million_to_per_1k("600.00"),
+        },
+        "o3-pro": {
+            "input_per_1k": _per_million_to_per_1k("20.00"),
+            "output_per_1k": _per_million_to_per_1k("80.00"),
+        },
+        "o3": {
+            "input_per_1k": _per_million_to_per_1k("2.00"),
+            "cached_input_per_1k": _per_million_to_per_1k("0.50"),
+            "output_per_1k": _per_million_to_per_1k("8.00"),
+        },
+        "o3-deep-research": {
+            "input_per_1k": _per_million_to_per_1k("10.00"),
+            "cached_input_per_1k": _per_million_to_per_1k("2.50"),
+            "output_per_1k": _per_million_to_per_1k("40.00"),
+        },
+        "o4-mini": {
+            "input_per_1k": _per_million_to_per_1k("1.10"),
+            "cached_input_per_1k": _per_million_to_per_1k("0.275"),
+            "output_per_1k": _per_million_to_per_1k("4.40"),
+        },
+        "o4-mini-deep-research": {
+            "input_per_1k": _per_million_to_per_1k("2.00"),
+            "cached_input_per_1k": _per_million_to_per_1k("0.50"),
+            "output_per_1k": _per_million_to_per_1k("8.00"),
+        },
+        "o3-mini": {
+            "input_per_1k": _per_million_to_per_1k("1.10"),
+            "cached_input_per_1k": _per_million_to_per_1k("0.55"),
+            "output_per_1k": _per_million_to_per_1k("4.40"),
+        },
+        "o1-mini": {
+            "input_per_1k": _per_million_to_per_1k("1.10"),
+            "cached_input_per_1k": _per_million_to_per_1k("0.55"),
+            "output_per_1k": _per_million_to_per_1k("4.40"),
+        },
+        "codex-mini-latest": {
+            "input_per_1k": _per_million_to_per_1k("1.50"),
+            "cached_input_per_1k": _per_million_to_per_1k("0.375"),
+            "output_per_1k": _per_million_to_per_1k("6.00"),
+        },
+        "gpt-4o-mini-search-preview": {
+            "input_per_1k": _per_million_to_per_1k("0.15"),
+            "output_per_1k": _per_million_to_per_1k("0.60"),
+        },
+        "gpt-4o-search-preview": {
+            "input_per_1k": _per_million_to_per_1k("2.50"),
+            "output_per_1k": _per_million_to_per_1k("10.00"),
+        },
+        "computer-use-preview": {
+            "input_per_1k": _per_million_to_per_1k("3.00"),
+            "output_per_1k": _per_million_to_per_1k("12.00"),
+        },
+        "gpt-image-1": {
+            "input_per_1k": _per_million_to_per_1k("5.00"),
+            "cached_input_per_1k": _per_million_to_per_1k("1.25"),
         },
         "dall-e-3": {"per_call": Decimal("0.04000")},
     },
