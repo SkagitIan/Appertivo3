@@ -129,6 +129,55 @@ class ViewSmokeTests(TestCase):
         self.assertContains(resp, "Paste your menu or upload a PDF", status_code=400)
         self.assertEqual(models.MenuVersion.objects.count(), 0)
 
+    def test_outscraper_webhook_saves_reviews(self):
+        self.restaurant.google_place_id = "place-123"
+        self.restaurant.save(update_fields=["google_place_id"])
+
+        payload = {
+            "data": [
+                [
+                    {
+                        "name": "R",
+                        "place_id": "place-123",
+                        "rating": 4.7,
+                        "reviews_count": 25,
+                        "reviews_data": [
+                            {"review_text": "Great!", "rating": 5},
+                        ],
+                    }
+                ]
+            ]
+        }
+        resp = self.client.post(
+            reverse("outscraper_webhook"),
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.restaurant.refresh_from_db()
+        self.assertEqual(self.restaurant.review_count, 25)
+        self.assertAlmostEqual(float(self.restaurant.rating), 4.7)
+        self.assertEqual(self.restaurant.reviews_json, payload)
+
+    @override_settings(OUTSCRAPER_API_KEY="test-key")
+    def test_refresh_reviews_calls_outscraper(self):
+        self.restaurant.google_place_id = "abc123"
+        self.restaurant.save(update_fields=["google_place_id"])
+
+        with patch("app.views.requests.get") as mock_get:
+            resp = self.client.post(
+                reverse("refresh_reviews", args=[self.restaurant.id])
+            )
+
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp["Location"], reverse("settings"))
+        mock_get.assert_called_once()
+        kwargs = mock_get.call_args.kwargs
+        self.assertIn("params", kwargs)
+        self.assertEqual(kwargs["headers"], {"X-API-KEY": "test-key"})
+        self.assertEqual(kwargs["params"]["query"], "abc123")
+        self.assertIn(str(self.restaurant.id), kwargs["params"]["webhook"])
+
     def test_dashboard_displays_contextual_ai_component(self):
         self.restaurant.context_json = {
             "category": "Italian",
