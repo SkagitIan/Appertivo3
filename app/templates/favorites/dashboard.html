@@ -268,8 +268,9 @@
                         </div>
                         <div class="flex flex-wrap items-center gap-2 sm:hidden">
                           {% if dish.parent_concept_id %}
+                            {% url 'dish_detail' dish.parent_concept_id as dish_detail_url %}
                             <a
-                              href="{% url 'dish_detail' dish.parent_concept_id %}#dish-{{ dish.id }}"
+                              href="{{ dish_detail_url }}{% if dish.ideation_run_id %}?run={{ dish.ideation_run_id }}{% endif %}#dish-{{ dish.id }}"
                               class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#58B09C] text-white shadow hover:bg-[#4b9c8a]"
                             >
                               <i class="fa-solid fa-arrow-up-right-from-square text-[0.65rem]" aria-hidden="true"></i>
@@ -309,8 +310,9 @@
                         </div>
                         <div class="flex flex-wrap items-center gap-2">
                           {% if dish.parent_concept_id %}
+                            {% url 'dish_detail' dish.parent_concept_id as dish_detail_url %}
                             <a
-                              href="{% url 'dish_detail' dish.parent_concept_id %}#dish-{{ dish.id }}"
+                              href="{{ dish_detail_url }}{% if dish.ideation_run_id %}?run={{ dish.ideation_run_id }}{% endif %}#dish-{{ dish.id }}"
                               class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#58B09C] text-white shadow hover:bg-[#4b9c8a]"
                             >
                               <i class="fa-solid fa-arrow-up-right-from-square text-[0.65rem]" aria-hidden="true"></i>
