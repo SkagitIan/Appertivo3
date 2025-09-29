@@ -251,6 +251,7 @@ class Concept(TimestampedModel):
     tags = models.JSONField(default=list)  # array of descriptive tags
     rank_order = models.SmallIntegerField()
     sketch_image_url = models.TextField(null=True, blank=True)
+    is_unfavorite = models.BooleanField(default=False)
 
     class Meta:
         indexes = [models.Index(fields=["restaurant", "-created_at"])]
