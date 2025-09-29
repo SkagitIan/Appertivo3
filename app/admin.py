@@ -1,10 +1,15 @@
-from decimal import Decimal
 
+from types import MethodType
+from django.contrib import admin
+from django.template.response import TemplateResponse
+from django.urls import path
+from decimal import Decimal
 from django.contrib import admin
 from django.db.models import Count, Sum
 from django.db.models.functions import Coalesce
 
 from . import models
+from .qa_checklist import CHECKLIST_SECTIONS
 
 
 # Simple generic base
@@ -162,6 +167,38 @@ class FeedbackActionAdmin(TimestampedAdmin):
 @admin.register(models.NotificationPref)
 class NotificationPrefAdmin(TimestampedAdmin):
     list_display = ("id", "user", "on_background_complete_email", "on_new_menu_version_email")
+
+
+def manual_testing_checklist_view(request):
+    """Render the manual QA checklist inside the Django admin."""
+
+    context = admin.site.each_context(request)
+    context.update(
+        {
+            "title": "Manual QA Checklist",
+            "checklist_sections": CHECKLIST_SECTIONS,
+            "checklist_storage_key": "manual-qa-checklist-v1",
+        }
+    )
+    return TemplateResponse(request, "admin/testing_checklist.html", context)
+
+
+_original_get_urls = admin.site.get_urls
+
+
+def _get_urls(self):
+    urls = _original_get_urls()
+    custom_urls = [
+        path(
+            "qa-checklist/",
+            self.admin_view(manual_testing_checklist_view),
+            name="qa-checklist",
+        )
+    ]
+    return custom_urls + urls
+
+
+admin.site.get_urls = MethodType(_get_urls, admin.site)
 
 
 @admin.register(models.Notification)
