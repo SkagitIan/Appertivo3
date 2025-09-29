@@ -3182,21 +3182,25 @@ def refresh_reviews(request, restaurant_id):
         logger.warning("No query value available for Outscraper reviews on %s", restaurant.id)
         return redirect("settings")
 
-    webhook_url = request.build_absolute_uri(reverse("outscraper_webhook"))
-    webhook_with_id = f"{webhook_url}?restaurant_id={restaurant.id}"
+    webhook_url = request.build_absolute_uri(
+    reverse("outscraper_webhook"))
 
     params = {
         "query": query_value,
         "limit": 1,
         "reviewsLimit": 10,
         "async": "true",
-        "webhook": webhook_with_id,
+        "webhook": webhook_url,
+        "sort":"newest",
+        "ignoreEmpty": "true",
+        "fields":"place_id,reviews_data",
+
     }
     headers = {"X-API-KEY": api_key}
 
     try:
         requests.get(
-            "https://api.app.outscraper.com/maps/reviews-v3",
+            "https://api.outscraper.cloud/google-maps-reviews",
             params=params,
             headers=headers,
             timeout=10,
