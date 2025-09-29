@@ -68,6 +68,34 @@ class LlmLoggingTests(TestCase):
         )
         self.assertEqual(record.metadata["usage"]["total_tokens"], 1800)
 
+    def test_gemini_tiered_pricing_cost_estimate(self):
+        usage = SimpleNamespace(input_tokens=250_000, output_tokens=0, total_tokens=250_000)
+        response = SimpleNamespace(usage=usage)
+
+        log_llm_call(
+            provider="gemini",
+            model_name="gemini-2.5-pro",
+            call_type=models.LlmCallLog.CallType.TEXT,
+            step="tiered_pricing_test",
+            function_name="test_gemini_tiered_pricing_cost_estimate",
+            response=response,
+        )
+
+        record = models.LlmCallLog.objects.latest("created_at")
+        self.assertEqual(record.cost_cents, 38)
+
+    def test_gemini_image_per_call_pricing(self):
+        log_llm_call(
+            provider="gemini",
+            model_name="gemini-2.5-flash-image-preview",
+            call_type=models.LlmCallLog.CallType.IMAGE,
+            step="image_pricing_test",
+            function_name="test_gemini_image_per_call_pricing",
+        )
+
+        record = models.LlmCallLog.objects.latest("created_at")
+        self.assertEqual(record.cost_cents, 4)
+
 
 class LlmAdminSummaryTests(TestCase):
     """Verify the admin changelist reports aggregated cost data."""
