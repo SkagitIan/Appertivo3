@@ -19,6 +19,7 @@ import base64
 from dotenv import load_dotenv
 
 from . import models
+from .llm_logging import log_llm_call
 
 logger = logging.getLogger(__name__)
 
@@ -43,8 +44,8 @@ def _concept_sketch_prompt(name: str, subtitle: str) -> str:
     return (
         "Create a monochrome pencil sketch that could serve as background art for a "
         "restaurant concept card. Keep the lines clean with minimal shading so the image "
-        "stays lightweight, but output it at a high-definition resolution. Avoid text, "
-        "logos, or color.  Should only be of a singular item, not a spread or motif.\n"
+        "stays lightweight, but output it at a high-definition resolution. DO not include any text ever, "
+        "no logos, or color.  Should only be of a singular item, not a spread or motif.\n"
         f"Concept name: {name}\n"
         f"Concept subtitle: {subtitle_text}"
     )
@@ -61,7 +62,7 @@ def _dish_image_prompt(title: str, description: str) -> str:
     return prompt
 
 
-def _fetch_openai_sketch(prompt: str, default_url: str) -> str:
+def _fetch_openai_sketch(prompt: str, default_url: str, *, user=None) -> str:
     """Generate an image via OpenAI, upload to Cloudinary, return optimized URL."""
     if not client:
         return default_url
@@ -76,6 +77,16 @@ def _fetch_openai_sketch(prompt: str, default_url: str) -> str:
             size="1024x1024",
             #output_format="png",
             response_format='b64_json'
+        )
+        log_llm_call(
+            user=user,
+            provider="openai",
+            model_name="dall-e-3",
+            call_type=models.LlmCallLog.CallType.IMAGE,
+            step="concept_sketch",
+            function_name="app.llm._fetch_openai_sketch",
+            response=response,
+            metadata={"prompt_length": len(prompt)},
         )
         if response.data and getattr(response.data[0], "b64_json", None):
             base64_data = response.data[0].b64_json
@@ -107,7 +118,7 @@ def _fetch_openai_sketch(prompt: str, default_url: str) -> str:
 
     return default_url
 
-def _fetch_gemini_image(prompt: str, default_url: str) -> str:
+def _fetch_gemini_image(prompt: str, default_url: str, *, user=None) -> str:
     """Generate an image via Gemini, upload to Cloudinary, return optimized URL."""
     try:
         from google import genai
@@ -123,6 +134,16 @@ def _fetch_gemini_image(prompt: str, default_url: str) -> str:
         response = client.models.generate_content(
             model="gemini-2.5-flash-image-preview",
             contents=[prompt],
+        )
+        log_llm_call(
+            user=user,
+            provider="gemini",
+            model_name="gemini-2.5-flash-image-preview",
+            call_type=models.LlmCallLog.CallType.IMAGE,
+            step="dish_image",
+            function_name="app.llm._fetch_gemini_image",
+            response=response,
+            metadata={"prompt_length": len(prompt)},
         )
 
         # Loop through response parts looking for image data
@@ -157,7 +178,7 @@ def _fetch_gemini_image(prompt: str, default_url: str) -> str:
     return default_url
 
 
-def _fetch_openai_image(prompt: str, default_url: str) -> str:
+def _fetch_openai_image(prompt: str, default_url: str, *, user=None) -> str:
     """Generate an image via OpenAI, upload to Cloudinary, return optimized URL."""
     if not client:
         return default_url
@@ -172,6 +193,16 @@ def _fetch_openai_image(prompt: str, default_url: str) -> str:
             size="1024x1024",
             #output_format="png",
             response_format='b64_json'
+        )
+        log_llm_call(
+            user=user,
+            provider="openai",
+            model_name="dall-e-3",
+            call_type=models.LlmCallLog.CallType.IMAGE,
+            step="dish_image",
+            function_name="app.llm._fetch_openai_image",
+            response=response,
+            metadata={"prompt_length": len(prompt)},
         )
         if response.data and getattr(response.data[0], "b64_json", None):
             base64_data = response.data[0].b64_json
@@ -204,18 +235,18 @@ def _fetch_openai_image(prompt: str, default_url: str) -> str:
     return default_url
 
 
-def _call_openai_for_image(title: str, description: str) -> str:
+def _call_openai_for_image(title: str, description: str, *, user=None) -> str:
     """Return a data URL for the generated dish image using the OpenAI Images API."""
 
     prompt = _dish_image_prompt(title, description)
-    return _fetch_gemini_image(prompt, DEFAULT_IMAGE_URL)
+    return _fetch_gemini_image(prompt, DEFAULT_IMAGE_URL, user=user)
 
 
-def _call_openai_for_concept_sketch(name: str, subtitle: str) -> str:
+def _call_openai_for_concept_sketch(name: str, subtitle: str, *, user=None) -> str:
     """Return an OpenAI generated concept sketch or a placeholder image."""
 
     prompt = _concept_sketch_prompt(name, subtitle)
-    return _fetch_openai_sketch(prompt, DEFAULT_CONCEPT_IMAGE_URL)
+    return _fetch_openai_sketch(prompt, DEFAULT_CONCEPT_IMAGE_URL, user=user)
 
 
 
@@ -229,7 +260,12 @@ def _format_menu_snapshot(restaurant: models.Restaurant) -> Dict[str, Optional[s
     }
 
 
-def _call_openai_for_price(dish: models.DishIdea, menu_snapshot: Dict[str, Optional[str]]) -> Dict[str, Optional[str]]:
+def _call_openai_for_price(
+    dish: models.DishIdea,
+    menu_snapshot: Dict[str, Optional[str]],
+    *,
+    user=None,
+) -> Dict[str, Optional[str]]:
     """Return pricing info using OpenAI or deterministic fallback."""
 
     fallback = {
@@ -286,6 +322,19 @@ def _call_openai_for_price(dish: models.DishIdea, menu_snapshot: Dict[str, Optio
             ],
             text={"format": schema},
         )
+        log_llm_call(
+            user=user,
+            provider="openai",
+            model_name="gpt-4.1-nano",
+            call_type=models.LlmCallLog.CallType.TEXT,
+            step="enhance_pricing",
+            function_name="app.llm._call_openai_for_price",
+            response=response,
+            metadata={
+                "dish_id": str(getattr(dish, "id", "")),
+                "restaurant_id": str(getattr(dish, "restaurant_id", "")),
+            },
+        )
         raw_text = response.output[0].content[0].text
         data = json.loads(raw_text)
         price_cents = int(data.get("price_cents", fallback["price_cents"]))
@@ -301,10 +350,15 @@ def _call_openai_for_price(dish: models.DishIdea, menu_snapshot: Dict[str, Optio
         return fallback
 
 
-def enhance_dish(dish: models.DishIdea, restaurant: models.Restaurant) -> Dict[str, Optional[str]]:
+def enhance_dish(
+    dish: models.DishIdea,
+    restaurant: models.Restaurant,
+    *,
+    user=None,
+) -> Dict[str, Optional[str]]:
     """Generate enhanced mode assets for a dish."""
     snapshot = _format_menu_snapshot(restaurant)
-    price_info = _call_openai_for_price(dish, snapshot)
+    price_info = _call_openai_for_price(dish, snapshot, user=user)
 
     return {
         "price_cents": price_info.get("price_cents"),
@@ -317,7 +371,11 @@ def enhance_dish(dish: models.DishIdea, restaurant: models.Restaurant) -> Dict[s
     }
 
 
-def generate_concept_sketch(concept: models.Concept) -> str:
+def generate_concept_sketch(concept: models.Concept, user=None) -> str:
     """Return a concept background sketch for the provided concept."""
 
-    return _call_openai_for_concept_sketch(concept.name, concept.subtitle)
+    return _call_openai_for_concept_sketch(
+        concept.name,
+        concept.subtitle,
+        user=user,
+    )

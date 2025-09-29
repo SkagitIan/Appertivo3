@@ -1,12 +1,16 @@
 from django.contrib import admin
+from django.contrib.sitemaps.views import sitemap
 from django.urls import include, path
 from django.contrib.auth import views as auth_views
 
 from app import views as app_views
+from articles import admin_views as articles_admin_views
+from articles.sitemaps import ArticlesSitemap
 
 urlpatterns = [
     path("", app_views.home_view, name="home"),
     path("", include("appertivo.leads.urls")),
+    path("", include("articles.urls")),
     path("signup/", app_views.signup_view, name="signup"),
     path("login/", app_views.login_view, name="login"),
     path("logout/", app_views.logout_view, name="logout"),
@@ -14,12 +18,6 @@ urlpatterns = [
     path("terms/", app_views.terms_view, name="terms"),
     path("contact/", app_views.contact_view, name="contact"),
     path("dashboard/<uuid:restaurant_id>/", app_views.dashboard, name="dashboard"),
-    path(
-        "dashboard/<uuid:restaurant_id>/context-toggle/",
-        app_views.dashboard_context_toggle,
-        name="dashboard-context-toggle",
-    ),
-
 
     ## onboarding
     path("onboarding/", app_views.onboarding_view, name="onboarding"),
@@ -71,6 +69,17 @@ urlpatterns = [
     path("stripe/webhook/", app_views.stripe_webhook_view, name="stripe-webhook"),
     path("jobs/<uuid:job_id>/", app_views.job_status_view, name="job-status"),
     path("notifications/", app_views.notification_list_view, name="notification-list"),
+    path(
+        "admin/articles/",
+        articles_admin_views.dashboard_redirect,
+        name="articles_admin_redirect",
+    ),
+    path(
+        "sitemap.xml",
+        sitemap,
+        {"sitemaps": {"articles": ArticlesSitemap()}},
+        name="sitemap",
+    ),
     # Existing API and sample views
     path("api/signup/", app_views.signup_view, name="api-signup"),
     path("admin/", admin.site.urls),

@@ -201,6 +201,46 @@ class IdeationRun(TimestampedModel):
         indexes = [models.Index(fields=["restaurant", "type", "-created_at"])]
 
 
+class LlmCallLog(TimestampedModel):
+    """Audit trail for individual LLM API calls."""
+
+    class CallType(models.TextChoices):
+        TEXT = "text", "Text"
+        IMAGE = "image", "Image"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="llm_call_logs",
+    )
+    provider = models.TextField()
+    model_name = models.TextField()
+    call_type = models.TextField(choices=CallType.choices)
+    step = models.TextField()
+    function_name = models.TextField()
+    input_tokens = models.IntegerField(null=True, blank=True)
+    output_tokens = models.IntegerField(null=True, blank=True)
+    total_tokens = models.IntegerField(null=True, blank=True)
+    cost_cents = models.IntegerField(default=0)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["-created_at"]),
+            models.Index(fields=["provider", "model_name"]),
+            models.Index(fields=["user", "step"]),
+        ]
+        ordering = ("-created_at",)
+
+    def cost_display(self) -> str:
+        """Return a currency formatted representation of the cost."""
+
+        dollars = (self.cost_cents or 0) / 100
+        return f"${dollars:0.2f}"
+
+
 class Concept(TimestampedModel):
     """Concept produced by an ideation run."""
     restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE)

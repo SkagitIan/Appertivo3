@@ -19,29 +19,10 @@
 {% block page_content %}
   <div class="space-y-6">
       {% if restaurant_settings %}
-        <section class="rounded-xl bg-white p-6 m-4 shadow space-y-4">
-          <div>
-            <h2 class="text-xl font-bold text-[#49475B]">Creativity balance</h2>
-            <p class="text-sm text-slate-500">Choose how classic or adventurous your AI ideas should be.</p>
-          </div>
-          <form
-            hx-post="{% url 'update_creativity' restaurant.id %}"
-            hx-trigger="change delay:200ms"
-            hx-target="none"
-            class="flex items-center gap-4"
-          >
-            <span class="text-sm text-slate-600">Classic</span>
-            <input
-              type="range"
-              name="classic_creative_slider"
-              min="0"
-              max="100"
-              value="{{ restaurant_settings.classic_creative_slider|default:50 }}"
-              class="flex-1 accent-[#B993D6]"
-            >
-            <span class="text-sm text-slate-600">Creative</span>
-          </form>
-        </section>
+        <div class="m-4">
+          {% url 'update_creativity' restaurant.id as update_creativity_url %}
+          {% include "_partials/creative_balance_control.html" with action_url=update_creativity_url restaurant_settings=restaurant_settings eyebrow="Creativity balance" title="Creativity balance" description="Choose how classic or adventurous your AI ideas should be." %}
+        </div>
       {% endif %}
 
       <section class="space-y-6 rounded-xl bg-white p-6 m-4 shadow" data-menu-manager>

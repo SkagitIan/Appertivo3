@@ -40,7 +40,7 @@
             </div>
           </div>
         {% else %}
-          <div class="relative z-10 flex h-full flex-col items-center justify-center p-6 text-center">
+          <div class="relative z-10 flex h-full flex-col items-center justify-center text-center {% if concept.is_favorited_for_user %}p-6{% else %}px-4 py-5 sm:px-5 sm:py-6{% endif %}">
             <h2 class="text-lg md:text-xl lg:text-2xl font-bold text-[#49475B]">
               {{ concept.name }}
             </h2>
@@ -113,6 +113,7 @@
               hx-trigger="click"
               data-overlay="true"
               data-messages='["Cooking up ideas…", "Almost there…", "Plating concepts!"]'
+              data-generate-button
             >
               <i class="fa-solid fa-utensils text-[0.8rem]"></i>
               <span>Generate</span>
@@ -138,6 +139,10 @@
       <div class="concept-loading-face">
         <div class="concept-loading-spinner" aria-hidden="true"></div>
         <p class="text-sm font-semibold tracking-wide uppercase">Preparing your concept sketch…</p>
+      </div>
+
+      <div class="concept-progress" aria-hidden="true">
+        <div class="concept-progress__bar"></div>
       </div>
 
       {% if loading %}

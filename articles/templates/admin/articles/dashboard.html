@@ -1,0 +1,170 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+<div class="articles-dashboard">
+  <h1>{% trans "Articles Pipeline" %}</h1>
+  <p class="help">{% trans "Quick access to prompts, queued runs, and draft articles." %}</p>
+  <div class="run-launcher" style="margin:1.5rem 0; padding:1.5rem; border:1px solid #ddd; border-radius:6px; background-color:#fafafa;">
+    <h2 style="margin-top:0; font-size:1.15rem;">{% trans "Start a new automated run" %}</h2>
+    <p style="margin-bottom:1rem; max-width:540px;">{% trans "Launch the end-to-end article pipeline. Progress updates appear below so you can monitor each step." %}</p>
+    <button
+      id="start-run-button"
+      type="button"
+      data-start-url="{{ start_run_url }}"
+      data-status-base="{{ run_status_url_base }}"
+      class="button">
+      {% trans "Launch article run" %}
+    </button>
+    <div id="run-status-panel" style="margin-top:1rem;" hidden>
+      <p id="run-status-summary" style="font-weight:600; margin-bottom:0.75rem;"></p>
+      <ol id="run-steps" style="list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap; gap:0.5rem;">
+      </ol>
+      <p id="run-error" style="color:#b30000; margin-top:0.75rem; display:none;"></p>
+    </div>
+  </div>
+  <div class="tabs" style="display:flex; gap:1rem; flex-wrap:wrap;">
+    {% for tab in tabs %}
+      <div style="flex:1 1 200px; border:1px solid #ddd; padding:1rem; border-radius:6px; background-color:#fff;">
+        <h2 style="margin-top:0; font-size:1.1rem;">
+          <a href="{{ tab.url }}">{{ tab.label }}</a>
+        </h2>
+        <p style="margin:0; color:#555;">{{ tab.description }}</p>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+<script>
+  (function () {
+    const button = document.getElementById('start-run-button');
+    if (!button) {
+      return;
+    }
+
+    const panel = document.getElementById('run-status-panel');
+    const summary = document.getElementById('run-status-summary');
+    const stepsList = document.getElementById('run-steps');
+    const errorBlock = document.getElementById('run-error');
+    const startUrl = button.dataset.startUrl;
+    const statusBase = button.dataset.statusBase;
+    let pollTimer = null;
+
+    function getCookie(name) {
+      if (!document.cookie) {
+        return null;
+      }
+      const csrfToken = document.cookie
+        .split(';')
+        .map(part => part.trim())
+        .find(part => part.startsWith(name + '='));
+      return csrfToken ? decodeURIComponent(csrfToken.split('=').slice(1).join('=')) : null;
+    }
+
+    function setButtonState(isBusy) {
+      button.disabled = isBusy;
+      button.textContent = isBusy ? '{% trans "Launching…" %}' : '{% trans "Launch article run" %}';
+    }
+
+    function renderSteps(run) {
+      panel.hidden = false;
+      summary.textContent = `Run #${run.id} · ${run.status_display}`;
+      errorBlock.style.display = run.error_message ? 'block' : 'none';
+      errorBlock.textContent = run.error_message || '';
+
+      while (stepsList.firstChild) {
+        stepsList.removeChild(stepsList.firstChild);
+      }
+
+      run.steps.forEach(step => {
+        const item = document.createElement('li');
+        item.style.flex = '1 1 140px';
+        item.style.border = '1px solid #ddd';
+        item.style.borderRadius = '6px';
+        item.style.padding = '0.75rem';
+        item.style.backgroundColor = step.status === 'ok' ? '#f0fff4' : step.status === 'failed' ? '#fff0f0' : '#fff';
+        const title = document.createElement('div');
+        title.textContent = step.label;
+        title.style.fontWeight = '600';
+        title.style.marginBottom = '0.35rem';
+        const status = document.createElement('div');
+        status.textContent = step.status_display;
+        status.style.color = step.status === 'failed' ? '#b30000' : '#555';
+        if (step.is_current && (run.status === 'running' || run.status === 'queued')) {
+          status.textContent += ' {% trans "(in progress)" %}';
+        }
+        item.appendChild(title);
+        item.appendChild(status);
+        stepsList.appendChild(item);
+      });
+    }
+
+    function shouldContinue(run) {
+      return run.status === 'queued' || run.status === 'running';
+    }
+
+    function schedulePoll(runId) {
+      if (pollTimer) {
+        clearTimeout(pollTimer);
+      }
+      pollTimer = window.setTimeout(() => {
+        fetchStatus(runId);
+      }, 4000);
+    }
+
+    function fetchStatus(runId) {
+      const url = `${statusBase}${runId}/`;
+      fetch(url, {
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      })
+        .then(response => response.ok ? response.json() : Promise.reject(response))
+        .then(data => {
+          const { run } = data;
+          renderSteps(run);
+          if (shouldContinue(run)) {
+            schedulePoll(run.id);
+          } else {
+            setButtonState(false);
+          }
+        })
+        .catch(() => {
+          setButtonState(false);
+        });
+    }
+
+    button.addEventListener('click', () => {
+      if (!startUrl) {
+        return;
+      }
+      if (pollTimer) {
+        clearTimeout(pollTimer);
+      }
+      setButtonState(true);
+      errorBlock.style.display = 'none';
+      errorBlock.textContent = '';
+
+      fetch(startUrl, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': getCookie('csrftoken') || '',
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      })
+        .then(response => response.ok ? response.json() : Promise.reject(response))
+        .then(data => {
+          const { run } = data;
+          renderSteps(run);
+          if (shouldContinue(run)) {
+            schedulePoll(run.id);
+          } else {
+            setButtonState(false);
+          }
+        })
+        .catch(() => {
+          setButtonState(false);
+        });
+    });
+  })();
+</script>
+{% endblock %}
