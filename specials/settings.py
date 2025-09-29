@@ -304,7 +304,7 @@ LLM_PRICING = {
         "dall-e-3": {"per_call": Decimal("0.04000")},
     },
     "gemini": {
-        "gemini-2.5-flash-image-preview": {"per_call": Decimal("0.00250")},
+        "gemini-2.5-flash-image-preview": {"per_call": Decimal("0.03900")},
     },
 }
 
