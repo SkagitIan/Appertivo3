@@ -66,6 +66,7 @@ class Restaurant(TimestampedModel):
     hours_json = models.JSONField(null=True, blank=True)     # working_hours
     about_json = models.JSONField(null=True, blank=True)     # amenities, offerings, etc.
     context_json = models.JSONField(null=True, blank=True)   # full Outscraper snapshot
+    reviews_json = models.JSONField(null=True, blank=True)   # Outscraper reviews snapshot
 
     active_menu_version = models.ForeignKey(
         "MenuVersion",
