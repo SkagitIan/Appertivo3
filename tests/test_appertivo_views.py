@@ -1,4 +1,5 @@
 import json
+from datetime import timedelta
 from types import SimpleNamespace
 from decimal import Decimal
 from unittest.mock import patch
@@ -141,6 +142,96 @@ class ViewSmokeTests(TestCase):
         self.assertContains(resp, "Italian chef&#x27;s table")
         self.assertContains(resp, "Creative bias: 50/100")
 
+    def test_dashboard_shows_collaboration_feedback_summary(self):
+        concept_run = models.IdeationRun.objects.create(
+            restaurant=self.restaurant,
+            initiated_by_user=self.user,
+            type=models.IdeationRun.RunType.CONCEPTS,
+            model_name="concept",
+            temperature=0,
+            classic_creative=50,
+            context_snapshot={},
+            status=models.IdeationRun.Status.SUCCEEDED,
+        )
+        concept = models.Concept.objects.create(
+            restaurant=self.restaurant,
+            ideation_run=concept_run,
+            name="Signature",
+            rank_order=1,
+        )
+        concept.sketch_image_url = "https://example.com/sketch.jpg"
+        concept.save(update_fields=["sketch_image_url"])
+        models.FavoriteConcept.objects.create(
+            user=self.user,
+            concept=concept,
+            favorited_at=timezone.now(),
+        )
+
+        dish_run = models.IdeationRun.objects.create(
+            restaurant=self.restaurant,
+            initiated_by_user=self.user,
+            type=models.IdeationRun.RunType.DISHES,
+            model_name="dish",
+            temperature=0,
+            classic_creative=50,
+            context_snapshot={},
+            parent_concept=concept,
+            status=models.IdeationRun.Status.SUCCEEDED,
+        )
+        dish = models.DishIdea.objects.create(
+            restaurant=self.restaurant,
+            ideation_run=dish_run,
+            parent_concept=concept,
+            title="Seared Scallops",
+            description="Rich",
+            ingredient_names=[],
+            category_tags=[],
+        )
+        models.FavoriteDish.objects.create(
+            user=self.user,
+            dish=dish,
+            favorited_at=timezone.now(),
+        )
+
+        menu = models.MenuCollection.objects.create(
+            restaurant=self.restaurant,
+            created_by_user=self.user,
+            name="Chef's Table",
+        )
+        models.MenuItem.objects.create(menu=menu, dish=dish, position=1)
+        link = models.CollaborationLink.objects.create(
+            menu=menu,
+            expires_at=timezone.now() + timedelta(days=7),
+            is_active=True,
+        )
+        feedback = models.Feedback.objects.create(
+            menu=menu,
+            dish=dish,
+            link=link,
+            type=models.Feedback.Type.COMMENT,
+            payload={"comment": "Consider extra citrus"},
+            anon_id="abc123",
+        )
+        models.FeedbackAction.objects.create(feedback=feedback)
+
+        resp = self.client.get(reverse("dashboard", args=[self.restaurant.id]))
+
+        recent_concepts = resp.context["recent_concepts"]
+        self.assertTrue(recent_concepts)
+        self.assertTrue(recent_concepts[0].is_favorited_for_user)
+        self.assertEqual(recent_concepts[0].sketch_image_url, "https://example.com/sketch.jpg")
+
+        recent_dishes = resp.context["recent_dishes"]
+        self.assertTrue(recent_dishes)
+        self.assertTrue(recent_dishes[0].needs_collab_attention)
+        self.assertEqual(recent_dishes[0].pending_feedback_count, 1)
+
+        self.assertEqual(resp.context["pending_collaboration_total"], 1)
+        self.assertEqual(resp.context["collaboration_updates_more"], 0)
+        updates = resp.context["collaboration_updates"]
+        self.assertTrue(updates)
+        self.assertEqual(updates[0]["menu_name"], menu.name)
+
     def test_concepts_page_includes_contextual_ai_input(self):
         self._create_concepts()
         self.restaurant.context_json = {"category": "Latin", "city": "Denver"}
@@ -213,6 +304,35 @@ class ViewSmokeTests(TestCase):
         self.assertAlmostEqual(run.context_snapshot["temperature"], 0.74, places=2)
         self.assertAlmostEqual(call_kwargs["temperature"], 0.74, places=2)
 
+    def test_concept_generation_updates_slider_setting(self):
+        models.RestaurantSettings.objects.filter(restaurant=self.restaurant).delete()
+
+        payload = {
+            "concepts": [
+                {
+                    "title": f"Idea {i}",
+                    "subtitle": "Sub",
+                    "reasoning": "Why",
+                    "tags": ["t1", "t2", "t3"],
+                }
+                for i in range(9)
+            ]
+        }
+        fake_response = SimpleNamespace(
+            output=[SimpleNamespace(content=[SimpleNamespace(text=json.dumps(payload))])]
+        )
+
+        with patch("app.views.client") as mock_client:
+            mock_client.responses.create.return_value = fake_response
+            response = self.client.post(
+                reverse("concepts-generate"),
+                {"classic_creative_slider": "72"},
+            )
+
+        self.assertEqual(response.status_code, 302)
+        settings = models.RestaurantSettings.objects.get(restaurant=self.restaurant)
+        self.assertEqual(settings.classic_creative_slider, 72)
+
     def test_dashboard_generation_hx_redirects_to_concepts(self):
         self._create_concepts()
         current_url = f"/dashboard/{self.restaurant.id}/"
@@ -283,6 +403,34 @@ class ViewSmokeTests(TestCase):
         self.assertAlmostEqual(run.context_snapshot["temperature"], 0.26, places=2)
         self.assertAlmostEqual(call_kwargs["temperature"], 0.26, places=2)
 
+    def test_dishes_generate_htmx_redirects(self):
+        self._create_concepts()
+        concept = models.Concept.objects.first()
+        payload = {
+            "dishes": [
+                {
+                    "title": "Dish",
+                    "description": "Desc",
+                    "ingredient_overlap": ["Item"],
+                    "category_tags": ["Tag"],
+                }
+                for _ in range(9)
+            ]
+        }
+        fake_response = SimpleNamespace(
+            output=[SimpleNamespace(content=[SimpleNamespace(text=json.dumps(payload))])]
+        )
+
+        with patch("app.views.client") as mock_client:
+            mock_client.responses.create.return_value = fake_response
+            resp = self.client.post(
+                reverse("dishes-generate", args=[concept.id]),
+                HTTP_HX_REQUEST="true",
+            )
+
+        self.assertEqual(resp.status_code, 204)
+        self.assertEqual(resp["HX-Redirect"], reverse("dish_detail", args=[concept.id]))
+
     def test_concept_favorite(self):
         self._create_concepts()
         concept = models.Concept.objects.first()
@@ -291,6 +439,18 @@ class ViewSmokeTests(TestCase):
         self.assertTrue(
             models.FavoriteConcept.objects.filter(user=self.user, concept=concept).exists()
         )
+
+    def test_concept_favorite_htmx_redirects_to_dishes(self):
+        self._create_concepts()
+        concept = models.Concept.objects.first()
+
+        resp = self.client.post(
+            reverse("concept-favorite", args=[concept.id]),
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(resp.status_code, 204)
+        self.assertEqual(resp["HX-Redirect"], reverse("dish_detail", args=[concept.id]))
 
     def test_concepts_page_marks_existing_favorites(self):
         self._create_concepts()

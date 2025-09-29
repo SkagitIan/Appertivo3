@@ -127,6 +127,41 @@ class DishVariationViewTests(TestCase):
         self.assertIn(str(new_dish.id), response.content.decode())
         self.assertTrue(new_dish.title.startswith(self.dish.title))
 
+    @patch("app.views.client")
+    def test_variation_payload_uses_generation_context(self, mock_client):
+        payload = {
+            "title": "Sunrise Salad Remix",
+            "description": "A brighter citrus riff.",
+            "ingredient_overlap": ["orange"],
+            "category_tags": ["salad"],
+        }
+        mock_client.responses.create.return_value = SimpleNamespace(
+            output=[
+                SimpleNamespace(
+                    content=[SimpleNamespace(text=json.dumps(payload))]
+                )
+            ]
+        )
+
+        models.RestaurantSettings.objects.update_or_create(
+            restaurant=self.restaurant,
+            defaults={"classic_creative_slider": 30},
+        )
+
+        self.client.login(username="chef@example.com", password="pass1234")
+        url = reverse("dish-variation", args=[self.dish.id])
+        response = self.client.post(url, HTTP_HX_REQUEST="true")
+
+        self.assertEqual(response.status_code, 200)
+        _, kwargs = mock_client.responses.create.call_args
+        variation_payload = json.loads(kwargs["input"][1]["content"])
+        context = variation_payload.get("context", {})
+
+        self.assertIn("context", variation_payload)
+        self.assertEqual(context.get("classic_creative_slider"), 30)
+        self.assertIn("Restaurant:", context.get("context", ""))
+        self.assertAlmostEqual(kwargs.get("temperature"), 0.34, places=2)
+
 
 @override_settings(SECURE_SSL_REDIRECT=False)
 class DishDetailViewLayoutTests(TestCase):
@@ -195,9 +230,14 @@ class DishDetailViewLayoutTests(TestCase):
         self.assertEqual(response.status_code, 200)
 
         html = response.content.decode()
-        self.assertIn("dish-image w-full aspect", html)
-        self.assertNotIn("flip-scene", html)
-        self.assertIn('aria-pressed="true"', html)
+        self.assertIn('data-favorited="true"', html)
+        self.assertIn("flip-face front relative", html)
+        self.assertNotIn("flip-card h-full no-flip", html)
+
+    def test_more_button_appends_new_dishes(self):
+        response = self.client.get(reverse("dish_detail", args=[self.concept.id]))
+        self.assertContains(response, 'hx-swap="beforeend"')
+        self.assertContains(response, "More dishes like these")
 
 
 @override_settings(SECURE_SSL_REDIRECT=False)

@@ -17,7 +17,7 @@
       <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 class="text-lg font-semibold text-[#49475B] md:text-xl">Add a new menu</h2>
-          <p class="text-sm text-slate-500">Name your menu and start assigning dishes using the … controls on each card.</p>
+          <p class="text-sm text-slate-500">Name your menu, then add dishes from any card.</p>
         </div>
         <form
           method="post"
@@ -54,22 +54,33 @@
         data-menu-section="{{ menu.id }}"
         style="background-color: {% cycle '#F9F7FF' '#F3FAFF' '#FFF6F1' '#F4FFF5' '#FFF5FA' %};"
       >
-        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 px-6 py-5">
-          <div>
-            <h2 class="text-lg font-semibold text-[#49475B]" data-menu-title>{{ menu.name }}</h2>
-            <p class="text-xs font-medium uppercase tracking-wide text-slate-400" data-menu-count>
-              {{ menu.menu_items|length }} dish{{ menu.menu_items|length|pluralize }}
-            </p>
-          </div>
-          <div class="flex items-center gap-3">
-            <button
-              type="button"
-              class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-100"
-              data-action="rename-menu"
-              data-menu-id="{{ menu.id }}"
-              data-rename-url="{% url 'menu-collection-rename' menu.id %}"
-              title="Rename menu"
-            >
+          <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 px-6 py-5">
+            <div>
+              <h2 class="text-lg font-semibold text-[#49475B]" data-menu-title>{{ menu.name }}</h2>
+              <p class="text-xs font-medium uppercase tracking-wide text-slate-400" data-menu-count>
+                {{ menu.menu_items|length }} dish{{ menu.menu_items|length|pluralize }}
+              </p>
+            </div>
+            <div class="flex items-center gap-3">
+              <button
+                type="button"
+                class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-100{% if menu.collaboration_link %} border-[#2E005D]/40 bg-[#2E005D]/10 text-[#2E005D] hover:bg-[#2E005D]/20{% endif %}"
+                data-collaboration-toggle
+                aria-expanded="false"
+                aria-controls="collaboration-panel-{{ menu.id }}"
+                title="Manage collaboration"
+              >
+                <i class="fa-solid fa-user-group" aria-hidden="true"></i>
+                <span class="sr-only">Manage collaboration</span>
+              </button>
+              <button
+                type="button"
+                class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-100"
+                data-action="rename-menu"
+                data-menu-id="{{ menu.id }}"
+                data-rename-url="{% url 'menu-collection-rename' menu.id %}"
+                title="Rename menu"
+              >
               <i class="fa-regular fa-pen-to-square" aria-hidden="true"></i>
               <span class="sr-only">Rename menu</span>
             </button>
@@ -87,7 +98,13 @@
           </div>
         </div>
         <div class="space-y-4 px-6 py-6" data-menu-body>
-          <div class="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
+          <div
+            class="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm"
+            data-collaboration-panel
+            id="collaboration-panel-{{ menu.id }}"
+            aria-hidden="true"
+            hidden
+          >
             <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <div>
                 <p class="text-sm font-semibold text-[#49475B]">Collaboration mode</p>
@@ -275,6 +292,28 @@
       createError.textContent = message;
       createError.classList.remove('hidden');
     };
+
+    root.addEventListener('click', (event) => {
+      const toggle = event.target.closest('[data-collaboration-toggle]');
+      if (!toggle) return;
+      const section = toggle.closest('[data-menu-section]');
+      if (!section) return;
+      const panel = section.querySelector('[data-collaboration-panel]');
+      if (!panel) return;
+      const isHidden = panel.hidden;
+      if (isHidden) {
+        panel.hidden = false;
+        panel.setAttribute('aria-hidden', 'false');
+        toggle.setAttribute('aria-expanded', 'true');
+        if (typeof panel.scrollIntoView === 'function') {
+          panel.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+        }
+      } else {
+        panel.hidden = true;
+        panel.setAttribute('aria-hidden', 'true');
+        toggle.setAttribute('aria-expanded', 'false');
+      }
+    });
 
     createForm?.addEventListener('submit', (event) => {
       event.preventDefault();

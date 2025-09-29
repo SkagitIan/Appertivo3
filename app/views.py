@@ -34,6 +34,7 @@ import base64
 import cloudinary.uploader
 from openai import OpenAI
 from app.llm import _fetch_openai_image, _fetch_gemini_image
+from app.llm_logging import log_llm_call
 from dotenv import load_dotenv
 load_dotenv()
 _openai_api_key = os.getenv("OPENAI_API_KEY")
@@ -75,7 +76,10 @@ def _resolve_creativity_settings(
 ) -> tuple[int, Decimal]:
     """Return the slider value and mapped temperature for a restaurant."""
 
-    settings = getattr(restaurant, "restaurantsettings", None)
+    try:
+        settings = restaurant.restaurantsettings
+    except models.RestaurantSettings.DoesNotExist:
+        settings = None
     if not settings:
         settings, _ = models.RestaurantSettings.objects.get_or_create(
             restaurant=restaurant
@@ -86,6 +90,33 @@ def _resolve_creativity_settings(
     temperature = Decimal("0.1") + Decimal(slider) * Decimal("0.008")
     temperature = temperature.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     return slider, temperature
+
+
+def _sanitize_slider_value(raw_value: Any) -> Optional[int]:
+    """Return a sanitized slider integer if the raw value is valid."""
+
+    if raw_value in (None, ""):
+        return None
+    try:
+        value = int(raw_value)
+    except (TypeError, ValueError):
+        return None
+    return max(0, min(100, value))
+
+
+def _persist_slider_value(
+    restaurant: "models.Restaurant", slider_value: int
+) -> "models.RestaurantSettings":
+    """Ensure the restaurant's settings reflect the provided slider value."""
+
+    settings, _ = models.RestaurantSettings.objects.get_or_create(
+        restaurant=restaurant
+    )
+    if settings.classic_creative_slider != slider_value:
+        settings.classic_creative_slider = slider_value
+        settings.save(update_fields=["classic_creative_slider"])
+    setattr(restaurant, "restaurantsettings", settings)
+    return settings
 
 class ConceptList(BaseModel):
     concepts: List[str]
@@ -335,6 +366,19 @@ def _extend_session_list(session, key: str, new_items: Iterable[str]) -> None:
             existing.append(item)
     session[key] = existing
     session.modified = True
+
+
+def _record_unfavorited_concept(session, concept_name: str) -> None:
+    """Store a trimmed history of concept names the user removed from favorites."""
+
+    name = (concept_name or "").strip()
+    if not name:
+        return
+    _extend_session_list(session, "disliked_concepts", [name])
+    disliked = _get_session_list(session, "disliked_concepts")
+    if len(disliked) > 30:
+        session["disliked_concepts"] = disliked[-30:]
+        session.modified = True
 
 
 def _load_home_demo_favorites():
@@ -681,12 +725,22 @@ def dashboard(request, restaurant_id):
         .order_by("-created_at")
     )
     recent_concepts = list(concepts_qs[:4])
+    concept_ids = [concept.id for concept in recent_concepts]
+    favorite_concept_ids: set[str] = set()
+    if concept_ids:
+        favorite_concept_ids = set(
+            models.FavoriteConcept.objects.filter(
+                user=request.user, concept_id__in=concept_ids
+            ).values_list("concept_id", flat=True)
+        )
+
     for concept in recent_concepts:
         concept.runtime_display = format_run_duration(concept.ideation_run)
         run_finished = (
             concept.ideation_run.finished_at if concept.ideation_run else None
         )
         concept.generated_at = run_finished or concept.created_at
+        concept.is_favorited_for_user = concept.id in favorite_concept_ids
 
     favorite_dishes = list(
         models.FavoriteDish.objects.filter(
@@ -700,6 +754,23 @@ def dashboard(request, restaurant_id):
     for fav, dish in zip(favorite_dishes, recent_dishes):
         dish.is_favorited = True
         dish.favorited_at = fav.favorited_at
+
+    dish_ids = [dish.id for dish in recent_dishes]
+    pending_feedback_by_dish: dict[str, int] = {}
+    if dish_ids:
+        pending_feedback_by_dish = {
+            row["feedback__dish_id"]: row["count"]
+            for row in models.FeedbackAction.objects.filter(
+                feedback__dish_id__in=dish_ids,
+                status=models.FeedbackAction.Status.PENDING,
+            )
+            .values("feedback__dish_id")
+            .annotate(count=Count("id"))
+        }
+
+    for dish in recent_dishes:
+        dish.pending_feedback_count = pending_feedback_by_dish.get(dish.id, 0)
+        dish.needs_collab_attention = dish.pending_feedback_count > 0
 
     menus = list(
         models.MenuCollection.objects.filter(restaurant=restaurant)
@@ -722,20 +793,53 @@ def dashboard(request, restaurant_id):
         ]
         menu.menu_items = items
 
-    context_items = build_context_items(restaurant, settings_obj)
+    menu_ids = [menu.id for menu in menus]
+    pending_feedback_by_menu: dict[str, int] = {}
+    if menu_ids:
+        pending_feedback_by_menu = {
+            row["feedback__menu_id"]: row["count"]
+            for row in models.FeedbackAction.objects.filter(
+                feedback__menu_id__in=menu_ids,
+                status=models.FeedbackAction.Status.PENDING,
+            )
+            .values("feedback__menu_id")
+            .annotate(count=Count("id"))
+        }
+
+    for menu in menus:
+        menu.pending_feedback_count = pending_feedback_by_menu.get(menu.id, 0)
+
+    collaboration_actions_qs = models.FeedbackAction.objects.filter(
+        feedback__menu__restaurant=restaurant,
+        status=models.FeedbackAction.Status.PENDING,
+    ).select_related("feedback__menu", "feedback__dish")
+
+    collaboration_updates = [
+        {
+            "id": action.id,
+            "message": _format_feedback_activity(action.feedback),
+            "menu_name": getattr(action.feedback.menu, "name", ""),
+            "dish_title": getattr(getattr(action.feedback, "dish", None), "title", ""),
+            "created_at": action.feedback.created_at,
+        }
+        for action in collaboration_actions_qs.order_by("-created_at")[:5]
+    ]
+    pending_collaboration_total = collaboration_actions_qs.count()
+    collaboration_updates_more = max(
+        pending_collaboration_total - len(collaboration_updates), 0
+    )
 
     context = {
         "restaurant": restaurant,
         "trial_info": trial_info,
-        "context_items": context_items,
         "recent_concepts": recent_concepts,
         "recent_dishes": recent_dishes,
         "menus": menus,
+        "collaboration_updates": collaboration_updates,
+        "pending_collaboration_total": pending_collaboration_total,
+        "collaboration_updates_more": collaboration_updates_more,
         "empty_concepts": [],
         "settings_url": reverse("settings"),
-        "context_toggle_url": reverse(
-            "dashboard-context-toggle", args=[restaurant.id]
-        ),
         "tbd_message": "Personalized tips will appear here soon.",
         "prompt_for_menu": not bool(restaurant.primary_menu_url),
         "concept_generate_url": reverse("concepts-generate"),
@@ -746,51 +850,6 @@ def dashboard(request, restaurant_id):
         "creative_bias_label": creative_bias_label,
     }
     return render(request, "dashboard.html", context)
-
-
-@login_required
-@require_POST
-def dashboard_context_toggle(request, restaurant_id):
-    restaurant = get_object_or_404(models.Restaurant, id=restaurant_id)
-    membership_exists = models.Membership.objects.filter(
-        account=restaurant.account, user=request.user
-    ).exists()
-    if not membership_exists:
-        return HttpResponseForbidden("not_allowed")
-
-    settings_obj, _ = models.RestaurantSettings.objects.get_or_create(
-        restaurant=restaurant
-    )
-
-    key = request.POST.get("key")
-    valid_keys = {item[0] for item in CONTEXT_ITEM_DEFINITIONS}
-    if key not in valid_keys:
-        return HttpResponseBadRequest("invalid_key")
-
-    include_values = request.POST.getlist("include")
-    include_raw = include_values[-1] if include_values else "false"
-    include = str(include_raw).lower() in {"1", "true", "yes", "on"}
-
-    context_flags = dict(settings_obj.llm_defaults.get("context_flags", {}))
-    context_flags[key] = include
-    settings_obj.llm_defaults["context_flags"] = context_flags
-    settings_obj.save(update_fields=["llm_defaults"])
-
-    context_items = build_context_items(restaurant, settings_obj)
-    item = next((item for item in context_items if item["key"] == key), None)
-    if not item:
-        return HttpResponseBadRequest("unknown_item")
-
-    html = render_to_string(
-        "dashboard/_context_item.html",
-        {
-            "item": item,
-            "settings_url": reverse("settings"),
-            "toggle_url": reverse("dashboard-context-toggle", args=[restaurant.id]),
-        },
-        request=request,
-    )
-    return HttpResponse(html)
 
 
 @login_required
@@ -1102,6 +1161,9 @@ def concepts_view(request):
     for concept in concepts:
         favorites = getattr(concept, "_favorites_for_request_user", [])
         concept.is_favorited_for_user = bool(favorites)
+
+    disliked_concepts = _get_session_list(request.session, "disliked_concepts")
+    recent_disliked = list(reversed(disliked_concepts[-6:])) if disliked_concepts else []
     return render(
         request,
         "concepts/grid.html",
@@ -1114,6 +1176,7 @@ def concepts_view(request):
             "classic_creative_slider": slider_value,
             "classic_creative_temperature": slider_temperature,
             "creative_bias_label": creative_bias_label,
+            "disliked_concepts": recent_disliked,
         },
     )
 
@@ -1177,6 +1240,16 @@ def concepts_generate_view(request):
     user_prompt = raw_prompt[:280]
 
     slider_value, slider_temperature = _resolve_creativity_settings(restaurant)
+    slider_override = _sanitize_slider_value(
+        request.POST.get("classic_creative_slider")
+    )
+    if slider_override is not None:
+        _persist_slider_value(restaurant, slider_override)
+        slider_value = slider_override
+        slider_temperature = (
+            Decimal("0.1") + Decimal(slider_value) * Decimal("0.008")
+        ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
     temperature_float = float(slider_temperature)
 
     session_concepts = [
@@ -1184,13 +1257,10 @@ def concepts_generate_view(request):
         for name in (request.session.get("generated_concepts") or [])
         if name and str(name).strip()
     ]
-    previous_concepts = list(
-        models.Concept.objects.filter(restaurant=restaurant)
-        .order_by("-created_at")
-        .values_list("name", flat=True)[:27]
-    )
+    disliked_concepts = _get_session_list(request.session, "disliked_concepts")
+    disliked_context = disliked_concepts[-15:]
 
-    logger.info(f"previous concepts: {previous_concepts}")
+    logger.info(f"previous concepts: {session_concepts}")
     if restaurant.active_menu_version:
         restaurant_menu = restaurant.active_menu_version.raw_markdown
     else:
@@ -1209,6 +1279,12 @@ def concepts_generate_view(request):
         context += (
             "\nPreviously generated concept names to avoid: "
             + ", ".join(session_concepts[:15])
+        )
+    if disliked_context:
+        context += (
+            "\nConcepts the team previously passed on: "
+            + ", ".join(disliked_context)
+            + ". Consider why they missed the mark and suggest improved twists or alternatives instead of repeating them."
         )
     if user_prompt:
         context += f"\nUser special instructions: {user_prompt}"
@@ -1286,14 +1362,6 @@ def concepts_generate_view(request):
 
     """
 
-    if previous_concepts:
-        system_prompt += (
-            " The user has already explored these concept names. Do not repeat or "
-            "closely duplicate them: "
-            + ", ".join(previous_concepts)
-            + "."
-        )
-
     if user_prompt:
         system_prompt += (
             "\n                **Special Focus**: Highlight concepts inspired by: "
@@ -1303,6 +1371,7 @@ def concepts_generate_view(request):
     context_snapshot = {
         "prompt": user_prompt,
         "session_concepts": session_concepts[:15],
+        "disliked_concepts": disliked_context,
         "context": context,
         "classic_creative_slider": slider_value,
         "temperature": temperature_float,
@@ -1333,6 +1402,19 @@ def concepts_generate_view(request):
             ],
             text={"format": schema},
             temperature=temperature_float,
+        )
+        log_llm_call(
+            user=request.user if request.user.is_authenticated else None,
+            provider="openai",
+            model_name="gpt-4.1-mini",
+            call_type=models.LlmCallLog.CallType.TEXT,
+            step="concept_generation",
+            function_name="concepts_generate_view",
+            response=response,
+            metadata={
+                "restaurant_id": str(restaurant.id),
+                "ideation_run_id": str(ideation_run.id),
+            },
         )
         logger.info(context)
         raw_text = response.output[0].content[0].text
@@ -1401,27 +1483,37 @@ def concept_favorite_view(request, concept_id):
     fav, created = models.FavoriteConcept.objects.get_or_create(
         user=request.user, concept=concept, defaults={"favorited_at": timezone.now()}
     )
+
+    is_htmx = request.headers.get("HX-Request") == "true"
     favorited = created
 
     if not created:
         fav.delete()
-        favorited = False
         if concept.sketch_image_url:
             concept.sketch_image_url = None
             concept.save(update_fields=["sketch_image_url"])
+        _record_unfavorited_concept(request.session, concept.name)
 
     concept.is_favorited_for_user = favorited
     concept.has_dishes = models.DishIdea.objects.filter(
         parent_concept=concept, is_deleted=False
     ).exists()
 
-    # Always return the refreshed card so the UI stays in sync
-    card_html = render_to_string(
-        "concepts/_card.html",
-        {"concept": concept, "loading": favorited},
-        request=request,
-    )
-    return HttpResponse(card_html)
+    if is_htmx:
+        card_html = render_to_string(
+            "concepts/_card.html",
+            {
+                "concept": concept,
+                "loading": favorited and not concept.sketch_image_url,
+            },
+            request=request,
+        )
+        return HttpResponse(card_html)
+
+    if favorited:
+        return redirect("dish_detail", concept_id=concept.id)
+
+    return redirect("concepts")
 
 
 
@@ -1433,7 +1525,10 @@ def concept_background_view(request, concept_id):
     concept = get_object_or_404(models.Concept, id=concept_id)
     image_url = concept.sketch_image_url
     if not image_url:
-        image_url = llm.generate_concept_sketch(concept)
+        image_url = llm.generate_concept_sketch(
+            concept,
+            user=request.user if request.user.is_authenticated else None,
+        )
         concept.sketch_image_url = image_url
         concept.save(update_fields=["sketch_image_url"])
 
@@ -1619,110 +1714,6 @@ def _context_items_cache_key(
     return f"context-items:{_stable_hash(payload)}"
 
 
-def build_context_items(
-    restaurant: models.Restaurant, settings_obj: models.RestaurantSettings
-) -> List[dict]:
-    """Return context checklist items with presence + preference state."""
-
-    cache_key = _context_items_cache_key(restaurant, settings_obj)
-    cached = cache.get(cache_key)
-    if cached is not None:
-        return cached
-
-    context_flags = dict(settings_obj.llm_defaults.get("context_flags", {}))
-    items: List[dict] = []
-
-    def _has_content(value) -> bool:
-        if value is None:
-            return False
-        if isinstance(value, str):
-            return bool(value.strip())
-        if isinstance(value, dict):
-            return any(_has_content(item) for item in value.values())
-        if isinstance(value, (list, tuple, set)):
-            return any(_has_content(item) for item in value)
-        return bool(value)
-
-    menu_urls = [url for url in (restaurant.menu_urls or []) if (url or "").strip()]
-    has_menu_link = bool(restaurant.primary_menu_url or menu_urls)
-
-    if (
-        restaurant.active_menu_version
-        and _has_content(restaurant.active_menu_version.raw_markdown)
-    ):
-        has_menu_content = True
-    else:
-        has_menu_content = models.MenuVersion.objects.filter(
-            restaurant=restaurant,
-            raw_markdown__isnull=False,
-        ).exclude(raw_markdown="").exists()
-
-    about_data = restaurant.about_json or {}
-    services_sections = []
-    if isinstance(about_data, dict):
-        for key, value in about_data.items():
-            if isinstance(key, str) and "service" in key.lower():
-                services_sections.append(value)
-    has_services_info = any(_has_content(section) for section in services_sections)
-
-    context_data = restaurant.context_json or {}
-    review_sources = [
-        restaurant.review_count,
-        restaurant.rating,
-    ]
-    if isinstance(context_data, dict):
-        review_sources.extend(
-            context_data.get(key)
-            for key in ["reviews", "reviews_tags", "review_snippets"]
-            if key in context_data
-        )
-    has_reviews = any(_has_content(value) for value in review_sources)
-
-    has_ingredients = models.Ingredient.objects.filter(restaurant=restaurant).exists()
-
-    presence_map = {
-        "menu": has_menu_link,
-        "menu_content": has_menu_content,
-        "services": has_services_info,
-        "story": _has_content(restaurant.description),
-        "reviews": has_reviews,
-        "ingredients": has_ingredients,
-    }
-
-    updated = False
-    for key, _ in CONTEXT_ITEM_DEFINITIONS:
-        if key not in context_flags:
-            context_flags[key] = presence_map.get(key, False)
-            updated = True
-
-    if updated:
-        settings_obj.llm_defaults["context_flags"] = context_flags
-        settings_obj.save(update_fields=["llm_defaults"])
-
-    for key, label in CONTEXT_ITEM_DEFINITIONS:
-        present = presence_map.get(key, False)
-        include_preference = bool(context_flags.get(key))
-        included = include_preference and present
-        status = "missing"
-        if present and included:
-            status = "included"
-        elif present:
-            status = "excluded"
-        items.append(
-            {
-                "key": key,
-                "label": label,
-                "present": present,
-                "included": included,
-                "status": status,
-            }
-        )
-
-    cache_key = _context_items_cache_key(restaurant, settings_obj)
-    cache.set(cache_key, items, timeout=SHORT_CACHE_TIMEOUT)
-    return items
-
-
 def format_run_duration(run: Optional[models.IdeationRun]) -> Optional[str]:
     """Return a short string describing the runtime for a concept run."""
 
@@ -1772,15 +1763,20 @@ def ensure_dish_enhancement(dish: models.DishIdea, user: Optional[User]) -> Opti
         return existing
 
     try:
-        payload = llm.enhance_dish(dish, dish.restaurant)
+        payload = llm.enhance_dish(
+            dish,
+            dish.restaurant,
+            user=user if getattr(user, "is_authenticated", False) else None,
+        )
     except Exception as exc:  # pragma: no cover - defensive guard
         logger.warning("Enhancement request failed: %s", exc, exc_info=True)
         return None
 
     image_url = _fetch_gemini_image(
-            prompt=f"Plated dish photo of {dish.title}: {dish.description}",
-            default_url=llm.DEFAULT_IMAGE_URL,
-        )
+        prompt=f"Plated dish photo of {dish.title}: {dish.description}",
+        default_url=llm.DEFAULT_IMAGE_URL,
+        user=user if getattr(user, "is_authenticated", False) else None,
+    )
     price_cents = payload.get("price_cents")
     currency = payload.get("currency") or "USD"
     pricing_notes = payload.get("pricing_notes")
@@ -1813,14 +1809,21 @@ def ensure_dish_enhancement(dish: models.DishIdea, user: Optional[User]) -> Opti
 
 @login_required
 def dishes_generate_view(request, concept_id):
-    """
-    Generate 9 dish ideas for a given concept.
-    Returns HX-Redirect → dish_detail_view so HTMX can load the page.
-    """
+    """Generate nine dish ideas for a concept and return updated content."""
     concept = models.Concept.objects.select_related("restaurant").get(id=concept_id)
     restaurant = concept.restaurant
     membership = models.Membership.objects.filter(user=request.user).first()
+    htmx_request = request.headers.get("HX-Request") == "true"
     slider_value, slider_temperature = _resolve_creativity_settings(restaurant)
+    slider_override = _sanitize_slider_value(
+        request.POST.get("classic_creative_slider")
+    )
+    if slider_override is not None:
+        _persist_slider_value(restaurant, slider_override)
+        slider_value = slider_override
+        slider_temperature = (
+            Decimal("0.1") + Decimal(slider_value) * Decimal("0.008")
+        ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     temperature_float = float(slider_temperature)
     if restaurant.active_menu_version:
         restaurant_menu = restaurant.active_menu_version.raw_markdown
@@ -1908,6 +1911,8 @@ def dishes_generate_view(request, concept_id):
         status=models.IdeationRun.Status.RUNNING,
     )
 
+    dish_objects: List[models.DishIdea] = []
+
     try:
         # Build instruction text
         instruction = f"""
@@ -1935,6 +1940,20 @@ def dishes_generate_view(request, concept_id):
             text={"format": schema},
             temperature=temperature_float,
         )
+        log_llm_call(
+            user=request.user if request.user.is_authenticated else None,
+            provider="openai",
+            model_name="gpt-4o-mini",
+            call_type=models.LlmCallLog.CallType.TEXT,
+            step="dish_generation",
+            function_name="dishes_generate_view",
+            response=response,
+            metadata={
+                "restaurant_id": str(restaurant.id),
+                "ideation_run_id": str(ideation_run.id),
+                "concept_id": str(concept.id),
+            },
+        )
 
         raw_text = response.output[0].content[0].text
         parsed = json.loads(raw_text)
@@ -1943,7 +1962,6 @@ def dishes_generate_view(request, concept_id):
         logger.info("LLM generated %d dishes for concept=%s", len(dishes), concept.name)
 
         # Persist dish ideas
-        dish_objects = []
         for dish in dishes:
             obj = models.DishIdea.objects.create(
                 restaurant=restaurant,
@@ -1975,10 +1993,12 @@ def dishes_generate_view(request, concept_id):
         ideation_run.error_message = str(e)
         ideation_run.save(update_fields=["status", "error_message"])
 
-    # Tell HTMX to redirect (overlay handles spinner/messages)
-    response = HttpResponse()
-    response["HX-Redirect"] = reverse("dish_detail", args=[concept_id])
-    return response
+    if htmx_request:
+        response = HttpResponse(status=204)
+        response["HX-Redirect"] = reverse("dish_detail", args=[concept.id])
+        return response
+
+    return dish_detail_view(request, concept_id)
 
 
 @login_required
@@ -2180,9 +2200,36 @@ def dish_variation_view(request, dish_id):
     concept = dish.parent_concept
     restaurant = dish.restaurant
 
-    restaurant_payload = restaurant.context_json or {}
-    menu_markdown = restaurant.primary_menu_url or ""
-    context = serialize_restaurant_context(restaurant_payload, menu_markdown, concept)
+    slider_value, slider_temperature = _resolve_creativity_settings(restaurant)
+    temperature_float = float(slider_temperature)
+    if restaurant.active_menu_version:
+        restaurant_menu = restaurant.active_menu_version.raw_markdown
+    else:
+        restaurant_menu = ""
+
+    context_text = f"""
+        Restaurant: {restaurant.name}, {restaurant.location_text}.  \n
+        Description: {restaurant.description}. \n
+        Current Restaurant Menu:  {restaurant_menu}
+        About Services:  {restaurant.about_json}
+    """
+    context_text += (
+        "\n        Creative direction slider: "
+        f"{slider_value}/100 (0 = classic, 100 = highly inventive)."
+    )
+
+    deleted_dishes = list(
+        models.DishIdea.objects.filter(restaurant=restaurant, is_deleted=True)
+        .order_by("-created_at")
+        .values_list("title", flat=True)[:15]
+    )
+
+    context_payload = {
+        "context": context_text,
+        "deleted_dishes": deleted_dishes,
+        "classic_creative_slider": slider_value,
+        "temperature": temperature_float,
+    }
 
     existing_variations = list(
         models.DishIdea.objects.filter(parent_dish=base_dish, is_deleted=False)
@@ -2220,7 +2267,7 @@ def dish_variation_view(request, dish_id):
     }
 
     variation_payload = {
-        "context": context,
+        "context": context_payload,
         "original_dish": {
             "title": base_dish.title,
             "description": base_dish.description,
@@ -2260,6 +2307,21 @@ def dish_variation_view(request, dish_id):
                         {"role": "user", "content": json.dumps(variation_payload, indent=2)},
                     ],
                     text={"format": schema},
+                    temperature=temperature_float,
+                )
+                log_llm_call(
+                    user=request.user if request.user.is_authenticated else None,
+                    provider="openai",
+                    model_name="gpt-4.1",
+                    call_type=models.LlmCallLog.CallType.TEXT,
+                    step="dish_variation",
+                    function_name="dish_variation_view",
+                    response=response,
+                    metadata={
+                        "dish_id": str(dish.id),
+                        "base_dish_id": str(base_dish.id),
+                        "attempt": attempt_number,
+                    },
                 )
                 raw_text = response.output[0].content[0].text
                 candidate = json.loads(raw_text)
@@ -2352,14 +2414,17 @@ def favorites_view(request):
         .select_related("account")
         .first()
     )
-    favorite_concepts = list(
+    favorite_concepts: list[models.FavoriteConcept] = []
+    for favorite in (
         models.FavoriteConcept.objects.filter(user=request.user)
         .select_related("concept", "concept__restaurant")
         .order_by("-favorited_at")
-    )
-    for favorite in favorite_concepts:
-        if favorite.concept:
-            favorite.concept.is_favorited_for_user = True
+    ):
+        concept = favorite.concept
+        if not concept:
+            continue
+        concept.is_favorited_for_user = True
+        favorite_concepts.append(favorite)
     favorite_dishes = list(
         models.FavoriteDish.objects.filter(user=request.user)
         .select_related("dish__parent_concept", "dish__restaurant")
@@ -2368,6 +2433,7 @@ def favorites_view(request):
 
     menus = []
     menu_dishes = []
+    menu_color_map: dict[str, str] = {}
     if restaurant:
         menus = list(
             models.MenuCollection.objects.filter(restaurant=restaurant)
@@ -2383,11 +2449,31 @@ def favorites_view(request):
             )
             .order_by("created_at")
         )
-        for menu in menus:
+        menu_palette = ["#F9F7FF", "#F3FAFF", "#FFF6F1", "#F4FFF5", "#FFF5FA"]
+        for index, menu in enumerate(menus):
+            menu_color_map[menu.name] = menu_palette[index % len(menu_palette)]
             items = list(menu.menuitem_set.all())
             menu.menu_items = items
             for item in items:
                 menu_dishes.append(item.dish)
+
+    concept_menu_map: dict[uuid.UUID, list[str]] = {}
+    dish_menu_map: dict[uuid.UUID, list[str]] = {}
+    for menu in menus:
+        menu_name = menu.name
+        for item in getattr(menu, "menu_items", []) or []:
+            dish = getattr(item, "dish", None)
+            if not dish:
+                continue
+            dish_entry = dish_menu_map.setdefault(dish.id, [])
+            if menu_name not in dish_entry:
+                dish_entry.append(menu_name)
+            concept = getattr(dish, "parent_concept", None)
+            if not concept:
+                continue
+            concept_entry = concept_menu_map.setdefault(concept.id, [])
+            if menu_name not in concept_entry:
+                concept_entry.append(menu_name)
 
     all_dishes = [fav.dish for fav in favorite_dishes] + menu_dishes
     decorate_dishes_with_enhancements(all_dishes)
@@ -2416,6 +2502,9 @@ def favorites_view(request):
         "menu_options": menus_payload,
         "menu_move_url": reverse("menu-item-move"),
         "menus_workspace_url": reverse("menus"),
+        "concept_menu_map": concept_menu_map,
+        "dish_menu_map": dish_menu_map,
+        "menu_color_map": menu_color_map,
     }
     return render(request, "favorites/dashboard.html", ctx)
 
@@ -2433,6 +2522,7 @@ def favorite_remove_view(request, type, id):
         if concept.sketch_image_url:
             concept.sketch_image_url = None
             concept.save(update_fields=["sketch_image_url"])
+        _record_unfavorited_concept(request.session, concept.name)
     else:
         models.FavoriteDish.objects.filter(user=request.user, dish_id=id).delete()
     if request.headers.get("HX-Request"):
@@ -2990,10 +3080,9 @@ def rescrape_restaurant(request, restaurant_id):
 @require_POST
 def update_creativity(request, restaurant_id):
     restaurant = get_object_or_404(models.Restaurant, id=restaurant_id)
-    slider_value = request.POST.get("classic_creative_slider")
+    slider_value = _sanitize_slider_value(request.POST.get("classic_creative_slider"))
     if slider_value is not None:
-        restaurant.restaurantsettings.classic_creative_slider = int(slider_value)
-        restaurant.restaurantsettings.save(update_fields=["classic_creative_slider"])
+        _persist_slider_value(restaurant, slider_value)
     return JsonResponse({"status": "ok"})
 
 
