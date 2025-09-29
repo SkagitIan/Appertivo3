@@ -2,13 +2,17 @@
 import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 @csrf_exempt
 def outscraper_webhook(request):
     if request.method == "POST":
         try:
             payload = json.loads(request.body.decode("utf-8"))
-            print("Received data from Outscraper:", payload)
+            logger.info("Received data from Outscraper:", payload)
 
             # TODO: save to DB, queue a task, whatever you need
             return JsonResponse({"status": "ok"}, status=200)
