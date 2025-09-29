@@ -1,0 +1,32 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+  <section class="dashboard-intro">
+    <div class="intro-card">
+      <h2>{% translate "Welcome back" %}</h2>
+      <p>{% translate "Use the grouped navigation to jump between data domains or search from the header to get anywhere fast." %}</p>
+    </div>
+  </section>
+
+  <section class="dashboard-grid">
+    {% for group in admin_nav_groups %}
+      <article class="dashboard-card">
+        <header>
+          <h3>{{ group.title }}</h3>
+        </header>
+        <ul>
+          {% for item in group.items %}
+            <li>
+              <a href="{{ item.url }}">{{ item.name }}</a>
+              {% if item.add_url %}
+                <a class="link-muted" href="{{ item.add_url }}">{% translate "Create new" %}</a>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      </article>
+    {% endfor %}
+  </section>
+{% endblock %}
+

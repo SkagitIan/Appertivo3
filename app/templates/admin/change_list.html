@@ -1,0 +1,67 @@
+{% extends "admin/base_site.html" %}
+{% load admin_list admin_urls i18n static admin_theme %}
+
+{% block content %}
+  <div class="change-list">
+    {% block object-tools %}
+      {% if has_add_permission %}
+        <div class="object-tools">
+          {% block object-tools-items %}
+            <a href="{% add_preserved_filters add_url is_popup %}" class="cta-button">{% blocktranslate %}Add {{ opts.verbose_name }}{% endblocktranslate %}</a>
+          {% endblock %}
+        </div>
+      {% endif %}
+    {% endblock %}
+
+    <div class="card">
+      {% block search %}
+        {% if cl.search_fields %}
+          <form id="changelist-search" method="get" role="search">
+            <div class="search-field">
+              {{ search_form.q.label_tag }}
+              {{ search_form.q }}
+              <button type="submit" class="cta-button">{% translate "Search" %}</button>
+              {% for hidden in search_form.hidden_fields %}{{ hidden }}{% endfor %}
+            </div>
+          </form>
+        {% endif %}
+      {% endblock %}
+
+      {% block filters %}
+        {% if cl.has_filters %}
+          <details class="filter-panel" open>
+            <summary>{% translate "Filters" %}</summary>
+            {% for spec in cl.filter_specs %}
+              {% admin_list_filter cl spec %}
+            {% endfor %}
+          </details>
+        {% endif %}
+      {% endblock %}
+
+      {% block result_list %}
+        {% if action_form and cl.show_admin_actions %}
+          <form id="changelist-form" method="post" novalidate>{% csrf_token %}
+            <div class="table-wrapper">
+              {% result_list cl %}
+            </div>
+            {% if cl.result_count %}
+              <div class="paginator">
+                {% pagination cl %}
+              </div>
+            {% endif %}
+          </form>
+        {% else %}
+          <div class="table-wrapper">
+            {% result_list cl %}
+          </div>
+          {% if cl.result_count %}
+            <div class="paginator">
+              {% pagination cl %}
+            </div>
+          {% endif %}
+        {% endif %}
+      {% endblock %}
+    </div>
+  </div>
+{% endblock %}
+
