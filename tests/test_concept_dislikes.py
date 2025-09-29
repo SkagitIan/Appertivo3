@@ -48,22 +48,28 @@ class ConceptDislikeTests(TestCase):
             )
         return concepts
 
-    def _favorite_and_unfavorite(self, concept: models.Concept) -> None:
+    def _favorite_and_unfavorite(self, concept: models.Concept):
         self.client.post(
             reverse("concept-favorite", args=[concept.id]), HTTP_HX_REQUEST="true"
         )
-        self.client.post(
+        return self.client.post(
             reverse("concept-favorite", args=[concept.id]), HTTP_HX_REQUEST="true"
         )
 
     def test_unfavorite_records_concept_name_in_session(self):
         concept = self._create_concepts(1)[0]
-        self._favorite_and_unfavorite(concept)
+        response = self._favorite_and_unfavorite(concept)
         self.assertIn(concept.name, self.client.session.get("disliked_concepts", []))
+        concept.refresh_from_db()
+        self.assertTrue(concept.is_unfavorite)
+        self.assertIn("👎", response.content.decode())
 
     def test_settings_page_displays_disliked_section(self):
         concept = self._create_concepts(1)[0]
         self._favorite_and_unfavorite(concept)
+        session = self.client.session
+        session["disliked_concepts"] = []
+        session.save()
 
         response = self.client.get(reverse("settings"))
         self.assertContains(response, "Passed on concepts")
@@ -74,6 +80,9 @@ class ConceptDislikeTests(TestCase):
     def test_generation_context_mentions_disliked_concepts(self, mock_client):
         concept = self._create_concepts(1)[0]
         self._favorite_and_unfavorite(concept)
+        session = self.client.session
+        session["disliked_concepts"] = []
+        session.save()
 
         payload = {
             "concepts": [
