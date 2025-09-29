@@ -1,12 +1,11 @@
-from django.contrib import admin
 from django.contrib.sitemaps.views import sitemap
 from django.urls import include, path
-from django.contrib.auth import views as auth_views
 
 from app import outscraper, views as app_views
 from articles import admin_views as articles_admin_views
 from articles.sitemaps import ArticlesSitemap
 from app.outscraper import outscraper_webhook
+from app.admin_site import appertivo_admin_site
 
 urlpatterns = [
     path("", app_views.home_view, name="home"),
@@ -72,5 +71,5 @@ urlpatterns = [
     path("sitemap.xml",sitemap,{"sitemaps": {"articles": ArticlesSitemap()}},name="sitemap",),
     # Existing API and sample views
     path("api/signup/", app_views.signup_view, name="api-signup"),
-    path("admin/", admin.site.urls),
+    path("admin/", appertivo_admin_site.urls),
 ]
