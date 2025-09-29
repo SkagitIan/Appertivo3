@@ -1,0 +1,38 @@
+<div class="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+  <div class="flex items-center justify-between gap-3">
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Current state</p>
+      <p class="text-base font-semibold text-[#14080E]">{{ state_label }}</p>
+    </div>
+    <span class="text-sm font-medium text-[#5C008B]">{{ status.progress }}%</span>
+  </div>
+  <div class="mt-4 h-2 w-full overflow-hidden rounded-full bg-slate-200">
+    <div class="h-full rounded-full" style="width: {{ status.progress }}%; background: linear-gradient(90deg,#B993D6,#f08000);"></div>
+  </div>
+  {% if status.messages %}
+    <ul class="mt-4 space-y-1 text-sm text-slate-600">
+      {% for message in status.messages %}
+        <li>• {{ message }}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+  {% if status.last_error %}
+    <div class="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+      <p class="font-semibold">Something went wrong</p>
+      <p class="mt-1">{{ status.last_error }}</p>
+    </div>
+  {% endif %}
+  <div class="mt-4 flex flex-wrap items-center gap-3 text-sm text-slate-500">
+    <span>Updated {{ onboarding.updated_at|timesince }} ago</span>
+    {% if status.can_retry %}
+      <form method="post" action="{{ retry_url }}" hx-post="{{ retry_url }}" hx-target="#onboarding-progress" hx-swap="outerHTML">
+        {% csrf_token %}
+        <button type="submit" class="inline-flex items-center justify-center rounded-xl bg-[#5C008B] px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-[#4a0178]">Retry step</button>
+      </form>
+    {% endif %}
+    {% if status.state == "complete" and dashboard_url %}
+      <a href="{{ dashboard_url }}" class="inline-flex items-center justify-center rounded-xl bg-emerald-500 px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-emerald-600">Continue to dashboard</a>
+      <meta http-equiv="refresh" content="2;url={{ dashboard_url }}">
+    {% endif %}
+  </div>
+</div>
