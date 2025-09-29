@@ -44,31 +44,34 @@ def outscraper_webhook(request):
         logger.warning("Invalid Outscraper payload: %s", raw_body)
         return JsonResponse({"status": "error", "message": "Invalid JSON"}, status=400)
 
-    restaurant_id = request.GET.get("restaurant_id") or payload.get("restaurant_id")
-    if not restaurant_id:
-        logger.warning("Outscraper payload missing restaurant identifier: %s", payload)
-        return JsonResponse({"status": "error", "message": "Missing restaurant"}, status=400)
+    place_data = _extract_primary_place(payload)
+    if not place_data:
+        logger.warning("Outscraper payload missing place data: %s", payload)
+        return JsonResponse({"status": "error", "message": "Missing place data"}, status=400)
+
+    place_id = place_data.get("place_id") or place_data.get("google_id")
+    if not place_id:
+        logger.warning("Outscraper payload missing place identifier: %s", payload)
+        return JsonResponse({"status": "error", "message": "Missing place"}, status=400)
 
     try:
-        restaurant = models.Restaurant.objects.get(id=restaurant_id)
-    except (ValueError, models.Restaurant.DoesNotExist):
-        logger.warning("Outscraper payload references unknown restaurant %s", restaurant_id)
+        restaurant = models.Restaurant.objects.get(google_place_id=place_id)
+    except models.Restaurant.DoesNotExist:
+        logger.warning("Outscraper payload references unknown place %s", place_id)
         return JsonResponse({"status": "error", "message": "Restaurant not found"}, status=404)
 
     restaurant.reviews_json = payload
     update_fields = ["reviews_json"]
 
-    place_data = _extract_primary_place(payload)
-    if place_data:
-        rating = place_data.get("rating")
-        review_count = place_data.get("reviews_count") or place_data.get("reviews")
-        if rating is not None:
-            restaurant.rating = rating
-            update_fields.append("rating")
-        if review_count is not None:
-            restaurant.review_count = review_count
-            update_fields.append("review_count")
+    rating = place_data.get("rating")
+    review_count = place_data.get("reviews_count") or place_data.get("reviews")
+    if rating is not None:
+        restaurant.rating = rating
+        update_fields.append("rating")
+    if review_count is not None:
+        restaurant.review_count = review_count
+        update_fields.append("review_count")
 
     restaurant.save(update_fields=update_fields)
-    logger.info("Stored Outscraper reviews for restaurant %s", restaurant_id)
+    logger.info("Stored Outscraper reviews for restaurant %s", place_id)
     return JsonResponse({"status": "ok"}, status=200)
