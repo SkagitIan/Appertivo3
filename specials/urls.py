@@ -6,6 +6,7 @@ from django.contrib.auth import views as auth_views
 from app import views as app_views
 from articles import admin_views as articles_admin_views
 from articles.sitemaps import ArticlesSitemap
+import outscraper
 
 urlpatterns = [
     path("", app_views.home_view, name="home"),
@@ -55,31 +56,19 @@ urlpatterns = [
     path("settings/", app_views.settings_view, name="settings"),
     path("settings/info/", app_views.update_restaurant_info, name="update_restaurant_info"),
     path("settings/<uuid:restaurant_id>/rescrape/", app_views.rescrape_restaurant, name="rescrape_restaurant"),
-    path(
-        "settings/<uuid:restaurant_id>/rescrape-menu/",
-        app_views.rescrape_menu,
-        name="settings-rescrape-menu",
-    ),
+    path("settings/<uuid:restaurant_id>/rescrape-menu/",app_views.rescrape_menu,name="settings-rescrape-menu",),
     path("settings/<uuid:restaurant_id>/update-creativity/", app_views.update_creativity, name="update_creativity"),
     path("settings/notifications/", app_views.update_notifications, name="update_notifications"),
-
+    #outscraper webhook.
+    path("outscraper-webhook/", outscraper.outscraper_webhook, name="outscraper_webhook"),
     path("billing/", app_views.billing_view, name="billing"),
     path("billing/upgrade/", app_views.billing_upgrade_view, name="billing-upgrade"),
     path("billing/cancel/", app_views.billing_cancel_view, name="billing-cancel"),
     path("stripe/webhook/", app_views.stripe_webhook_view, name="stripe-webhook"),
     path("jobs/<uuid:job_id>/", app_views.job_status_view, name="job-status"),
     path("notifications/", app_views.notification_list_view, name="notification-list"),
-    path(
-        "admin/articles/",
-        articles_admin_views.dashboard_redirect,
-        name="articles_admin_redirect",
-    ),
-    path(
-        "sitemap.xml",
-        sitemap,
-        {"sitemaps": {"articles": ArticlesSitemap()}},
-        name="sitemap",
-    ),
+    path("admin/articles/",articles_admin_views.dashboard_redirect,name="articles_admin_redirect",),
+    path("sitemap.xml",sitemap,{"sitemaps": {"articles": ArticlesSitemap()}},name="sitemap",),
     # Existing API and sample views
     path("api/signup/", app_views.signup_view, name="api-signup"),
     path("admin/", admin.site.urls),
