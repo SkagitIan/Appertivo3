@@ -40,7 +40,7 @@ class MembershipAdmin(TimestampedAdmin):
 class RestaurantAdmin(admin.ModelAdmin):
     list_display = ("name", "location_text", "phone", "rating", "review_count")
     search_fields = ("name", "location_text", "phone")
-    readonly_fields = ("context_json",)
+    readonly_fields = ("context_json", "reviews_json")
 
     fieldsets = (
         ("Core Info", {
@@ -56,7 +56,7 @@ class RestaurantAdmin(admin.ModelAdmin):
             "fields": (
                 "phone", "website", "google_place_id",
                 "description", "rating", "review_count",
-                "hours_json", "about_json", "context_json"
+                "hours_json", "about_json", "context_json", "reviews_json"
             )
         }),
         ("Menu", {

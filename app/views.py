@@ -26,6 +26,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
+import requests
 import stripe
 from pydantic import BaseModel
 from django.core.cache import cache
@@ -3101,6 +3102,59 @@ def rescrape_restaurant(request, restaurant_id):
     payload = _queue_outscraper_payload(restaurant)
     run_outscraper_search.delay(str(payload.id))
     return HttpResponse("rescrape_complete", content_type="text/plain")
+
+
+@login_required
+@require_POST
+def refresh_reviews(request, restaurant_id):
+    """Trigger an Outscraper reviews refresh for the restaurant."""
+
+    restaurant = get_object_or_404(
+        models.Restaurant,
+        id=restaurant_id,
+        account__membership__user=request.user,
+    )
+
+    api_key = getattr(settings, "OUTSCRAPER_API_KEY", os.getenv("OUTSCRAPER_API_KEY"))
+    if not api_key:
+        logger.warning("Outscraper API key missing; cannot refresh reviews for %s", restaurant.id)
+        return redirect("settings")
+
+    query_value = (
+        restaurant.google_place_id
+        or (restaurant.context_json or {}).get("google_id")
+        or restaurant.name
+        or restaurant.location_text
+    )
+    if not query_value:
+        logger.warning("No query value available for Outscraper reviews on %s", restaurant.id)
+        return redirect("settings")
+
+    webhook_url = request.build_absolute_uri(reverse("outscraper_webhook"))
+    webhook_with_id = f"{webhook_url}?restaurant_id={restaurant.id}"
+
+    params = {
+        "query": query_value,
+        "limit": 1,
+        "reviewsLimit": 10,
+        "async": "true",
+        "webhook": webhook_with_id,
+    }
+    headers = {"X-API-KEY": api_key}
+
+    try:
+        requests.get(
+            "https://api.app.outscraper.com/maps/reviews-v3",
+            params=params,
+            headers=headers,
+            timeout=10,
+        )
+    except requests.RequestException as exc:  # pragma: no cover - network guard
+        logger.warning(
+            "Outscraper reviews request failed for %s: %s", restaurant.id, exc, exc_info=True
+        )
+
+    return redirect("settings")
 
 
 @require_POST
