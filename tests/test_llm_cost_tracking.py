@@ -18,7 +18,25 @@ class LlmLoggingTests(TestCase):
 
     def test_log_llm_call_records_tokens_and_cost(self):
         usage = SimpleNamespace(input_tokens=1200, output_tokens=600, total_tokens=1800)
-        response = SimpleNamespace(usage=usage, id="resp_123")
+        response = SimpleNamespace(
+            input=[
+                SimpleNamespace(
+                    role="user",
+                    content=[SimpleNamespace(text="Generate a unicorn story.")],
+                )
+            ],
+            output=[
+                SimpleNamespace(
+                    content=[
+                        SimpleNamespace(
+                            text="Lumina the unicorn discovers a pool of starlight."
+                        )
+                    ]
+                )
+            ],
+            usage=usage,
+            id="resp_123",
+        )
 
         log_llm_call(
             user=self.user,
@@ -38,8 +56,17 @@ class LlmLoggingTests(TestCase):
         self.assertEqual(record.call_type, models.LlmCallLog.CallType.TEXT)
         self.assertEqual(record.input_tokens, 1200)
         self.assertEqual(record.output_tokens, 600)
+        self.assertEqual(record.total_tokens, 1800)
         self.assertGreaterEqual(record.cost_cents, 0)
         self.assertIn("usage", record.metadata)
+        self.assertEqual(
+            record.metadata["response_input_text"], "Generate a unicorn story."
+        )
+        self.assertEqual(
+            record.metadata["response_output_text"],
+            "Lumina the unicorn discovers a pool of starlight.",
+        )
+        self.assertEqual(record.metadata["usage"]["total_tokens"], 1800)
 
 
 class LlmAdminSummaryTests(TestCase):
