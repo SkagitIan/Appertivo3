@@ -6,6 +6,7 @@ from django.contrib.auth import views as auth_views
 from app import outscraper, views as app_views
 from articles import admin_views as articles_admin_views
 from articles.sitemaps import ArticlesSitemap
+from app.outscraper import outscraper_webhook
 
 urlpatterns = [
     path("", app_views.home_view, name="home"),
@@ -60,7 +61,7 @@ urlpatterns = [
     path("settings/<uuid:restaurant_id>/refresh-reviews/", app_views.refresh_reviews, name="refresh_reviews"),
     path("settings/notifications/", app_views.update_notifications, name="update_notifications"),
     #outscraper webhook.
-    path("outscraper-webhook/", outscraper.outscraper_webhook, name="outscraper_webhook"),
+    path("outscraper-webhook/",outscraper_webhook, name="outscraper_webhook"),
     path("billing/", app_views.billing_view, name="billing"),
     path("billing/upgrade/", app_views.billing_upgrade_view, name="billing-upgrade"),
     path("billing/cancel/", app_views.billing_cancel_view, name="billing-cancel"),

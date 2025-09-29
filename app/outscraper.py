@@ -6,6 +6,10 @@ from typing import Any
 
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 from app import models
 
@@ -32,8 +36,6 @@ def _extract_primary_place(payload: dict[str, Any]) -> dict[str, Any] | None:
 
 @csrf_exempt
 def outscraper_webhook(request):
-    """Persist review payloads delivered from Outscraper."""
-
     if request.method != "POST":
         return JsonResponse({"status": "error", "message": "Only POST allowed"}, status=405)
 

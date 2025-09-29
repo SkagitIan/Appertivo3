@@ -353,6 +353,13 @@
       clearConceptTriggerState(trigger);
     });
 
+    document.body.addEventListener('htmx:afterRequest', function (evt) {
+      const trigger = evt.detail && evt.detail.elt;
+      if (isMoreIdeasButton(trigger)) {
+        clearConceptTriggerState(trigger);
+      }
+    });
+
     document.body.addEventListener('htmx:afterSwap', function (evt) {
       const trigger = evt.detail && evt.detail.elt;
       const target = evt.detail && evt.detail.target;
