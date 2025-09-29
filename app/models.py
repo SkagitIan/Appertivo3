@@ -4,6 +4,7 @@ import uuid
 from typing import Iterable, List
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
@@ -102,6 +103,101 @@ class Restaurant(TimestampedModel):
         current = list(self.menu_urls or [])
         current.insert(0, url)
         self.set_menu_urls(current)
+
+
+class Onboarding(TimestampedModel):
+    """Tracks onboarding progress for a user and restaurant."""
+
+    class State(models.TextChoices):
+        CREATED = "created", "Created"
+        EMAIL_CONFIRMED = "email_confirmed", "Email confirmed"
+        CHECKOUT_STARTED = "checkout_started", "Checkout started"
+        CHECKOUT_PAID = "checkout_paid", "Checkout paid"
+        SCRAPE_QUEUED = "scrape_queued", "Scrape queued"
+        SCRAPE_DONE = "scrape_done", "Scrape done"
+        REVIEWS_QUEUED = "reviews_queued", "Reviews queued"
+        REVIEWS_DONE = "reviews_done", "Reviews done"
+        WEB_ANALYSIS_DONE = "web_analysis_done", "Web analysis done"
+        REVIEW_ANALYSIS_DONE = "review_analysis_done", "Review analysis done"
+        PERSONAS_DONE = "personas_done", "Personas done"
+        COMPLETE = "complete", "Complete"
+        FAILED = "failed", "Failed"
+
+    user = models.OneToOneField(get_user_model(), on_delete=models.CASCADE)
+    restaurant = models.ForeignKey(
+        "Restaurant", on_delete=models.CASCADE, null=True, blank=True
+    )
+    state = models.CharField(
+        max_length=50, choices=State.choices, default=State.CREATED
+    )
+
+    outscraper_search_job_id = models.CharField(max_length=128, blank=True)
+    outscraper_reviews_job_id = models.CharField(max_length=128, blank=True)
+
+    web_profile_json = models.JSONField(null=True, blank=True)
+    reviews_json = models.JSONField(null=True, blank=True)
+    review_analysis_json = models.JSONField(null=True, blank=True)
+    personas_json = models.JSONField(null=True, blank=True)
+
+    last_error = models.TextField(blank=True)
+    progress = models.PositiveSmallIntegerField(default=0)
+    accepted_terms = models.BooleanField(default=False)
+    accepted_privacy = models.BooleanField(default=False)
+    authorized_data_fetch = models.BooleanField(default=False)
+    default_timezone = models.CharField(max_length=64, default="America/Los_Angeles")
+    default_currency = models.CharField(max_length=8, default="USD")
+    brand_color = models.CharField(max_length=7, default="#5C008B")
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["state", "created_at"])]
+
+    def mark(
+        self,
+        state: str,
+        progress: int | None = None,
+        *,
+        error: str | None = None,
+        message: str | None = None,
+    ) -> None:
+        """Persist the provided state and optional progress/error."""
+
+        previous_state = self.state
+        self.state = state
+        if progress is not None:
+            self.progress = max(0, min(100, int(progress)))
+        if error:
+            self.last_error = str(error)[:2000]
+        elif state != self.State.FAILED:
+            self.last_error = ""
+        self.save(update_fields=["state", "progress", "last_error", "updated_at"])
+        OnboardingEvent.objects.create(
+            onboarding=self,
+            from_state=previous_state,
+            to_state=state,
+            message=(message or ""),
+        )
+
+    def fail(self, error: str) -> None:
+        """Mark the onboarding run as failed."""
+
+        self.mark(self.State.FAILED, progress=self.progress, error=error)
+
+
+class OnboardingEvent(models.Model):
+    """Audit log entry for onboarding state transitions."""
+
+    onboarding = models.ForeignKey(
+        Onboarding, related_name="events", on_delete=models.CASCADE
+    )
+    from_state = models.CharField(max_length=50)
+    to_state = models.CharField(max_length=50)
+    message = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at",)
 
 class OutscraperPayload(TimestampedModel):
     """Tracks Outscraper requests for a restaurant."""
