@@ -46,7 +46,7 @@ class ConceptBackgroundViewTests(TestCase):
             rank_order=1,
         )
 
-    def test_returns_placeholder_image_without_gemini_key(self) -> None:
+    def test_returns_placeholder_image_without_replicate_key(self) -> None:
         url = reverse("concept-background", args=[self.concept.id])
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
