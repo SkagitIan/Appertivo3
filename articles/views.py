@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any, Dict, List, Tuple
 
 from django import forms
@@ -15,8 +16,9 @@ from django_q.tasks import async_task
 from .models import Article, ArticleRun, RunStep
 from .openai_helpers import extract_output_text, get_openai_client, parse_structured_payload
 from .pdf_utils import extract_pdf_text
-from .schemas import RESEARCH_RESPONSE_SCHEMA
 from .utils import apply_usage_cost, ensure_dict, ensure_list, sections_to_markdown
+
+logger = logging.getLogger(__name__)
 
 class ArticleConceptForm(forms.Form):
     topic = forms.CharField(
@@ -406,37 +408,6 @@ def staff_select_concept(request):
 
     selected_idea = ideas[idea_index]
 
-    client = get_openai_client()
-    prompt = (
-        "You are a research assistant with access to live web search. "
-        "Given an article concept and research context, compile supporting citations "
-        "and draft a structured outline with section headings and bullet paragraphs. "
-        "Return structured JSON with keys: summary, citations (list with title, url, and snippet), draft (with title, sections)."
-        f"\n\nSelected concept: {json.dumps(selected_idea, ensure_ascii=False)}"
-        f"\n\nContext notes: {context_details.get('context', '')}"
-        f"\n\nExtracted PDF notes: {context_details.get('pdf_context', '')}"
-        f"\n\nTopic focus: {context_details.get('topic', '')}"
-    )
-    response = client.responses.create(
-        model="gpt-5",
-        input=prompt,
-        tools=[{"type": "web_search"}],
-        text={"format": RESEARCH_RESPONSE_SCHEMA},
-    )
-    response_dict = (
-        response.model_dump() if hasattr(response, "model_dump") else getattr(response, "to_dict", lambda: {})()
-    )
-    payload = parse_structured_payload(extract_output_text(response))
-    citations = ensure_list(payload.get("citations"))
-    draft_data = ensure_dict(payload.get("draft"))
-    draft_markdown = payload.get("draft_markdown") or draft_data.get("markdown") or ""
-    if not draft_markdown:
-        sections = draft_data.get("sections")
-        if sections:
-            draft_markdown = sections_to_markdown(sections)
-        elif draft_data.get("text"):
-            draft_markdown = str(draft_data.get("text"))
-
     step_input = {
         "selected": selected_idea,
         "idea_index": idea_index,
@@ -472,9 +443,9 @@ def staff_select_concept(request):
     run.save(update_fields=["current_step", "status", "can_resume_from_step"])
 
     async_task("articles.tasks.generate_research_draft", draft_step.id)
+    logger.info("Queued research draft for run %s (idea %s)", run.id, idea_index)
 
-    run.refresh_from_db()
-    draft_step.refresh_from_db()
+    run = ArticleRun.objects.prefetch_related("steps").get(pk=run.pk)
     ideas, _ideas_payload, draft_payload, _ = _gather_run_context(run)
     draft_details = _prepare_draft_details(run, ideas, draft_payload)
 
@@ -717,5 +688,5 @@ def staff_delete_run(request, run_id: int):
         "runs_with_meta": runs_with_meta,
     }
     response = render(request, "articles/_run_list.html", context)
-    response["HX-Trigger"] = json.dumps({"articles:refresh-dashboard": True})
+    response["HX-Trigger"] = json.dumps({"articles:refresh-runs": True, "articles:clear-workflow": True})
     return response
