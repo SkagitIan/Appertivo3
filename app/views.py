@@ -449,7 +449,7 @@ def home_view(request):
         "demo_dish_favorite": demo_dish_favorite,
         "demo_restaurant": demo_restaurant,
         "demo_user_id": DEMO_USER_ID,
-        "footer_articles": _footer_articles(),
+        "footer_articles": _footer_articles(limit=3),
     }
 
     return render(request, "home.html", context)

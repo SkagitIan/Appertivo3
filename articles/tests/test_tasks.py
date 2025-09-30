@@ -45,7 +45,7 @@ class RunStepTaskTests(TestCase):
         step = RunStep.objects.create(
             run=self.run,
             name="ideas",
-            input_payload={"topic": "staffing"},
+            input_payload={"context": "staffing research"},
         )
         client = DummyClient('{"ideas": [{"title": "Idea"}], "notes": "Note"}')
 
@@ -71,7 +71,7 @@ class RunStepTaskTests(TestCase):
         step = RunStep.objects.create(
             run=self.run,
             name="ideas",
-            input_payload={"topic": "staffing"},
+            input_payload={"context": "staffing research"},
         )
         client = DummyClient('{"ideas": [{"title": "Idea"}], "notes": "Note"}')
 
