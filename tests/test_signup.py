@@ -2,6 +2,7 @@ import json
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
+from django.db import IntegrityError
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
@@ -156,6 +157,25 @@ class SignupViewTests(TestCase):
         self.assertContains(response, "already exists")
         # Ensure no duplicate accounts were created.
         self.assertEqual(User.objects.filter(username="owner@example.com").count(), 1)
+
+    @override_settings(SECURE_SSL_REDIRECT=False)
+    def test_form_signup_with_other_integrity_error_shows_generic_message(self):
+        """Unexpected integrity errors should surface a helpful generic message."""
+
+        with patch.object(models.Account.objects, "create", side_effect=IntegrityError("boom")):
+            form_data = {
+                "email": "owner@example.com",
+                "password1": "pw",
+                "password2": "pw",
+                "restaurant_name": "Tasty Place",
+                "location": "City, State",
+            }
+
+            response = self.client.post(reverse("signup"), data=form_data)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "We couldn&#x27;t sign you up right now")
+        self.assertFalse(User.objects.filter(username="owner@example.com").exists())
 
     def test_login_with_bad_credentials_returns_error(self):
         """Failed logins should re-render the form with an error message."""
