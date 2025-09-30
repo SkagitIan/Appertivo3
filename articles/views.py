@@ -22,23 +22,11 @@ from .utils import apply_usage_cost, ensure_dict, ensure_list, sections_to_markd
 logger = logging.getLogger(__name__)
 
 class ArticleConceptForm(forms.Form):
-    topic = forms.CharField(
-        label="Working focus",
-        required=False,
-        max_length=200,
-        widget=forms.TextInput(
-            attrs={
-                "placeholder": "Example: Sustainability in independent restaurants",
-                "class": "rounded-xl border border-slate-200 px-3 py-2",
-            }
-        ),
-        help_text="Optional working angle for the article concepts.",
-    )
     context = forms.CharField(
         label="Research context",
         required=False,
         widget=forms.Textarea(attrs={"rows": 6, "class": "rounded-xl border border-slate-200 p-3"}),
-        help_text="Optional unless you upload a PDF — add quick notes to ground the concepts.",
+        help_text="Paste research notes or a summary of the uploaded PDF so concepts stay on brief.",
     )
     pdf_upload = forms.FileField(
         label="Attach PDF research",
@@ -80,6 +68,17 @@ class ArticleDraftReviewForm(forms.Form):
     draft_body = forms.CharField(
         label="Editable draft",
         widget=forms.Textarea(attrs={"rows": 16, "class": "font-mono text-sm rounded-xl border border-slate-200 p-3"}),
+    )
+    editor_notes = forms.CharField(
+        label="Editor comments for final polish",
+        required=False,
+        widget=forms.Textarea(
+            attrs={
+                "rows": 4,
+                "class": "rounded-xl border border-slate-200 p-3 text-sm",
+                "placeholder": "Optional notes to shape the polished article…",
+            }
+        ),
     )
 
 
@@ -174,6 +173,7 @@ def _prepare_draft_details(
                 "run_id": run.id,
                 "draft_title": draft_title or "",
                 "draft_body": draft_markdown,
+                "editor_notes": draft_payload.get("editor_notes", ""),
             }
         )
 
@@ -337,7 +337,6 @@ def staff_generate_concepts(request):
             status=400,
         )
 
-    topic = form.cleaned_data.get("topic") or "Independent restaurant operations"
     context_text = form.cleaned_data["context"]
     pdf_upload = form.cleaned_data.get("pdf_upload")
     pdf_text = extract_pdf_text(pdf_upload) if pdf_upload else ""
@@ -352,7 +351,6 @@ def staff_generate_concepts(request):
     )
     if pdf_text:
         prompt += f"Extracted PDF notes:\n{pdf_text}\n\n"
-    prompt += f"Working focus: {topic}"
     response = client.responses.create(model="gpt-4.1-nano", input=prompt)
     response_dict = (
         response.model_dump() if hasattr(response, "model_dump") else getattr(response, "to_dict", lambda: {})()
@@ -370,7 +368,6 @@ def staff_generate_concepts(request):
                 }
             )
     run_payload = {
-        "topic": topic,
         "context": context_text,
         "pdf_context": pdf_text,
     }
@@ -537,6 +534,13 @@ def staff_finalize_article(request):
 
     draft_body = form.cleaned_data["draft_body"]
     draft_title = form.cleaned_data["draft_title"]
+    editor_notes = form.cleaned_data.get("editor_notes", "")
+
+    if editor_notes:
+        draft_payload["editor_notes"] = editor_notes
+    elif "editor_notes" in draft_payload:
+        draft_payload.pop("editor_notes")
+    RunStep.objects.filter(pk=draft_step.pk).update(output_payload=draft_payload)
 
     client = get_openai_client()
     prompt = (
@@ -546,6 +550,7 @@ def staff_finalize_article(request):
         f"\n\nSelected concept: {json.dumps(selected_idea, ensure_ascii=False)}"
         f"\n\nEditor summary: {summary}"
         f"\n\nCitations: {json.dumps(citations, ensure_ascii=False)}"
+        f"\n\nEditor comments: {editor_notes}"
         f"\n\nDraft title: {draft_title}\nDraft body:\n{draft_body}"
     )
     response = client.responses.create(model=run.model_info or "gpt-4.1-nano", input=prompt)
@@ -566,6 +571,7 @@ def staff_finalize_article(request):
                 "title": draft_title,
                 "citations": citations,
                 "selected": selected_idea,
+                "editor_notes": editor_notes,
             },
             "output_payload": payload,
             "raw_response": response_dict,
