@@ -21,7 +21,7 @@ except ImportError:  # pragma: no cover - optional dependency for local dev
     OpenAI = None  # type: ignore
 
 from .models import Concept, DishIdea, Lead, LeadRun
-from .utils import pick_city
+from .utils import extract_outscraper_job_id, pick_city
 
 
 DEFAULT_WEBHOOK_URL = "https://appertivo.com/leads/outscraper-webhook/"
@@ -220,7 +220,12 @@ def fetch_leads(
         logger.exception("Outscraper request failed: %s", exc)
         return []
 
-    payload = resolve_outscraper_payload(response.json(), headers)
+    initial_payload = response.json()
+    payload = resolve_outscraper_payload(initial_payload, headers)
+    job_id = extract_outscraper_job_id(payload) or extract_outscraper_job_id(initial_payload)
+    if run is not None and job_id and run.outscraper_job_id != job_id:
+        run.outscraper_job_id = job_id
+        run.save(update_fields=["outscraper_job_id"])
     entries = extract_lead_entries(payload)
     if not entries:
         if isinstance(payload, dict):
@@ -376,9 +381,10 @@ def dispatch_lead_pipeline(
             run = None
     if run is not None:
         if not lead_ids:
-            run.status = LeadRun.Status.READY
-            run.processed_leads = run.total_leads
-            run.save(update_fields=["status", "processed_leads"])
+            if run.status != LeadRun.Status.FETCHING:
+                run.status = LeadRun.Status.READY
+                run.processed_leads = run.total_leads
+                run.save(update_fields=["status", "processed_leads"])
             return
         run.status = LeadRun.Status.PREPARING
         run.processed_leads = 0
