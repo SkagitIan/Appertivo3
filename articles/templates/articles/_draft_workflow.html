@@ -1,4 +1,10 @@
-{% if draft_form %}
+{% if draft_status == "failed" %}
+  <div class="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+    <p class="font-semibold">Research attempt failed.</p>
+    <p class="mt-2">{{ draft_error|default:"We couldn't finish gathering research." }}</p>
+    <p class="mt-2 text-xs text-red-600/80">Select the concept again or adjust the context to retry.</p>
+  </div>
+{% elif draft_form %}
   <div class="flex flex-col gap-4">
     <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
       <div>
@@ -36,6 +42,7 @@
       hx-swap="innerHTML"
       hx-indicator="#finalize-loading"
       class="space-y-4"
+      data-loading-message="Polishing the draft…"
     >
       {% csrf_token %}
       {{ draft_form.run_id }}
@@ -69,6 +76,24 @@
         Polishing…
       </span>
     </form>
+  </div>
+{% elif run and draft_pending %}
+  <div
+    class="flex flex-col gap-3 rounded-2xl border border-indigo-200 bg-indigo-50 p-4"
+    hx-get="{% url 'articles:staff_draft_status' run.id %}"
+    hx-trigger="load, every 6s"
+    hx-target="#draft-workflow"
+    hx-swap="outerHTML"
+    data-loading-message="Gathering research…"
+  >
+    <div class="flex items-center gap-2 text-sm font-semibold text-indigo-700">
+      <i class="fa-solid fa-magnifying-glass-chart" aria-hidden="true"></i>
+      Research in progress
+    </div>
+    <p class="text-sm text-indigo-900">We’re gathering citations and an outline. Feel free to navigate away—this panel will refresh automatically.</p>
+    {% if selected_idea and selected_idea.title %}
+      <p class="text-xs text-indigo-800">Concept: <span class="font-semibold">{{ selected_idea.title }}</span></p>
+    {% endif %}
   </div>
 {% else %}
   <div class="flex flex-col items-start gap-2">

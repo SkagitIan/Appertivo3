@@ -10,8 +10,23 @@
 {% block extra_head %}
   <script>
     document.addEventListener("DOMContentLoaded", function () {
+      function getCsrfToken() {
+        const name = "csrftoken=";
+        const cookies = document.cookie ? document.cookie.split(";") : [];
+        for (const cookie of cookies) {
+          const trimmed = cookie.trim();
+          if (trimmed.startsWith(name)) {
+            return decodeURIComponent(trimmed.slice(name.length));
+          }
+        }
+        return null;
+      }
+
       document.body.addEventListener("htmx:configRequest", (event) => {
-        event.detail.headers["X-CSRFToken"] = "{{ csrf_token }}";
+        const token = getCsrfToken();
+        if (token) {
+          event.detail.headers["X-CSRFToken"] = token;
+        }
       });
     });
   </script>
@@ -127,6 +142,47 @@
       });
 
       window.addEventListener("resize", closeMenu);
+    });
+  </script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const overlay = document.getElementById("global-overlay");
+      const message = document.getElementById("overlay-message");
+      if (!overlay || !message) {
+        return;
+      }
+
+      let activeRequests = 0;
+
+      function showOverlay(text) {
+        message.textContent = text || "Working…";
+        overlay.classList.remove("hidden");
+      }
+
+      function hideOverlay() {
+        if (activeRequests === 0) {
+          overlay.classList.add("hidden");
+        }
+      }
+
+      document.body.addEventListener("htmx:beforeRequest", function (event) {
+        activeRequests += 1;
+        const elt = event.detail.elt;
+        const text = (elt && (elt.dataset.loadingMessage || elt.getAttribute("aria-label"))) || "Working…";
+        showOverlay(text);
+      });
+
+      function requestFinished() {
+        activeRequests = Math.max(activeRequests - 1, 0);
+        hideOverlay();
+      }
+
+      document.body.addEventListener("htmx:afterRequest", requestFinished);
+
+      document.body.addEventListener("htmx:responseError", function () {
+        message.textContent = "Something went wrong";
+        setTimeout(requestFinished, 1500);
+      });
     });
   </script>
   <script>

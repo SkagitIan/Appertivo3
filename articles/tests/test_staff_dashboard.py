@@ -71,7 +71,16 @@ class StaffDashboardTests(TestCase):
         self.assertGreater(run.cost_cents, 0)
         self.assertEqual(ideas_step.input_payload.get("pdf_context"), "")
 
-    @patch("articles.views.get_openai_client")
+    def test_generate_concepts_requires_context_or_pdf(self):
+        response = self.client.post(
+            reverse("articles:staff_generate_concepts"),
+            {"topic": "Inventory tactics", "context": ""},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Add brief context", response.content.decode())
+
+    @patch("articles.tasks.get_openai_client")
     def test_select_concept_creates_draft_step(self, mock_client_factory):
         run = ArticleRun.objects.create(created_by=self.staff_user, status="running", current_step="ideas")
         RunStep.objects.create(
@@ -116,6 +125,36 @@ class StaffDashboardTests(TestCase):
         self.assertEqual(draft_step.output_payload["summary"], "Outline summary")
         self.assertGreater(run.cost_cents, 0)
 
+    @patch("articles.views.async_task")
+    def test_select_concept_returns_polling_when_pending(self, mock_async_task):
+        mock_async_task.side_effect = lambda *_, **__: None
+        run = ArticleRun.objects.create(created_by=self.staff_user, status="running", current_step="ideas")
+        RunStep.objects.create(
+            run=run,
+            name="ideas",
+            status="ok",
+            input_payload={"topic": "Inventory", "context": "Inventory", "pdf_context": "Research"},
+            output_payload={
+                "ideas": [
+                    {"title": "Idea One", "subtitle": "Subtitle"},
+                ],
+                "notes": "Notes",
+            },
+        )
+
+        response = self.client.post(
+            reverse("articles:staff_select_concept"),
+            {"run_id": run.id, "idea_index": 0},
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+        self.assertIn("Research in progress", content)
+        draft_step = RunStep.objects.get(run=run, name="draft")
+        self.assertEqual(draft_step.status, "queued")
+        self.assertEqual(draft_step.output_payload, {})
+
     @patch("articles.views.extract_pdf_text", return_value="PDF insights")
     @patch("articles.views.get_openai_client")
     def test_generate_concepts_uses_pdf_upload(self, mock_client_factory, mock_extract):
@@ -137,7 +176,7 @@ class StaffDashboardTests(TestCase):
             reverse("articles:staff_generate_concepts"),
             {
                 "topic": "Inventory tactics",
-                "context": "Recent interviews about food waste.",
+                "context": "",
                 "pdf_upload": pdf_file,
             },
             HTTP_HX_REQUEST="true",
@@ -148,6 +187,29 @@ class StaffDashboardTests(TestCase):
         run = ArticleRun.objects.get()
         ideas_step = RunStep.objects.get(run=run, name="ideas")
         self.assertEqual(ideas_step.input_payload.get("pdf_context"), "PDF insights")
+
+    def test_staff_draft_status_returns_partial(self):
+        run = ArticleRun.objects.create(created_by=self.staff_user, status="running", current_step="draft")
+        RunStep.objects.create(
+            run=run,
+            name="draft",
+            status="ok",
+            input_payload={"selected": {"title": "Idea One"}, "idea_index": 0},
+            output_payload={
+                "summary": "Outline summary",
+                "citations": [{"title": "Source", "url": "https://example.com"}],
+                "draft_markdown": "## Intro\nBody",
+                "idea_index": 0,
+            },
+        )
+
+        response = self.client.get(
+            reverse("articles:staff_draft_status", kwargs={"run_id": run.id}),
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Research summary", response.content.decode())
 
     @patch("articles.views.get_openai_client")
     def test_finalize_article_creates_article(self, mock_client_factory):
@@ -220,6 +282,18 @@ class StaffDashboardTests(TestCase):
         self.assertEqual(response.status_code, 200)
         article.refresh_from_db()
         self.assertEqual(article.status, "published")
+
+    def test_delete_run_removes_run(self):
+        run = ArticleRun.objects.create(created_by=self.staff_user, status="running")
+        Article.objects.create(title="Draft", slug="draft", body_markdown="Body", run=run)
+
+        response = self.client.post(
+            reverse("articles:staff_delete_run", kwargs={"run_id": run.id}),
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(ArticleRun.objects.filter(id=run.id).exists())
 
     def test_runs_fragment_renders(self):
         ArticleRun.objects.create(created_by=self.staff_user)
