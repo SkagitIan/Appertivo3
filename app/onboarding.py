@@ -178,12 +178,19 @@ def record_consent(
         onboarding.mark(models.Onboarding.State.EMAIL_CONFIRMED, progress=10)
 
 
-def mark_checkout_started(user) -> None:
+def mark_checkout_started(user, checkout_url: Optional[str] = None) -> None:
     onboarding = ensure_onboarding_for_user(user)
     if _state_index(onboarding.state) < _state_index(
         models.Onboarding.State.CHECKOUT_STARTED
     ):
-        onboarding.mark(models.Onboarding.State.CHECKOUT_STARTED, progress=15)
+        message = None
+        if checkout_url:
+            message = f"Stripe checkout started: {checkout_url}"
+        onboarding.mark(
+            models.Onboarding.State.CHECKOUT_STARTED,
+            progress=15,
+            message=message,
+        )
 
 
 def mark_checkout_paid(account: models.Account) -> None:

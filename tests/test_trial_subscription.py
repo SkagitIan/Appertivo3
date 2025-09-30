@@ -15,8 +15,8 @@ class TrialSubscriptionTests(TestCase):
         self.restaurant = "TrialResto"
         self.location = "City"
 
-    @patch("app.views.stripe.Subscription.create")
-    @patch("app.views.stripe.Customer.create")
+    @patch("app.stripe.stripe.Subscription.create")
+    @patch("app.stripe.stripe.Customer.create")
     def test_registration_creates_trial_subscription(self, mock_customer_create, mock_sub_create):
         mock_customer_create.return_value = {"id": "cus_123"}
         mock_sub_create.return_value = {"id": "sub_123"}

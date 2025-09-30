@@ -24,7 +24,7 @@ class StripeFlowTests(TestCase):
         )
         self.client.login(username="stripe@example.com", password="pw")
 
-    @patch("app.views.stripe.checkout.Session.create")
+    @patch("app.stripe.stripe.checkout.Session.create")
     def test_start_trial_checkout_metadata(self, mock_checkout):
         mock_checkout.return_value = SimpleNamespace(url="https://stripe.test/session")
 
@@ -39,8 +39,8 @@ class StripeFlowTests(TestCase):
         self.assertEqual(kwargs["subscription_data"]["trial_period_days"], 14)
         self.assertEqual(kwargs["customer_email"], self.user.email)
 
-    @patch("app.views.stripe.Subscription.retrieve")
-    @patch("app.views.stripe.Webhook.construct_event")
+    @patch("app.stripe.stripe.Subscription.retrieve")
+    @patch("app.stripe.stripe.Webhook.construct_event")
     def test_webhook_checkout_creates_subscription(self, mock_construct, mock_retrieve):
         event = {
             "type": "checkout.session.completed",
