@@ -54,15 +54,31 @@ class LeadDashboardTests(TestCase):
 
         response = self.client.post(
             reverse("lead-run-start"),
-            {"city": "Seattle", "limit": "8"},
+            {"city_choice": "Seattle, WA", "limit": "8"},
         )
         self.assertRedirects(response, reverse("lead-dashboard"))
 
         run = LeadRun.objects.get()
-        self.assertEqual(run.city, "Seattle")
+        self.assertEqual(run.city, "Seattle, WA")
         self.assertEqual(run.expected_leads, 8)
         self.assertEqual(run.status, LeadRun.Status.FETCHING)
-        mock_pipeline.assert_called_once_with(run.id, city="Seattle", limit=8)
+        mock_pipeline.assert_called_once_with(run.id, city="Seattle, WA", limit=8)
+
+    @patch("appertivo.leads.views.build_lead_run_pipeline")
+    def test_start_lead_run_accepts_custom_city(self, mock_pipeline) -> None:
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            reverse("lead-run-start"),
+            {"city_choice": "__custom__", "custom_city": "Boise, ID"},
+        )
+        self.assertRedirects(response, reverse("lead-dashboard"))
+
+        run = LeadRun.objects.get()
+        self.assertEqual(run.city, "Boise, ID")
+        self.assertEqual(run.expected_leads, 10)
+        self.assertEqual(run.status, LeadRun.Status.FETCHING)
+        mock_pipeline.assert_called_once_with(run.id, city="Boise, ID", limit=10)
 
     @patch("appertivo.leads.views.send_personalized_email.delay")
     def test_update_run_selection_shortlists_and_sends_email(self, mock_delay) -> None:
@@ -101,3 +117,14 @@ class LeadDashboardTests(TestCase):
         self.assertEqual(run.status, LeadRun.Status.COMPLETED)
         self.assertFalse(lead.shortlisted)
         self.assertEqual(run.selected_leads, 0)
+
+    def test_delete_run_removes_run_and_leads(self) -> None:
+        run = LeadRun.objects.create(status=LeadRun.Status.READY)
+        Lead.objects.create(name="Sunrise Cafe", city="Dallas", run=run)
+        self.client.force_login(self.user)
+
+        response = self.client.post(reverse("lead-run-delete", args=[run.id]))
+        self.assertRedirects(response, reverse("lead-dashboard"))
+
+        self.assertFalse(LeadRun.objects.filter(pk=run.id).exists())
+        self.assertEqual(Lead.objects.count(), 0)
