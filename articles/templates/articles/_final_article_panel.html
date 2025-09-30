@@ -54,6 +54,7 @@
           hx-target="#final-article-panel"
           hx-swap="innerHTML"
           class="inline-flex"
+          data-disable-global-overlay
         >
           {% csrf_token %}
           <input type="hidden" name="run_id" value="{{ run.id }}">
@@ -61,9 +62,11 @@
           <button
             type="submit"
             class="inline-flex items-center justify-center gap-2 rounded-full bg-emerald-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+            data-loading-button
           >
-            <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
-            Approve &amp; publish
+            <i class="fa-solid fa-circle-check" aria-hidden="true" data-default-icon></i>
+            <i class="fa-solid fa-circle-notch hidden animate-spin" aria-hidden="true" data-loading-icon></i>
+            <span>Approve &amp; publish</span>
           </button>
         </form>
       {% else %}

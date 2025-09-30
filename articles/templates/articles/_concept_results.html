@@ -39,6 +39,7 @@
           hx-on::after-request="if (event.detail.successful) { document.getElementById('research-accordion').setAttribute('open', 'open'); }"
           class="mt-4"
           data-loading-message="Researching concept…"
+          data-disable-global-overlay
         >
           {% csrf_token %}
           <input type="hidden" name="run_id" value="{{ active_run.id }}">
@@ -46,9 +47,11 @@
           <button
             type="submit"
             class="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#FF5C00] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#e05400]"
+            data-loading-button
           >
-            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-            Research this concept
+            <i class="fa-solid fa-magnifying-glass" aria-hidden="true" data-default-icon></i>
+            <i class="fa-solid fa-circle-notch hidden animate-spin" aria-hidden="true" data-loading-icon></i>
+            <span>Research this concept</span>
           </button>
         </form>
       </div>
