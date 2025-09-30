@@ -43,9 +43,8 @@ from itertools import islice
 
 
 from app.tasks import create_ideation_run
-from . import onboarding, stripe as stripe_service
+from . import onboarding
 
-stripe.api_key = os.getenv('STRIPE_TEST_KEY')
 logger = logging.getLogger(__name__)
 
 
@@ -150,6 +149,30 @@ class ConceptList(BaseModel):
     concepts: List[str]
 
 
+def _ensure_stripe_api_key() -> None:
+    """Refresh the Stripe API key from settings for the current process."""
+
+    stripe.api_key = settings.STRIPE_SECRET_KEY or ""
+
+
+def _get_default_plan() -> models.Plan:
+    """Fetch or create the default plan used for subscriptions."""
+
+    defaults = {
+        "name": "Pro",
+        "limits": {"concept_runs": 100, "dish_runs": 100, "price": "199"},
+        "features": [
+            "Unlimited menu scrapes",
+            "Concept and dish generation",
+            "Team collaboration",
+        ],
+    }
+    plan, _ = models.Plan.objects.get_or_create(
+        code=getattr(settings, "STRIPE_PLAN_CODE", "pro"), defaults=defaults
+    )
+    return plan
+
+
 def _current_season(current_date: Optional[datetime.date] = None) -> str:
     """Return a friendly season label for the given date."""
 
@@ -187,6 +210,89 @@ def _footer_articles(limit: int = 4) -> List[Any]:
     )
     cache.set(cache_key, articles, timeout=DEFAULT_CACHE_TIMEOUT)
     return articles
+
+
+def _stripe_timestamp(value: Optional[int]) -> datetime.datetime:
+    """Convert a Stripe timestamp into an aware datetime."""
+
+    if not value:
+        return timezone.now()
+    return datetime.datetime.fromtimestamp(value, tz=datetime.timezone.utc)
+
+
+def _sync_subscription(subscription_data: dict) -> Optional[models.Account]:
+    """Create or update a subscription based on Stripe payload."""
+
+    sub_id = subscription_data.get("id")
+    if not sub_id:
+        return None
+
+    account: Optional[models.Account] = None
+    local = models.Subscription.objects.filter(provider_sub_id=sub_id).first()
+    if local:
+        account = local.account
+
+    metadata = subscription_data.get("metadata") or {}
+    if not account:
+        account_id = metadata.get("account_id")
+        if account_id:
+            account = models.Account.objects.filter(id=account_id).first()
+
+    if not account:
+        customer_id = subscription_data.get("customer")
+        if customer_id:
+            account = models.Account.objects.filter(
+                stripe_customer_id=customer_id
+            ).first()
+
+    if not account:
+        return None
+
+    customer_id = subscription_data.get("customer")
+    if customer_id and account.stripe_customer_id != customer_id:
+        account.stripe_customer_id = customer_id
+        account.save(update_fields=["stripe_customer_id"])
+
+    plan = _get_default_plan()
+    status = subscription_data.get("status", models.Subscription.Status.TRIALING)
+    defaults = {
+        "plan": plan,
+        "provider": models.Subscription.Provider.STRIPE,
+        "provider_customer_id": customer_id or "",
+        "status": status,
+        "current_period_start": _stripe_timestamp(
+            subscription_data.get("current_period_start")
+        ),
+        "current_period_end": _stripe_timestamp(
+            subscription_data.get("current_period_end")
+        ),
+        "cancel_at_period_end": subscription_data.get(
+            "cancel_at_period_end", False
+        ),
+    }
+
+    subscription_obj, _ = models.Subscription.objects.update_or_create(
+        account=account,
+        provider=models.Subscription.Provider.STRIPE,
+        provider_sub_id=sub_id,
+        defaults=defaults,
+    )
+    if subscription_obj.account_id != account.id:
+        subscription_obj.account = account
+        subscription_obj.save(update_fields=["account"])
+    return account
+
+
+def _latest_subscription_for_account(
+    account: models.Account,
+) -> Optional[models.Subscription]:
+    """Return the most recent subscription for an account."""
+
+    return (
+        models.Subscription.objects.filter(account=account)
+        .order_by("-created_at")
+        .first()
+    )
 
 
 def _get_session_list(session, key: str) -> List[str]:
@@ -3071,10 +3177,8 @@ def billing_view(request):
         .first()
     )
     account = membership.account if membership else None
-    subscription = (
-        stripe_service.latest_subscription_for_account(account) if account else None
-    )
-    plan = stripe_service.get_default_plan() if account else None
+    subscription = _latest_subscription_for_account(account) if account else None
+    plan = _get_default_plan() if account else None
     trial_days = getattr(settings, "STRIPE_TRIAL_DAYS", 14)
     trial_end = subscription.current_period_end if subscription else None
     trial_days_remaining = None
@@ -3119,21 +3223,32 @@ def billing_upgrade_view(request):
     success_url = request.build_absolute_uri(next_path)
     cancel_url = success_url
 
-    session_url = stripe_service.create_checkout_session(
-        account=account,
-        user_email=request.user.email,
-        success_url=success_url,
-        cancel_url=cancel_url,
-        price_id=price_id,
-        metadata=metadata,
-        trial_days=getattr(settings, "STRIPE_TRIAL_DAYS", 14),
-    )
+    session_kwargs = {
+        "mode": "subscription",
+        "line_items": [{"price": price_id, "quantity": 1}],
+        "success_url": success_url,
+        "cancel_url": cancel_url,
+        "subscription_data": {
+            "trial_period_days": getattr(settings, "STRIPE_TRIAL_DAYS", 14),
+            "metadata": metadata,
+        },
+        "metadata": metadata,
+    }
 
-    if not session_url:
+    if account.stripe_customer_id:
+        session_kwargs["customer"] = account.stripe_customer_id
+    else:
+        session_kwargs["customer_email"] = request.user.email
+
+    onboarding.mark_checkout_started(request.user)
+
+    try:
+        checkout_session = stripe.checkout.Session.create(**session_kwargs)
+    except stripe.error.StripeError:
+        logger.exception("Unable to create Stripe Checkout session", exc_info=True)
         return redirect("billing")
 
-    onboarding.mark_checkout_started(request.user, checkout_url=session_url)
-    return redirect(session_url)
+    return redirect(checkout_session.url)
 
 
 @login_required
@@ -3150,11 +3265,21 @@ def billing_cancel_view(request):
         return redirect("billing")
 
     account = membership.account
-    subscription = stripe_service.latest_subscription_for_account(account)
+    subscription = _latest_subscription_for_account(account)
     if not subscription:
         return redirect("billing")
 
-    stripe_service.cancel_subscription(subscription)
+    if (
+        subscription.provider == models.Subscription.Provider.STRIPE
+        and getattr(settings, "STRIPE_SECRET_KEY", "")
+    ):
+        _ensure_stripe_api_key()
+        try:
+            stripe.Subscription.modify(
+                subscription.provider_sub_id, cancel_at_period_end=True
+            )
+        except stripe.error.StripeError:
+            logger.exception("Unable to cancel Stripe subscription", exc_info=True)
 
     if not subscription.cancel_at_period_end:
         subscription.cancel_at_period_end = True
@@ -3170,16 +3295,46 @@ def stripe_webhook_view(request):
 
     payload = request.body
     sig_header = request.META.get("HTTP_STRIPE_SIGNATURE", "")
-    try:
-        event = stripe_service.construct_webhook_event(payload, sig_header)
-    except stripe_service.InvalidWebhookPayload:
-        return HttpResponseBadRequest("invalid_payload")
-    except stripe_service.InvalidWebhookSignature:
-        return HttpResponseForbidden("invalid_signature")
+    secret = getattr(settings, "STRIPE_WEBHOOK_SECRET", "")
 
-    account = stripe_service.process_webhook_event(event)
-    if account:
-        onboarding.mark_checkout_paid(account)
+    if secret:
+        try:
+            event = stripe.Webhook.construct_event(payload, sig_header, secret)
+        except ValueError:
+            return HttpResponseBadRequest("invalid_payload")
+        except stripe.error.SignatureVerificationError:
+            return HttpResponseForbidden("invalid_signature")
+    else:
+        try:
+            event = json.loads(payload or "{}")
+        except json.JSONDecodeError:
+            return HttpResponseBadRequest("invalid_json")
+
+    event_type = event.get("type")
+    data_object = event.get("data", {}).get("object", {})
+
+    if event_type == "checkout.session.completed":
+        subscription_id = data_object.get("subscription")
+        if subscription_id:
+            _ensure_stripe_api_key()
+            try:
+                subscription = stripe.Subscription.retrieve(subscription_id)
+            except stripe.error.StripeError:
+                logger.exception(
+                    "Unable to retrieve subscription %s from Stripe", subscription_id
+                )
+            else:
+                account = _sync_subscription(subscription)
+                if account:
+                    onboarding.mark_checkout_paid(account)
+    elif event_type in {
+        "customer.subscription.created",
+        "customer.subscription.updated",
+        "customer.subscription.deleted",
+    }:
+        account = _sync_subscription(data_object)
+        if account:
+            onboarding.mark_checkout_paid(account)
 
     return HttpResponse(status=200)
 
