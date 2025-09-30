@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
@@ -12,8 +13,7 @@ from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from dotenv import load_dotenv
-load_dotenv()
-import os
+
 from .models import Lead, LeadRun
 from .tasks import (
     build_lead_run_pipeline,
@@ -23,7 +23,37 @@ from .tasks import (
     store_lead_entries,
 )
 
+load_dotenv()
+
 logger = logging.getLogger(__name__)
+
+TOP_CULINARY_CITIES: list[str] = [
+    "New York, NY",
+    "Los Angeles, CA",
+    "Chicago, IL",
+    "San Francisco, CA",
+    "Houston, TX",
+    "Austin, TX",
+    "Portland, OR",
+    "Seattle, WA",
+    "New Orleans, LA",
+    "Nashville, TN",
+    "Miami, FL",
+    "Charleston, SC",
+    "Atlanta, GA",
+    "Boston, MA",
+    "Philadelphia, PA",
+    "Denver, CO",
+    "Washington, DC",
+    "Las Vegas, NV",
+    "San Diego, CA",
+    "San Antonio, TX",
+    "Minneapolis, MN",
+    "Phoenix, AZ",
+    "Dallas, TX",
+    "Detroit, MI",
+    "Kansas City, MO",
+]
 
 
 @csrf_exempt
@@ -78,11 +108,17 @@ def track_open(request: HttpRequest, slug: str) -> HttpResponse:
 def lead_dashboard(request: HttpRequest) -> HttpResponse:
     """Render a dashboard for managing Outscraper lead runs."""
 
-    runs = LeadRun.objects.prefetch_related("leads").order_by("-created_at")
+    runs_qs = LeadRun.objects.prefetch_related("leads").order_by("-created_at")
+    runs = list(runs_qs)
     pending_runs: list[LeadRun] = []
     run_cards: list[dict[str, object]] = []
+    ready_runs = 0
+    total_leads = 0
     for run in runs:
         leads = list(run.leads.all())
+        total_leads += len(leads)
+        if run.status == LeadRun.Status.READY and leads:
+            ready_runs += 1
         if not leads:
             pending_runs.append(run)
             continue
@@ -112,6 +148,13 @@ def lead_dashboard(request: HttpRequest) -> HttpResponse:
         "pending_runs": pending_runs,
         "LeadRunStatus": LeadRun.Status,
         "default_limit": 10,
+        "city_choices": TOP_CULINARY_CITIES,
+        "dashboard_metrics": {
+            "total_runs": len(runs),
+            "ready_runs": ready_runs,
+            "pending_runs": len(pending_runs),
+            "total_leads": total_leads,
+        },
     }
     return render(request, "leads/dashboard.html", context)
 
@@ -121,7 +164,15 @@ def lead_dashboard(request: HttpRequest) -> HttpResponse:
 def start_lead_run(request: HttpRequest) -> HttpResponse:
     """Create a new lead run and trigger the asynchronous pipeline."""
 
-    raw_city = (request.POST.get("city") or "").strip()
+    selection = (request.POST.get("city_choice") or "").strip()
+    custom_city = (request.POST.get("custom_city") or "").strip()
+    if selection and selection != "__custom__":
+        raw_city = selection
+    elif selection == "__custom__":
+        raw_city = custom_city
+    else:
+        legacy_city = (request.POST.get("city") or "").strip()
+        raw_city = custom_city or legacy_city
     city = raw_city or None
     raw_limit = request.POST.get("limit")
     try:
@@ -136,6 +187,16 @@ def start_lead_run(request: HttpRequest) -> HttpResponse:
         status=LeadRun.Status.FETCHING,
     )
     build_lead_run_pipeline(run.id, city=city, limit=limit)
+    return redirect("lead-dashboard")
+
+
+@login_required
+@require_POST
+def delete_run(request: HttpRequest, run_id: int) -> HttpResponse:
+    """Delete a lead run and its associated leads."""
+
+    run = get_object_or_404(LeadRun, pk=run_id)
+    run.delete()
     return redirect("lead-dashboard")
 
 
