@@ -23,8 +23,103 @@
         transform: translateX(100%);
       }
     }
+    @keyframes welcome-slide-down {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    @keyframes welcome-fade-out {
+      from {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      to {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+    }
+    .welcome-banner {
+      animation: welcome-slide-down 0.4s ease-out;
+    }
+    .welcome-banner.dismissing {
+      animation: welcome-fade-out 0.3s ease-out forwards;
+    }
   </style>
   <div class="px-4 py-6 space-y-6">
+    {% if not has_seen_welcome %}
+    <div id="welcome-banner" class="welcome-banner relative overflow-hidden rounded-3xl border border-[#5C008B]/20 bg-gradient-to-br from-[#5C008B] via-[#7B1FA2] to-[#9C27B0] p-6 shadow-xl">
+      <button
+        id="dismiss-welcome"
+        type="button"
+        class="absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white transition hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white/50"
+        aria-label="Dismiss welcome message"
+      >
+        <i class="fa-solid fa-xmark text-lg" aria-hidden="true"></i>
+      </button>
+      
+      <div class="mr-12 space-y-6">
+        <div class="space-y-2">
+          <div class="inline-flex items-center gap-2 rounded-full bg-white/20 px-3 py-1 backdrop-blur-sm">
+            <i class="fa-solid fa-sparkles text-yellow-300" aria-hidden="true"></i>
+            <span class="text-xs font-semibold uppercase tracking-wide text-white">Welcome to Appertivo</span>
+          </div>
+          <h2 class="text-2xl font-bold text-white sm:text-3xl">Let's create something amazing! 🎨</h2>
+          <p class="max-w-2xl text-base text-purple-100 sm:text-lg">
+            Your AI-powered concept generator is ready to help you create unique menu ideas. Follow these simple steps to get started:
+          </p>
+        </div>
+        
+        <div class="grid gap-4 sm:grid-cols-3">
+          <div class="rounded-2xl bg-white/10 p-4 backdrop-blur-sm transition hover:bg-white/15">
+            <div class="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/20">
+              <i class="fa-solid fa-lightbulb text-xl text-yellow-300" aria-hidden="true"></i>
+            </div>
+            <h3 class="mb-1 text-sm font-semibold text-white">1. Generate Your First Concept</h3>
+            <p class="text-xs text-purple-100">Use AI to create unique dish concepts tailored to your restaurant</p>
+          </div>
+          
+          <div class="rounded-2xl bg-white/10 p-4 backdrop-blur-sm transition hover:bg-white/15">
+            <div class="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/20">
+              <i class="fa-solid fa-star text-xl text-yellow-300" aria-hidden="true"></i>
+            </div>
+            <h3 class="mb-1 text-sm font-semibold text-white">2. Save Your Favorites</h3>
+            <p class="text-xs text-purple-100">Mark concepts you love to easily access them later</p>
+          </div>
+          
+          <div class="rounded-2xl bg-white/10 p-4 backdrop-blur-sm transition hover:bg-white/15">
+            <div class="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/20">
+              <i class="fa-solid fa-book-open text-xl text-yellow-300" aria-hidden="true"></i>
+            </div>
+            <h3 class="mb-1 text-sm font-semibold text-white">3. Create a Menu</h3>
+            <p class="text-xs text-purple-100">Build complete menus from your saved concepts and dishes</p>
+          </div>
+        </div>
+        
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <a
+            href="{% url 'concepts-generate' %}"
+            class="inline-flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-base font-semibold text-[#5C008B] shadow-lg transition hover:scale-105 hover:shadow-xl"
+          >
+            <i class="fa-solid fa-rocket" aria-hidden="true"></i>
+            <span>Start Creating Concepts</span>
+          </a>
+          
+          <a
+            href="{% url 'favorites' %}"
+            class="inline-flex items-center justify-center gap-2 rounded-full border-2 border-white/30 bg-white/10 px-6 py-3 text-base font-semibold text-white backdrop-blur-sm transition hover:bg-white/20"
+          >
+            <i class="fa-solid fa-heart" aria-hidden="true"></i>
+            <span>View Favorites</span>
+          </a>
+        </div>
+      </div>
+    </div>
+    {% endif %}
     {% include "concepts/_card_assets.html" %}
     <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <div class="space-y-4">
@@ -280,6 +375,40 @@
   {{ block.super }}
   <script>
     document.addEventListener('DOMContentLoaded', function () {
+      const dismissButton = document.getElementById('dismiss-welcome');
+      const welcomeBanner = document.getElementById('welcome-banner');
+      
+      if (dismissButton && welcomeBanner) {
+        dismissButton.addEventListener('click', function () {
+          welcomeBanner.classList.add('dismissing');
+          
+          fetch('{% url 'dismiss-welcome' %}', {
+            method: 'POST',
+            headers: {
+              'X-CSRFToken': '{{ csrf_token }}',
+              'Content-Type': 'application/json',
+            },
+            credentials: 'same-origin'
+          })
+          .then(function (response) {
+            return response.json();
+          })
+          .then(function (data) {
+            if (data.success) {
+              setTimeout(function () {
+                welcomeBanner.remove();
+              }, 300);
+            }
+          })
+          .catch(function (error) {
+            console.error('Error dismissing welcome:', error);
+            setTimeout(function () {
+              welcomeBanner.remove();
+            }, 300);
+          });
+        });
+      }
+      
       function initConceptProgress(root) {
         if (!root) {
           return;

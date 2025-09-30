@@ -889,6 +889,8 @@ def dashboard(request, restaurant_id):
         pending_collaboration_total - len(collaboration_updates), 0
     )
 
+    user_profile, _ = models.UserProfile.objects.get_or_create(user=request.user)
+    
     context = {
         "restaurant": restaurant,
         "trial_info": trial_info,
@@ -908,6 +910,7 @@ def dashboard(request, restaurant_id):
         "classic_creative_slider": slider_value,
         "classic_creative_temperature": slider_temperature_float,
         "creative_bias_label": creative_bias_label,
+        "has_seen_welcome": user_profile.has_seen_welcome,
     }
     return render(request, "dashboard.html", context)
 
@@ -3303,6 +3306,17 @@ def update_notifications(request):
     prefs.save()
     return redirect("settings")
 
+
+@login_required
+@require_POST
+def dismiss_welcome_view(request):
+    """Mark the welcome message as seen for the current user."""
+    
+    profile, _ = models.UserProfile.objects.get_or_create(user=request.user)
+    profile.has_seen_welcome = True
+    profile.save(update_fields=["has_seen_welcome"])
+    
+    return JsonResponse({"success": True})
 
 
 @login_required

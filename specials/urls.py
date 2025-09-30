@@ -63,6 +63,7 @@ urlpatterns = [
     path("settings/<uuid:restaurant_id>/update-creativity/", app_views.update_creativity, name="update_creativity"),
     path("settings/<uuid:restaurant_id>/refresh-reviews/", app_views.refresh_reviews, name="refresh_reviews"),
     path("settings/notifications/", app_views.update_notifications, name="update_notifications"),
+    path("api/dismiss-welcome/", app_views.dismiss_welcome_view, name="dismiss-welcome"),
     #outscraper webhook.
     path(
         "outscraper-webhook/<uuid:restaurant_id>/<str:token>/",
