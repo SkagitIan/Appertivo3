@@ -1,0 +1,64 @@
+{% if form_errors %}
+  <div class="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+    <p class="font-semibold">We couldn't generate concepts yet.</p>
+    <ul class="mt-2 list-disc space-y-1 pl-5">
+      {% for field, errors in form_errors.items %}
+        {% for error in errors %}
+          <li>{{ error }}</li>
+        {% endfor %}
+      {% endfor %}
+    </ul>
+  </div>
+{% endif %}
+
+{% if ideas %}
+  <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <h3 class="text-base font-semibold text-[#14080E]">Concepts ready for review</h3>
+      <p class="text-sm text-slate-500">Pick the best direction to launch research and a first draft.</p>
+    </div>
+    {% if active_run %}
+      <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">Run #{{ active_run.id }}</span>
+    {% endif %}
+  </div>
+  {% if ideas_payload.notes %}
+    <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+      <p class="font-semibold">Model notes</p>
+      <p class="mt-1 whitespace-pre-wrap">{{ ideas_payload.notes }}</p>
+    </div>
+  {% endif %}
+  <div class="grid gap-4 md:grid-cols-2">
+    {% for idea in ideas %}
+      <div class="flex h-full flex-col justify-between rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
+        <div class="space-y-2">
+          <p class="text-xs uppercase font-semibold text-[#7B1FA2]">Idea {{ forloop.counter }}</p>
+          <h4 class="text-lg font-semibold text-[#14080E]">{{ idea.title }}</h4>
+          <p class="text-sm text-slate-500">{{ idea.subtitle }}</p>
+          {% if idea.angle %}
+            <p class="text-xs text-slate-500">Angle: {{ idea.angle }}</p>
+          {% endif %}
+        </div>
+        <form
+          method="post"
+          hx-post="{% url 'articles:staff_select_concept' %}"
+          hx-target="#draft-workflow"
+          hx-swap="innerHTML"
+          class="mt-4"
+        >
+          {% csrf_token %}
+          <input type="hidden" name="run_id" value="{{ active_run.id }}">
+          <input type="hidden" name="idea_index" value="{{ forloop.counter0 }}">
+          <button
+            type="submit"
+            class="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#FF5C00] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#e05400]"
+          >
+            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+            Research this concept
+          </button>
+        </form>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <p class="text-sm text-slate-500">Use the form above to generate five article directions tailored to your research context.</p>
+{% endif %}
