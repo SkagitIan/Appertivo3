@@ -112,8 +112,8 @@ class ViewSmokeTests(TestCase):
     def test_billing_upgrade_starts_checkout(self):
         onboarding.ensure_onboarding_for_user(self.user)
         with patch(
-            "app.views.stripe_service.create_checkout_session",
-            return_value="https://stripe.test/session",
+            "app.views.stripe.checkout.Session.create",
+            return_value=SimpleNamespace(url="https://stripe.test/session"),
         ) as mock_create:
             resp = self.client.post(
                 reverse("billing-upgrade"), {"next": reverse("onboarding")}
@@ -169,6 +169,50 @@ class ViewSmokeTests(TestCase):
         self.assertEqual(resp.status_code, 400)
         self.assertContains(resp, "Paste your menu or upload a PDF", status_code=400)
         self.assertEqual(models.MenuVersion.objects.count(), 0)
+
+    @override_settings(DATA_UPLOAD_MAX_MEMORY_SIZE=10)
+    def test_manual_menu_handles_large_payload_inline(self):
+        large_text = "x" * 1024
+        resp = self.client.post(
+            reverse("manual-menu"),
+            {"menu_text": large_text},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(resp.status_code, 413)
+        self.assertContains(
+            resp,
+            "too large to paste directly",
+            status_code=413,
+        )
+
+    @override_settings(DATA_UPLOAD_MAX_MEMORY_SIZE=10)
+    def test_menu_modal_handles_large_payload_inline(self):
+        large_text = "x" * 1024
+        resp = self.client.post(
+            reverse("upload_menu", args=[self.restaurant.id]),
+            {"menu_text": large_text},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(resp.status_code, 413)
+        self.assertEqual(resp["HX-Retarget"], "#menu-modal")
+        self.assertContains(
+            resp,
+            "too large to paste directly",
+            status_code=413,
+        )
+
+    def test_dashboard_hides_menu_prompt_after_manual_submission(self):
+        menu_version = models.MenuVersion.objects.create(
+            restaurant=self.restaurant,
+            source_kind=models.MenuVersion.SourceKind.PASTED_TEXT,
+            raw_markdown="Menu",
+            status=models.MenuVersion.Status.SUCCEEDED,
+        )
+        self.restaurant.active_menu_version = menu_version
+        self.restaurant.save(update_fields=["active_menu_version"])
+
+        resp = self.client.get(reverse("dashboard", args=[self.restaurant.id]))
+        self.assertFalse(resp.context["prompt_for_menu"])
 
     def test_outscraper_webhook_saves_reviews(self):
         self.restaurant.google_place_id = "place-123"

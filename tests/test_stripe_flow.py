@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from app import models
+from app import models, onboarding, views as app_views
 
 
 @override_settings(
@@ -23,8 +23,9 @@ class StripeFlowTests(TestCase):
             account=self.account, name="Stripe Resto", location_text="City"
         )
         self.client.login(username="stripe@example.com", password="pw")
+        onboarding.ensure_onboarding_for_user(self.user)
 
-    @patch("app.stripe.stripe.checkout.Session.create")
+    @patch("app.views.stripe.checkout.Session.create")
     def test_start_trial_checkout_metadata(self, mock_checkout):
         mock_checkout.return_value = SimpleNamespace(url="https://stripe.test/session")
 
@@ -39,8 +40,20 @@ class StripeFlowTests(TestCase):
         self.assertEqual(kwargs["subscription_data"]["trial_period_days"], 14)
         self.assertEqual(kwargs["customer_email"], self.user.email)
 
-    @patch("app.stripe.stripe.Subscription.retrieve")
-    @patch("app.stripe.stripe.Webhook.construct_event")
+    @patch("app.views.stripe.checkout.Session.create")
+    def test_upgrade_sets_stripe_api_key(self, mock_checkout):
+        mock_checkout.return_value = SimpleNamespace(url="https://stripe.test/session")
+        app_views.stripe.api_key = ""
+
+        response = self.client.post(
+            reverse("billing-upgrade"), {"next": reverse("onboarding")}
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(app_views.stripe.api_key, "sk_test")
+
+    @patch("app.views.stripe.Subscription.retrieve")
+    @patch("app.views.stripe.Webhook.construct_event")
     def test_webhook_checkout_creates_subscription(self, mock_construct, mock_retrieve):
         event = {
             "type": "checkout.session.completed",
@@ -77,5 +90,12 @@ class StripeFlowTests(TestCase):
         self.account.refresh_from_db()
         self.assertEqual(self.account.stripe_customer_id, "cus_123")
 
-        status_resp = self.client.get(reverse("onboarding-status"))
-        self.assertEqual(status_resp.json()["status"], "trialing")
+        status_resp = self.client.get(reverse("onboarding-status-api"))
+        state = status_resp.json()["state"]
+        self.assertIn(
+            state,
+            {
+                models.Onboarding.State.CHECKOUT_PAID,
+                models.Onboarding.State.COMPLETE,
+            },
+        )
