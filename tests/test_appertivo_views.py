@@ -109,6 +109,43 @@ class ViewSmokeTests(TestCase):
         self.assertEqual(status_resp.status_code, 200)
         self.assertIn("Current state", status_resp.content.decode())
 
+    def test_billing_upgrade_starts_checkout(self):
+        onboarding.ensure_onboarding_for_user(self.user)
+        with patch(
+            "app.views.stripe_service.create_checkout_session",
+            return_value="https://stripe.test/session",
+        ) as mock_create:
+            resp = self.client.post(
+                reverse("billing-upgrade"), {"next": reverse("onboarding")}
+            )
+
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp["Location"], "https://stripe.test/session")
+        self.assertTrue(mock_create.called)
+        kwargs = mock_create.call_args.kwargs
+        self.assertIn("success_url", kwargs)
+        self.assertIn("session_id={CHECKOUT_SESSION_ID}", kwargs["success_url"])
+
+    def test_onboarding_checkout_completion_marks_paid(self):
+        onboarding_record = onboarding.ensure_onboarding_for_user(self.user)
+        with patch(
+            "app.views.stripe_service.complete_checkout_session",
+            return_value=self.account,
+        ) as mock_complete, patch("app.onboarding.kickoff_after_payment") as mock_kickoff:
+            mock_kickoff.return_value = None
+            resp = self.client.get(
+                reverse("onboarding"), {"session_id": "cs_test_checkout"}
+            )
+
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp["Location"], reverse("onboarding"))
+        mock_complete.assert_called_once_with("cs_test_checkout")
+        onboarding_record.refresh_from_db()
+        self.assertEqual(
+            onboarding_record.state, models.Onboarding.State.CHECKOUT_PAID
+        )
+        mock_kickoff.assert_called_once_with(onboarding_record.id)
+
     def test_manual_menu(self):
         resp = self.client.get(reverse("manual-menu"), HTTP_HX_REQUEST="true")
         self.assertEqual(resp.status_code, 200)
