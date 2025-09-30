@@ -116,11 +116,27 @@ class Article(models.Model):
     def save(self, *args: Any, **kwargs: Any) -> None:
         if not self.slug:
             self.slug = slugify(self.title)[:250]
-        if self.status == "published" and not self.published_at:
-            self.published_at = timezone.now()
-        if self.status == "draft" and self.published_at:
+
+        previous_status = None
+        if self.pk:
+            previous_status = (
+                type(self)
+                .objects.filter(pk=self.pk)
+                .values_list("status", flat=True)
+                .first()
+            )
+
+        status_changed_to_published = False
+        if self.status == "published":
+            if not self.published_at:
+                self.published_at = timezone.now()
+            if previous_status != "published":
+                status_changed_to_published = True
+        elif self.status == "draft" and self.published_at:
             # Drafts should not retain a published timestamp to avoid routing confusion.
             self.published_at = None
+
+        self._generate_og_on_save = status_changed_to_published
         super().save(*args, **kwargs)
 
     def get_absolute_url(self) -> str:

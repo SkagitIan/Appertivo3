@@ -381,7 +381,7 @@ def staff_generate_concepts(request):
     context = {
         "ideas": normalized_ideas,
         "active_run": run,
-        "ideas_payload": run_payload,
+        "ideas_payload": {"notes": payload.get("notes", "")},
     }
     response = _render_partial(request, "articles/_concept_results.html", context)
     response["HX-Trigger"] = json.dumps({"articles:refresh-runs": True})
@@ -427,13 +427,13 @@ def staff_select_concept(request):
         response.model_dump() if hasattr(response, "model_dump") else getattr(response, "to_dict", lambda: {})()
     )
     payload = parse_structured_payload(extract_output_text(response))
-    citations = _ensure_list(payload.get("citations"))
-    draft_data = _ensure_dict(payload.get("draft"))
+    citations = ensure_list(payload.get("citations"))
+    draft_data = ensure_dict(payload.get("draft"))
     draft_markdown = payload.get("draft_markdown") or draft_data.get("markdown") or ""
     if not draft_markdown:
         sections = draft_data.get("sections")
         if sections:
-            draft_markdown = _sections_to_markdown(sections)
+            draft_markdown = sections_to_markdown(sections)
         elif draft_data.get("text"):
             draft_markdown = str(draft_data.get("text"))
 

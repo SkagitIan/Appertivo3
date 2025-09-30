@@ -5,49 +5,77 @@
 
 {% block extra_head %}
   <meta name="description" content="{{ article.seo_description|default:article.summary }}">
+  <meta name="author" content="Ian Larsen">
   <link rel="canonical" href="{{ request.build_absolute_uri }}">
   <meta property="og:title" content="{{ article.seo_title|default:article.title }}">
   <meta property="og:description" content="{{ article.seo_description|default:article.summary }}">
   {% if article.og_image_url %}
     <meta property="og:image" content="{{ article.og_image_url }}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
   {% endif %}
 {% endblock %}
 
 {% block header %}
-  <header class="py-12 text-center">
-    <p class="text-sm uppercase tracking-widest text-indigo-600">Appertivo Articles</p>
-    <h1 class="text-4xl font-bold text-gray-900 mt-2">{{ article.title }}</h1>
-    {% if article.published_at %}
-      <p class="mt-2 text-gray-500">Published {{ article.published_at|date:"F j, Y" }}</p>
-    {% endif %}
+  <header class="relative overflow-hidden bg-gradient-to-br from-[#2E005D] via-[#5C008B] to-[#FF5C00]">
+    <div class="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.35),_transparent_70%)]"></div>
+    <div class="relative mx-auto max-w-5xl px-6 py-16 text-center text-white">
+      <p class="text-xs font-semibold uppercase tracking-[0.3em] text-white/70">Appertivo Articles</p>
+      <h1 class="mt-4 text-4xl font-semibold leading-tight sm:text-5xl">{{ article.title }}</h1>
+      {% if article.summary %}
+        <p class="mx-auto mt-4 max-w-2xl text-base text-white/80">{{ article.summary }}</p>
+      {% endif %}
+      {% if article.published_at %}
+        <p class="mt-6 text-sm font-medium text-white/70">Published {{ article.published_at|date:"F j, Y" }}</p>
+      {% endif %}
+      <div class="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+        <div class="flex items-center gap-3 rounded-full bg-white/10 px-5 py-3 backdrop-blur">
+          <div class="flex h-12 w-12 items-center justify-center rounded-full bg-white/20 text-lg font-semibold text-white">IL</div>
+          <div class="text-left">
+            <p class="text-sm font-semibold text-white">Ian Larsen</p>
+            <p class="text-xs text-white/80">Ex-Chef &amp; Owner, Appertivo</p>
+          </div>
+        </div>
+      </div>
+    </div>
   </header>
 {% endblock %}
 
 {% block content %}
-  <article class="max-w-3xl mx-auto px-4 pb-16">
-    <div class="prose prose-lg max-w-none">
-      {{ article.body_markdown|article_markdown }}
+  <section class="relative -mt-16 bg-slate-50 pb-16">
+    <div class="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+      <article class="rounded-3xl bg-white p-6 shadow-2xl sm:p-10">
+        <div class="prose prose-lg max-w-none text-slate-800">
+          {{ article.body_markdown|article_markdown }}
+        </div>
+        {% with sources=article.sources %}
+          {% if sources %}
+            <details class="mt-12 rounded-2xl border border-slate-200 bg-slate-50/60 p-5 text-slate-700" data-testid="citations">
+              <summary class="cursor-pointer list-none text-base font-semibold text-[#5C008B]">
+                View citations ({{ sources|length }})
+              </summary>
+              <ul class="mt-4 space-y-3 text-sm">
+                {% for source in sources %}
+                  <li class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                    <div class="font-medium text-slate-900">
+                      {% if source.url %}
+                        <a href="{{ source.url }}" class="text-[#FF5C00] hover:text-[#d94a00] hover:underline" rel="noopener" target="_blank">
+                          {{ source.title|default:source.url }}
+                        </a>
+                      {% else %}
+                        {{ source.title|default:"Reference" }}
+                      {% endif %}
+                    </div>
+                    {% if source.reason %}
+                      <p class="mt-1 text-xs text-slate-500">{{ source.reason }}</p>
+                    {% endif %}
+                  </li>
+                {% endfor %}
+              </ul>
+            </details>
+          {% endif %}
+        {% endwith %}
+      </article>
     </div>
-    {% with sources=article.sources %}
-      {% if sources %}
-        <section class="mt-12">
-          <h2 class="text-xl font-semibold text-gray-900">Sources</h2>
-          <ul class="mt-4 space-y-2 list-disc list-inside text-gray-700">
-            {% for source in sources %}
-              <li>
-                {% if source.url %}
-                  <a href="{{ source.url }}" class="text-indigo-600 hover:underline" rel="noopener" target="_blank">{{ source.title|default:source.url }}</a>
-                {% else %}
-                  {{ source.title|default:"Reference" }}
-                {% endif %}
-                {% if source.reason %}
-                  <span class="text-gray-500">— {{ source.reason }}</span>
-                {% endif %}
-              </li>
-            {% endfor %}
-          </ul>
-        </section>
-      {% endif %}
-    {% endwith %}
-  </article>
+  </section>
 {% endblock %}

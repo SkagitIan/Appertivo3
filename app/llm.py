@@ -152,6 +152,9 @@ def _generate_replicate_asset(
     *,
     folder: str,
     output_quality: int,
+    width: int = 500,
+    height: int = 500,
+    crop: str = "fill",
 ) -> str:
     """Generate an image via Replicate, upload to Cloudinary, and return the URL."""
 
@@ -195,9 +198,9 @@ def _generate_replicate_asset(
                 resource_type="image",
             )
             optimized_url = cloudinary.CloudinaryImage(upload_result["public_id"]).build_url(
-                width=500,
-                height=500,
-                crop="fill",
+                width=width,
+                height=height,
+                crop=crop,
                 quality="auto",
                 fetch_format="auto",
             )
@@ -233,6 +236,23 @@ def generate_concept_sketch_from_prompt(prompt: str, default_url: str, *, user=N
         default_url,
         folder="appertivo/sketches",
         output_quality=60,
+    )
+
+
+DEFAULT_ARTICLE_OG_IMAGE_URL = "https://placehold.co/1200x630?text=Appertivo+Article"
+
+
+def generate_article_og_image(prompt: str, default_url: str | None = None) -> str:
+    """Generate a landscape OG image for an article."""
+
+    return _generate_replicate_asset(
+        prompt,
+        default_url or DEFAULT_ARTICLE_OG_IMAGE_URL,
+        folder="appertivo/articles",
+        output_quality=90,
+        width=1200,
+        height=630,
+        crop="fill",
     )
 
 
