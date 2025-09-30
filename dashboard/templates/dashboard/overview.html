@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Internal Health Dashboard</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+  </head>
+  <body class="bg-slate-100 text-slate-900">
+    <main class="mx-auto max-w-7xl px-4 py-6 lg:px-6">
+      <header class="mb-6 space-y-2">
+        <p class="text-xs font-semibold uppercase tracking-wide text-purple-600">Internal</p>
+        <div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <h1 class="text-3xl font-bold text-slate-900">SaaS Health Dashboard</h1>
+          <p class="text-sm text-slate-500">Updated {{ generated_at|date:"M j, Y g:i a" }}</p>
+        </div>
+        <p class="max-w-2xl text-sm text-slate-600">
+          A lightweight pulse for onboarding, subscription, reliability, and engagement trends. All data is read-only and intended for quick scanning across devices.
+        </p>
+      </header>
+
+      <section aria-labelledby="quick-actions" class="mb-8">
+        <div class="rounded-2xl bg-white p-5 shadow-sm">
+          <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 id="quick-actions" class="text-lg font-semibold text-slate-900">Quick actions</h2>
+              <p class="text-sm text-slate-500">Jump to the most common follow-ups from this dashboard.</p>
+            </div>
+            <div class="flex flex-wrap gap-3">
+              {% for action in quick_actions %}
+                <a href="{{ action.url }}" class="inline-flex items-center gap-2 rounded-full border border-purple-200 bg-purple-50 px-3 py-1.5 text-sm font-medium text-purple-700 transition hover:border-purple-300 hover:bg-purple-100">
+                  <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-purple-100 text-purple-700">
+                    <i class="fa-solid fa-{{ action.icon }}" aria-hidden="true"></i>
+                  </span>
+                  <span>{{ action.label }}</span>
+                </a>
+              {% endfor %}
+            </div>
+          </div>
+          <dl class="mt-4 grid gap-4 md:grid-cols-3">
+            {% for action in quick_actions %}
+              <div class="rounded-xl border border-slate-200 p-4">
+                <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ action.label }}</dt>
+                <dd class="mt-1 text-sm text-slate-600">{{ action.description }}</dd>
+              </div>
+            {% endfor %}
+          </dl>
+        </div>
+      </section>
+
+      <section aria-labelledby="onboarding" class="mb-8">
+        <div class="rounded-2xl bg-white p-5 shadow-sm">
+          <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 id="onboarding" class="text-lg font-semibold text-slate-900">User onboarding funnel</h2>
+              <p class="text-sm text-slate-500">Tracking new signups and highlighting users stalled more than {{ onboarding.stalled_days }} days.</p>
+            </div>
+            <dl class="grid grid-cols-2 gap-4 text-center sm:grid-cols-2 md:grid-cols-4">
+              <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <dt class="text-xs font-semibold uppercase text-slate-500">Signups (7d)</dt>
+                <dd class="mt-1 text-2xl font-semibold text-slate-900">{{ onboarding.signups_7 }}</dd>
+              </div>
+              <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <dt class="text-xs font-semibold uppercase text-slate-500">Signups (30d)</dt>
+                <dd class="mt-1 text-2xl font-semibold text-slate-900">{{ onboarding.signups_30 }}</dd>
+              </div>
+            </dl>
+          </div>
+          <div class="mt-5 overflow-hidden rounded-xl border border-slate-200">
+            <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+              <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th scope="col" class="px-4 py-2">User</th>
+                  <th scope="col" class="px-4 py-2">Restaurant</th>
+                  <th scope="col" class="px-4 py-2">Step</th>
+                  <th scope="col" class="px-4 py-2">Updated</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 bg-white">
+                {% for record in onboarding.records %}
+                  <tr class="{% if record.stalled %}bg-rose-50{% endif %}">
+                    <td class="px-4 py-2 font-medium text-slate-900">{{ record.email }}</td>
+                    <td class="px-4 py-2 text-slate-600">{{ record.restaurant|default:"—" }}</td>
+                    <td class="px-4 py-2 text-slate-600">{{ record.state }}</td>
+                    <td class="px-4 py-2 text-slate-500">{{ record.updated_at|timesince }} ago</td>
+                  </tr>
+                {% empty %}
+                  <tr>
+                    <td colspan="4" class="px-4 py-4 text-center text-slate-500">No onboarding activity yet.</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="subscriptions" class="mb-8">
+        <div class="rounded-2xl bg-white p-5 shadow-sm">
+          <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 id="subscriptions" class="text-lg font-semibold text-slate-900">Subscription insights</h2>
+              <p class="text-sm text-slate-500">Live plans plus recent churn before the {{ subscriptions.trial_days }}-day trial ended.</p>
+            </div>
+          </div>
+          <div class="mt-4 grid gap-4 md:grid-cols-3">
+            {% for plan in subscriptions.active_by_plan %}
+              <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p class="text-xs font-semibold uppercase text-slate-500">{{ plan.plan__name }}</p>
+                <p class="mt-2 text-3xl font-semibold text-slate-900">{{ plan.total }}</p>
+                <p class="text-xs text-slate-500">Plan code: {{ plan.plan__code }}</p>
+              </div>
+            {% empty %}
+              <p class="text-sm text-slate-500">No active subscriptions found.</p>
+            {% endfor %}
+          </div>
+          <div class="mt-6">
+            <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Canceled before trial end</h3>
+            <div class="mt-3 overflow-hidden rounded-xl border border-slate-200">
+              <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+                <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th scope="col" class="px-4 py-2">Account</th>
+                    <th scope="col" class="px-4 py-2">Plan</th>
+                    <th scope="col" class="px-4 py-2">Days active</th>
+                    <th scope="col" class="px-4 py-2">Canceled</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 bg-white">
+                  {% for sub in subscriptions.canceled_before_trial %}
+                    <tr>
+                      <td class="px-4 py-2 font-medium text-slate-900">{{ sub.account }}</td>
+                      <td class="px-4 py-2 text-slate-600">{{ sub.plan }}</td>
+                      <td class="px-4 py-2 text-slate-600">{{ sub.period_days }}</td>
+                      <td class="px-4 py-2 text-slate-500">{{ sub.canceled_on|date:"M j" }}</td>
+                    </tr>
+                  {% empty %}
+                    <tr>
+                      <td colspan="4" class="px-4 py-4 text-center text-slate-500">No early cancellations.</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="operations" class="mb-8">
+        <div class="rounded-2xl bg-white p-5 shadow-sm">
+          <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 id="operations" class="text-lg font-semibold text-slate-900">Error &amp; health monitoring</h2>
+              <p class="text-sm text-slate-500">API errors grouped by source, webhook failures, and queue health.</p>
+            </div>
+            <div class="flex gap-3 text-sm">
+              <div class="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-700">Pending: {{ operations.queue_health.pending }}</div>
+              <div class="rounded-full bg-rose-100 px-3 py-1 font-medium text-rose-700">Failed: {{ operations.queue_health.failed }}</div>
+            </div>
+          </div>
+          <div class="mt-4 grid gap-4 md:grid-cols-3">
+            {% for failure in operations.job_failures %}
+              <div class="rounded-xl border border-rose-200 bg-rose-50 p-4">
+                <p class="text-xs font-semibold uppercase text-rose-500">{{ failure.label }}</p>
+                <p class="mt-2 text-3xl font-semibold text-rose-700">{{ failure.total }}</p>
+                <p class="text-xs text-rose-400">Failed jobs</p>
+              </div>
+            {% empty %}
+              <p class="text-sm text-slate-500">No failed jobs reported.</p>
+            {% endfor %}
+          </div>
+          <div class="mt-6 grid gap-6 lg:grid-cols-2">
+            <div>
+              <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Recent API errors</h3>
+              <ul class="mt-3 space-y-3">
+                {% for error in operations.error_feed %}
+                  <li class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-sm font-semibold text-slate-900">{{ error.kind }}</p>
+                    <p class="text-xs text-slate-500">{{ error.restaurant|default:"General" }} • {{ error.created_at|timesince }} ago</p>
+                    {% if error.message %}
+                      <p class="mt-1 text-sm text-slate-600">{{ error.message }}</p>
+                    {% endif %}
+                  </li>
+                {% empty %}
+                  <li class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">No recent errors.</li>
+                {% endfor %}
+              </ul>
+            </div>
+            <div>
+              <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Webhook failures</h3>
+              <ul class="mt-3 space-y-3">
+                {% for payload in operations.webhook_failures %}
+                  <li class="rounded-xl border border-rose-200 bg-rose-50 p-3">
+                    <p class="text-sm font-semibold text-rose-700">{{ payload.restaurant|default:"Unknown" }}</p>
+                    <p class="text-xs text-rose-500">{{ payload.created_at|timesince }} ago • {{ payload.retry_count }} retries</p>
+                    {% if payload.message %}
+                      <p class="mt-1 text-sm text-rose-600">{{ payload.message }}</p>
+                    {% endif %}
+                  </li>
+                {% empty %}
+                  <li class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">No webhook failures logged.</li>
+                {% endfor %}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="engagement" class="mb-8">
+        <div class="rounded-2xl bg-white p-5 shadow-sm">
+          <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 id="engagement" class="text-lg font-semibold text-slate-900">Engagement snapshots</h2>
+              <p class="text-sm text-slate-500">Recent specials and menus alongside inactive accounts and email health.</p>
+            </div>
+          </div>
+          <div class="mt-4 grid gap-6 lg:grid-cols-2">
+            <div>
+              <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Specials created</h3>
+              <ul class="mt-3 space-y-3">
+                {% for special in engagement.specials %}
+                  <li class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-sm font-semibold text-slate-900">{{ special.title }}</p>
+                    <p class="text-xs text-slate-500">{{ special.created_at|timesince }} ago • {{ special.status }}</p>
+                  </li>
+                {% empty %}
+                  <li class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">No specials logged.</li>
+                {% endfor %}
+              </ul>
+            </div>
+            <div>
+              <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Menus published</h3>
+              <ul class="mt-3 space-y-3">
+                {% for menu in engagement.menus %}
+                  <li class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-sm font-semibold text-slate-900">{{ menu.name }}</p>
+                    <p class="text-xs text-slate-500">{{ menu.restaurant|default:"—" }} • {{ menu.created_at|timesince }} ago</p>
+                  </li>
+                {% empty %}
+                  <li class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">No menus published.</li>
+                {% endfor %}
+              </ul>
+            </div>
+          </div>
+          <div class="mt-6 grid gap-6 lg:grid-cols-2">
+            <div>
+              <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Inactive accounts (30d)</h3>
+              <ul class="mt-3 space-y-2">
+                {% for account in engagement.inactive_accounts %}
+                  <li class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                    {{ account.name }} • joined {{ account.created_at|date:"M j, Y" }}
+                  </li>
+                {% empty %}
+                  <li class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">No inactive accounts.</li>
+                {% endfor %}
+              </ul>
+            </div>
+            <div>
+              <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Email deliverability</h3>
+              <div class="mt-3 overflow-hidden rounded-xl border border-slate-200">
+                <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+                  <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th scope="col" class="px-4 py-2">Campaign</th>
+                      <th scope="col" class="px-4 py-2">Sent</th>
+                      <th scope="col" class="px-4 py-2">Opened</th>
+                      <th scope="col" class="px-4 py-2">Open %</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100 bg-white">
+                    {% for stat in engagement.email_stats %}
+                      <tr>
+                        <td class="px-4 py-2 font-medium text-slate-900">{{ stat.label }}</td>
+                        <td class="px-4 py-2 text-slate-600">{{ stat.sent }}</td>
+                        <td class="px-4 py-2 text-slate-600">{{ stat.opened }}</td>
+                        <td class="px-4 py-2 text-slate-600">{{ stat.open_rate }}%</td>
+                      </tr>
+                    {% empty %}
+                      <tr>
+                        <td colspan="4" class="px-4 py-4 text-center text-slate-500">No email activity.</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="business" class="mb-8">
+        <div class="rounded-2xl bg-white p-5 shadow-sm">
+          <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 id="business" class="text-lg font-semibold text-slate-900">Business metrics</h2>
+              <p class="text-sm text-slate-500">Conversion funnel and signup trend for the past quarter.</p>
+            </div>
+          </div>
+          <div class="mt-4 grid gap-4 md:grid-cols-3">
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p class="text-xs font-semibold uppercase text-slate-500">Signups</p>
+              <p class="mt-2 text-3xl font-semibold text-slate-900">{{ business.funnel.signups }}</p>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p class="text-xs font-semibold uppercase text-slate-500">Verified restaurants</p>
+              <p class="mt-2 text-3xl font-semibold text-slate-900">{{ business.funnel.restaurants }}</p>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p class="text-xs font-semibold uppercase text-slate-500">First specials live</p>
+              <p class="mt-2 text-3xl font-semibold text-slate-900">{{ business.funnel.published_specials }}</p>
+            </div>
+          </div>
+          <div class="mt-6">
+            <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Weekly signup sparkline</h3>
+            <div class="mt-3 grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+              {% for point in business.growth %}
+                <div class="rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-600">
+                  <p class="font-medium text-slate-900">Week of {{ point.week|date:"M j" }}</p>
+                  <p class="text-xs text-slate-500">{{ point.total }} signups</p>
+                </div>
+              {% empty %}
+                <p class="text-sm text-slate-500">No signup data available.</p>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="extras" class="mb-16">
+        <div class="rounded-2xl bg-white p-5 shadow-sm">
+          <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 id="extras" class="text-lg font-semibold text-slate-900">Extras</h2>
+              <p class="text-sm text-slate-500">Follow up on AI review queues and pending support messages.</p>
+            </div>
+          </div>
+          <div class="mt-4 grid gap-6 lg:grid-cols-2">
+            <div>
+              <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Flagged AI outputs</h3>
+              <ul class="mt-3 space-y-3">
+                {% for run in extras.flagged_outputs %}
+                  <li class="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                    <p class="text-sm font-semibold text-amber-800">{{ run.restaurant|default:"General" }}</p>
+                    <p class="text-xs text-amber-600">{{ run.created_at|timesince }} ago</p>
+                    {% if run.message %}
+                      <p class="mt-1 text-sm text-amber-700">{{ run.message }}</p>
+                    {% endif %}
+                  </li>
+                {% empty %}
+                  <li class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">No flagged runs.</li>
+                {% endfor %}
+              </ul>
+            </div>
+            <div>
+              <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Support messages</h3>
+              <ul class="mt-3 space-y-3">
+                {% for message in extras.support_messages %}
+                  <li class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-sm font-semibold text-slate-900">{{ message.name }}</p>
+                    <p class="text-xs text-slate-500">{{ message.email|default:"No email" }}{% if message.city %} • {{ message.city }}{% endif %}</p>
+                    <p class="text-xs text-slate-500">{{ message.created_at|date:"M j, Y" }}</p>
+                  </li>
+                {% empty %}
+                  <li class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">No support follow-ups pending.</li>
+                {% endfor %}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="https://kit.fontawesome.com/a2e0e9c6d5.js" crossorigin="anonymous"></script>
+  </body>
+</html>

@@ -79,6 +79,7 @@ urlpatterns = [
     path("stripe/webhook/", app_views.stripe_webhook_view, name="stripe-webhook"),
     path("jobs/<uuid:job_id>/", app_views.job_status_view, name="job-status"),
     path("notifications/", app_views.notification_list_view, name="notification-list"),
+    path("internal-dashboard/", include("dashboard.urls")),
     path("admin/articles/",articles_admin_views.dashboard_redirect,name="articles_admin_redirect",),
     path("sitemap.xml",sitemap,{"sitemaps": {"articles": ArticlesSitemap()}},name="sitemap",),
     # Existing API and sample views
