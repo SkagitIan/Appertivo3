@@ -45,7 +45,7 @@ from itertools import islice
 from app.tasks import create_ideation_run
 from . import onboarding, stripe as stripe_service
 
-stripe.api_key = os.getenv('STRIPE_TEST_KEY')
+stripe_service.stripe.api_key = os.getenv("STRIPE_TEST_KEY")
 logger = logging.getLogger(__name__)
 
 
@@ -827,6 +827,13 @@ def onboarding_view(request):
     )
     account = membership.account if membership else None
     subscription = None
+
+    session_id = request.GET.get("session_id")
+    if session_id:
+        completed_account = stripe_service.complete_checkout_session(session_id)
+        if completed_account and (not account or completed_account.id == account.id):
+            onboarding.mark_checkout_paid(completed_account)
+            return redirect(reverse("onboarding"))
 
     if account:
         subscription = (
@@ -3116,8 +3123,10 @@ def billing_upgrade_view(request):
     next_path = request.POST.get("next") or reverse("billing")
     if not isinstance(next_path, str) or not next_path.startswith("/"):
         next_path = reverse("billing")
-    success_url = request.build_absolute_uri(next_path)
-    cancel_url = success_url
+    base_success_url = request.build_absolute_uri(next_path)
+    success_joiner = "&" if "?" in base_success_url else "?"
+    success_url = f"{base_success_url}{success_joiner}session_id={{CHECKOUT_SESSION_ID}}"
+    cancel_url = base_success_url
 
     session_url = stripe_service.create_checkout_session(
         account=account,

@@ -225,6 +225,36 @@ def retrieve_subscription(subscription_id: str) -> Optional[dict]:
         return None
 
 
+def complete_checkout_session(session_id: str) -> Optional[models.Account]:
+    """Sync the subscription tied to a completed checkout session."""
+
+    if not session_id:
+        return None
+
+    ensure_api_key()
+    try:
+        session = stripe.checkout.Session.retrieve(session_id)
+    except stripe.error.StripeError:
+        logger.exception(
+            "Unable to retrieve Stripe checkout session %s", session_id,
+            exc_info=True,
+        )
+        return None
+
+    subscription_id = getattr(session, "subscription", None)
+    if subscription_id is None and isinstance(session, dict):
+        subscription_id = session.get("subscription")
+    if not subscription_id:
+        return None
+
+    subscription = retrieve_subscription(subscription_id)
+    if not subscription:
+        return None
+
+    account = sync_subscription(subscription)
+    return account
+
+
 def process_webhook_event(event: dict) -> Optional[models.Account]:
     """Process a webhook event and return the affected account when available."""
 
