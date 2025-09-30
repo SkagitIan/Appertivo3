@@ -6,63 +6,16 @@ from typing import Any, Dict, Optional
 
 from django.utils import timezone
 
-try:  # pragma: no cover - optional import guard for tests
-    from openai import OpenAI
-except ImportError:  # pragma: no cover - handled during CI without openai installed
-    OpenAI = None  # type: ignore
-
 from .models import PromptTemplate, RunStep
+from .openai_helpers import (
+    calculate_nano_cost_cents,
+    extract_output_text,
+    get_openai_client,
+    parse_structured_payload,
+)
 from .pipeline import build_next_input, finalize_run, next_step_name, schedule_step
 
 logger = logging.getLogger(__name__)
-
-
-def get_openai_client():
-    if OpenAI is None:
-        raise RuntimeError("openai package is not installed")
-    return OpenAI()
-
-
-def _extract_text(response: Any) -> str:
-    if response is None:
-        return ""
-    text = getattr(response, "output_text", None)
-    if text:
-        return text
-    output = getattr(response, "output", None)
-    if output and isinstance(output, list):
-        texts = []
-        for item in output:
-            content = item.get("content") if isinstance(item, dict) else None
-            if isinstance(content, list):
-                for piece in content:
-                    if isinstance(piece, dict) and piece.get("type") == "output_text":
-                        texts.append(piece.get("text", ""))
-            elif isinstance(content, str):
-                texts.append(content)
-        return "\n".join(filter(None, texts))
-    if hasattr(response, "model_dump_json"):
-        try:
-            data = json.loads(response.model_dump_json())
-            return data.get("output_text", "")
-        except Exception:  # pragma: no cover - defensive
-            return ""
-    return ""
-
-
-def _parse_payload(text: str) -> Dict[str, Any]:
-    cleaned = text.strip()
-    if not cleaned:
-        return {}
-    # Allow fenced code blocks from the model output.
-    if cleaned.startswith("```"):
-        cleaned = cleaned.strip("`")
-        if "json" in cleaned.splitlines()[0]:
-            cleaned = "\n".join(cleaned.splitlines()[1:])
-    try:
-        return json.loads(cleaned)
-    except json.JSONDecodeError:
-        return {"text": text}
 
 
 def run_step(step_id: int, *, client: Optional[Any] = None) -> None:
@@ -106,8 +59,8 @@ def run_step(step_id: int, *, client: Optional[Any] = None) -> None:
             if hasattr(response, "model_dump")
             else getattr(response, "to_dict", lambda: {})()
         )
-        output_text = _extract_text(response)
-        parsed_payload = _parse_payload(output_text)
+        output_text = extract_output_text(response)
+        parsed_payload = parse_structured_payload(output_text)
 
         step.status = "ok"
         step.output_payload = parsed_payload
@@ -116,9 +69,9 @@ def run_step(step_id: int, *, client: Optional[Any] = None) -> None:
         step.save(update_fields=["status", "output_payload", "raw_response", "ended_at"])
 
         usage = getattr(response, "usage", None)
-        if usage and hasattr(usage, "total_tokens"):
-            total_tokens = usage.total_tokens  # type: ignore[attr-defined]
-            run.cost_cents += int(total_tokens or 0)
+        cost_cents = calculate_nano_cost_cents(usage)
+        if cost_cents:
+            run.cost_cents += cost_cents
             run.save(update_fields=["cost_cents"])
 
         next_step = next_step_name(step.name)
