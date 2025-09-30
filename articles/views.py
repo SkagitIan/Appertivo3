@@ -23,6 +23,7 @@ from .pdf_utils import extract_pdf_text
 
 RESEARCH_RESPONSE_SCHEMA = {
     "name": "article_research",
+    "type": "json_schema",
     "strict": True,
     "schema": {
         "type": "object",
@@ -40,7 +41,7 @@ RESEARCH_RESPONSE_SCHEMA = {
                         "snippet": {"type": "string"},
                         "source": {"type": "string"},
                     },
-                    "required": ["title", "url"],
+                    "required": ["title", "url", "snippet", "source"]
                 },
             },
             "draft": {
@@ -61,11 +62,12 @@ RESEARCH_RESPONSE_SCHEMA = {
                                 },
                                 "body": {"type": "string"},
                             },
-                            "required": ["heading"],
+                            "required": ["heading", "paragraphs", "body"]
                         },
                     },
                     "text": {"type": "string"},
                 },
+                "required": ["title", "sections", "text"]
             },
         },
         "required": ["summary", "citations", "draft"],
@@ -477,10 +479,10 @@ def staff_select_concept(request):
         f"\n\nTopic focus: {context_details.get('topic', '')}"
     )
     response = client.responses.create(
-        model=run.model_info or "gpt-4.1-nano",
+        model="gpt-5",
         input=prompt,
         tools=[{"type": "web_search"}],
-        response_format={"type": "json_schema", "json_schema": RESEARCH_RESPONSE_SCHEMA},
+        text={"format": RESEARCH_RESPONSE_SCHEMA},
     )
     response_dict = (
         response.model_dump() if hasattr(response, "model_dump") else getattr(response, "to_dict", lambda: {})()
