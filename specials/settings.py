@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     'appertivo.leads.apps.LeadsConfig',
     'articles.apps.ArticlesConfig',
     'django_q',
+    'dashboard.apps.DashboardConfig',
 ]
 
 # Map Django message levels to Bootstrap alert classes
