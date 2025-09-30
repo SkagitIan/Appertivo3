@@ -44,6 +44,7 @@ from itertools import islice
 
 
 from app.tasks import create_ideation_run
+from . import onboarding
 
 
 stripe.api_key = settings.STRIPE_SECRET_KEY or ""
@@ -306,12 +307,12 @@ def _stripe_timestamp(value: Optional[int]) -> datetime.datetime:
     return datetime.datetime.fromtimestamp(value, tz=datetime.timezone.utc)
 
 
-def _sync_subscription(subscription_data: dict) -> None:
+def _sync_subscription(subscription_data: dict) -> Optional[models.Account]:
     """Create or update a subscription based on Stripe payload."""
 
     sub_id = subscription_data.get("id")
     if not sub_id:
-        return
+        return None
 
     account: Optional[models.Account] = None
     local = models.Subscription.objects.filter(provider_sub_id=sub_id).first()
@@ -332,7 +333,7 @@ def _sync_subscription(subscription_data: dict) -> None:
             ).first()
 
     if not account:
-        return
+        return None
 
     customer_id = subscription_data.get("customer")
     if customer_id and account.stripe_customer_id != customer_id:
@@ -357,12 +358,16 @@ def _sync_subscription(subscription_data: dict) -> None:
         ),
     }
 
-    models.Subscription.objects.update_or_create(
+    subscription_obj, _ = models.Subscription.objects.update_or_create(
         account=account,
         provider=models.Subscription.Provider.STRIPE,
         provider_sub_id=sub_id,
         defaults=defaults,
     )
+    if subscription_obj.account_id != account.id:
+        subscription_obj.account = account
+        subscription_obj.save(update_fields=["account"])
+    return account
 
 
 def _latest_subscription_for_account(
@@ -614,30 +619,12 @@ def signup_view(request):
             )
 
         try:
-            with transaction.atomic():
-                user = User.objects.create_user(
-                    username=email, email=email, password=password
-                )
-                models.UserProfile.objects.create(user=user)
-                account = models.Account.objects.create(name=restaurant_name)
-                models.Membership.objects.create(
-                    account=account, user=user, role=models.Membership.Role.OWNER
-                )
-                restaurant = models.Restaurant.objects.create(
-                    account=account,
-                    name=restaurant_name,
-                    location_text=location,
-                )
-                payload = _queue_outscraper_payload(
-                    restaurant,
-                    restaurant_name=restaurant_name,
-                    location=location,
-                )
-                transaction.on_commit(
-                    lambda payload_id=str(payload.id): run_outscraper_search.delay(
-                        payload_id
-                    )
-                )
+            signup_result = onboarding.start_signup(
+                email=email,
+                password=password,
+                restaurant_name=restaurant_name,
+                location=location,
+            )
         except IntegrityError:
             logger.exception("Signup failed due to database error", extra={"email": email})
             error_message = "We couldn't sign you up right now. Please try again."
@@ -648,6 +635,10 @@ def signup_view(request):
                 "auth/signup.html",
                 {"error": error_message, "form_data": form_data},
             )
+
+        user = signup_result.user
+        account = signup_result.account
+        restaurant = signup_result.restaurant
 
         login(request, user)
         request.session["onboarding_account_id"] = str(account.id)
@@ -1020,7 +1011,9 @@ def menus_view(request):
 
 @login_required
 def onboarding_view(request):
-    """Show onboarding progress and billing step."""
+    """Render the onboarding workspace using the state machine."""
+
+    onboarding_record = onboarding.ensure_onboarding_for_user(request.user)
 
     membership = (
         models.Membership.objects.filter(user=request.user)
@@ -1028,67 +1021,36 @@ def onboarding_view(request):
         .first()
     )
     account = membership.account if membership else None
-    restaurant = None
     subscription = None
-    latest_payload = None
-    latest_menu_version = None
-    menu_success = False
-    menu_error = ""
 
     if account:
-        restaurant = (
-            models.Restaurant.objects.filter(account=account)
-            .order_by("created_at")
-            .first()
-        )
         subscription = (
             models.Subscription.objects.filter(account=account)
             .order_by("-created_at")
             .first()
         )
 
-    if restaurant:
-        latest_payload = (
-            models.OutscraperPayload.objects.filter(restaurant=restaurant)
-            .order_by("-created_at")
-            .first()
+    if request.method == "POST" and request.POST.get("form") == "consent":
+        onboarding.record_consent(
+            onboarding_record,
+            accepted_terms=bool(request.POST.get("accepted_terms")),
+            accepted_privacy=bool(request.POST.get("accepted_privacy")),
+            authorized_data_fetch=bool(request.POST.get("authorized_data_fetch")),
         )
-        latest_menu_version = (
-            models.MenuVersion.objects.filter(restaurant=restaurant)
-            .order_by("-created_at")
-            .first()
-        )
-        if latest_menu_version and latest_menu_version.status == models.MenuVersion.Status.SUCCEEDED:
-            menu_success = True
+        onboarding_record.refresh_from_db()
 
-    if request.method == "POST":
-        menu_url = (request.POST.get("menu_url") or "").strip()
-        if not restaurant:
-            menu_error = "We couldn't find your restaurant record yet."
-        elif not menu_url:
-            menu_error = "Please provide a menu URL."
-        else:
-            restaurant.add_menu_url(menu_url)
-            restaurant.save(update_fields=["menu_urls", "primary_menu_url"])
-            latest_menu_version = models.MenuVersion.objects.create(
-                restaurant=restaurant,
-                source_url=menu_url,
-                source_kind=models.MenuVersion.SourceKind.URL_SCRAPE,
-                raw_markdown="",
-                status=models.MenuVersion.Status.QUEUED,
-            )
-            transaction.on_commit(
-                lambda mv_id=str(latest_menu_version.id): scrape_menu.delay(mv_id)
-            )
-            menu_success = True
+    status = onboarding.status_for(onboarding_record)
+    state_label = dict(models.Onboarding.State.choices).get(
+        status.state, status.state.replace("_", " ").title()
+    )
 
-    if request.session.get("menu_success"):
-        menu_success = True
-        request.session.pop("menu_success")
+    if (
+        status.state == models.Onboarding.State.COMPLETE
+        and onboarding_record.restaurant
+    ):
+        return redirect(reverse("dashboard", args=[onboarding_record.restaurant.id]))
 
     just_signed_up = request.session.pop("just_signed_up", False)
-    if request.method == "POST" and just_signed_up and not menu_success:
-        request.session["just_signed_up"] = True
 
     subscription_allows_dashboard = False
     subscription_requires_update = False
@@ -1106,9 +1068,14 @@ def onboarding_view(request):
         remaining = subscription.current_period_end - timezone.now()
         trial_days_remaining = max(remaining.days, 0)
 
-    dashboard_url = reverse("dashboard", args=[restaurant.id]) if restaurant else ""
+    restaurant = onboarding_record.restaurant
+    dashboard_url = (
+        reverse("dashboard", args=[restaurant.id]) if restaurant else ""
+    )
 
     context = {
+        "onboarding": onboarding_record,
+        "status": status,
         "restaurant": restaurant,
         "subscription": subscription,
         "trial_days": trial_days,
@@ -1116,37 +1083,53 @@ def onboarding_view(request):
         "trial_days_remaining": trial_days_remaining,
         "show_start_trial": not subscription
         or subscription.status == models.Subscription.Status.CANCELED,
-        "outscraper_payload": latest_payload,
-        "latest_menu_version": latest_menu_version,
-        "menu_success": menu_success,
-        "menu_error": menu_error,
         "just_signed_up": just_signed_up,
         "dashboard_url": dashboard_url,
         "subscription_allows_dashboard": subscription_allows_dashboard,
         "subscription_requires_update": subscription_requires_update,
+        "consent_required": not (
+            onboarding_record.accepted_terms
+            and onboarding_record.accepted_privacy
+            and onboarding_record.authorized_data_fetch
+        ),
+        "retry_url": reverse("onboarding-retry"),
+        "state_label": state_label,
     }
     return render(request, "onboarding.html", context)
 
 
 @login_required
 def onboarding_status_view(request):
-    """Return simple onboarding status."""
+    """Return the onboarding progress fragment for HTMX polling."""
 
-    membership = models.Membership.objects.filter(user=request.user).first()
-    subscription = None
-    if membership:
-        subscription = (
-            models.Subscription.objects.filter(account=membership.account)
-            .order_by("-created_at")
-            .first()
-        )
-
-    return JsonResponse(
-        {
-            "status": "pending" if not subscription else subscription.status,
-            "subscription_started": bool(subscription),
-        }
+    onboarding_record = onboarding.ensure_onboarding_for_user(request.user)
+    status = onboarding.status_for(onboarding_record)
+    restaurant = onboarding_record.restaurant
+    state_label = dict(models.Onboarding.State.choices).get(
+        status.state, status.state.replace("_", " ").title()
     )
+    context = {
+        "onboarding": onboarding_record,
+        "status": status,
+        "dashboard_url": (
+            reverse("dashboard", args=[restaurant.id]) if restaurant else ""
+        ),
+        "retry_url": reverse("onboarding-retry"),
+        "state_label": state_label,
+    }
+    return render(request, "onboarding/progress_fragment.html", context)
+
+
+@login_required
+@require_POST
+def onboarding_retry_view(request):
+    """Retry the onboarding pipeline after a failure."""
+
+    onboarding_record = onboarding.ensure_onboarding_for_user(request.user)
+    onboarding.retry_failed(onboarding_record)
+    if request.headers.get("HX-Request"):
+        return onboarding_status_view(request)
+    return redirect("onboarding")
 
 
 @login_required
@@ -3193,6 +3176,7 @@ def refresh_reviews(request, restaurant_id):
         logger.warning("No query value available for Outscraper reviews on %s", restaurant.id)
         return redirect("settings")
 
+
     webhook_url = request.build_absolute_uri(reverse("outscraper_webhook"))
     params = {
         "query": query_value,
@@ -3346,6 +3330,8 @@ def billing_upgrade_view(request):
     else:
         session_kwargs["customer_email"] = request.user.email
 
+    onboarding.mark_checkout_started(request.user)
+
     try:
         checkout_session = stripe.checkout.Session.create(**session_kwargs)
     except stripe.error.StripeError:
@@ -3428,13 +3414,17 @@ def stripe_webhook_view(request):
                     "Unable to retrieve subscription %s from Stripe", subscription_id
                 )
             else:
-                _sync_subscription(subscription)
+                account = _sync_subscription(subscription)
+                if account:
+                    onboarding.mark_checkout_paid(account)
     elif event_type in {
         "customer.subscription.created",
         "customer.subscription.updated",
         "customer.subscription.deleted",
     }:
-        _sync_subscription(data_object)
+        account = _sync_subscription(data_object)
+        if account:
+            onboarding.mark_checkout_paid(account)
 
     return HttpResponse(status=200)
 
