@@ -145,7 +145,6 @@ def generate_research_draft(step_id: int, *, client: Optional[Any] = None) -> No
         f"\n\nSelected concept: {json.dumps(selected_idea, ensure_ascii=False)}"
         f"\n\nContext notes: {context_details.get('context', '')}"
         f"\n\nExtracted PDF notes: {context_details.get('pdf_context', '')}"
-        f"\n\nTopic focus: {context_details.get('topic', '')}"
     )
 
     try:
