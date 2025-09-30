@@ -1005,7 +1005,7 @@ def onboarding_view(request):
         completed_account = stripe_service.complete_checkout_session(session_id)
         if completed_account and (not account or completed_account.id == account.id):
             onboarding.mark_checkout_paid(completed_account)
-            return redirect(reverse("onboarding"))
+            return redirect(reverse("onboarding-status"))
 
     if account:
         subscription = (
@@ -1033,6 +1033,11 @@ def onboarding_view(request):
         and onboarding_record.restaurant
     ):
         return redirect(reverse("dashboard", args=[onboarding_record.restaurant.id]))
+
+    state_index = onboarding.STATE_INDEX.get(status.state, -1)
+    checkout_paid_index = onboarding.STATE_INDEX.get(models.Onboarding.State.CHECKOUT_PAID, -1)
+    if state_index >= checkout_paid_index and status.state != models.Onboarding.State.COMPLETE:
+        return redirect(reverse("onboarding-status"))
 
     just_signed_up = request.session.pop("just_signed_up", False)
 
@@ -1083,7 +1088,7 @@ def onboarding_view(request):
 
 
 @login_required
-def onboarding_status_view(request):
+def onboarding_progress_fragment_view(request):
     """Return the onboarding progress fragment for HTMX polling."""
 
     onboarding_record = onboarding.ensure_onboarding_for_user(request.user)
@@ -1105,6 +1110,48 @@ def onboarding_status_view(request):
 
 
 @login_required
+def onboarding_status_api_view(request):
+    """API endpoint returning onboarding status as JSON."""
+
+    onboarding_record = onboarding.ensure_onboarding_for_user(request.user)
+    status = onboarding.status_for(onboarding_record)
+    restaurant = onboarding_record.restaurant
+    
+    return JsonResponse({
+        "state": status.state,
+        "progress": status.progress,
+        "messages": status.messages,
+        "last_error": status.last_error or "",
+        "can_retry": status.can_retry,
+        "dashboard_url": reverse("dashboard", args=[restaurant.id]) if restaurant else "",
+    })
+
+
+@login_required
+def onboarding_status_view(request):
+    """Render full-page onboarding status with real-time progress tracking."""
+
+    onboarding_record = onboarding.ensure_onboarding_for_user(request.user)
+    status = onboarding.status_for(onboarding_record)
+    restaurant = onboarding_record.restaurant
+    state_label = dict(models.Onboarding.State.choices).get(
+        status.state, status.state.replace("_", " ").title()
+    )
+    
+    context = {
+        "onboarding": onboarding_record,
+        "status": status,
+        "dashboard_url": (
+            reverse("dashboard", args=[restaurant.id]) if restaurant else ""
+        ),
+        "retry_url": reverse("onboarding-retry"),
+        "state_label": state_label,
+        "api_url": reverse("onboarding-status-api"),
+    }
+    return render(request, "onboarding/status.html", context)
+
+
+@login_required
 @require_POST
 def onboarding_retry_view(request):
     """Retry the onboarding pipeline after a failure."""
@@ -1112,8 +1159,8 @@ def onboarding_retry_view(request):
     onboarding_record = onboarding.ensure_onboarding_for_user(request.user)
     onboarding.retry_failed(onboarding_record)
     if request.headers.get("HX-Request"):
-        return onboarding_status_view(request)
-    return redirect("onboarding")
+        return onboarding_progress_fragment_view(request)
+    return redirect("onboarding-status")
 
 
 @login_required
