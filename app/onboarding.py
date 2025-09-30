@@ -6,7 +6,7 @@ import json
 import logging
 import uuid
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 from celery import chain, shared_task
 from django.conf import settings
@@ -66,6 +66,15 @@ class OnboardingStatus:
     can_retry: bool
 
 
+
+@dataclass
+class SignupResult:
+    """Details created during the signup bootstrap flow."""
+    user: Any
+    account: models.Account
+    restaurant: models.Restaurant
+    onboarding: models.Onboarding
+
 def _state_index(state: str) -> int:
     return STATE_INDEX.get(state, -1)
 
@@ -100,6 +109,44 @@ def ensure_onboarding_for_user(user) -> models.Onboarding:
         onboarding.mark(models.Onboarding.State.EMAIL_CONFIRMED, progress=5)
     return onboarding
 
+
+def start_signup(
+    *, email: str, password: str, restaurant_name: str, location: str
+) -> SignupResult:
+    """Create the core records for a new signup flow."""
+
+    User = get_user_model()
+    with transaction.atomic():
+        user = User.objects.create_user(username=email, email=email, password=password)
+        models.UserProfile.objects.create(user=user)
+        account = models.Account.objects.create(name=restaurant_name)
+        models.Membership.objects.create(
+            account=account, user=user, role=models.Membership.Role.OWNER
+        )
+        restaurant = models.Restaurant.objects.create(
+            account=account,
+            name=restaurant_name,
+            location_text=location,
+        )
+        onboarding_record, created = models.Onboarding.objects.get_or_create(
+            user=user, defaults={"restaurant": restaurant}
+        )
+        if not created and onboarding_record.restaurant_id != restaurant.id:
+            onboarding_record.restaurant = restaurant
+            onboarding_record.save(update_fields=["restaurant", "updated_at"])
+        if onboarding_record.state == models.Onboarding.State.CREATED:
+            onboarding_record.mark(
+                models.Onboarding.State.EMAIL_CONFIRMED,
+                progress=10,
+                message="Signup completed",
+            )
+
+    return SignupResult(
+        user=user,
+        account=account,
+        restaurant=restaurant,
+        onboarding=onboarding_record,
+    )
 
 def record_consent(
     onboarding: models.Onboarding,

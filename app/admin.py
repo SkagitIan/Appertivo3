@@ -103,7 +103,6 @@ class DishIdeaInline(admin.TabularInline):
     fields = ("title", "description")
     show_change_link = True
 
-
 @admin.register(models.Onboarding)
 class OnboardingAdmin(TimestampedAdmin):
     list_display = (
@@ -124,12 +123,10 @@ class OnboardingAdmin(TimestampedAdmin):
         "last_error",
     )
 
-
 @admin.register(models.OnboardingEvent)
 class OnboardingEventAdmin(TimestampedAdmin):
     list_display = ("onboarding", "from_state", "to_state", "created_at")
     list_filter = ("to_state",)
-
 
 @admin.register(models.Restaurant)
 class RestaurantAdmin(admin.ModelAdmin):
