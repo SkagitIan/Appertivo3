@@ -10,7 +10,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from app import models, views
+from app import models, onboarding, views
 
 
 @override_settings(
@@ -102,8 +102,12 @@ class ViewSmokeTests(TestCase):
     def test_onboarding_views(self):
         resp = self.client.get(reverse("onboarding"))
         self.assertEqual(resp.status_code, 200)
-        status_resp = self.client.get(reverse("onboarding-status"))
-        self.assertEqual(status_resp.json()["status"], "pending")
+        self.assertContains(resp, "Track onboarding progress")
+        status_resp = self.client.get(
+            reverse("onboarding-status"), HTTP_HX_REQUEST="true"
+        )
+        self.assertEqual(status_resp.status_code, 200)
+        self.assertIn("Current state", status_resp.content.decode())
 
     def test_manual_menu(self):
         resp = self.client.get(reverse("manual-menu"), HTTP_HX_REQUEST="true")
@@ -132,6 +136,11 @@ class ViewSmokeTests(TestCase):
     def test_outscraper_webhook_saves_reviews(self):
         self.restaurant.google_place_id = "place-123"
         self.restaurant.save(update_fields=["google_place_id"])
+        models.Onboarding.objects.create(
+            user=self.user,
+            restaurant=self.restaurant,
+            state=models.Onboarding.State.CHECKOUT_PAID,
+        )
 
         payload = {
             "data": [
@@ -148,16 +157,21 @@ class ViewSmokeTests(TestCase):
                 ]
             ]
         }
+        token = onboarding.sign_restaurant_token(self.restaurant.id)
+        url = reverse("outscraper_webhook", args=[self.restaurant.id, token])
         resp = self.client.post(
-            reverse("outscraper_webhook"),
+            url,
             data=json.dumps(payload),
             content_type="application/json",
         )
         self.assertEqual(resp.status_code, 200)
+        self.assertJSONEqual(resp.content, {"status": "ok"})
         self.restaurant.refresh_from_db()
         self.assertEqual(self.restaurant.review_count, 25)
         self.assertAlmostEqual(float(self.restaurant.rating), 4.7)
         self.assertEqual(self.restaurant.reviews_json, payload)
+        onboarding_record = models.Onboarding.objects.get(restaurant=self.restaurant)
+        self.assertEqual(onboarding_record.state, models.Onboarding.State.REVIEWS_DONE)
 
     @override_settings(OUTSCRAPER_API_KEY="test-key")
     def test_refresh_reviews_calls_outscraper(self):
@@ -176,7 +190,10 @@ class ViewSmokeTests(TestCase):
         self.assertIn("params", kwargs)
         self.assertEqual(kwargs["headers"], {"X-API-KEY": "test-key"})
         self.assertEqual(kwargs["params"]["query"], "abc123")
-        self.assertIn(str(self.restaurant.id), kwargs["params"]["webhook"])
+        webhook_url = kwargs["params"]["webhook"]
+        self.assertIn(str(self.restaurant.id), webhook_url)
+        token = webhook_url.rstrip("/").split("/")[-1]
+        self.assertTrue(onboarding.verify_restaurant_token(token, self.restaurant.id))
 
     def test_dashboard_displays_contextual_ai_component(self):
         self.restaurant.context_json = {
