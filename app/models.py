@@ -30,9 +30,15 @@ class Account(TimestampedModel):
 class UserProfile(TimestampedModel):
     """Stores per-user settings not in auth_user."""
 
+    DEFAULT_VIEW_MODE = "list"
+
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     timezone = models.TextField(default="America/Los_Angeles")
-    preferred_view_mode = models.CharField(max_length=20, null=True, blank=True)
+    preferred_view_mode = models.CharField(
+        max_length=20,
+        default=DEFAULT_VIEW_MODE,
+        blank=True,
+    )
 
 
 class Membership(TimestampedModel):
