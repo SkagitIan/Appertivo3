@@ -608,6 +608,16 @@ def signup_view(request):
                 {"error": "Please complete all fields.", "form_data": form_data},
             )
 
+        if User.objects.filter(username__iexact=email).exists():
+            error_message = "An account with that email already exists."
+            if is_json:
+                return JsonResponse({"error": "email_in_use"}, status=400)
+            return render(
+                request,
+                "auth/signup.html",
+                {"error": error_message, "form_data": form_data},
+            )
+
         try:
             with transaction.atomic():
                 user = User.objects.create_user(
@@ -634,9 +644,10 @@ def signup_view(request):
                     )
                 )
         except IntegrityError:
-            error_message = "An account with that email already exists."
+            logger.exception("Signup failed due to database error", extra={"email": email})
+            error_message = "We couldn't sign you up right now. Please try again."
             if is_json:
-                return JsonResponse({"error": "email_in_use"}, status=400)
+                return JsonResponse({"error": "signup_failed"}, status=500)
             return render(
                 request,
                 "auth/signup.html",
