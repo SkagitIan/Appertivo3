@@ -10,70 +10,13 @@ from django.http import Http404, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
+from django_q.tasks import async_task
 
 from .models import Article, ArticleRun, RunStep
-from .openai_helpers import (
-    calculate_nano_cost_cents,
-    extract_output_text,
-    get_openai_client,
-    parse_structured_payload,
-)
+from .openai_helpers import extract_output_text, get_openai_client, parse_structured_payload
 from .pdf_utils import extract_pdf_text
-
-
-RESEARCH_RESPONSE_SCHEMA = {
-    "name": "article_research",
-    "type": "json_schema",
-    "strict": True,
-    "schema": {
-        "type": "object",
-        "additionalProperties": False,
-        "properties": {
-            "summary": {"type": "string"},
-            "citations": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "properties": {
-                        "title": {"type": "string"},
-                        "url": {"type": "string"},
-                        "snippet": {"type": "string"},
-                        "source": {"type": "string"},
-                    },
-                    "required": ["title", "url", "snippet", "source"]
-                },
-            },
-            "draft": {
-                "type": "object",
-                "additionalProperties": False,
-                "properties": {
-                    "title": {"type": "string"},
-                    "sections": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "additionalProperties": False,
-                            "properties": {
-                                "heading": {"type": "string"},
-                                "paragraphs": {
-                                    "type": "array",
-                                    "items": {"type": "string"},
-                                },
-                                "body": {"type": "string"},
-                            },
-                            "required": ["heading", "paragraphs", "body"]
-                        },
-                    },
-                    "text": {"type": "string"},
-                },
-                "required": ["title", "sections", "text"]
-            },
-        },
-        "required": ["summary", "citations", "draft"],
-    },
-}
-
+from .schemas import RESEARCH_RESPONSE_SCHEMA
+from .utils import apply_usage_cost, ensure_dict, ensure_list, sections_to_markdown
 
 class ArticleConceptForm(forms.Form):
     topic = forms.CharField(
@@ -90,8 +33,9 @@ class ArticleConceptForm(forms.Form):
     )
     context = forms.CharField(
         label="Research context",
+        required=False,
         widget=forms.Textarea(attrs={"rows": 6, "class": "rounded-xl border border-slate-200 p-3"}),
-        help_text="Paste summaries, insights, or research notes to ground the concepts.",
+        help_text="Optional unless you upload a PDF — add quick notes to ground the concepts.",
     )
     pdf_upload = forms.FileField(
         label="Attach PDF research",
@@ -103,8 +47,19 @@ class ArticleConceptForm(forms.Form):
                 "class": "rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm",
             }
         ),
-        help_text="Optional. Upload a PDF to extract text for the research context.",
+        help_text="Optional. Uploading research counts as context if you prefer not to type notes.",
     )
+
+    def clean(self) -> Dict[str, Any]:
+        cleaned_data = super().clean()
+        context_text = (cleaned_data.get("context") or "").strip()
+        pdf = cleaned_data.get("pdf_upload")
+        if not context_text and not pdf:
+            raise forms.ValidationError(
+                "Add brief context notes or attach a research PDF so the model has guidance."
+            )
+        cleaned_data["context"] = context_text
+        return cleaned_data
 
 
 class ArticleConceptChoiceForm(forms.Form):
@@ -130,32 +85,6 @@ class ArticlePublishForm(forms.Form):
     article_id = forms.IntegerField()
 
 
-def _ensure_dict(value: Any) -> Dict[str, Any]:
-    if isinstance(value, dict):
-        return value
-    if isinstance(value, str):
-        try:
-            data = json.loads(value)
-            if isinstance(data, dict):
-                return data
-        except json.JSONDecodeError:
-            return {}
-    return {}
-
-
-def _ensure_list(value: Any) -> List[Any]:
-    if isinstance(value, list):
-        return value
-    if isinstance(value, str):
-        try:
-            data = json.loads(value)
-            if isinstance(data, list):
-                return data
-        except json.JSONDecodeError:
-            return []
-    return []
-
-
 def _get_run_for_request(request, run_id: int) -> ArticleRun:
     return get_object_or_404(
         ArticleRun.objects.prefetch_related("steps"),
@@ -177,39 +106,75 @@ def _gather_run_context(
             draft_step = step
         elif step.name == "seo":
             final_step = step
-    ideas_payload = _ensure_dict(ideas_step.output_payload if ideas_step else {})
-    draft_payload = _ensure_dict(draft_step.output_payload if draft_step else {})
-    final_payload = _ensure_dict(final_step.output_payload if final_step else {})
-    ideas = _ensure_list(ideas_payload.get("ideas"))
+    ideas_payload = ensure_dict(ideas_step.output_payload if ideas_step else {})
+    draft_payload = ensure_dict(draft_step.output_payload if draft_step else {})
+    final_payload = ensure_dict(final_step.output_payload if final_step else {})
+    ideas = ensure_list(ideas_payload.get("ideas"))
     return ideas, ideas_payload, draft_payload, final_payload
 
 
-def _sections_to_markdown(sections: Any) -> str:
-    if not isinstance(sections, list):
-        return ""
-    lines: List[str] = []
-    for section in sections:
-        if not isinstance(section, dict):
-            continue
-        heading = section.get("heading") or section.get("h2")
-        if heading:
-            lines.append(f"## {heading}".strip())
-        paragraphs = section.get("paragraphs")
-        if isinstance(paragraphs, list):
-            for paragraph in paragraphs:
-                if paragraph:
-                    lines.append(str(paragraph).strip())
-        elif section.get("body"):
-            lines.append(str(section["body"]).strip())
-        lines.append("")
-    return "\n".join(line for line in lines if line is not None).strip()
+def _prepare_draft_details(
+    run: ArticleRun | None,
+    ideas: List[Dict[str, Any]],
+    draft_payload: Dict[str, Any],
+) -> Dict[str, Any]:
+    details: Dict[str, Any] = {
+        "draft_form": None,
+        "citations": [],
+        "draft_summary": "",
+        "selected_index": None,
+        "selected_idea": None,
+        "draft_status": None,
+        "draft_error": "",
+        "draft_pending": False,
+    }
+    if not run:
+        return details
 
+    draft_step = run.steps.filter(name="draft").first()
+    details["draft_status"] = draft_step.status if draft_step else None
+    details["draft_error"] = (draft_step.error_message or "") if draft_step else ""
+    details["draft_pending"] = draft_step.status in {"queued", "running"} if draft_step else False
 
-def _apply_usage_cost(run: ArticleRun, usage: Any) -> None:
-    cost_cents = calculate_nano_cost_cents(usage)
-    if cost_cents:
-        run.cost_cents += cost_cents
-        run.save(update_fields=["cost_cents"])
+    citations = ensure_list(draft_payload.get("citations"))
+    draft_summary = draft_payload.get("summary", "")
+    selected_index = draft_payload.get("idea_index")
+    selected_idea = None
+    if selected_index is not None and 0 <= selected_index < len(ideas):
+        selected_idea = ideas[selected_index]
+
+    draft_markdown = draft_payload.get("draft_markdown") or ""
+    draft_data = ensure_dict(draft_payload.get("draft"))
+    if not draft_markdown:
+        sections = draft_data.get("sections")
+        if sections:
+            draft_markdown = sections_to_markdown(sections)
+        elif draft_data.get("text"):
+            draft_markdown = str(draft_data.get("text"))
+
+    draft_title = draft_payload.get("title") or ""
+    if not draft_title and selected_idea:
+        draft_title = selected_idea.get("title", "")
+
+    details.update(
+        {
+            "citations": citations,
+            "draft_summary": draft_summary,
+            "selected_index": selected_index,
+            "selected_idea": selected_idea,
+        }
+    )
+
+    if draft_markdown:
+        details["draft_form"] = ArticleDraftReviewForm(
+            initial={
+                "run_id": run.id,
+                "draft_title": draft_title or "",
+                "draft_body": draft_markdown,
+            }
+        )
+
+    return details
 
 
 def article_index(request):
@@ -285,43 +250,13 @@ def staff_dashboard(request):
     ideas_payload: Dict[str, Any] = {}
     draft_payload: Dict[str, Any] = {}
     final_payload: Dict[str, Any] = {}
-    draft_markdown = ""
-    draft_title = ""
-    selected_index = None
-    citations: List[Dict[str, Any]] = []
     final_article = None
-    draft_summary = ""
-    selected_idea = None
 
     if active_run:
         ideas, ideas_payload, draft_payload, final_payload = _gather_run_context(active_run)
-        selected_index = draft_payload.get("idea_index")
-        citations = _ensure_list(draft_payload.get("citations"))
-        draft_markdown = draft_payload.get("draft_markdown") or ""
-        draft_data = _ensure_dict(draft_payload.get("draft"))
-        if not draft_markdown:
-            sections = draft_data.get("sections")
-            if sections:
-                draft_markdown = _sections_to_markdown(sections)
-            elif draft_data.get("text"):
-                draft_markdown = str(draft_data.get("text"))
-        if selected_index is not None and 0 <= selected_index < len(ideas):
-            draft_title = draft_payload.get("title") or ideas[selected_index].get("title", "")
-            selected_idea = ideas[selected_index]
-        else:
-            draft_title = draft_payload.get("title", "")
-        draft_summary = draft_payload.get("summary", "")
         final_article = articles_by_run.get(active_run.id)
 
-    draft_form = None
-    if active_run and draft_markdown:
-        draft_form = ArticleDraftReviewForm(
-            initial={
-                "run_id": active_run.id,
-                "draft_title": draft_title or "",
-                "draft_body": draft_markdown,
-            }
-        )
+    draft_details = _prepare_draft_details(active_run, ideas, draft_payload)
 
     context = {
         "form": concept_form,
@@ -332,14 +267,17 @@ def staff_dashboard(request):
         "active_run": active_run,
         "ideas": ideas,
         "ideas_payload": ideas_payload,
-        "selected_index": selected_index,
-        "draft_form": draft_form,
+        "selected_index": draft_details["selected_index"],
+        "draft_form": draft_details["draft_form"],
         "draft_payload": draft_payload,
-        "citations": citations,
-        "draft_summary": draft_summary,
+        "citations": draft_details["citations"],
+        "draft_summary": draft_details["draft_summary"],
         "final_payload": final_payload,
         "final_article": final_article,
-        "selected_idea": selected_idea,
+        "selected_idea": draft_details["selected_idea"],
+        "draft_status": draft_details["draft_status"],
+        "draft_error": draft_details["draft_error"],
+        "draft_pending": draft_details["draft_pending"],
         "run_cost": (active_run.cost_cents or 0) / 100 if active_run else 0,
     }
     return render(request, "articles/staff_dashboard.html", context)
@@ -378,7 +316,7 @@ def _create_run_with_ideas(
         raw_response=response_dict,
         ended_at=timezone.now(),
     )
-    _apply_usage_cost(run, usage)
+    apply_usage_cost(run, usage)
     return run
 
 
@@ -415,7 +353,7 @@ def staff_generate_concepts(request):
         response.model_dump() if hasattr(response, "model_dump") else getattr(response, "to_dict", lambda: {})()
     )
     payload = parse_structured_payload(extract_output_text(response))
-    ideas = _ensure_list(payload.get("ideas"))
+    ideas = ensure_list(payload.get("ideas"))
     normalized_ideas: List[Dict[str, Any]] = []
     for idea in ideas:
         if isinstance(idea, dict):
@@ -458,15 +396,16 @@ def staff_select_concept(request):
         return HttpResponseBadRequest("Invalid concept selection")
 
     run = _get_run_for_request(request, form.cleaned_data["run_id"])
-    ideas, ideas_payload, draft_payload, _ = _gather_run_context(run)
+    ideas, _ideas_payload, draft_payload, _ = _gather_run_context(run)
     ideas_step = run.steps.filter(name="ideas").first()
-    context_details = _ensure_dict(ideas_step.input_payload if ideas_step else {})
+    context_details = ensure_dict(ideas_step.input_payload if ideas_step else {})
 
     idea_index = form.cleaned_data["idea_index"]
     if idea_index >= len(ideas):
         return HttpResponseBadRequest("Concept not found for this run")
 
     selected_idea = ideas[idea_index]
+
     client = get_openai_client()
     prompt = (
         "You are a research assistant with access to live web search. "
@@ -498,55 +437,104 @@ def staff_select_concept(request):
         elif draft_data.get("text"):
             draft_markdown = str(draft_data.get("text"))
 
-    RunStep.objects.update_or_create(
+    step_input = {
+        "selected": selected_idea,
+        "idea_index": idea_index,
+        "context": context_details,
+    }
+
+    draft_step, created = RunStep.objects.update_or_create(
         run=run,
         name="draft",
         defaults={
-            "status": "ok",
-            "input_payload": {
-                "selected": selected_idea,
-                "idea_index": idea_index,
-                "context": context_details,
-            },
-            "output_payload": {
-                "summary": payload.get("summary", ""),
-                "citations": citations,
-                "draft": draft_data,
-                "draft_markdown": draft_markdown,
-                "idea_index": idea_index,
-                "title": draft_data.get("title", selected_idea.get("title", "")),
-            },
-            "raw_response": response_dict,
-            "status": "ok",
+            "status": "queued",
+            "input_payload": step_input,
+            "output_payload": {},
+            "raw_response": {},
             "error_message": "",
-            "ended_at": timezone.now(),
+            "ended_at": None,
         },
     )
+    if not created:
+        RunStep.objects.filter(pk=draft_step.pk).update(
+            status="queued",
+            input_payload=step_input,
+            output_payload={},
+            raw_response={},
+            error_message="",
+            ended_at=None,
+        )
+        draft_step.refresh_from_db()
+
     run.current_step = "draft"
     run.status = "running"
     run.can_resume_from_step = False
     run.save(update_fields=["current_step", "status", "can_resume_from_step"])
-    _apply_usage_cost(run, getattr(response, "usage", None) or response_dict.get("usage"))
 
-    draft_form = ArticleDraftReviewForm(
-        initial={
-            "run_id": run.id,
-            "draft_title": draft_data.get("title", selected_idea.get("title", "")),
-            "draft_body": draft_markdown,
-        }
-    )
+    async_task("articles.tasks.generate_research_draft", draft_step.id)
+
+    run.refresh_from_db()
+    draft_step.refresh_from_db()
+    ideas, _ideas_payload, draft_payload, _ = _gather_run_context(run)
+    draft_details = _prepare_draft_details(run, ideas, draft_payload)
+
+    selected_context = draft_details["selected_idea"] or selected_idea
+    selected_index = draft_details["selected_index"]
+    if selected_index is None:
+        selected_index = idea_index
+
     context = {
         "run": run,
-        "selected": selected_idea,
-        "citations": citations,
-        "idea_index": idea_index,
-        "draft_form": draft_form,
-        "draft_summary": payload.get("summary", ""),
-        "selected_idea": selected_idea,
-        "run_cost": (run.cost_cents or 0) / 100,
+        "selected": selected_context,
+        "citations": draft_details["citations"],
+        "idea_index": selected_index,
+        "draft_form": draft_details["draft_form"],
+        "draft_summary": draft_details["draft_summary"],
+        "selected_idea": selected_context,
+        "draft_status": draft_details["draft_status"],
+        "draft_error": draft_details["draft_error"],
+        "draft_pending": draft_details["draft_pending"],
     }
     response = _render_partial(request, "articles/_draft_workflow.html", context)
-    response["HX-Trigger"] = json.dumps({"articles:refresh-runs": True})
+    triggers = {"articles:refresh-runs": True}
+    if draft_details["draft_form"] is None and draft_details["draft_status"] in {"queued", "running"}:
+        triggers["articles:watch-draft"] = {"run_id": run.id}
+    response["HX-Trigger"] = json.dumps(triggers)
+    return response
+
+
+@staff_member_required
+@require_GET
+def staff_draft_status(request, run_id: int):
+    run = _get_run_for_request(request, run_id)
+    ideas, _ideas_payload, draft_payload, _ = _gather_run_context(run)
+    draft_details = _prepare_draft_details(run, ideas, draft_payload)
+    draft_step = run.steps.filter(name="draft").first()
+    selected_context = draft_details["selected_idea"]
+    if not selected_context and draft_step:
+        selected_context = ensure_dict(draft_step.input_payload).get("selected")
+    selected_index = draft_details["selected_index"]
+    if selected_index is None and draft_step:
+        selected_index = ensure_dict(draft_step.input_payload).get("idea_index")
+
+    context = {
+        "run": run,
+        "selected": selected_context,
+        "citations": draft_details["citations"],
+        "idea_index": selected_index,
+        "draft_form": draft_details["draft_form"],
+        "draft_summary": draft_details["draft_summary"],
+        "selected_idea": selected_context,
+        "draft_status": draft_details["draft_status"],
+        "draft_error": draft_details["draft_error"],
+        "draft_pending": draft_details["draft_pending"],
+    }
+    response = _render_partial(request, "articles/_draft_workflow.html", context)
+    triggers: Dict[str, Any] = {}
+    if draft_details["draft_status"] == "ok":
+        triggers["articles:refresh-runs"] = True
+    if triggers:
+        response["HX-Trigger"] = json.dumps(triggers)
     return response
 
 
@@ -567,9 +555,9 @@ def staff_finalize_article(request):
     if not draft_step:
         return HttpResponseBadRequest("Draft step missing for this run")
 
-    draft_payload = _ensure_dict(draft_step.output_payload)
-    draft_input = _ensure_dict(draft_step.input_payload)
-    citations = _ensure_list(draft_payload.get("citations"))
+    draft_payload = ensure_dict(draft_step.output_payload)
+    draft_input = ensure_dict(draft_step.input_payload)
+    citations = ensure_list(draft_payload.get("citations"))
     selected_idea = draft_input.get("selected", {})
     summary = draft_payload.get("summary", "")
 
@@ -592,7 +580,7 @@ def staff_finalize_article(request):
     )
     payload = parse_structured_payload(extract_output_text(response))
     body_markdown = payload.get("body_markdown") or draft_body
-    sources = _ensure_list(payload.get("sources")) or citations
+    sources = ensure_list(payload.get("sources")) or citations
 
     RunStep.objects.update_or_create(
         run=run,
@@ -611,7 +599,7 @@ def staff_finalize_article(request):
             "ended_at": timezone.now(),
         },
     )
-    _apply_usage_cost(run, getattr(response, "usage", None) or response_dict.get("usage"))
+    apply_usage_cost(run, getattr(response, "usage", None) or response_dict.get("usage"))
 
     article_defaults = {
         "title": payload.get("title") or draft_title,
@@ -655,12 +643,12 @@ def staff_publish_article(request):
     run.save(update_fields=["status"])
 
     seo_step = run.steps.filter(name="seo").first()
-    final_payload = _ensure_dict(seo_step.output_payload) if seo_step else {}
+    final_payload = ensure_dict(seo_step.output_payload) if seo_step else {}
     context = {
         "article": article,
         "run": run,
         "final_payload": final_payload,
-        "sources": _ensure_list(article.sources_json),
+        "sources": ensure_list(article.sources_json),
         "run_cost": (run.cost_cents or 0) / 100,
     }
     response = _render_partial(request, "articles/_final_article_panel.html", context)
@@ -696,3 +684,38 @@ def staff_runs_fragment(request):
         "runs_with_meta": runs_with_meta,
     }
     return render(request, "articles/_run_list.html", context)
+
+
+@staff_member_required
+@require_POST
+def staff_delete_run(request, run_id: int):
+    run = _get_run_for_request(request, run_id)
+    Article.objects.filter(run=run).delete()
+    run.delete()
+
+    runs = list(
+        ArticleRun.objects.filter(created_by=request.user)
+        .prefetch_related("steps")
+        .order_by("-created_at")[:10]
+    )
+    articles_by_run = {
+        article.run_id: article for article in Article.objects.filter(run__in=runs)
+    }
+    run_costs = {run_item.id: (run_item.cost_cents or 0) / 100 for run_item in runs}
+    runs_with_meta = [
+        {
+            "run": run_item,
+            "article": articles_by_run.get(run_item.id),
+            "cost": run_costs.get(run_item.id, 0),
+        }
+        for run_item in runs
+    ]
+    context = {
+        "runs": runs,
+        "run_articles": articles_by_run,
+        "run_costs": run_costs,
+        "runs_with_meta": runs_with_meta,
+    }
+    response = render(request, "articles/_run_list.html", context)
+    response["HX-Trigger"] = json.dumps({"articles:refresh-dashboard": True})
+    return response
