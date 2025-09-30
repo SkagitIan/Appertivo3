@@ -7,9 +7,10 @@ from dataclasses import dataclass
 from typing import Iterable, List, Sequence
 
 import requests
-from celery import chain, shared_task
+from celery import shared_task
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
+from django.db.models import F
 from django.template.loader import render_to_string
 
 try:
@@ -17,7 +18,7 @@ try:
 except ImportError:  # pragma: no cover - optional dependency for local dev
     OpenAI = None  # type: ignore
 
-from .models import Concept, DishIdea, Lead
+from .models import Concept, DishIdea, Lead, LeadRun
 from .utils import pick_city
 
 logger = logging.getLogger(__name__)
@@ -53,10 +54,35 @@ def _get_openai_client():
 
 
 @shared_task(bind=True)
-def fetch_leads(self) -> List[int]:
+def fetch_leads(
+    self,
+    run_id: int | None = None,
+    city: str | None = None,
+    limit: int = 10,
+) -> List[int]:
     """Fetch leads from the Outscraper API and create Lead entries."""
 
-    city = pick_city()
+    run: LeadRun | None = None
+    if run_id is not None:
+        try:
+            run = LeadRun.objects.get(pk=run_id)
+        except LeadRun.DoesNotExist:
+            run = None
+        else:
+            status_updates = {"status": LeadRun.Status.FETCHING}
+            if city:
+                status_updates["city"] = city
+            if limit:
+                status_updates["expected_leads"] = max(1, limit)
+            for field, value in status_updates.items():
+                setattr(run, field, value)
+            run.save(update_fields=list(status_updates.keys()))
+
+    if not city:
+        if run and run.city:
+            city = run.city
+        else:
+            city = pick_city()
     logger.info("Fetching leads for city %s", city)
     api_key = getattr(settings, "OUTSCRAPER_API_KEY", None)
     if not api_key:
@@ -65,7 +91,7 @@ def fetch_leads(self) -> List[int]:
 
     params = {
         "query": f"independent restaurants in {city}",
-        "limit": 10,
+        "limit": limit,
     }
     headers = {"X-API-KEY": api_key}
     try:
@@ -97,6 +123,9 @@ def fetch_leads(self) -> List[int]:
             "city": entry.get("city") or city,
             "json_data": entry,
         }
+        if run is not None:
+            lead_defaults["run"] = run
+            lead_defaults["shortlisted"] = False
         identifier = entry.get("email") or entry.get("phone") or entry.get("name")
         if not identifier:
             continue
@@ -117,6 +146,18 @@ def fetch_leads(self) -> List[int]:
                 setattr(lead, field, value)
             lead.save()
             created_ids.append(lead.id)
+    if run is not None:
+        run.total_leads = len(created_ids)
+        if created_ids:
+            run.expected_leads = len(created_ids)
+        run.processed_leads = 0
+        run.selected_leads = 0
+        run.status = LeadRun.Status.PREPARING if created_ids else LeadRun.Status.READY
+        update_fields = ["total_leads", "processed_leads", "selected_leads", "status"]
+        if created_ids:
+            update_fields.append("expected_leads")
+        run.save(update_fields=update_fields)
+
     logger.info("Prepared %s leads for generation", len(created_ids))
     return created_ids
 
@@ -218,14 +259,64 @@ def send_personalized_email(self, lead_id: int) -> int:
 
 
 @shared_task(bind=True)
-def dispatch_lead_pipeline(self, lead_ids: Iterable[int]) -> None:
-    """Kick off concept generation and outreach for each fetched lead."""
+def mark_lead_generation_complete(self, lead_id: int, run_id: int | None = None) -> int:
+    """Update run progress after assets are generated for a lead."""
+
+    if run_id is not None:
+        updated = LeadRun.objects.filter(pk=run_id).update(processed_leads=F("processed_leads") + 1)
+        if updated:
+            run = LeadRun.objects.get(pk=run_id)
+            target = run.total_leads or run.expected_leads
+            if target and run.processed_leads >= target:
+                run.status = LeadRun.Status.READY
+                run.save(update_fields=["status"])
+    return lead_id
+
+
+@shared_task(bind=True)
+def dispatch_lead_pipeline(
+    self,
+    lead_ids: Iterable[int],
+    run_id: int | None = None,
+    send_email: bool = True,
+) -> None:
+    """Kick off concept generation and optional outreach for each fetched lead."""
+
+    run: LeadRun | None = None
+    if run_id is not None:
+        try:
+            run = LeadRun.objects.get(pk=run_id)
+        except LeadRun.DoesNotExist:
+            run = None
+    if run is not None:
+        if not lead_ids:
+            run.status = LeadRun.Status.READY
+            run.processed_leads = run.total_leads
+            run.save(update_fields=["status", "processed_leads"])
+            return
+        run.status = LeadRun.Status.PREPARING
+        run.processed_leads = 0
+        run.save(update_fields=["status", "processed_leads"])
 
     for lead_id in lead_ids:
-        chain(generate_concepts_and_dishes.s(lead_id), send_personalized_email.s()).delay()
+        signature = generate_concepts_and_dishes.s(lead_id)
+        if send_email:
+            signature = signature | send_personalized_email.s()
+        if run_id is not None:
+            signature = signature | mark_lead_generation_complete.s(run_id)
+        signature.delay()
 
 
 def build_lead_pipeline() -> None:
     """Trigger the full fetch → generate → email pipeline."""
 
-    fetch_leads.apply_async(link=dispatch_lead_pipeline.s())
+    fetch_leads.apply_async(link=dispatch_lead_pipeline.s(send_email=True))
+
+
+def build_lead_run_pipeline(run_id: int, *, city: str | None = None, limit: int = 10) -> None:
+    """Trigger a run-specific pipeline without immediate outreach emails."""
+
+    fetch_leads.apply_async(
+        kwargs={"run_id": run_id, "city": city, "limit": limit},
+        link=dispatch_lead_pipeline.s(run_id=run_id, send_email=False),
+    )
