@@ -8,6 +8,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional
 
+import requests
 from celery import chain, shared_task
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -20,6 +21,70 @@ from . import models
 logger = logging.getLogger(__name__)
 
 _SIGNER = TimestampSigner()
+
+
+def verify_recaptcha(token: str, remote_ip: str = None) -> bool:
+    """Verify reCAPTCHA v3 token with Google's API.
+    
+    Args:
+        token: The reCAPTCHA response token from the client
+        remote_ip: Optional client IP address
+    
+    Returns:
+        True if verification succeeds with score >= 0.5, False otherwise
+    """
+    secret_key = getattr(settings, "RECAPTCHA_SECRET_KEY", None)
+    
+    if not secret_key:
+        logger.warning("RECAPTCHA_SECRET_KEY not configured, skipping verification")
+        return True
+    
+    if not token:
+        logger.warning("No reCAPTCHA token provided")
+        return False
+    
+    try:
+        payload = {
+            "secret": secret_key,
+            "response": token,
+        }
+        if remote_ip:
+            payload["remoteip"] = remote_ip
+        
+        response = requests.post(
+            "https://www.google.com/recaptcha/api/siteverify",
+            data=payload,
+            timeout=5
+        )
+        response.raise_for_status()
+        result = response.json()
+        
+        success = result.get("success", False)
+        score = result.get("score", 0.0)
+        
+        if not success:
+            logger.warning(
+                "reCAPTCHA verification failed",
+                extra={"error_codes": result.get("error-codes", [])}
+            )
+            return False
+        
+        if score < 0.5:
+            logger.warning(
+                "reCAPTCHA score too low",
+                extra={"score": score}
+            )
+            return False
+        
+        logger.info("reCAPTCHA verification successful", extra={"score": score})
+        return True
+        
+    except requests.RequestException as e:
+        logger.error("reCAPTCHA verification request failed", extra={"error": str(e)})
+        return True
+    except Exception as e:
+        logger.error("Unexpected error during reCAPTCHA verification", extra={"error": str(e)})
+        return True
 
 
 def generate_activation_token(user_id: str) -> str:
