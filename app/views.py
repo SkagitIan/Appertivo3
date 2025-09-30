@@ -44,6 +44,8 @@ from itertools import islice
 
 from app.tasks import create_ideation_run
 from . import onboarding, stripe as stripe_service
+
+stripe.api_key = os.getenv('STRIPE_TEST_KEY')
 logger = logging.getLogger(__name__)
 
 
@@ -167,90 +169,6 @@ def _current_season(current_date: Optional[datetime.date] = None) -> str:
     return "Autumn"
 
 
-def build_prompt_suggestions(
-    restaurant: Optional[models.Restaurant],
-    *,
-    max_items: int = 4,
-) -> List[str]:
-    """Create contextual suggestion chips for the AI input component."""
-
-    seen: set[str] = set()
-    suggestions: List[str] = []
-
-    season = _current_season()
-    cache_key: Optional[str] = None
-    if restaurant and getattr(restaurant, "id", None):
-        cache_payload = {
-            "restaurant": str(restaurant.id),
-            "season": season,
-            "context": restaurant.context_json or {},
-            "about": restaurant.about_json or {},
-            "location": restaurant.location_text,
-            "menu_urls": restaurant.menu_urls or [],
-            "primary_menu_url": restaurant.primary_menu_url or "",
-            "max_items": max_items,
-        }
-        cache_key = f"prompt-suggestions:{_stable_hash(cache_payload)}"
-        cached = cache.get(cache_key)
-        if cached is not None:
-            return cached
-
-    def _add_suggestion(value: Optional[str]) -> None:
-        if not value:
-            return
-        text = value.strip()
-        if not text or text.lower() in seen:
-            return
-        seen.add(text.lower())
-        suggestions.append(text)
-
-    if restaurant:
-        context_data = restaurant.context_json or {}
-        about_data = restaurant.about_json or {}
-
-        cuisine = context_data.get("category") or context_data.get("cuisine")
-        if isinstance(cuisine, (list, tuple)):
-            cuisine = cuisine[0] if cuisine else None
-        if isinstance(cuisine, str):
-            _add_suggestion(f"{cuisine} chef's table")
-
-        city = context_data.get("city") or getattr(restaurant, "location_text", "")
-        if isinstance(city, str) and city:
-            parts = city.split(",")
-            city_name = parts[0].strip()
-            if city_name:
-                _add_suggestion(f"{city_name} neighborhood favorites")
-
-        review_tags = context_data.get("reviews_tags") or []
-        if isinstance(review_tags, list) and review_tags:
-            first_tag = str(review_tags[0]).strip()
-            if first_tag:
-                _add_suggestion(f"Lean into {first_tag} vibes")
-
-        highlights = about_data.get("Highlights") if isinstance(about_data, dict) else {}
-        if isinstance(highlights, dict) and highlights:
-            first_highlight = next(iter(highlights.keys()), "")
-            if first_highlight:
-                _add_suggestion(f"Showcase {first_highlight.lower()} partners")
-
-        _add_suggestion(f"{season} market specials")
-
-    fallback_options = [
-        "Seasonal chef specials",
-        "Comfort classics night",
-        "Weekend brunch board",
-        "Happy hour upgrades",
-    ]
-
-    for option in fallback_options:
-        _add_suggestion(option)
-
-    result = list(islice(suggestions, max_items))
-    if cache_key:
-        cache.set(cache_key, result, timeout=DEFAULT_CACHE_TIMEOUT)
-    return result
-
-
 def _footer_articles(limit: int = 4) -> List[Any]:
     """Return a small set of published articles for footer links."""
 
@@ -319,9 +237,7 @@ def _record_unfavorited_concept(session, concept: models.Concept) -> bool:
     return changed
 
 
-def _get_unfavorited_concept_names(
-    restaurant: Optional[models.Restaurant], limit: int
-) -> List[str]:
+def _get_unfavorited_concept_names(restaurant: Optional[models.Restaurant], limit: int) -> List[str]:
     """Return the most recent unfavorited concept names for a restaurant."""
 
     if not restaurant:
