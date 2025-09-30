@@ -13,25 +13,55 @@
 {% endblock %}
 
 {% block page_content %}
+  <style>
+    #concepts-accordion {
+      transition-property: max-height, opacity;
+    }
+
+    #concepts-accordion .concepts-body {
+      max-height: 2000px;
+      transition: max-height 0.6s ease, opacity 0.6s ease;
+    }
+
+    #concepts-accordion.is-submitting .concepts-body {
+      max-height: 200px;
+      opacity: 0.5;
+    }
+
+    [data-concept-card] {
+      transition: opacity 0.4s ease, transform 0.4s ease, box-shadow 0.4s ease, border-color 0.4s ease;
+    }
+
+    [data-concept-card].concept-card--inactive {
+      opacity: 0.35;
+      transform: translateY(6px);
+      filter: grayscale(0.2);
+    }
+
+    [data-concept-card].concept-card--active {
+      border-color: rgba(94, 0, 139, 0.35);
+      box-shadow: 0 18px 35px -20px rgba(94, 0, 139, 0.4);
+    }
+  </style>
   <div class="px-4 py-6 space-y-6">
     <div class="grid gap-6 lg:grid-cols-[2fr,1fr]">
       <section class="space-y-6">
         <details
           id="concepts-accordion"
-          class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-5"
-          {% if not ideas %}open{% endif %}
+          class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-5 transition-all duration-500 ease-in-out overflow-hidden"
+          open
         >
           <summary class="flex cursor-pointer list-none flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 class="text-lg font-semibold text-[#14080E]">1. Provide context &amp; generate concepts</h2>
-              <p class="text-sm text-slate-500 max-w-xl">Paste research context or upload supporting PDFs to guide ideation.</p>
+              <p class="text-sm text-slate-500 max-w-xl">Share research notes or upload a PDF so the model can ideate within that brief.</p>
             </div>
             <span id="concepts-loading" class="htmx-indicator inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
               <i class="fa-solid fa-circle-notch animate-spin" aria-hidden="true"></i>
               Generating…
             </span>
           </summary>
-          <div class="space-y-4 pt-4">
+          <div class="concepts-body space-y-4 pt-4">
             <form
               id="article-concepts-form"
               method="post"
@@ -41,24 +71,13 @@
               hx-swap="innerHTML"
               hx-encoding="multipart/form-data"
               hx-indicator="#concepts-loading"
-              hx-on::after-request="if (event.detail.successful) { document.getElementById('concepts-accordion').removeAttribute('open'); }"
+              hx-on::before-request="const accordion = document.getElementById('concepts-accordion'); if (accordion) { accordion.classList.add('is-submitting'); accordion.dataset.wasOpen = accordion.open ? 'true' : 'false'; accordion.open = true; }"
+              hx-on::after-request="const accordion = document.getElementById('concepts-accordion'); if (accordion) { accordion.classList.remove('is-submitting'); if (event.detail.successful) { accordion.removeAttribute('open'); } else if (accordion.dataset.wasOpen === 'true') { accordion.setAttribute('open', 'open'); } }"
               class="space-y-4"
               data-loading-message="Generating article concepts…"
               data-disable-global-overlay
             >
               {% csrf_token %}
-              <div class="grid gap-4 md:grid-cols-2">
-                <label class="flex flex-col gap-1 text-sm font-medium text-[#14080E]">
-                  {{ form.topic.label }}
-                  {{ form.topic }}
-                  {% if form.topic.help_text %}
-                    <span class="text-xs font-normal text-slate-500">{{ form.topic.help_text }}</span>
-                  {% endif %}
-                  {% for error in form.topic.errors %}
-                    <span class="text-xs text-red-600">{{ error }}</span>
-                  {% endfor %}
-                </label>
-              </div>
               <div class="grid gap-4">
                 <label class="flex flex-col gap-1 text-sm font-medium text-[#14080E]">
                   {{ form.context.label }}
@@ -183,11 +202,26 @@
           return;
         }
         const button = findLoadingButton(trigger);
-        if (!button) {
-          return;
+        if (button) {
+          toggleButtonState(button, true);
+          trigger.__loadingButton = button;
         }
-        toggleButtonState(button, true);
-        trigger.__loadingButton = button;
+
+        const conceptCard = typeof trigger.closest === "function" ? trigger.closest("[data-concept-card]") : null;
+        if (conceptCard) {
+          const list = conceptCard.parentElement;
+          if (list && list.matches("[data-concepts-list]")) {
+            list.querySelectorAll("[data-concept-card]").forEach(function (card) {
+              card.classList.remove("concept-card--active");
+              if (card !== conceptCard) {
+                card.classList.add("concept-card--inactive");
+              }
+            });
+            conceptCard.classList.remove("concept-card--inactive");
+            conceptCard.classList.add("concept-card--active");
+            list.prepend(conceptCard);
+          }
+        }
       });
 
       function resetButton(event) {
@@ -204,6 +238,17 @@
 
       document.body.addEventListener("htmx:afterRequest", resetButton);
       document.body.addEventListener("htmx:responseError", resetButton);
+      document.body.addEventListener("htmx:afterSwap", function (event) {
+        const target = event.detail && event.detail.target;
+        if (!target || target.id !== "draft-workflow") {
+          return;
+        }
+        document.querySelectorAll("[data-concepts-list]").forEach(function (list) {
+          list.querySelectorAll("[data-concept-card]").forEach(function (card) {
+            card.classList.remove("concept-card--inactive");
+          });
+        });
+      });
     });
   </script>
 

@@ -56,7 +56,6 @@ class StaffDashboardTests(TestCase):
         response = self.client.post(
             reverse("articles:staff_generate_concepts"),
             {
-                "topic": "Inventory tactics",
                 "context": "Recent interviews about food waste.",
             },
             HTTP_HX_REQUEST="true",
@@ -74,7 +73,7 @@ class StaffDashboardTests(TestCase):
     def test_generate_concepts_requires_context_or_pdf(self):
         response = self.client.post(
             reverse("articles:staff_generate_concepts"),
-            {"topic": "Inventory tactics", "context": ""},
+            {"context": ""},
             HTTP_HX_REQUEST="true",
         )
         self.assertEqual(response.status_code, 400)
@@ -88,7 +87,7 @@ class StaffDashboardTests(TestCase):
             run=run,
             name="ideas",
             status="ok",
-            input_payload={"topic": "Inventory", "context": "Inventory", "pdf_context": "Research"},
+            input_payload={"context": "Inventory", "pdf_context": "Research"},
             output_payload={
                 "ideas": [
                     {"title": "Idea One", "subtitle": "Subtitle"},
@@ -136,7 +135,7 @@ class StaffDashboardTests(TestCase):
             run=run,
             name="ideas",
             status="ok",
-            input_payload={"topic": "Inventory", "context": "Inventory", "pdf_context": "Research"},
+            input_payload={"context": "Inventory", "pdf_context": "Research"},
             output_payload={
                 "ideas": [
                     {"title": "Idea One", "subtitle": "Subtitle"},
@@ -189,7 +188,6 @@ class StaffDashboardTests(TestCase):
         response = self.client.post(
             reverse("articles:staff_generate_concepts"),
             {
-                "topic": "Inventory tactics",
                 "context": "",
                 "pdf_upload": pdf_file,
             },

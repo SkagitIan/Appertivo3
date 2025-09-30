@@ -21,26 +21,13 @@
         <p class="mt-2 whitespace-pre-wrap">{{ draft_summary }}</p>
       </div>
     {% endif %}
-    {% if citations %}
-      <div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-        <p class="text-sm font-semibold text-emerald-700">Citations gathered</p>
-        <ul class="mt-2 space-y-1 text-xs text-emerald-800">
-          {% for citation in citations %}
-            <li>
-              {% if citation.title %}<span class="font-semibold">{{ citation.title }}.</span>{% endif %}
-              {% if citation.url %}<a href="{{ citation.url }}" target="_blank" rel="noopener" class="underline">{{ citation.url }}</a>{% endif %}
-              {% if citation.note %}<span class="ml-1">({{ citation.note }})</span>{% endif %}
-            </li>
-          {% endfor %}
-        </ul>
-      </div>
-    {% endif %}
     <form
       method="post"
       hx-post="{% url 'articles:staff_finalize_article' %}"
       hx-target="#final-article-panel"
       hx-swap="innerHTML"
       hx-indicator="#finalize-loading"
+      hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
       class="space-y-4"
       data-loading-message="Polishing the draft…"
       data-disable-global-overlay
@@ -62,6 +49,14 @@
           <span class="text-xs text-red-600">{{ error }}</span>
         {% endfor %}
       </label>
+      <label class="flex flex-col gap-1 text-sm font-medium text-[#14080E]">
+        {{ draft_form.editor_notes.label }}
+        {{ draft_form.editor_notes }}
+        <span class="text-xs font-normal text-slate-500">Optional: add clarifications or tone guidance for the final polish.</span>
+        {% for error in draft_form.editor_notes.errors %}
+          <span class="text-xs text-red-600">{{ error }}</span>
+        {% endfor %}
+      </label>
       <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p class="text-xs text-slate-500">Continuing sends the edited draft to gpt-4.1-nano for professional polish and SEO metadata.</p>
         <button
@@ -79,6 +74,27 @@
         Polishing…
       </span>
     </form>
+    {% if citations %}
+      <div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+        <div class="flex items-center justify-between gap-2">
+          <p class="text-sm font-semibold text-emerald-700">Research citations</p>
+          <span class="text-xs font-medium text-emerald-600">{{ citations|length }} source{% if citations|length != 1 %}s{% endif %}</span>
+        </div>
+        <div class="mt-3 max-h-56 space-y-2 overflow-y-auto pr-1 text-xs text-emerald-900">
+          {% for citation in citations %}
+            <div class="rounded-xl border border-emerald-200 bg-white/70 p-2">
+              {% if citation.title %}<p class="font-semibold text-emerald-800">{{ citation.title }}</p>{% endif %}
+              {% if citation.url %}
+                <a href="{{ citation.url }}" target="_blank" rel="noopener" class="break-all text-emerald-700 underline">{{ citation.url }}</a>
+              {% endif %}
+              {% if citation.note %}
+                <p class="mt-1 text-emerald-700">{{ citation.note }}</p>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
   </div>
 {% elif run and draft_pending %}
   <div

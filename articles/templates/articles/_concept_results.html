@@ -18,9 +18,12 @@
       <p class="mt-1 whitespace-pre-wrap">{{ ideas_payload.notes }}</p>
     </div>
   {% endif %}
-  <div class="grid gap-4 md:grid-cols-2">
+  <div class="grid gap-4 md:grid-cols-2" data-concepts-list>
     {% for idea in ideas %}
-      <div class="flex h-full flex-col justify-between rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
+      <div
+        data-concept-card
+        class="flex h-full flex-col justify-between rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm transition-all duration-300"
+      >
         <div class="space-y-2">
           <p class="text-xs uppercase font-semibold text-[#7B1FA2]">Idea {{ forloop.counter }}</p>
           <h4 class="text-lg font-semibold text-[#14080E]">{{ idea.title }}</h4>
