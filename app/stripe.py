@@ -6,7 +6,9 @@ import datetime
 import json
 import logging
 from typing import Optional
-
+from dotenv import load_dotenv
+load_dotenv()
+import os
 from django.conf import settings
 from django.utils import timezone
 import stripe as stripe_sdk
@@ -28,7 +30,7 @@ class InvalidWebhookSignature(Exception):
 def ensure_api_key() -> None:
     """Refresh the Stripe API key from settings for the current process."""
 
-    stripe.api_key = settings.STRIPE_SECRET_KEY or ""
+    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
 
 def stripe_timestamp(value: Optional[int]) -> datetime.datetime:
