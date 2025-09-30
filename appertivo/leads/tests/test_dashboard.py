@@ -36,6 +36,18 @@ class LeadDashboardTests(TestCase):
         self.assertContains(response, f"Run {run.pk}")
         self.assertContains(response, "Morning Sun")
 
+    def test_pending_run_shows_in_progress_indicator(self) -> None:
+        run = LeadRun.objects.create(city="Boston", status=LeadRun.Status.FETCHING)
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("lead-dashboard"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Runs in progress")
+        self.assertContains(response, f"Run {run.pk}")
+        self.assertContains(response, "Waiting for Outscraper")
+        self.assertNotContains(response, "Shortlist</th>")
+        self.assertNotContains(response, "No lead runs yet")
+
     @patch("appertivo.leads.views.build_lead_run_pipeline")
     def test_start_lead_run_triggers_pipeline(self, mock_pipeline) -> None:
         self.client.force_login(self.user)

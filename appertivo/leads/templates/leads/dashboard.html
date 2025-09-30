@@ -1,6 +1,24 @@
 {% extends "base.html" %}
 {% block title %}Lead Dashboard · Appertivo{% endblock %}
 
+{% block extra_head %}
+  {{ block.super }}
+  <style>
+    @keyframes lead-run-blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.2; }
+    }
+
+    .lead-run-indicator {
+      width: 0.75rem;
+      height: 0.75rem;
+      border-radius: 9999px;
+      background-color: #7c3aed;
+      animation: lead-run-blink 1s ease-in-out infinite;
+    }
+  </style>
+{% endblock %}
+
 {% block content %}
 <div class="max-w-6xl mx-auto px-6 py-12 space-y-10">
   <header class="space-y-3">
@@ -33,6 +51,26 @@
       </p>
     </form>
   </section>
+
+  {% if pending_runs %}
+    <section class="bg-white/80 backdrop-blur rounded-2xl shadow-sm border border-purple-200 p-6 space-y-4">
+      <h2 class="text-lg font-semibold text-slate-900">Runs in progress</h2>
+      <ul class="space-y-3">
+        {% for run in pending_runs %}
+          <li class="flex items-center justify-between gap-4 rounded-xl border border-purple-100 bg-purple-50/40 px-4 py-3">
+            <div class="flex items-center gap-3">
+              <span class="lead-run-indicator" aria-hidden="true"></span>
+              <div>
+                <p class="text-sm font-semibold text-slate-900">Run {{ run.pk }} · {{ run.city|default:"Any city" }}</p>
+                <p class="text-xs text-slate-600">Waiting for Outscraper to return lead data…</p>
+              </div>
+            </div>
+            <span class="text-xs font-medium text-purple-700">{{ run.get_status_display }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
 
   {% if run_cards %}
     {% for card in run_cards %}
@@ -166,7 +204,7 @@
       </section>
       {% endwith %}
     {% endfor %}
-  {% else %}
+  {% elif not pending_runs %}
     <div class="rounded-2xl border border-dashed border-purple-300 bg-white/60 p-10 text-center">
       <h2 class="text-xl font-semibold text-slate-900">No lead runs yet</h2>
       <p class="mt-2 text-sm text-slate-600">Kick things off by starting your first run above. We'll fetch a fresh batch of restaurants and craft personalized demos for you.</p>
