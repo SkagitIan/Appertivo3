@@ -37,11 +37,20 @@ def extract_lead_entries(payload: object) -> list[dict]:
     """Return a flat list of lead dictionaries from an Outscraper payload."""
 
     if isinstance(payload, dict):
-        candidates = payload.get("data") or payload.get("results")
+        candidates = (
+            payload.get("data")
+            or payload.get("Data")
+            or payload.get("results")
+            or payload.get("Results")
+        )
         if isinstance(candidates, list):
             if candidates and isinstance(candidates[0], list):
                 return [entry for entry in candidates[0] if isinstance(entry, dict)]
             return [entry for entry in candidates if isinstance(entry, dict)]
+        if isinstance(candidates, dict):
+            nested = candidates.get("data") or candidates.get("results")
+            if isinstance(nested, list):
+                return [entry for entry in nested if isinstance(entry, dict)]
     elif isinstance(payload, list):
         return [entry for entry in payload if isinstance(entry, dict)]
     return []
@@ -70,11 +79,18 @@ def resolve_outscraper_payload(payload: object, headers: Mapping[str, str] | Non
     if not job_id:
         return payload
 
-    job_url = f"https://api.app.outscraper.com/requests/{job_id}"
+    job_url = f"https://api.outscraper.cloud/requests/{job_id}"
     try:
         response = requests.get(job_url, headers=request_headers or None, timeout=60)
         response.raise_for_status()
-        return response.json()
+        job_payload = response.json()
+        if (
+            isinstance(job_payload, dict)
+            and "Data" in job_payload
+            and "data" not in job_payload
+        ):
+            job_payload["data"] = job_payload["Data"]
+        return job_payload
     except requests.RequestException as exc:  # pragma: no cover - network failure
         logger.exception("Failed to fetch Outscraper job %s: %s", job_id, exc)
         return payload
@@ -207,6 +223,11 @@ def fetch_leads(
     payload = resolve_outscraper_payload(response.json(), headers)
     entries = extract_lead_entries(payload)
     if not entries:
+        if isinstance(payload, dict):
+            status = str(payload.get("status") or payload.get("Status") or "").lower()
+            if status and status != "success":
+                logger.info("Outscraper job %s not ready: %s", payload.get("id"), status)
+                return []
         logger.warning("Unexpected Outscraper payload: %s", payload)
         return []
 
