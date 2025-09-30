@@ -1,0 +1,254 @@
+{% extends "layouts/auth.html" %}
+
+{% block content %}
+<div class="w-full max-w-3xl bg-white rounded-2xl shadow-lg p-8 space-y-6">
+  <div class="text-center">
+    <h1 class="text-3xl font-bold text-[#2E005D]">Setting Up Your Dashboard</h1>
+    <p class="text-slate-600 mt-2">We're preparing your personalized experience...</p>
+  </div>
+
+  <div id="progress-container" class="space-y-6">
+    <div class="space-y-3">
+      <div class="flex items-center justify-between">
+        <span class="text-sm font-semibold text-[#5C008B]" id="progress-text">{{ status.progress }}%</span>
+        <span class="text-sm text-slate-500" id="state-label">{{ state_label }}</span>
+      </div>
+      <div class="h-3 w-full overflow-hidden rounded-full bg-slate-200">
+        <div id="progress-bar" class="h-full rounded-full transition-all duration-500" 
+             style="width: {{ status.progress }}%; background: linear-gradient(90deg, #5C008B, #8B4CB8);"></div>
+      </div>
+    </div>
+
+    <div id="status-messages" class="rounded-xl bg-purple-50 border border-purple-200 px-4 py-3">
+      {% if status.messages %}
+        {% for message in status.messages %}
+          <p class="text-sm text-purple-800">{{ message }}</p>
+        {% endfor %}
+      {% endif %}
+    </div>
+
+    <div class="space-y-3">
+      <h3 class="text-lg font-semibold text-[#2E005D]">Progress Checklist</h3>
+      <div class="space-y-2" id="checklist">
+        <div class="flex items-center gap-3 p-3 rounded-lg bg-slate-50" data-step="email">
+          <div class="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center bg-emerald-500 text-white">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+          </div>
+          <span class="text-sm font-medium text-slate-700">Email confirmed</span>
+        </div>
+
+        <div class="flex items-center gap-3 p-3 rounded-lg bg-slate-50" data-step="payment">
+          <div class="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center bg-emerald-500 text-white">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+          </div>
+          <span class="text-sm font-medium text-slate-700">Payment completed</span>
+        </div>
+
+        <div class="flex items-center gap-3 p-3 rounded-lg bg-slate-50" data-step="data">
+          <div class="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center bg-slate-300 text-slate-600">
+            <svg class="w-4 h-4 animate-spin hidden" id="spinner-data" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+            <svg class="w-4 h-4" id="check-data" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+          </div>
+          <span class="text-sm font-medium text-slate-500">Restaurant data collected</span>
+        </div>
+
+        <div class="flex items-center gap-3 p-3 rounded-lg bg-slate-50" data-step="reviews">
+          <div class="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center bg-slate-300 text-slate-600">
+            <svg class="w-4 h-4 animate-spin hidden" id="spinner-reviews" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+            <svg class="w-4 h-4" id="check-reviews" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+          </div>
+          <span class="text-sm font-medium text-slate-500">Reviews analyzed</span>
+        </div>
+
+        <div class="flex items-center gap-3 p-3 rounded-lg bg-slate-50" data-step="insights">
+          <div class="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center bg-slate-300 text-slate-600">
+            <svg class="w-4 h-4 animate-spin hidden" id="spinner-insights" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+            <svg class="w-4 h-4" id="check-insights" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+          </div>
+          <span class="text-sm font-medium text-slate-500">Customer insights generated</span>
+        </div>
+
+        <div class="flex items-center gap-3 p-3 rounded-lg bg-slate-50" data-step="complete">
+          <div class="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center bg-slate-300 text-slate-600">
+            <svg class="w-4 h-4 animate-spin hidden" id="spinner-complete" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+            <svg class="w-4 h-4" id="check-complete" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+          </div>
+          <span class="text-sm font-medium text-slate-500">Dashboard ready</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="error-container" class="hidden rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+      <p class="font-semibold text-red-800">Something went wrong</p>
+      <p class="mt-1 text-sm text-red-600" id="error-message"></p>
+    </div>
+
+    <div id="action-container" class="flex flex-col items-center gap-3">
+      <button id="retry-button" class="hidden inline-flex items-center justify-center rounded-xl bg-[#5C008B] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#4a0178]">
+        Retry Setup
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API_URL = "{{ api_url }}";
+  const RETRY_URL = "{{ retry_url }}";
+  let pollInterval = null;
+
+  const stateStepMap = {
+    'created': [],
+    'email_confirmed': ['email'],
+    'checkout_started': ['email'],
+    'checkout_paid': ['email', 'payment'],
+    'scrape_queued': ['email', 'payment'],
+    'scrape_done': ['email', 'payment', 'data'],
+    'reviews_queued': ['email', 'payment', 'data'],
+    'reviews_done': ['email', 'payment', 'data', 'reviews'],
+    'web_analysis_done': ['email', 'payment', 'data', 'reviews'],
+    'review_analysis_done': ['email', 'payment', 'data', 'reviews'],
+    'personas_done': ['email', 'payment', 'data', 'reviews', 'insights'],
+    'complete': ['email', 'payment', 'data', 'reviews', 'insights', 'complete'],
+    'failed': []
+  };
+
+  const stateInProgressMap = {
+    'scrape_queued': 'data',
+    'reviews_queued': 'reviews',
+    'web_analysis_done': 'insights',
+    'review_analysis_done': 'insights',
+    'personas_done': 'complete'
+  };
+
+  function updateUI(data) {
+    document.getElementById('progress-text').textContent = data.progress + '%';
+    document.getElementById('progress-bar').style.width = data.progress + '%';
+    
+    const stateLabel = data.state.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    document.getElementById('state-label').textContent = stateLabel;
+
+    const messagesContainer = document.getElementById('status-messages');
+    if (data.messages && data.messages.length > 0) {
+      messagesContainer.innerHTML = data.messages.map(msg => 
+        `<p class="text-sm text-purple-800">${msg}</p>`
+      ).join('');
+      messagesContainer.classList.remove('hidden');
+    }
+
+    const completedSteps = stateStepMap[data.state] || [];
+    const inProgressStep = stateInProgressMap[data.state];
+
+    ['data', 'reviews', 'insights', 'complete'].forEach(step => {
+      const stepEl = document.querySelector(`[data-step="${step}"]`);
+      const checkIcon = document.getElementById(`check-${step}`);
+      const spinnerIcon = document.getElementById(`spinner-${step}`);
+      const bgCircle = stepEl.querySelector('.rounded-full');
+      const textEl = stepEl.querySelector('span');
+
+      if (completedSteps.includes(step)) {
+        bgCircle.className = 'flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center bg-emerald-500 text-white';
+        textEl.className = 'text-sm font-medium text-slate-700';
+        checkIcon.classList.remove('hidden');
+        spinnerIcon.classList.add('hidden');
+      } else if (inProgressStep === step) {
+        bgCircle.className = 'flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center bg-[#5C008B] text-white';
+        textEl.className = 'text-sm font-medium text-[#5C008B]';
+        checkIcon.classList.add('hidden');
+        spinnerIcon.classList.remove('hidden');
+      } else {
+        bgCircle.className = 'flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center bg-slate-300 text-slate-600';
+        textEl.className = 'text-sm font-medium text-slate-500';
+        checkIcon.classList.remove('hidden');
+        spinnerIcon.classList.add('hidden');
+      }
+    });
+
+    const errorContainer = document.getElementById('error-container');
+    const errorMessage = document.getElementById('error-message');
+    const retryButton = document.getElementById('retry-button');
+
+    if (data.last_error) {
+      errorMessage.textContent = data.last_error;
+      errorContainer.classList.remove('hidden');
+    } else {
+      errorContainer.classList.add('hidden');
+    }
+
+    if (data.can_retry) {
+      retryButton.classList.remove('hidden');
+    } else {
+      retryButton.classList.add('hidden');
+    }
+
+    if (data.state === 'complete' && data.dashboard_url) {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
+      setTimeout(() => {
+        window.location.href = data.dashboard_url;
+      }, 2000);
+    }
+  }
+
+  async function pollStatus() {
+    try {
+      const response = await fetch(API_URL);
+      if (response.ok) {
+        const data = await response.json();
+        updateUI(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch status:', error);
+    }
+  }
+
+  document.getElementById('retry-button').addEventListener('click', async () => {
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+    try {
+      const response = await fetch(RETRY_URL, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': csrfToken,
+        },
+      });
+      if (response.ok) {
+        pollStatus();
+      }
+    } catch (error) {
+      console.error('Retry failed:', error);
+    }
+  });
+
+  pollInterval = setInterval(pollStatus, 2000);
+  pollStatus();
+
+  window.addEventListener('beforeunload', () => {
+    if (pollInterval) {
+      clearInterval(pollInterval);
+    }
+  });
+</script>
+
+{% csrf_token %}
+{% endblock %}
