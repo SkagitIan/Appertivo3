@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from types import SimpleNamespace
 
+from django.core.files.uploadedfile import SimpleUploadedFile
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
@@ -56,7 +58,6 @@ class StaffDashboardTests(TestCase):
             {
                 "topic": "Inventory tactics",
                 "context": "Recent interviews about food waste.",
-                "references": "Research note",
             },
             HTTP_HX_REQUEST="true",
         )
@@ -68,6 +69,7 @@ class StaffDashboardTests(TestCase):
         ideas_step = RunStep.objects.get(run=run, name="ideas")
         self.assertEqual(len(ideas_step.output_payload["ideas"]), 2)
         self.assertGreater(run.cost_cents, 0)
+        self.assertEqual(ideas_step.input_payload.get("pdf_context"), "")
 
     @patch("articles.views.get_openai_client")
     def test_select_concept_creates_draft_step(self, mock_client_factory):
@@ -76,7 +78,7 @@ class StaffDashboardTests(TestCase):
             run=run,
             name="ideas",
             status="ok",
-            input_payload={"topic": "Inventory", "context": "Inventory", "references": "Research"},
+            input_payload={"topic": "Inventory", "context": "Inventory", "pdf_context": "Research"},
             output_payload={
                 "ideas": [
                     {"title": "Idea One", "subtitle": "Subtitle"},
@@ -113,6 +115,39 @@ class StaffDashboardTests(TestCase):
         draft_step = RunStep.objects.get(run=run, name="draft")
         self.assertEqual(draft_step.output_payload["summary"], "Outline summary")
         self.assertGreater(run.cost_cents, 0)
+
+    @patch("articles.views.extract_pdf_text", return_value="PDF insights")
+    @patch("articles.views.get_openai_client")
+    def test_generate_concepts_uses_pdf_upload(self, mock_client_factory, mock_extract):
+        ideas_payload = {
+            "ideas": [
+                {"title": "Idea One", "subtitle": "Subtitle", "angle": "Angle"},
+            ],
+        }
+        mock_client = SimpleNamespace(
+            responses=SimpleNamespace(
+                create=lambda **_: self._make_openai_response(ideas_payload)
+            )
+        )
+        mock_client_factory.return_value = mock_client
+
+        pdf_file = SimpleUploadedFile("notes.pdf", b"%PDF-1.4 sample", content_type="application/pdf")
+
+        response = self.client.post(
+            reverse("articles:staff_generate_concepts"),
+            {
+                "topic": "Inventory tactics",
+                "context": "Recent interviews about food waste.",
+                "pdf_upload": pdf_file,
+            },
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        mock_extract.assert_called_once()
+        run = ArticleRun.objects.get()
+        ideas_step = RunStep.objects.get(run=run, name="ideas")
+        self.assertEqual(ideas_step.input_payload.get("pdf_context"), "PDF insights")
 
     @patch("articles.views.get_openai_client")
     def test_finalize_article_creates_article(self, mock_client_factory):
