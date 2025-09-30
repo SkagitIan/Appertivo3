@@ -5,18 +5,30 @@ from __future__ import annotations
 import datetime
 import json
 import logging
-from typing import Optional
-from dotenv import load_dotenv
-load_dotenv()
 import os
+from typing import Optional
+
+from dotenv import load_dotenv
 from django.conf import settings
 from django.utils import timezone
 import stripe as stripe_sdk
+
+load_dotenv()
 
 from . import models
 
 logger = logging.getLogger(__name__)
 stripe = stripe_sdk
+
+
+def get_stripe_secret_key() -> str:
+    """Return the Stripe secret key from environment or Django settings."""
+
+    return (
+        os.getenv("STRIPE_API_KEY")
+        or os.getenv("STRIPE_SECRET_KEY")
+        or getattr(settings, "STRIPE_SECRET_KEY", "")
+    )
 
 
 class InvalidWebhookPayload(Exception):
@@ -30,7 +42,7 @@ class InvalidWebhookSignature(Exception):
 def ensure_api_key() -> None:
     """Refresh the Stripe API key from settings for the current process."""
 
-    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+    stripe.api_key = get_stripe_secret_key()
 
 
 def stripe_timestamp(value: Optional[int]) -> datetime.datetime:
@@ -181,7 +193,7 @@ def cancel_subscription(subscription: models.Subscription) -> None:
 
     if subscription.provider != models.Subscription.Provider.STRIPE:
         return
-    if not getattr(settings, "STRIPE_SECRET_KEY", ""):
+    if not get_stripe_secret_key():
         return
 
     ensure_api_key()
@@ -194,7 +206,9 @@ def cancel_subscription(subscription: models.Subscription) -> None:
 def construct_webhook_event(payload: bytes, signature: str) -> dict:
     """Parse the incoming webhook payload into a Stripe event dict."""
 
-    secret = getattr(settings, "STRIPE_WEBHOOK_SECRET", "")
+    secret = os.getenv("STRIPE_WEBHOOK_SECRET") or getattr(
+        settings, "STRIPE_WEBHOOK_SECRET", ""
+    )
     if secret:
         try:
             return stripe.Webhook.construct_event(payload, signature, secret)
