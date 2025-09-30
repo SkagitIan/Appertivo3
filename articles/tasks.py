@@ -150,10 +150,10 @@ def generate_research_draft(step_id: int, *, client: Optional[Any] = None) -> No
 
     try:
         response = client.responses.create(
-            model=run.model_info or "gpt-4.1-nano",
+            model="gpt-5",
             input=prompt,
             tools=[{"type": "web_search"}],
-            text={"type": "json_schema", "json_schema": RESEARCH_RESPONSE_SCHEMA},
+            text={"format": RESEARCH_RESPONSE_SCHEMA},
         )
         response_dict = (
             response.model_dump()

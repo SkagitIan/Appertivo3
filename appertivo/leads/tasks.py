@@ -30,7 +30,7 @@ DEFAULT_WEBHOOK_URL = "https://appertivo.com/leads/outscraper-webhook/"
 def get_outscraper_webhook_url() -> str:
     """Return the configured Outscraper webhook URL for lead imports."""
 
-    return getattr(settings, "LEADS_OUTSCRAPER_WEBHOOK_URL", DEFAULT_WEBHOOK_URL)
+    return "https://appertivo.com/leads/outscraper-webhook/"
 
 
 def extract_lead_entries(payload: object) -> list[dict]:
