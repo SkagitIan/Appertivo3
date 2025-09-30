@@ -28,13 +28,42 @@
     </p>
   </header>
 
+  <section class="grid gap-3 md:grid-cols-4">
+    <div class="rounded-2xl border border-slate-200 bg-white/70 p-4">
+      <p class="text-xs uppercase tracking-wide text-slate-500">Runs ready</p>
+      <p class="mt-1 text-2xl font-semibold text-slate-900">{{ dashboard_metrics.ready_runs }}</p>
+    </div>
+    <div class="rounded-2xl border border-slate-200 bg-white/70 p-4">
+      <p class="text-xs uppercase tracking-wide text-slate-500">Runs in progress</p>
+      <p class="mt-1 text-2xl font-semibold text-slate-900">{{ dashboard_metrics.pending_runs }}</p>
+    </div>
+    <div class="rounded-2xl border border-slate-200 bg-white/70 p-4">
+      <p class="text-xs uppercase tracking-wide text-slate-500">Total leads captured</p>
+      <p class="mt-1 text-2xl font-semibold text-slate-900">{{ dashboard_metrics.total_leads }}</p>
+    </div>
+    <div class="rounded-2xl border border-slate-200 bg-white/70 p-4">
+      <p class="text-xs uppercase tracking-wide text-slate-500">Total runs</p>
+      <p class="mt-1 text-2xl font-semibold text-slate-900">{{ dashboard_metrics.total_runs }}</p>
+    </div>
+  </section>
+
   <section class="bg-white/80 backdrop-blur rounded-2xl shadow-sm border border-white/50 p-6">
     <form method="post" action="{% url 'lead-run-start' %}" class="space-y-4">
       {% csrf_token %}
-      <div class="grid md:grid-cols-3 gap-4">
+      <div class="grid gap-4 md:grid-cols-4">
         <label class="flex flex-col text-sm font-medium text-slate-700">
           Target city
-          <input type="text" name="city" placeholder="Austin" class="mt-1 rounded-lg border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400" />
+          <select name="city_choice" class="mt-1 rounded-lg border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400">
+            <option value="">Select a city</option>
+            {% for city in city_choices %}
+              <option value="{{ city }}">{{ city }}</option>
+            {% endfor %}
+            <option value="__custom__">Other (type below)</option>
+          </select>
+        </label>
+        <label class="flex flex-col text-sm font-medium text-slate-700">
+          Custom city (optional)
+          <input type="text" name="custom_city" placeholder="Boise, ID" class="mt-1 rounded-lg border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400" />
         </label>
         <label class="flex flex-col text-sm font-medium text-slate-700">
           Leads per run
@@ -47,7 +76,7 @@
         </div>
       </div>
       <p class="text-xs text-slate-500">
-        Each run fetches a fresh batch of prospects, builds tailored landing pages, and keeps their engagement signals at your fingertips.
+        Pick a city to research or enter your own, then set the number of prospects you want to review.
       </p>
     </form>
   </section>
@@ -62,7 +91,13 @@
               <span class="lead-run-indicator" aria-hidden="true"></span>
               <div>
                 <p class="text-sm font-semibold text-slate-900">Run {{ run.pk }} · {{ run.city|default:"Any city" }}</p>
-                <p class="text-xs text-slate-600">Waiting for Outscraper to return lead data…</p>
+                <p class="text-xs text-slate-600">
+                  {% if run.status == LeadRunStatus.READY %}
+                    Outscraper finished but no leads were returned for this run.
+                  {% else %}
+                    Waiting for Outscraper to return lead data…
+                  {% endif %}
+                </p>
               </div>
             </div>
             <span class="text-xs font-medium text-purple-700">{{ run.get_status_display }}</span>
@@ -76,17 +111,39 @@
     {% for card in run_cards %}
       {% with run=card.run metrics=card.metrics leads=card.leads %}
       <section class="bg-white/80 backdrop-blur rounded-2xl shadow-sm border border-white/60 p-6 space-y-6">
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h2 class="text-2xl font-semibold text-slate-900">Run {{ run.pk }} · {{ run.city|default:"Any city" }}</h2>
+        <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div class="space-y-2">
+            <div class="flex flex-wrap items-center gap-2">
+              <h2 class="text-2xl font-semibold text-slate-900">Run {{ run.pk }} · {{ run.city|default:"Any city" }}</h2>
+              {% if run.status == LeadRunStatus.READY and leads %}
+                <span class="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">Leads ready</span>
+              {% endif %}
+            </div>
             <p class="text-sm text-slate-500">Started {{ run.created_at|date:"M j, Y • H:i" }}</p>
           </div>
-          <div class="flex flex-wrap items-center gap-3">
-            <span class="inline-flex items-center rounded-full bg-purple-100 px-3 py-1 text-sm font-medium text-purple-700">{{ run.get_status_display }}</span>
-            <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700">{{ run.progress_percentage }}% ready</span>
-            <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700">{{ metrics.total }} leads</span>
+          <div class="flex flex-col items-start gap-3 md:items-end">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="inline-flex items-center rounded-full bg-purple-100 px-3 py-1 text-sm font-medium text-purple-700">{{ run.get_status_display }}</span>
+              <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700">{{ run.progress_percentage }}% ready</span>
+              <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700">{{ metrics.total }} leads</span>
+            </div>
+            <form method="post" action="{% url 'lead-run-delete' run.id %}" class="inline">
+              {% csrf_token %}
+              <button type="submit" onclick="return confirm('Delete this run and remove its leads?');" class="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-red-600">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4" aria-hidden="true">
+                  <path d="M6.5 3.5A1.5 1.5 0 018 2h4a1.5 1.5 0 011.5 1.5V4h3a.5.5 0 010 1h-.59l-.77 10.218A2 2 0 0113.14 17H6.86a2 2 0 01-1.99-1.782L4.1 5H3.5a.5.5 0 110-1h3zM9 7a.5.5 0 00-1 0v6a.5.5 0 001 0V7zm3 0a.5.5 0 10-1 0v6a.5.5 0 001 0V7zM8 3.5a.5.5 0 00-.5.5v.5h5V4a.5.5 0 00-.5-.5H8z" />
+                </svg>
+                Delete run
+              </button>
+            </form>
           </div>
         </div>
+
+        {% if run.status == LeadRunStatus.READY and leads %}
+          <p class="rounded-xl border border-emerald-200 bg-emerald-50/60 px-4 py-3 text-sm text-emerald-700">
+            This run is ready to work. Shortlist the restaurants to focus outreach and log who you contact.
+          </p>
+        {% endif %}
 
         <dl class="grid md:grid-cols-4 gap-3 text-sm">
           <div class="rounded-lg border border-slate-200 bg-white px-4 py-3">
