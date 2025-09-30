@@ -9,6 +9,7 @@ from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.core.exceptions import RequestDataTooBig
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.core.mail import EmailMultiAlternatives
@@ -891,6 +892,12 @@ def dashboard(request, restaurant_id):
 
     user_profile, _ = models.UserProfile.objects.get_or_create(user=request.user)
     
+    active_menu_version = getattr(restaurant, "active_menu_version", None)
+    has_ready_menu = bool(
+        active_menu_version
+        and active_menu_version.status == models.MenuVersion.Status.SUCCEEDED
+    )
+
     context = {
         "restaurant": restaurant,
         "trial_info": trial_info,
@@ -903,7 +910,9 @@ def dashboard(request, restaurant_id):
         "empty_concepts": [],
         "settings_url": reverse("settings"),
         "tbd_message": "Personalized tips will appear here soon.",
-        "prompt_for_menu": not bool(restaurant.primary_menu_url),
+        "prompt_for_menu": not (
+            has_ready_menu or bool(restaurant.primary_menu_url)
+        ),
         "concept_generate_url": reverse("concepts-generate"),
         "concept_prompt_placeholders": DEFAULT_PROMPT_PLACEHOLDERS,
         #"concept_prompt_suggestions": build_prompt_suggestions(restaurant),
@@ -1201,12 +1210,22 @@ def manual_menu_view(request):
             .first()
         )
 
-    errors = []
-    menu_text = (request.POST.get("menu_text") or "").strip() if request.method == "POST" else ""
+    errors: list[str] = []
+    menu_text = ""
 
     if not restaurant:
         errors.append("We couldn't find a restaurant for your account yet.")
     elif request.method == "POST":
+        try:
+            menu_text = (request.POST.get("menu_text") or "").strip()
+        except RequestDataTooBig:
+            errors.append(
+                "Your menu content is too large to paste directly. Please upload a PDF instead."
+            )
+            status = 413
+            context = {"errors": errors, "menu_text": menu_text}
+            return render(request, "_partials/manual_menu.html", context, status=status)
+
         menu_pdf = request.FILES.get("menu_pdf")
         if not menu_text and not menu_pdf:
             errors.append("Paste your menu or upload a PDF so we can ingest it.")
@@ -3394,6 +3413,7 @@ def billing_upgrade_view(request):
     else:
         session_kwargs["customer_email"] = request.user.email
 
+    _ensure_stripe_api_key()
     onboarding.mark_checkout_started(request.user)
 
     try:
@@ -3622,7 +3642,12 @@ def restaurant_status(request, restaurant_id):
 
 def show_menu_modal(request, restaurant_id):
     restaurant = get_object_or_404(models.Restaurant, id=restaurant_id)
-    return render(request, "_partials/menu_modal.html", {"restaurant": restaurant})
+    active_version = getattr(restaurant, "active_menu_version", None)
+    menu_text = ""
+    if active_version and active_version.raw_markdown:
+        menu_text = active_version.raw_markdown
+    context = {"restaurant": restaurant, "errors": [], "menu_text": menu_text}
+    return render(request, "_partials/menu_modal.html", context)
 
 
 def _process_menu_submission(
@@ -3688,19 +3713,65 @@ def upload_menu(request, restaurant_id):
     restaurant = get_object_or_404(models.Restaurant, id=restaurant_id)
 
     if request.method == "POST":
-        submitted_urls = request.POST.getlist("menu_url")
+        try:
+            submitted_urls = request.POST.getlist("menu_url")
+            menu_text = (request.POST.get("menu_text") or "").strip()
+        except RequestDataTooBig:
+            context = {
+                "restaurant": restaurant,
+                "errors": [
+                    "Your menu content is too large to paste directly. Please upload a PDF instead.",
+                ],
+                "menu_text": "",
+            }
+            response = render(
+                request,
+                "_partials/menu_modal.html",
+                context,
+                status=413,
+            )
+            response["HX-Retarget"] = "#menu-modal"
+            response["HX-Reswap"] = "innerHTML"
+            return response
+
+        menu_pdf = request.FILES.get("menu_pdf")
         menu_urls = [url.strip() for url in submitted_urls if url and url.strip()]
         if submitted_urls:
             restaurant.set_menu_urls(menu_urls)
             restaurant.save(update_fields=["menu_urls", "primary_menu_url"])
 
-        menu_text = (request.POST.get("menu_text") or "").strip()
-        menu_pdf = request.FILES.get("menu_pdf")
-
         menu_url = None
         if not menu_text and not menu_pdf and menu_urls:
             menu_url = menu_urls[0]
 
-        _process_menu_submission(restaurant, menu_url, menu_text, menu_pdf)
+        errors: list[str] = []
+        if not (menu_url or menu_text or menu_pdf):
+            errors.append(
+                "Add at least one menu URL, paste content, or upload a PDF."
+            )
+        else:
+            menu_version = _process_menu_submission(
+                restaurant, menu_url, menu_text, menu_pdf
+            )
+            if not menu_version:
+                errors.append(
+                    "We couldn't process your submission. Please try again."
+                )
+
+        if errors:
+            context = {
+                "restaurant": restaurant,
+                "errors": errors,
+                "menu_text": menu_text,
+            }
+            response = render(
+                request,
+                "_partials/menu_modal.html",
+                context,
+                status=400,
+            )
+            response["HX-Retarget"] = "#menu-modal"
+            response["HX-Reswap"] = "innerHTML"
+            return response
 
     return restaurant_status(request, restaurant_id)
