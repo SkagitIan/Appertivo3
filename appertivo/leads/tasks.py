@@ -6,7 +6,7 @@ load_dotenv()
 import json
 import logging
 from dataclasses import dataclass
-from typing import Iterable, List, Sequence
+from typing import Iterable, List, Mapping, Sequence
 
 import requests
 from celery import shared_task
@@ -22,6 +22,101 @@ except ImportError:  # pragma: no cover - optional dependency for local dev
 
 from .models import Concept, DishIdea, Lead, LeadRun
 from .utils import pick_city
+
+
+DEFAULT_WEBHOOK_URL = "https://appertivo.com/leads/outscraper-webhook/"
+
+
+def get_outscraper_webhook_url() -> str:
+    """Return the configured Outscraper webhook URL for lead imports."""
+
+    return getattr(settings, "LEADS_OUTSCRAPER_WEBHOOK_URL", DEFAULT_WEBHOOK_URL)
+
+
+def extract_lead_entries(payload: object) -> list[dict]:
+    """Return a flat list of lead dictionaries from an Outscraper payload."""
+
+    if isinstance(payload, dict):
+        candidates = payload.get("data") or payload.get("results")
+        if isinstance(candidates, list):
+            if candidates and isinstance(candidates[0], list):
+                return [entry for entry in candidates[0] if isinstance(entry, dict)]
+            return [entry for entry in candidates if isinstance(entry, dict)]
+    elif isinstance(payload, list):
+        return [entry for entry in payload if isinstance(entry, dict)]
+    return []
+
+
+def resolve_outscraper_payload(payload: object, headers: Mapping[str, str] | None = None) -> object:
+    """Fetch Outscraper job results when the initial payload only includes metadata."""
+
+    if not isinstance(payload, dict):
+        return payload
+
+    if extract_lead_entries(payload):
+        return payload
+
+    results_url = payload.get("results_location")
+    request_headers = dict(headers or {})
+    if results_url:
+        try:
+            response = requests.get(results_url, headers=request_headers or None, timeout=60)
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as exc:  # pragma: no cover - network failure
+            logger.exception("Failed to download Outscraper results: %s", exc)
+
+    job_id = str(payload.get("id") or payload.get("job_id") or payload.get("task_id") or "").strip()
+    if not job_id:
+        return payload
+
+    job_url = f"https://api.app.outscraper.com/requests/{job_id}"
+    try:
+        response = requests.get(job_url, headers=request_headers or None, timeout=60)
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as exc:  # pragma: no cover - network failure
+        logger.exception("Failed to fetch Outscraper job %s: %s", job_id, exc)
+        return payload
+
+
+def store_lead_entries(entries: Sequence[Mapping[str, object]], *, city: str | None = None, run: LeadRun | None = None) -> list[int]:
+    """Create or update Lead objects for the supplied Outscraper entries."""
+
+    created_ids: list[int] = []
+    for entry in entries:
+        if not isinstance(entry, Mapping):
+            continue
+        lead_defaults: dict[str, object | None] = {
+            "name": entry.get("name") or entry.get("title") or "Unknown Restaurant",
+            "email": entry.get("email"),
+            "phone": entry.get("phone"),
+            "city": entry.get("city") or city,
+            "json_data": dict(entry),
+        }
+        if run is not None:
+            lead_defaults["run"] = run
+            lead_defaults["shortlisted"] = False
+        identifier = entry.get("email") or entry.get("phone") or entry.get("name")
+        if not identifier:
+            continue
+        email = entry.get("email")
+        if email:
+            lead, created = Lead.objects.update_or_create(
+                email=email,
+                defaults=lead_defaults,
+            )
+        else:
+            lead = Lead.objects.create(**lead_defaults)
+            created = True
+        if created:
+            created_ids.append(lead.id)
+        else:
+            for field, value in lead_defaults.items():
+                setattr(lead, field, value)
+            lead.save()
+            created_ids.append(lead.id)
+    return created_ids
 
 logger = logging.getLogger(__name__)
 
@@ -93,66 +188,29 @@ def fetch_leads(
 
     params = {
         "query": f"independent restaurants in {city}",
-        "limit": limit,
-        "async":'true',
-        "webhook": "https://appertivo.com/leads/outscraper-webhook/",
+        "limit": max(1, limit),
+        "async": "true",
+        "webhook": get_outscraper_webhook_url(),
         "fields": "query,name,place_id,full_address,latitude,longitude,site,phone,type,description,category,subtypes,about,menu_link,order_links",
-        "enrichment":["domains_service"],
+        "enrichment": json.dumps(["domains_service"]),
+
     }
     logger.info(params)
     headers = {"X-API-KEY": api_key}
     try:
-        response = requests.get(
-            "https://api.outscraper.cloud/google-maps-search", params=params, headers=headers, timeout=60
-        )
+        response = requests.get("https://api.outscraper.cloud/google-maps-search", params=params, headers=headers, timeout=60)
         response.raise_for_status()
     except requests.RequestException as exc:  # pragma: no cover - network failure
         logger.exception("Outscraper request failed: %s", exc)
         return []
 
-    payload = response.json()
-    if isinstance(payload, dict) and "data" in payload:
-        results: Sequence[dict] = payload.get("data", [])
-    elif isinstance(payload, list):
-        results = payload
-    else:
+    payload = resolve_outscraper_payload(response.json(), headers)
+    entries = extract_lead_entries(payload)
+    if not entries:
         logger.warning("Unexpected Outscraper payload: %s", payload)
         return []
 
-    created_ids: List[int] = []
-    for entry in results:
-        if not isinstance(entry, dict):
-            continue
-        lead_defaults = {
-            "name": entry.get("name") or entry.get("title") or "Unknown Restaurant",
-            "email": entry.get("email"),
-            "phone": entry.get("phone"),
-            "city": entry.get("city") or city,
-            "json_data": entry,
-        }
-        if run is not None:
-            lead_defaults["run"] = run
-            lead_defaults["shortlisted"] = False
-        identifier = entry.get("email") or entry.get("phone") or entry.get("name")
-        if not identifier:
-            continue
-        email = entry.get("email")
-        if email:
-            lead, created = Lead.objects.update_or_create(
-                email=email,
-                defaults=lead_defaults,
-            )
-        else:
-            lead = Lead.objects.create(**lead_defaults)
-            created = True
-        if created:
-            created_ids.append(lead.id)
-        else:
-            # When updating an existing lead ensure we keep slug and city aligned.
-            for field, value in lead_defaults.items():
-                setattr(lead, field, value)
-            lead.save()
-            created_ids.append(lead.id)
+    created_ids = store_lead_entries(entries, city=city, run=run)
     if run is not None:
         run.total_leads = len(created_ids)
         if created_ids:
