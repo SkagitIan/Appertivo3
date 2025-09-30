@@ -63,6 +63,9 @@
         <a href="{% url 'concepts' %}" class="rounded-lg px-3 py-2 transition hover:bg-slate-100">Concepts</a>
         <a href="{% url 'favorites' %}" class="rounded-lg px-3 py-2 transition hover:bg-slate-100">Favorites</a>
         <a href="{% url 'menus' %}" class="rounded-lg px-3 py-2 transition hover:bg-slate-100">Menus</a>
+        {% if request.user.is_staff %}
+          <a href="{% url 'articles:staff_dashboard' %}" class="rounded-lg px-3 py-2 transition hover:bg-slate-100">Article Studio</a>
+        {% endif %}
 
         <a href="{% url 'settings' %}" class="rounded-lg px-3 py-2 transition hover:bg-slate-100">Settings</a>
         <div class="my-2 border-t border-slate-200"></div>
