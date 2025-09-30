@@ -14,6 +14,8 @@ from .openai_helpers import (
     parse_structured_payload,
 )
 from .pipeline import build_next_input, finalize_run, next_step_name, schedule_step
+from .schemas import RESEARCH_RESPONSE_SCHEMA
+from .utils import apply_usage_cost, ensure_dict, ensure_list, sections_to_markdown
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +89,90 @@ def run_step(step_id: int, *, client: Optional[Any] = None) -> None:
             finalize_run(run)
     except Exception as exc:  # pragma: no cover - network failure handling
         logger.exception("Step %s failed: %s", step.name, exc)
+        step.status = "failed"
+        step.error_message = str(exc)
+        step.ended_at = timezone.now()
+        step.save(update_fields=["status", "error_message", "ended_at"])
+        run.mark_failed(str(exc), step=step)
+
+
+def generate_research_draft(step_id: int, *, client: Optional[Any] = None) -> None:
+    step = RunStep.objects.select_related("run").get(id=step_id)
+    run = step.run
+    if run.status == "canceled":
+        logger.info("Run %s canceled before research", run.pk)
+        return
+
+    step.status = "running"
+    step.error_message = ""
+    step.save(update_fields=["status", "error_message"])
+
+    run.status = "running"
+    run.current_step = "draft"
+    run.can_resume_from_step = False
+    run.save(update_fields=["status", "current_step", "can_resume_from_step"])
+
+    payload = ensure_dict(step.input_payload)
+    selected_idea = ensure_dict(payload.get("selected"))
+    idea_index = payload.get("idea_index", 0)
+    context_details = ensure_dict(payload.get("context"))
+
+    client = client or get_openai_client()
+    prompt = (
+        "You are a research assistant with access to live web search. "
+        "Given an article concept and research context, compile supporting citations "
+        "and draft a structured outline with section headings and bullet paragraphs. "
+        "Return structured JSON with keys: summary, citations (list with title, url, and snippet), draft (with title, sections)."
+        f"\n\nSelected concept: {json.dumps(selected_idea, ensure_ascii=False)}"
+        f"\n\nContext notes: {context_details.get('context', '')}"
+        f"\n\nExtracted PDF notes: {context_details.get('pdf_context', '')}"
+        f"\n\nTopic focus: {context_details.get('topic', '')}"
+    )
+
+    try:
+        response = client.responses.create(
+            model=run.model_info or "gpt-4.1-nano",
+            input=prompt,
+            tools=[{"type": "web_search"}],
+            response_format={"type": "json_schema", "json_schema": RESEARCH_RESPONSE_SCHEMA},
+        )
+        response_dict = (
+            response.model_dump()
+            if hasattr(response, "model_dump")
+            else getattr(response, "to_dict", lambda: {})()
+        )
+        parsed_payload = parse_structured_payload(extract_output_text(response))
+        citations = ensure_list(parsed_payload.get("citations"))
+        draft_data = ensure_dict(parsed_payload.get("draft"))
+        draft_markdown = (
+            parsed_payload.get("draft_markdown")
+            or draft_data.get("markdown")
+            or ""
+        )
+        if not draft_markdown:
+            sections = draft_data.get("sections")
+            if sections:
+                draft_markdown = sections_to_markdown(sections)
+            elif draft_data.get("text"):
+                draft_markdown = str(draft_data.get("text"))
+
+        step.status = "ok"
+        step.output_payload = {
+            "summary": parsed_payload.get("summary", ""),
+            "citations": citations,
+            "draft": draft_data,
+            "draft_markdown": draft_markdown,
+            "idea_index": idea_index,
+            "title": draft_data.get("title", selected_idea.get("title", "")),
+        }
+        step.raw_response = response_dict
+        step.ended_at = timezone.now()
+        step.save(update_fields=["status", "output_payload", "raw_response", "ended_at"])
+
+        usage = getattr(response, "usage", None) or response_dict.get("usage")
+        apply_usage_cost(run, usage)
+    except Exception as exc:  # pragma: no cover - network failure handling
+        logger.exception("Draft research step failed: %s", exc)
         step.status = "failed"
         step.error_message = str(exc)
         step.ended_at = timezone.now()

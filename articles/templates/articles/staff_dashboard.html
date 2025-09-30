@@ -14,26 +14,40 @@
 
 {% block page_content %}
   <div class="px-4 py-6 space-y-6">
-    <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h2 class="text-lg font-semibold text-[#14080E]">Workflow overview</h2>
-      <p class="mt-1 text-sm text-slate-500 max-w-3xl">
-        This dashboard guides staff-only article production. Start with research context, validate the AI draft, then approve the final SEO-optimized article.
-      </p>
-      <ol class="mt-4 grid gap-4 md:grid-cols-3">
-        <li class="rounded-2xl border border-[#E8D5FF] bg-[#F7F2FF] p-4">
-          <p class="text-xs font-semibold uppercase text-[#7B1FA2]">Step 1</p>
-          <h3 class="mt-2 text-base font-semibold text-[#2E005D]">Generate article concepts</h3>
-          <p class="mt-2 text-sm text-slate-600">Paste context from research papers or notes, then let AI propose five article directions.</p>
+    <section class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div class="max-w-3xl space-y-1">
+          <h2 class="text-lg font-semibold text-[#14080E]">Workflow overview</h2>
+          <p class="text-sm text-slate-500">
+            Move from research context to ready-to-publish articles. Each step can pause safely so you can return when long-running jobs finish.
+          </p>
+        </div>
+        <div class="hidden md:flex items-center gap-2 rounded-full bg-[#F5F1FF] px-3 py-1 text-xs font-semibold text-[#5C008B]">
+          <i class="fa-solid fa-clock" aria-hidden="true"></i>
+          Auto-saves every stage
+        </div>
+      </div>
+      <ol class="mt-4 grid gap-3 md:grid-cols-3">
+        <li class="flex items-start gap-3 rounded-2xl border border-[#E8D5FF] bg-[#FBF8FF] p-3">
+          <span class="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-[#7B1FA2] text-xs font-semibold text-white">1</span>
+          <div class="space-y-1">
+            <h3 class="text-sm font-semibold text-[#2E005D]">Generate concepts</h3>
+            <p class="text-xs text-slate-600">Share context or upload research for tailored article directions.</p>
+          </div>
         </li>
-        <li class="rounded-2xl border border-[#FFE3CC] bg-[#FFF7F0] p-4">
-          <p class="text-xs font-semibold uppercase text-[#FF5C00]">Step 2</p>
-          <h3 class="mt-2 text-base font-semibold text-[#B54D00]">Research &amp; draft</h3>
-          <p class="mt-2 text-sm text-slate-600">Pick the best concept to generate a sourced outline and editable draft. Make inline edits before continuing.</p>
+        <li class="flex items-start gap-3 rounded-2xl border border-[#FFE3CC] bg-[#FFF8F2] p-3">
+          <span class="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-[#FF5C00] text-xs font-semibold text-white">2</span>
+          <div class="space-y-1">
+            <h3 class="text-sm font-semibold text-[#B54D00]">Research &amp; draft</h3>
+            <p class="text-xs text-slate-600">Polling keeps progress updated while citations and drafts are prepared.</p>
+          </div>
         </li>
-        <li class="rounded-2xl border border-[#C7F0D8] bg-[#F0FFF6] p-4">
-          <p class="text-xs font-semibold uppercase text-[#2F855A]">Step 3</p>
-          <h3 class="mt-2 text-base font-semibold text-[#1E6A45]">Finalize &amp; publish</h3>
-          <p class="mt-2 text-sm text-slate-600">Approve the polished article with SEO metadata and publish when ready. Costs are tracked from Nano 4.1 usage.</p>
+        <li class="flex items-start gap-3 rounded-2xl border border-[#C7F0D8] bg-[#F4FFF9] p-3">
+          <span class="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-[#2F855A] text-xs font-semibold text-white">3</span>
+          <div class="space-y-1">
+            <h3 class="text-sm font-semibold text-[#1E6A45]">Finalize &amp; publish</h3>
+            <p class="text-xs text-slate-600">Polish copy, approve SEO, and publish straight to the library.</p>
+          </div>
         </li>
       </ol>
     </section>
@@ -67,6 +81,7 @@
               hx-indicator="#concepts-loading"
               hx-on::after-request="if (event.detail.successful) { document.getElementById('concepts-accordion').removeAttribute('open'); }"
               class="space-y-4"
+              data-loading-message="Generating article concepts…"
             >
               {% csrf_token %}
               <div class="grid gap-4 md:grid-cols-2">
@@ -104,6 +119,7 @@
                 <button
                   type="submit"
                   class="inline-flex items-center justify-center gap-2 rounded-full bg-[#5C008B] px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#460069]"
+                  data-loading-message="Generating article concepts…"
                 >
                   <i class="fa-solid fa-sparkles" aria-hidden="true"></i>
                   Generate concepts
@@ -150,10 +166,11 @@
           <div
             id="runs-panel"
             hx-get="{% url 'articles:staff_runs_fragment' %}"
-            hx-trigger="load, articles:refresh-runs from:body"
+            hx-trigger="load, every 20s, articles:refresh-runs from:body"
             hx-target="this"
             hx-swap="innerHTML"
             class="mt-4"
+            data-loading-message="Refreshing run history…"
           >
             {% include "articles/_run_list.html" with runs_with_meta=runs_with_meta only %}
           </div>
@@ -161,4 +178,12 @@
       </aside>
     </div>
   </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      document.body.addEventListener("articles:refresh-dashboard", function () {
+        window.location.reload();
+      });
+    });
+  </script>
 {% endblock %}
