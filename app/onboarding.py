@@ -66,15 +66,14 @@ class OnboardingStatus:
     can_retry: bool
 
 
+
 @dataclass
 class SignupResult:
     """Details created during the signup bootstrap flow."""
-
     user: Any
     account: models.Account
     restaurant: models.Restaurant
     onboarding: models.Onboarding
-
 
 def _state_index(state: str) -> int:
     return STATE_INDEX.get(state, -1)
@@ -148,7 +147,6 @@ def start_signup(
         restaurant=restaurant,
         onboarding=onboarding_record,
     )
-
 
 def record_consent(
     onboarding: models.Onboarding,
