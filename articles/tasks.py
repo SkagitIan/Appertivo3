@@ -153,7 +153,7 @@ def generate_research_draft(step_id: int, *, client: Optional[Any] = None) -> No
             model=run.model_info or "gpt-4.1-nano",
             input=prompt,
             tools=[{"type": "web_search"}],
-            response_format={"type": "json_schema", "json_schema": RESEARCH_RESPONSE_SCHEMA},
+            text={"type": "json_schema", "json_schema": RESEARCH_RESPONSE_SCHEMA},
         )
         response_dict = (
             response.model_dump()
