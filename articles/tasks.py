@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional
 
 from django.utils import timezone
 
-from .models import PromptTemplate, RunStep
+from .models import Article, PromptTemplate, RunStep
 from .openai_helpers import (
     calculate_nano_cost_cents,
     extract_output_text,
@@ -48,8 +48,27 @@ def run_step(step_id: int, *, client: Optional[Any] = None) -> None:
 
     client = client or get_openai_client()
 
-    prompt_context = json.dumps(step.input_payload, indent=2, sort_keys=True)
-    prompt_text = f"{template.prompt_text.strip()}\n\nContext:\n{prompt_context}"
+    base_payload = step.input_payload if isinstance(step.input_payload, dict) else {}
+    prompt_payload = dict(base_payload)
+    existing_titles: list[str] = []
+    if step.name == "ideas":
+        existing_titles = list(
+            Article.objects.filter(status="published")
+            .exclude(title__isnull=True)
+            .exclude(title__exact="")
+            .values_list("title", flat=True)
+        )
+        if existing_titles:
+            prompt_payload["existing_article_titles"] = existing_titles
+
+    prompt_context = json.dumps(prompt_payload, indent=2, sort_keys=True)
+    prompt_text = template.prompt_text.strip()
+    if existing_titles:
+        title_list = "\n".join(f"- {title}" for title in existing_titles)
+        prompt_text = (
+            f"{prompt_text}\n\nAvoid duplicating these published Appertivo article titles:\n{title_list}"
+        )
+    prompt_text = f"{prompt_text}\n\nContext:\n{prompt_context}"
 
     try:
         response = client.responses.create(
