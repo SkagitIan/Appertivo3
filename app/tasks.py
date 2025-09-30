@@ -37,7 +37,10 @@ def create_ideation_run(restaurant_id, user_id, context):
         status=IdeationRun.Status.SUCCEEDED,
     )
     return run.id
-    
+
+def get_restaurant_menu_link_from_ai():
+    pass
+
 @shared_task
 def run_outscraper_search(payload_id: str) -> dict:
     """Call the Outscraper API and store the response."""

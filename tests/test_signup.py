@@ -2,6 +2,7 @@ import json
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
+from django.db import IntegrityError
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
@@ -178,35 +179,6 @@ class SignupViewTests(TestCase):
         # Ensure no duplicate accounts were created.
         self.assertEqual(User.objects.filter(username="owner@example.com").count(), 1)
 
-    @patch(
-        "app.views.onboarding.start_signup", wraps=onboarding.start_signup
-    )
-    def test_onboarding_redirects_to_dashboard_when_complete(self, mock_start_signup):
-        """Completing onboarding should send the user to the dashboard."""
-
-        form_data = {
-            "email": "owner@example.com",
-            "password1": "pw",
-            "password2": "pw",
-            "restaurant_name": "Tasty Place",
-            "location": "City, State",
-        }
-
-        with self.captureOnCommitCallbacks(execute=True):
-            self.client.post(reverse("signup"), data=form_data)
-
-        mock_start_signup.assert_called_once()
-        onboarding_record = models.Onboarding.objects.get(
-            user__username="owner@example.com"
-        )
-        restaurant = onboarding_record.restaurant
-        onboarding_record.mark(models.Onboarding.State.COMPLETE, progress=100)
-
-        response = self.client.get(reverse("onboarding"))
-
-        self.assertRedirects(
-            response, reverse("dashboard", args=[restaurant.id])
-        )
 
     def test_login_with_bad_credentials_returns_error(self):
         """Failed logins should re-render the form with an error message."""

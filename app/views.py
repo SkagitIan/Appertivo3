@@ -608,6 +608,16 @@ def signup_view(request):
                 {"error": "Please complete all fields.", "form_data": form_data},
             )
 
+        if User.objects.filter(username__iexact=email).exists():
+            error_message = "An account with that email already exists."
+            if is_json:
+                return JsonResponse({"error": "email_in_use"}, status=400)
+            return render(
+                request,
+                "auth/signup.html",
+                {"error": error_message, "form_data": form_data},
+            )
+
         try:
             signup_result = onboarding.start_signup(
                 email=email,
@@ -616,9 +626,10 @@ def signup_view(request):
                 location=location,
             )
         except IntegrityError:
-            error_message = "An account with that email already exists."
+            logger.exception("Signup failed due to database error", extra={"email": email})
+            error_message = "We couldn't sign you up right now. Please try again."
             if is_json:
-                return JsonResponse({"error": "email_in_use"}, status=400)
+                return JsonResponse({"error": "signup_failed"}, status=500)
             return render(
                 request,
                 "auth/signup.html",
@@ -3165,11 +3176,8 @@ def refresh_reviews(request, restaurant_id):
         logger.warning("No query value available for Outscraper reviews on %s", restaurant.id)
         return redirect("settings")
 
-    token = onboarding.sign_restaurant_token(restaurant.id)
-    webhook_url = request.build_absolute_uri(
-        reverse("outscraper_webhook", args=[restaurant.id, token])
-    )
 
+    webhook_url = request.build_absolute_uri(reverse("outscraper_webhook"))
     params = {
         "query": query_value,
         "limit": 1,
@@ -3178,7 +3186,7 @@ def refresh_reviews(request, restaurant_id):
         "webhook": webhook_url,
         "sort":"newest",
         "ignoreEmpty": "true",
-        "fields":"place_id,reviews_data",
+        "fields":"place_id,reviews_data.review_text",
 
     }
     headers = {"X-API-KEY": api_key}

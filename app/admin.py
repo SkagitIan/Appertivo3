@@ -1,18 +1,14 @@
 
-"""Admin registrations for the custom Appertivo admin site."""
+"""Admin registrations for Appertivo models."""
 
 from typing import List
 
 from django.contrib import admin
 from django.contrib.admin import ModelAdmin
-from django.contrib.auth import get_user_model
-from django.contrib.auth.admin import GroupAdmin, UserAdmin
-from django.contrib.auth.models import Group
-from django.db import models as django_models
 from django.core.exceptions import FieldDoesNotExist
+from django.db import models as django_models
 
 from . import models
-from .admin_site import appertivo_admin_site
 
 
 def _model_has_field(model: type[django_models.Model], field_name: str) -> bool:
@@ -77,17 +73,17 @@ class TimestampedAdmin(ModelAdmin):
 
 
 # Register core org/account/user models
-@admin.register(models.Account, site=appertivo_admin_site)
+@admin.register(models.Account)
 class AccountAdmin(TimestampedAdmin):
     list_display = ("name", "stripe_customer_id", "created_at")
 
 
-@admin.register(models.UserProfile, site=appertivo_admin_site)
+@admin.register(models.UserProfile)
 class UserProfileAdmin(TimestampedAdmin):
     list_display = ("user", "timezone", "created_at")
 
 
-@admin.register(models.Membership, site=appertivo_admin_site)
+@admin.register(models.Membership)
 class MembershipAdmin(TimestampedAdmin):
     list_display = ("account", "user", "role", "created_at")
     list_filter = ("role", "account")
@@ -107,8 +103,7 @@ class DishIdeaInline(admin.TabularInline):
     fields = ("title", "description")
     show_change_link = True
 
-
-@admin.register(models.Onboarding, site=appertivo_admin_site)
+@admin.register(models.Onboarding)
 class OnboardingAdmin(TimestampedAdmin):
     list_display = (
         "user",
@@ -128,14 +123,12 @@ class OnboardingAdmin(TimestampedAdmin):
         "last_error",
     )
 
-
-@admin.register(models.OnboardingEvent, site=appertivo_admin_site)
+@admin.register(models.OnboardingEvent)
 class OnboardingEventAdmin(TimestampedAdmin):
     list_display = ("onboarding", "from_state", "to_state", "created_at")
     list_filter = ("to_state",)
 
-
-@admin.register(models.Restaurant, site=appertivo_admin_site)
+@admin.register(models.Restaurant)
 class RestaurantAdmin(admin.ModelAdmin):
     list_display = ("name", "location_text", "phone", "rating", "review_count", "created_at")
     search_fields = ("name", "location_text", "phone")
@@ -165,7 +158,7 @@ class RestaurantAdmin(admin.ModelAdmin):
         }),
     )
 
-@admin.register(models.RestaurantSettings, site=appertivo_admin_site)
+@admin.register(models.RestaurantSettings)
 class RestaurantSettingsAdmin(TimestampedAdmin):
     list_display = (
         "restaurant",
@@ -175,67 +168,67 @@ class RestaurantSettingsAdmin(TimestampedAdmin):
     )
 
 
-@admin.register(models.OutscraperPayload, site=appertivo_admin_site)
+@admin.register(models.OutscraperPayload)
 class OutscraperPayloadAdmin(TimestampedAdmin):
     list_display = ("restaurant", "status", "started_at", "finished_at")
     list_filter = ("status", "restaurant")
 
 
-@admin.register(models.MenuVersion, site=appertivo_admin_site)
+@admin.register(models.MenuVersion)
 class MenuVersionAdmin(TimestampedAdmin):
     list_display = ("restaurant", "source_kind", "status", "parsed_at")
     list_filter = ("status", "source_kind", "restaurant")
 
 
-@admin.register(models.Ingredient, site=appertivo_admin_site)
+@admin.register(models.Ingredient)
 class IngredientAdmin(TimestampedAdmin):
     list_display = ("restaurant", "name", "canonical_name", "confidence")
     search_fields = ("name", "canonical_name")
 
 
 # Ideation + results
-@admin.register(models.IdeationRun, site=appertivo_admin_site)
+@admin.register(models.IdeationRun)
 class IdeationRunAdmin(TimestampedAdmin):
     list_display = ("restaurant", "type", "model_name", "status", "created_at")
     list_filter = ("status", "type", "restaurant")
 
 
-@admin.register(models.Concept, site=appertivo_admin_site)
+@admin.register(models.Concept)
 class ConceptAdmin(TimestampedAdmin):
     list_display = ("restaurant", "name", "rank_order", "created_at")
 
 
-@admin.register(models.DishIdea, site=appertivo_admin_site)
+@admin.register(models.DishIdea)
 class DishIdeaAdmin(TimestampedAdmin):
     list_display = ("restaurant", "title", "description", "created_at")
     search_fields = ("title", "description")
 
 
-@admin.register(models.DishIdeaIngredient, site=appertivo_admin_site)
+@admin.register(models.DishIdeaIngredient)
 class DishIdeaIngredientAdmin(TimestampedAdmin):
     list_display = ("dish", "ingredient", "source", "confidence")
     list_filter = ("source",)
 
 
 # Favorites
-@admin.register(models.FavoriteConcept, site=appertivo_admin_site)
+@admin.register(models.FavoriteConcept)
 class FavoriteConceptAdmin(TimestampedAdmin):
     list_display = ("user", "concept", "favorited_at")
 
 
-@admin.register(models.FavoriteDish, site=appertivo_admin_site)
+@admin.register(models.FavoriteDish)
 class FavoriteDishAdmin(TimestampedAdmin):
     list_display = ("user", "dish", "favorited_at")
 
 
 # Assets + enhancements
-@admin.register(models.Asset, site=appertivo_admin_site)
+@admin.register(models.Asset)
 class AssetAdmin(TimestampedAdmin):
     list_display = ("kind", "public_url", "created_at")
     search_fields = ("public_url", "kind")
 
 
-@admin.register(models.Enhancement, site=appertivo_admin_site)
+@admin.register(models.Enhancement)
 class EnhancementAdmin(TimestampedAdmin):
     list_display = (
         "dish",
@@ -248,18 +241,18 @@ class EnhancementAdmin(TimestampedAdmin):
 
 
 # Menus
-@admin.register(models.MenuCollection, site=appertivo_admin_site)
+@admin.register(models.MenuCollection)
 class MenuCollectionAdmin(TimestampedAdmin):
     list_display = ("restaurant", "name", "created_by_user", "created_at")
 
 
-@admin.register(models.MenuItem, site=appertivo_admin_site)
+@admin.register(models.MenuItem)
 class MenuItemAdmin(TimestampedAdmin):
     list_display = ("menu", "dish", "position")
     list_filter = ("menu",)
 
 
-@admin.register(models.CollaborationLink, site=appertivo_admin_site)
+@admin.register(models.CollaborationLink)
 class CollaborationLinkAdmin(TimestampedAdmin):
     list_display = (
         "menu",
@@ -271,20 +264,20 @@ class CollaborationLinkAdmin(TimestampedAdmin):
     list_filter = ("is_active", "menu__restaurant")
 
 
-@admin.register(models.Feedback, site=appertivo_admin_site)
+@admin.register(models.Feedback)
 class FeedbackAdmin(TimestampedAdmin):
     list_display = ("menu", "dish", "type", "anon_id", "created_at")
     list_filter = ("type", "menu__restaurant")
 
 
-@admin.register(models.FeedbackAction, site=appertivo_admin_site)
+@admin.register(models.FeedbackAction)
 class FeedbackActionAdmin(TimestampedAdmin):
     list_display = ("feedback", "status", "decided_by", "decided_at")
     list_filter = ("status",)
 
 
 # Notifications
-@admin.register(models.NotificationPref, site=appertivo_admin_site)
+@admin.register(models.NotificationPref)
 class NotificationPrefAdmin(TimestampedAdmin):
     list_display = (
         "user",
@@ -293,19 +286,19 @@ class NotificationPrefAdmin(TimestampedAdmin):
     )
 
 
-@admin.register(models.Notification, site=appertivo_admin_site)
+@admin.register(models.Notification)
 class NotificationAdmin(TimestampedAdmin):
     list_display = ("user", "type", "channel", "status", "sent_at", "read_at")
     list_filter = ("status", "channel")
 
 
 # Plans + subscriptions
-@admin.register(models.Plan, site=appertivo_admin_site)
+@admin.register(models.Plan)
 class PlanAdmin(TimestampedAdmin):
     list_display = ("code", "name")
 
 
-@admin.register(models.Subscription, site=appertivo_admin_site)
+@admin.register(models.Subscription)
 class SubscriptionAdmin(TimestampedAdmin):
     list_display = (
         "account",
@@ -317,7 +310,7 @@ class SubscriptionAdmin(TimestampedAdmin):
     list_filter = ("status", "provider")
 
 
-@admin.register(models.EntitlementCounter, site=appertivo_admin_site)
+@admin.register(models.EntitlementCounter)
 class EntitlementCounterAdmin(TimestampedAdmin):
     list_display = (
         "account",
@@ -329,25 +322,21 @@ class EntitlementCounterAdmin(TimestampedAdmin):
 
 
 # Jobs, events, tags
-@admin.register(models.Job, site=appertivo_admin_site)
+@admin.register(models.Job)
 class JobAdmin(TimestampedAdmin):
     list_display = ("account", "kind", "status", "progress_pct")
     list_filter = ("status", "kind")
 
 
-@admin.register(models.UiEvent, site=appertivo_admin_site)
+@admin.register(models.UiEvent)
 class UiEventAdmin(TimestampedAdmin):
     list_display = ("user", "name", "entity_type", "created_at")
     list_filter = ("entity_type",)
 
 
-@admin.register(models.TagDictionary, site=appertivo_admin_site)
+@admin.register(models.TagDictionary)
 class TagDictionaryAdmin(TimestampedAdmin):
     list_display = ("kind", "name", "slug")
     list_filter = ("kind",)
 
 
-# Register auth models on the custom site so they inherit the new styling.
-User = get_user_model()
-appertivo_admin_site.register(User, UserAdmin)
-appertivo_admin_site.register(Group, GroupAdmin)

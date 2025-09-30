@@ -1,11 +1,12 @@
+from django.contrib import admin
 from django.contrib.sitemaps.views import sitemap
 from django.urls import include, path
+from django.contrib.auth import views as auth_views
 
 from app import outscraper, views as app_views
 from articles import admin_views as articles_admin_views
 from articles.sitemaps import ArticlesSitemap
 from app.outscraper import outscraper_webhook
-from app.admin_site import appertivo_admin_site
 
 urlpatterns = [
     path("", app_views.home_view, name="home"),
@@ -22,7 +23,7 @@ urlpatterns = [
     ## onboarding
     path("onboarding/", app_views.onboarding_view, name="onboarding"),
     path("onboarding/status/", app_views.onboarding_status_view, name="onboarding-status"),
-    path("onboarding/retry/", app_views.onboarding_retry_view, name="onboarding-retry"),
+    #path("onboarding/retry/", app_views.onboarding_retry_view, name="onboarding-retry"),
     path("onboarding/manual_menu/", app_views.manual_menu_view, name="manual-menu"),
     path("restaurants/<uuid:restaurant_id>/status/",app_views.restaurant_status,name="restaurant_status",),
     path("restaurants/<uuid:restaurant_id>/menu-modal/",app_views.show_menu_modal,name="show_menu_modal",),
@@ -76,5 +77,5 @@ urlpatterns = [
     path("sitemap.xml",sitemap,{"sitemaps": {"articles": ArticlesSitemap()}},name="sitemap",),
     # Existing API and sample views
     path("api/signup/", app_views.signup_view, name="api-signup"),
-    path("admin/", appertivo_admin_site.urls),
+    path("admin/", admin.site.urls),
 ]
