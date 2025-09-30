@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Activate Your Appertivo Account</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 40px auto;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #5C008B 0%, #8B00C7 100%);
+            padding: 40px 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            color: white;
+            font-size: 28px;
+            font-weight: 600;
+        }
+        .content {
+            padding: 40px 30px;
+            color: #333;
+        }
+        .content h2 {
+            color: #5C008B;
+            font-size: 22px;
+            margin-top: 0;
+            margin-bottom: 20px;
+        }
+        .content p {
+            line-height: 1.6;
+            margin-bottom: 20px;
+            color: #555;
+            font-size: 16px;
+        }
+        .btn-container {
+            text-align: center;
+            margin: 35px 0;
+        }
+        .btn {
+            display: inline-block;
+            padding: 16px 40px;
+            background: linear-gradient(135deg, #5C008B 0%, #8B00C7 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 16px;
+            transition: transform 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        .alt-link {
+            margin-top: 25px;
+            padding: 20px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+        }
+        .alt-link p {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            color: #666;
+        }
+        .alt-link a {
+            color: #5C008B;
+            word-break: break-all;
+            font-size: 13px;
+        }
+        .footer {
+            padding: 30px;
+            text-align: center;
+            background-color: #f9f9f9;
+            border-top: 1px solid #eee;
+        }
+        .footer p {
+            margin: 5px 0;
+            font-size: 13px;
+            color: #888;
+        }
+        .expiry-note {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .expiry-note p {
+            margin: 0;
+            color: #856404;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎉 Welcome to Appertivo!</h1>
+        </div>
+        <div class="content">
+            <h2>Activate Your Account</h2>
+            <p>Hi {{ user_email }},</p>
+            <p>Thank you for signing up for Appertivo! We're excited to help you create amazing menu specials for {{ restaurant_name }}.</p>
+            <p>To get started, please verify your email address by clicking the button below:</p>
+            
+            <div class="btn-container">
+                <a href="{{ activation_link }}" class="btn">Activate My Account</a>
+            </div>
+
+            <div class="expiry-note">
+                <p><strong>⏱ Note:</strong> This activation link will expire in 24 hours for security reasons.</p>
+            </div>
+
+            <div class="alt-link">
+                <p>If the button above doesn't work, copy and paste this link into your browser:</p>
+                <a href="{{ activation_link }}">{{ activation_link }}</a>
+            </div>
+
+            <p>Once you've activated your account, you'll be able to:</p>
+            <ul style="line-height: 1.8; color: #555;">
+                <li>Generate creative menu concepts powered by AI</li>
+                <li>Analyze your restaurant's unique brand and customer base</li>
+                <li>Collaborate with your team on menu ideas</li>
+                <li>Create dishes that resonate with your customers</li>
+            </ul>
+
+            <p>If you didn't create an account with Appertivo, you can safely ignore this email.</p>
+        </div>
+        <div class="footer">
+            <p><strong>Appertivo</strong> - AI-Powered Menu Innovation</p>
+            <p>Need help? Contact us at support@appertivo.com</p>
+            <p style="margin-top: 15px;">&copy; 2025 Appertivo. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

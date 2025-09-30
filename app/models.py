@@ -140,6 +140,7 @@ class Onboarding(TimestampedModel):
 
     outscraper_search_job_id = models.CharField(max_length=128, blank=True)
     outscraper_reviews_job_id = models.CharField(max_length=128, blank=True)
+    activation_token = models.CharField(max_length=255, blank=True)
 
     web_profile_json = models.JSONField(null=True, blank=True)
     reviews_json = models.JSONField(null=True, blank=True)
