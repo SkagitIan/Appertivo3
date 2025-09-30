@@ -44,6 +44,7 @@
               hx-on::after-request="if (event.detail.successful) { document.getElementById('concepts-accordion').removeAttribute('open'); }"
               class="space-y-4"
               data-loading-message="Generating article concepts…"
+              data-disable-global-overlay
             >
               {% csrf_token %}
               <div class="grid gap-4 md:grid-cols-2">
@@ -82,9 +83,11 @@
                   type="submit"
                   class="inline-flex items-center justify-center gap-2 rounded-full bg-[#5C008B] px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#460069]"
                   data-loading-message="Generating article concepts…"
+                  data-loading-button
                 >
-                  <i class="fa-solid fa-sparkles" aria-hidden="true"></i>
-                  Generate concepts
+                  <i class="fa-solid fa-sparkles" aria-hidden="true" data-default-icon></i>
+                  <i class="fa-solid fa-circle-notch hidden animate-spin" aria-hidden="true" data-loading-icon></i>
+                  <span>Generate concepts</span>
                 </button>
               </div>
             </form>
@@ -133,6 +136,7 @@
             hx-swap="innerHTML"
             class="mt-4"
             data-loading-message="Refreshing run history…"
+            data-disable-global-overlay
           >
             {% include "articles/_run_list.html" with runs_with_meta=runs_with_meta only %}
           </div>
@@ -140,6 +144,68 @@
       </aside>
     </div>
   </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      function findLoadingButton(elt) {
+        if (!elt) {
+          return null;
+        }
+        if (elt.matches("[data-loading-button]")) {
+          return elt;
+        }
+        return (
+          elt.querySelector("[data-loading-button]") ||
+          (elt.closest("form") ? elt.closest("form").querySelector("[data-loading-button]") : null)
+        );
+      }
+
+      function toggleButtonState(button, isLoading) {
+        if (!button) {
+          return;
+        }
+        button.disabled = isLoading;
+        button.setAttribute("aria-busy", isLoading ? "true" : "false");
+        button.classList.toggle("cursor-wait", isLoading);
+        button.classList.toggle("opacity-70", isLoading);
+
+        const defaultIcon = button.querySelector("[data-default-icon]");
+        const loadingIcon = button.querySelector("[data-loading-icon]");
+        if (defaultIcon && loadingIcon) {
+          defaultIcon.classList.toggle("hidden", isLoading);
+          loadingIcon.classList.toggle("hidden", !isLoading);
+        }
+      }
+
+      document.body.addEventListener("htmx:beforeRequest", function (event) {
+        const trigger = event.detail.elt;
+        if (!trigger) {
+          return;
+        }
+        const button = findLoadingButton(trigger);
+        if (!button) {
+          return;
+        }
+        toggleButtonState(button, true);
+        trigger.__loadingButton = button;
+      });
+
+      function resetButton(event) {
+        const trigger = event.detail.elt;
+        const button = trigger && trigger.__loadingButton;
+        if (!button) {
+          return;
+        }
+        toggleButtonState(button, false);
+        if (trigger) {
+          delete trigger.__loadingButton;
+        }
+      }
+
+      document.body.addEventListener("htmx:afterRequest", resetButton);
+      document.body.addEventListener("htmx:responseError", resetButton);
+    });
+  </script>
 
   <script>
     document.addEventListener("DOMContentLoaded", function () {

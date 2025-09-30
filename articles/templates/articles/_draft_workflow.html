@@ -43,6 +43,7 @@
       hx-indicator="#finalize-loading"
       class="space-y-4"
       data-loading-message="Polishing the draft…"
+      data-disable-global-overlay
     >
       {% csrf_token %}
       {{ draft_form.run_id }}
@@ -66,9 +67,11 @@
         <button
           type="submit"
           class="inline-flex items-center justify-center gap-2 rounded-full bg-[#2E005D] px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#220045]"
+          data-loading-button
         >
-          <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
-          Continue to final polish
+          <i class="fa-solid fa-arrow-right" aria-hidden="true" data-default-icon></i>
+          <i class="fa-solid fa-circle-notch hidden animate-spin" aria-hidden="true" data-loading-icon></i>
+          <span>Continue to final polish</span>
         </button>
       </div>
       <span id="finalize-loading" class="htmx-indicator inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -85,6 +88,7 @@
     hx-target="#draft-workflow"
     hx-swap="outerHTML"
     data-loading-message="Gathering research…"
+    data-disable-global-overlay
   >
     <div class="flex items-center gap-3 text-sm font-semibold text-indigo-700">
       <span class="relative flex h-3 w-3">
