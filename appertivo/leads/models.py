@@ -22,6 +22,7 @@ class LeadRun(models.Model):
         choices=Status.choices,
         default=Status.CREATED,
     )
+    outscraper_job_id = models.CharField(max_length=100, blank=True, null=True, unique=True)
     expected_leads = models.PositiveIntegerField(default=10)
     total_leads = models.PositiveIntegerField(default=0)
     processed_leads = models.PositiveIntegerField(default=0)

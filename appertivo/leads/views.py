@@ -17,11 +17,13 @@ from dotenv import load_dotenv
 from .models import Lead, LeadRun
 from .tasks import (
     build_lead_run_pipeline,
+    dispatch_lead_pipeline,
     extract_lead_entries,
     resolve_outscraper_payload,
     send_personalized_email,
     store_lead_entries,
 )
+from .utils import extract_outscraper_job_id
 
 load_dotenv()
 
@@ -70,12 +72,37 @@ def outscraper_webhook(request: HttpRequest) -> JsonResponse:
     headers = {"X-API-KEY": api_key} if api_key else None
     resolved_payload = resolve_outscraper_payload(payload, headers)
     entries = extract_lead_entries(resolved_payload)
+    job_id = extract_outscraper_job_id(payload) or extract_outscraper_job_id(resolved_payload)
+    run = None
+    if job_id:
+        run = LeadRun.objects.filter(outscraper_job_id=job_id).first()
 
     if not entries:
         logger.info("Received Outscraper webhook with no lead entries")
+        if run is not None:
+            run.status = LeadRun.Status.READY
+            run.processed_leads = run.total_leads
+            run.save(update_fields=["status", "processed_leads"])
         return JsonResponse({"status": "ok", "processed": 0})
 
-    lead_ids = store_lead_entries(entries, city=None, run=None)
+    existing_ids: set[int] = set()
+    if run is not None:
+        existing_ids = set(run.leads.values_list("id", flat=True))
+
+    lead_ids = store_lead_entries(entries, city=run.city if run else None, run=run)
+    if run is not None:
+        new_ids = [lead_id for lead_id in lead_ids if lead_id not in existing_ids]
+        run.total_leads = run.leads.count()
+        if run.total_leads and run.total_leads > run.expected_leads:
+            run.expected_leads = run.total_leads
+        run.save(update_fields=["total_leads", "expected_leads"])
+        if new_ids:
+            dispatch_lead_pipeline.delay(new_ids, run_id=run.pk, send_email=False)
+        else:
+            run.status = LeadRun.Status.READY
+            run.processed_leads = run.total_leads
+            run.save(update_fields=["status", "processed_leads"])
+
     logger.info("Processed %s leads from Outscraper webhook", len(lead_ids))
     return JsonResponse({"status": "ok", "processed": len(lead_ids)})
 

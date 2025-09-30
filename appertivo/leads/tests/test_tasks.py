@@ -13,7 +13,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "specials.settings")
 django.setup()
 
 from appertivo.leads.models import Lead, LeadRun
-from appertivo.leads.tasks import fetch_leads
+from appertivo.leads.tasks import dispatch_lead_pipeline, fetch_leads
 
 
 class FetchLeadsTaskTests(TestCase):
@@ -67,6 +67,7 @@ class FetchLeadsTaskTests(TestCase):
 
         run.refresh_from_db()
         self.assertEqual(run.status, LeadRun.Status.PREPARING)
+        self.assertEqual(run.outscraper_job_id, "job-123")
 
     @override_settings(OUTSCRAPER_API_KEY="test-key")
     @patch.dict(os.environ, {"OUTSCRAPER_API_KEY": "test-key"}, clear=False)
@@ -87,6 +88,19 @@ class FetchLeadsTaskTests(TestCase):
 
         self.assertEqual(lead_ids, [])
         mock_logger.info.assert_any_call("Outscraper job %s not ready: %s", "job-456", "pending")
+
+
+class DispatchLeadPipelineTests(TestCase):
+    """Validate dispatch_lead_pipeline coordination behaviours."""
+
+    def test_dispatch_pipeline_keeps_fetching_run_without_leads(self) -> None:
+        run = LeadRun.objects.create(status=LeadRun.Status.FETCHING, total_leads=0, processed_leads=0)
+
+        dispatch_lead_pipeline(lead_ids=[], run_id=run.id, send_email=False)
+
+        run.refresh_from_db()
+        self.assertEqual(run.status, LeadRun.Status.FETCHING)
+        self.assertEqual(run.processed_leads, 0)
 
 
 class OutscraperWebhookViewTests(TestCase):
@@ -120,3 +134,37 @@ class OutscraperWebhookViewTests(TestCase):
         lead.refresh_from_db()
         self.assertEqual(lead.name, "Updated Name")
         self.assertEqual(lead.json_data["city"], "Miami, FL")
+
+    @override_settings(OUTSCRAPER_API_KEY="test-key")
+    @patch.dict(os.environ, {"OUTSCRAPER_API_KEY": "test-key"}, clear=False)
+    @patch("appertivo.leads.views.dispatch_lead_pipeline.delay")
+    def test_webhook_links_results_to_run(self, mock_delay: Mock) -> None:
+        run = LeadRun.objects.create(city="Santa Fe, NM", outscraper_job_id="job-999", status=LeadRun.Status.FETCHING)
+
+        payload = {
+            "id": "job-999",
+            "data": [
+                {
+                    "name": "Coyote Cafe",
+                    "email": "chef@coyotecafe.com",
+                    "city": "Santa Fe, NM",
+                }
+            ],
+        }
+
+        response = self.client.post(
+            reverse("outscraper_webhook"),
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        lead = Lead.objects.get(email="chef@coyotecafe.com")
+        self.assertEqual(lead.run, run)
+
+        run.refresh_from_db()
+        self.assertEqual(run.total_leads, 1)
+        mock_delay.assert_called_once()
+        args, kwargs = mock_delay.call_args
+        self.assertIn(lead.id, args[0])
+        self.assertEqual(kwargs["run_id"], run.id)
