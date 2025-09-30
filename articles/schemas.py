@@ -1,5 +1,6 @@
 RESEARCH_RESPONSE_SCHEMA = {
     "name": "article_research",
+    "type": "json_schema",
     "strict": True,
     "schema": {
         "type": "object",
@@ -17,7 +18,7 @@ RESEARCH_RESPONSE_SCHEMA = {
                         "snippet": {"type": "string"},
                         "source": {"type": "string"},
                     },
-                    "required": ["title", "url"],
+                    "required": ["title", "url", "snippet", "source"]
                 },
             },
             "draft": {
@@ -38,13 +39,15 @@ RESEARCH_RESPONSE_SCHEMA = {
                                 },
                                 "body": {"type": "string"},
                             },
-                            "required": ["heading"],
+                            "required": ["heading", "paragraphs", "body"]
                         },
                     },
                     "text": {"type": "string"},
                 },
+                "required": ["title", "sections", "text"]
             },
         },
         "required": ["summary", "citations", "draft"],
     },
 }
+
