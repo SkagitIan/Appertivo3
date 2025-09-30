@@ -39,6 +39,7 @@ class UserProfile(TimestampedModel):
         default=DEFAULT_VIEW_MODE,
         blank=True,
     )
+    has_seen_welcome = models.BooleanField(default=False)
 
 
 class Membership(TimestampedModel):
