@@ -41,7 +41,7 @@ _openai_api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=_openai_api_key) if _openai_api_key else None
 import datetime
 from itertools import islice
-
+import stripe
 
 from app.tasks import create_ideation_run
 from . import onboarding
@@ -3363,6 +3363,86 @@ def billing_cancel_view(request):
     return redirect("billing")
 
 
+@login_required
+@require_POST
+def create_checkout_session_view(request):
+    """Create a Stripe Checkout session for $49 onboarding payment."""
+    
+    onboarding_record = onboarding.ensure_onboarding_for_user(request.user)
+    if not onboarding_record:
+        return JsonResponse({"error": "No onboarding record found"}, status=400)
+    
+    membership = (
+        models.Membership.objects.filter(user=request.user)
+        .select_related("account")
+        .first()
+    )
+    if not membership:
+        return JsonResponse({"error": "No account found"}, status=400)
+    
+    account = membership.account
+    
+    _ensure_stripe_api_key()
+    
+    success_url = request.build_absolute_uri(reverse("checkout-success"))
+    cancel_url = request.build_absolute_uri(reverse("checkout-cancel"))
+    
+    session_kwargs = {
+        "mode": "payment",
+        "line_items": [{
+            "price_data": {
+                "currency": "usd",
+                "product_data": {
+                    "name": "Appertivo Onboarding Service",
+                    "description": "Complete restaurant onboarding with AI-powered menu analysis",
+                },
+                "unit_amount": 4900,
+            },
+            "quantity": 1,
+        }],
+        "success_url": success_url,
+        "cancel_url": cancel_url,
+        "metadata": {
+            "user_id": str(request.user.id),
+            "onboarding_id": str(onboarding_record.id),
+            "account_id": str(account.id),
+        },
+    }
+    
+    if account.stripe_customer_id:
+        session_kwargs["customer"] = account.stripe_customer_id
+    else:
+        session_kwargs["customer_email"] = request.user.email
+    
+    try:
+        checkout_session = stripe.checkout.Session.create(**session_kwargs)
+        onboarding.mark_checkout_started(request.user, checkout_url=checkout_session.url)
+        return JsonResponse({"url": checkout_session.url})
+    except stripe.error.StripeError as e:
+        logger.exception("Unable to create Stripe Checkout session for onboarding", exc_info=True)
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@login_required
+def checkout_success_view(request):
+    """Show success message after payment completion."""
+    
+    context = {
+        "status_url": reverse("onboarding-status"),
+    }
+    return render(request, "checkout/success.html", context)
+
+
+@login_required
+def checkout_cancel_view(request):
+    """Show cancellation message and retry option."""
+    
+    context = {
+        "onboarding_url": reverse("onboarding"),
+    }
+    return render(request, "checkout/cancel.html", context)
+
+
 @csrf_exempt
 @require_POST
 def stripe_webhook_view(request):
@@ -3389,6 +3469,22 @@ def stripe_webhook_view(request):
     data_object = event.get("data", {}).get("object", {})
 
     if event_type == "checkout.session.completed":
+        metadata = data_object.get("metadata", {})
+        onboarding_id = metadata.get("onboarding_id")
+        
+        if onboarding_id:
+            try:
+                onboarding_record = models.Onboarding.objects.get(id=onboarding_id)
+                onboarding_record.mark(
+                    models.Onboarding.State.CHECKOUT_PAID,
+                    progress=25,
+                    message="Payment confirmed via Stripe webhook"
+                )
+                onboarding.kickoff_after_payment(onboarding_record.id)
+                logger.info(f"Onboarding payment processed for {onboarding_id}")
+            except models.Onboarding.DoesNotExist:
+                logger.error(f"Onboarding {onboarding_id} not found in webhook")
+        
         subscription_id = data_object.get("subscription")
         if subscription_id:
             _ensure_stripe_api_key()
