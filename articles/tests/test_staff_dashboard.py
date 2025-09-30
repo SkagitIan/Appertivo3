@@ -62,7 +62,7 @@ class StaffDashboardTests(TestCase):
             HTTP_HX_REQUEST="true",
         )
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Concepts ready for review")
+        self.assertContains(response, "Model notes")
         run = ArticleRun.objects.get()
         self.assertEqual(run.created_by, self.staff_user)
         self.assertEqual(run.current_step, "ideas")
@@ -81,7 +81,8 @@ class StaffDashboardTests(TestCase):
         self.assertIn("Add brief context", response.content.decode())
 
     @patch("articles.tasks.get_openai_client")
-    def test_select_concept_creates_draft_step(self, mock_client_factory):
+    @patch("articles.views.get_openai_client")
+    def test_select_concept_creates_draft_step(self, mock_view_client_factory, mock_task_client_factory):
         run = ArticleRun.objects.create(created_by=self.staff_user, status="running", current_step="ideas")
         RunStep.objects.create(
             run=run,
@@ -111,7 +112,8 @@ class StaffDashboardTests(TestCase):
                 create=lambda **_: self._make_openai_response(draft_payload)
             )
         )
-        mock_client_factory.return_value = mock_client
+        mock_view_client_factory.return_value = mock_client
+        mock_task_client_factory.return_value = mock_client
 
         response = self.client.post(
             reverse("articles:staff_select_concept"),
@@ -125,8 +127,9 @@ class StaffDashboardTests(TestCase):
         self.assertEqual(draft_step.output_payload["summary"], "Outline summary")
         self.assertGreater(run.cost_cents, 0)
 
+    @patch("articles.views.get_openai_client")
     @patch("articles.views.async_task")
-    def test_select_concept_returns_polling_when_pending(self, mock_async_task):
+    def test_select_concept_returns_polling_when_pending(self, mock_async_task, mock_client_factory):
         mock_async_task.side_effect = lambda *_, **__: None
         run = ArticleRun.objects.create(created_by=self.staff_user, status="running", current_step="ideas")
         RunStep.objects.create(
@@ -140,6 +143,17 @@ class StaffDashboardTests(TestCase):
                 ],
                 "notes": "Notes",
             },
+        )
+        mock_client_factory.return_value = SimpleNamespace(
+            responses=SimpleNamespace(
+                create=lambda **_: self._make_openai_response(
+                    {
+                        "summary": "",
+                        "citations": [],
+                        "draft": {"sections": []},
+                    }
+                )
+            )
         )
 
         response = self.client.post(

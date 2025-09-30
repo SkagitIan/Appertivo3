@@ -12,15 +12,6 @@
 {% endif %}
 
 {% if ideas %}
-  <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-    <div>
-      <h3 class="text-base font-semibold text-[#14080E]">Concepts ready for review</h3>
-      <p class="text-sm text-slate-500">Pick the best direction to launch research and a first draft. Need to tweak context? Reopen the panel above and regenerate.</p>
-    </div>
-    {% if active_run %}
-      <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">Run #{{ active_run.id }}</span>
-    {% endif %}
-  </div>
   {% if ideas_payload.notes %}
     <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
       <p class="font-semibold">Model notes</p>
