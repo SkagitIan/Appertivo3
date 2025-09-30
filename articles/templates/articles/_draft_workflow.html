@@ -34,6 +34,7 @@
       hx-post="{% url 'articles:staff_finalize_article' %}"
       hx-target="#final-article-panel"
       hx-swap="innerHTML"
+      hx-indicator="#finalize-loading"
       class="space-y-4"
     >
       {% csrf_token %}
@@ -63,6 +64,10 @@
           Continue to final polish
         </button>
       </div>
+      <span id="finalize-loading" class="htmx-indicator inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <i class="fa-solid fa-circle-notch animate-spin" aria-hidden="true"></i>
+        Polishing…
+      </span>
     </form>
   </div>
 {% else %}

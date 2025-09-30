@@ -10,6 +10,7 @@ urlpatterns = [
     path("leads/outscraper-webhook/", views.outscraper_webhook, name="outscraper_webhook"),
     path("leads/runs/start/", views.start_lead_run, name="lead-run-start"),
     path("leads/runs/<int:run_id>/", views.update_run_selection, name="lead-run-selection"),
+    path("leads/outscraper-webhook/", views.outscraper_webhook, name="outscraper_webhook"),
     path("demo/<slug:slug>/", views.lead_landing, name="lead-landing"),
     path("demo/<slug:slug>/track/", views.track_open, name="lead-track"),
 ]
