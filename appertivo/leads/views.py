@@ -1,14 +1,51 @@
 """Views for the leads landing experiences."""
 from __future__ import annotations
 
+import json
+import logging
+
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from .models import Lead, LeadRun
-from .tasks import build_lead_run_pipeline, send_personalized_email
+from .tasks import (
+    build_lead_run_pipeline,
+    extract_lead_entries,
+    resolve_outscraper_payload,
+    send_personalized_email,
+    store_lead_entries,
+)
+
+logger = logging.getLogger(__name__)
+
+
+@csrf_exempt
+@require_POST
+def outscraper_webhook(request: HttpRequest) -> JsonResponse:
+    """Persist Outscraper webhook payloads onto matching lead records."""
+
+    try:
+        payload = json.loads(request.body.decode("utf-8"))
+    except json.JSONDecodeError:
+        return JsonResponse({"status": "error", "message": "Invalid JSON"}, status=400)
+
+    api_key = getattr(settings, "OUTSCRAPER_API_KEY", None)
+    headers = {"X-API-KEY": api_key} if api_key else None
+    resolved_payload = resolve_outscraper_payload(payload, headers)
+    entries = extract_lead_entries(resolved_payload)
+
+    if not entries:
+        logger.info("Received Outscraper webhook with no lead entries")
+        return JsonResponse({"status": "ok", "processed": 0})
+
+    lead_ids = store_lead_entries(entries, city=None, run=None)
+    logger.info("Processed %s leads from Outscraper webhook", len(lead_ids))
+    return JsonResponse({"status": "ok", "processed": len(lead_ids)})
 
 def outscraper_webhook():
     pass
