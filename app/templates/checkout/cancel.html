@@ -1,0 +1,51 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}Payment Cancelled — Appertivo{% endblock %}
+
+{% block page_intro %}
+  <div class="space-y-1">
+    <p class="text-xs font-semibold uppercase tracking-wide text-amber-600/70">Cancelled</p>
+    <h1 class="text-2xl font-semibold text-[#14080E]">Payment Cancelled</h1>
+    <p class="text-sm text-slate-600">You cancelled the checkout process.</p>
+  </div>
+{% endblock %}
+
+{% block page_content %}
+  <div class="px-4 py-10">
+    <div class="mx-auto max-w-2xl">
+      <div class="rounded-2xl border border-amber-200 bg-white/90 p-8 shadow-sm">
+        <div class="flex items-center justify-center">
+          <div class="flex h-16 w-16 items-center justify-center rounded-full bg-amber-100">
+            <svg class="h-8 w-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </div>
+        </div>
+        
+        <div class="mt-6 space-y-4 text-center">
+          <h2 class="text-xl font-semibold text-[#14080E]">No payment was processed</h2>
+          <p class="text-sm text-slate-600">
+            You cancelled the checkout before completing the payment. No charges have been made to your account.
+          </p>
+          
+          <div class="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Need help?</p>
+            <div class="mt-3 space-y-2 text-left text-sm text-slate-600">
+              <p>If you experienced any issues during checkout or have questions about the onboarding service, please contact our support team.</p>
+              <p class="text-xs text-slate-500">The onboarding service includes full restaurant data analysis, menu review, customer personas, and AI-powered creative workspace setup for $49.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-center">
+        <a href="{{ onboarding_url }}" class="inline-flex items-center justify-center rounded-xl bg-[#5C008B] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#4a0178]">
+          Try Again
+        </a>
+        <a href="{% url 'contact' %}" class="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+          Contact Support
+        </a>
+      </div>
+    </div>
+  </div>
+{% endblock %}

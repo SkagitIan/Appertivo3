@@ -48,23 +48,37 @@
         <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Step 2</p>
         <div class="mt-3 space-y-4">
           <div>
-            <h2 class="text-lg font-semibold text-[#14080E]">Activate billing to unlock onboarding</h2>
-            <p class="mt-1 text-sm text-slate-600">We queue Outscraper and AI steps only after Stripe confirms payment so you never incur costs prematurely.</p>
+            <h2 class="text-lg font-semibold text-[#14080E]">Complete payment to start onboarding</h2>
+            <p class="mt-1 text-sm text-slate-600">One-time $49 payment to unlock complete restaurant setup, AI analysis, and workspace configuration.</p>
           </div>
-          {% if subscription_allows_dashboard %}
+          
+          {% if onboarding.state == 'checkout_paid' or onboarding.state == 'complete' %}
             <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-              Subscription active. You can continue to your workspace at any time.
+              Payment completed! Your onboarding is in progress.
             </div>
-            {% if dashboard_url %}
-              <a href="{{ dashboard_url }}" class="inline-flex items-center justify-center rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-600">Open dashboard</a>
-            {% endif %}
+          {% elif onboarding.state == 'checkout_started' %}
+            <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+              Checkout session started. Complete your payment to continue.
+            </div>
+            <button id="proceed-to-payment-btn" class="inline-flex items-center justify-center rounded-xl bg-[#5C008B] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#4a0178]">
+              Proceed to Payment ($49)
+            </button>
           {% else %}
-            <form method="post" action="{% url 'billing-upgrade' %}" class="flex flex-col gap-3 sm:flex-row sm:items-center">
-              {% csrf_token %}
-              <input type="hidden" name="next" value="{% url 'onboarding' %}">
-              <button type="submit" class="inline-flex items-center justify-center rounded-xl bg-[#FF5C00] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#e05400]">Start {{ trial_days }}-day trial</button>
-              <span class="text-xs text-slate-500">No charges until {{ trial_days }} days have passed. Cancelling is instant.</span>
-            </form>
+            <div class="flex flex-col gap-3">
+              <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <p class="font-semibold text-[#14080E]">Onboarding Service</p>
+                    <p class="mt-1 text-xs text-slate-600">Complete setup with AI-powered analysis</p>
+                  </div>
+                  <p class="text-xl font-bold text-[#5C008B]">$49</p>
+                </div>
+              </div>
+              <button id="proceed-to-payment-btn" class="inline-flex items-center justify-center rounded-xl bg-[#5C008B] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#4a0178]">
+                Proceed to Payment
+              </button>
+              <p class="text-xs text-slate-500">Secure payment processing powered by Stripe</p>
+            </div>
           {% endif %}
         </div>
       </section>
@@ -95,4 +109,38 @@
       </section>
     </div>
   </div>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const paymentBtn = document.getElementById('proceed-to-payment-btn');
+      if (paymentBtn) {
+        paymentBtn.addEventListener('click', async function() {
+          this.disabled = true;
+          this.textContent = 'Processing...';
+          
+          try {
+            const response = await fetch('{% url "create-checkout" %}', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+              }
+            });
+            
+            const data = await response.json();
+            
+            if (data.url) {
+              window.location.href = data.url;
+            } else {
+              throw new Error(data.error || 'Failed to create checkout session');
+            }
+          } catch (error) {
+            alert('Error: ' + error.message);
+            this.disabled = false;
+            this.textContent = 'Proceed to Payment';
+          }
+        });
+      }
+    });
+  </script>
 {% endblock %}

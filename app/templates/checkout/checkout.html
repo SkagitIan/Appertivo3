@@ -1,0 +1,146 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}Checkout — Appertivo{% endblock %}
+
+{% block page_intro %}
+  <div class="space-y-1">
+    <p class="text-xs font-semibold uppercase tracking-wide text-[#5C008B]/70">Checkout</p>
+    <h1 class="text-2xl font-semibold text-[#14080E]">Complete Your Onboarding</h1>
+    <p class="text-sm text-slate-600">Secure payment processing powered by Stripe.</p>
+  </div>
+{% endblock %}
+
+{% block page_content %}
+  <div class="px-4 py-10">
+    <div class="mx-auto max-w-3xl">
+      <div class="grid gap-6 lg:grid-cols-3">
+        <div class="lg:col-span-2">
+          <div class="rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm">
+            <h2 class="text-lg font-semibold text-[#14080E]">Payment Details</h2>
+            <p class="mt-1 text-sm text-slate-600">You'll be redirected to Stripe's secure checkout page.</p>
+            
+            <div class="mt-6">
+              <button id="checkout-button" class="inline-flex w-full items-center justify-center rounded-xl bg-[#5C008B] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#4a0178] disabled:opacity-50">
+                <span id="button-text">Proceed to Secure Checkout</span>
+                <svg id="button-spinner" class="ml-2 hidden h-4 w-4 animate-spin text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              </button>
+              
+              <div id="error-message" class="mt-4 hidden rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"></div>
+            </div>
+            
+            <div class="mt-6 flex items-center justify-center gap-4 text-xs text-slate-500">
+              <div class="flex items-center gap-1">
+                <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"></path>
+                </svg>
+                <span>Secure SSL</span>
+              </div>
+              <div class="flex items-center gap-1">
+                <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                </svg>
+                <span>PCI Compliant</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="lg:col-span-1">
+          <div class="rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-400">Order Summary</h2>
+            
+            <div class="mt-4 space-y-4">
+              <div class="flex items-start justify-between border-b border-slate-200 pb-4">
+                <div>
+                  <p class="font-semibold text-[#14080E]">Appertivo Onboarding</p>
+                  <p class="mt-1 text-xs text-slate-600">Complete restaurant setup</p>
+                </div>
+                <p class="font-semibold text-[#14080E]">$49.00</p>
+              </div>
+              
+              <div class="space-y-2 text-sm">
+                <div class="flex items-center gap-2 text-slate-600">
+                  <svg class="h-4 w-4 flex-shrink-0 text-[#5C008B]" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                  </svg>
+                  <span>Restaurant data scraping</span>
+                </div>
+                <div class="flex items-center gap-2 text-slate-600">
+                  <svg class="h-4 w-4 flex-shrink-0 text-[#5C008B]" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                  </svg>
+                  <span>Menu analysis</span>
+                </div>
+                <div class="flex items-center gap-2 text-slate-600">
+                  <svg class="h-4 w-4 flex-shrink-0 text-[#5C008B]" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                  </svg>
+                  <span>Customer personas</span>
+                </div>
+                <div class="flex items-center gap-2 text-slate-600">
+                  <svg class="h-4 w-4 flex-shrink-0 text-[#5C008B]" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                  </svg>
+                  <span>Workspace setup</span>
+                </div>
+              </div>
+              
+              <div class="border-t border-slate-200 pt-4">
+                <div class="flex items-center justify-between text-lg font-semibold text-[#14080E]">
+                  <span>Total</span>
+                  <span>$49.00</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600">
+            <p class="font-semibold">One-time payment</p>
+            <p class="mt-1">This is a one-time onboarding fee. No recurring charges.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    document.getElementById('checkout-button').addEventListener('click', async function() {
+      const button = this;
+      const buttonText = document.getElementById('button-text');
+      const buttonSpinner = document.getElementById('button-spinner');
+      const errorMessage = document.getElementById('error-message');
+      
+      button.disabled = true;
+      buttonText.textContent = 'Processing...';
+      buttonSpinner.classList.remove('hidden');
+      errorMessage.classList.add('hidden');
+      
+      try {
+        const response = await fetch('{% url "create-checkout" %}', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+          }
+        });
+        
+        const data = await response.json();
+        
+        if (data.url) {
+          window.location.href = data.url;
+        } else {
+          throw new Error(data.error || 'Failed to create checkout session');
+        }
+      } catch (error) {
+        button.disabled = false;
+        buttonText.textContent = 'Proceed to Secure Checkout';
+        buttonSpinner.classList.add('hidden');
+        errorMessage.textContent = error.message || 'An error occurred. Please try again.';
+        errorMessage.classList.remove('hidden');
+      }
+    });
+  </script>
+{% endblock %}
