@@ -19,10 +19,16 @@
                 hx-confirm="Delete this run and its drafts?"
                 data-loading-message="Deleting run…"
                 class="inline"
+                data-disable-global-overlay
               >
                 {% csrf_token %}
-                <button type="submit" class="inline-flex items-center justify-center rounded-full border border-red-100 bg-white px-2 py-1 text-[11px] font-semibold text-red-600 transition hover:bg-red-50">
-                  <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
+                <button
+                  type="submit"
+                  class="inline-flex items-center justify-center rounded-full border border-red-100 bg-white px-2 py-1 text-[11px] font-semibold text-red-600 transition hover:bg-red-50"
+                  data-loading-button
+                >
+                  <i class="fa-solid fa-trash-can" aria-hidden="true" data-default-icon></i>
+                  <i class="fa-solid fa-circle-notch hidden animate-spin" aria-hidden="true" data-loading-icon></i>
                   <span class="ml-1 hidden sm:inline">Delete</span>
                 </button>
               </form>

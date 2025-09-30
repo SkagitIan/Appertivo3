@@ -165,23 +165,64 @@
         }
       }
 
+      function usesOverlay(elt) {
+        if (!elt) {
+          return true;
+        }
+        if (elt.closest("[data-disable-global-overlay]")) {
+          elt.dataset.usesGlobalOverlay = "false";
+          return false;
+        }
+        elt.dataset.usesGlobalOverlay = "true";
+        return true;
+      }
+
+      function clearOverlayFlag(elt) {
+        if (elt) {
+          delete elt.dataset.usesGlobalOverlay;
+        }
+      }
+
+      function finishRequest(elt) {
+        if (elt && elt.dataset.usesGlobalOverlay === "false") {
+          clearOverlayFlag(elt);
+          return;
+        }
+        activeRequests = Math.max(activeRequests - 1, 0);
+        hideOverlay();
+        clearOverlayFlag(elt);
+      }
+
       document.body.addEventListener("htmx:beforeRequest", function (event) {
+        const detail = event.detail || {};
+        const elt = detail.elt;
+        if (!usesOverlay(elt)) {
+          return;
+        }
         activeRequests += 1;
-        const elt = event.detail.elt;
         const text = (elt && (elt.dataset.loadingMessage || elt.getAttribute("aria-label"))) || "Working…";
         showOverlay(text);
       });
 
-      function requestFinished() {
-        activeRequests = Math.max(activeRequests - 1, 0);
-        hideOverlay();
-      }
+      document.body.addEventListener("htmx:afterRequest", function (event) {
+        const detail = event.detail || {};
+        if (detail.successful === false) {
+          return;
+        }
+        finishRequest(detail.elt);
+      });
 
-      document.body.addEventListener("htmx:afterRequest", requestFinished);
-
-      document.body.addEventListener("htmx:responseError", function () {
+      document.body.addEventListener("htmx:responseError", function (event) {
+        const detail = event.detail || {};
+        const elt = detail.elt;
+        if (elt && elt.dataset.usesGlobalOverlay === "false") {
+          clearOverlayFlag(elt);
+          return;
+        }
         message.textContent = "Something went wrong";
-        setTimeout(requestFinished, 1500);
+        setTimeout(function () {
+          finishRequest(elt);
+        }, 1500);
       });
     });
   </script>
