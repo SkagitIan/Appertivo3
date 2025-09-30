@@ -10,6 +10,8 @@ from django.views.decorators.http import require_POST
 from .models import Lead, LeadRun
 from .tasks import build_lead_run_pipeline, send_personalized_email
 
+def outscraper_webhook():
+    pass
 
 def lead_landing(request: HttpRequest, slug: str) -> HttpResponse:
     """Render the personalized landing page for a lead."""

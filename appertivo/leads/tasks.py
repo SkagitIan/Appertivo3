@@ -1,6 +1,8 @@
 """Celery tasks for the leads app."""
 from __future__ import annotations
-
+import os
+from dotenv import load_dotenv
+load_dotenv()
 import json
 import logging
 from dataclasses import dataclass
@@ -84,7 +86,7 @@ def fetch_leads(
         else:
             city = pick_city()
     logger.info("Fetching leads for city %s", city)
-    api_key = getattr(settings, "OUTSCRAPER_API_KEY", None)
+    api_key = os.getenv('OUTSCRAPER_API_KEY')
     if not api_key:
         logger.warning("OUTSCRAPER_API_KEY not configured; skipping fetch")
         return []
@@ -92,11 +94,16 @@ def fetch_leads(
     params = {
         "query": f"independent restaurants in {city}",
         "limit": limit,
+        "async":'true',
+        "webhook": "https://appertivo.com/leads/outscraper-webhook/",
+        "fields": "query,name,place_id,full_address,latitude,longitude,site,phone,type,description,category,subtypes,about,menu_link,order_links",
+        "enrichment":["domains_service"],
     }
+    logger.info(params)
     headers = {"X-API-KEY": api_key}
     try:
         response = requests.get(
-            "https://api.app.outscraper.com/maps/search-business", params=params, headers=headers, timeout=60
+            "https://api.outscraper.cloud/google-maps-search", params=params, headers=headers, timeout=60
         )
         response.raise_for_status()
     except requests.RequestException as exc:  # pragma: no cover - network failure
