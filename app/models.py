@@ -32,6 +32,7 @@ class UserProfile(TimestampedModel):
 
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     timezone = models.TextField(default="America/Los_Angeles")
+    preferred_view_mode = models.CharField(max_length=20, null=True, blank=True)
 
 
 class Membership(TimestampedModel):
