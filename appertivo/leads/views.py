@@ -79,9 +79,14 @@ def lead_dashboard(request: HttpRequest) -> HttpResponse:
     """Render a dashboard for managing Outscraper lead runs."""
 
     runs = LeadRun.objects.prefetch_related("leads").order_by("-created_at")
+    pending_runs: list[LeadRun] = []
     run_cards: list[dict[str, object]] = []
     for run in runs:
         leads = list(run.leads.all())
+        if not leads:
+            pending_runs.append(run)
+            continue
+
         leads = sorted(leads, key=lambda lead: lead.created_at, reverse=True)
         leads.sort(key=lambda lead: not lead.shortlisted)
         metrics = {
@@ -104,6 +109,7 @@ def lead_dashboard(request: HttpRequest) -> HttpResponse:
 
     context = {
         "run_cards": run_cards,
+        "pending_runs": pending_runs,
         "LeadRunStatus": LeadRun.Status,
         "default_limit": 10,
     }
