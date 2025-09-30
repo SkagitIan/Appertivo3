@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block title %}Lead Dashboard · Appertivo{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-6 py-12 space-y-10">
+  <header class="space-y-3">
+    <h1 class="text-3xl md:text-4xl font-semibold text-slate-900">Lead generation control center</h1>
+    <p class="text-slate-600 max-w-3xl">
+      Launch new Outscraper runs, shortlist restaurants to pursue, and track outreach activity from one place.
+    </p>
+  </header>
+
+  <section class="bg-white/80 backdrop-blur rounded-2xl shadow-sm border border-white/50 p-6">
+    <form method="post" action="{% url 'lead-run-start' %}" class="space-y-4">
+      {% csrf_token %}
+      <div class="grid md:grid-cols-3 gap-4">
+        <label class="flex flex-col text-sm font-medium text-slate-700">
+          Target city
+          <input type="text" name="city" placeholder="Austin" class="mt-1 rounded-lg border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400" />
+        </label>
+        <label class="flex flex-col text-sm font-medium text-slate-700">
+          Leads per run
+          <input type="number" name="limit" min="1" max="50" value="{{ default_limit }}" class="mt-1 rounded-lg border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400" />
+        </label>
+        <div class="flex items-end">
+          <button type="submit" class="w-full md:w-auto inline-flex items-center justify-center rounded-lg bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white shadow hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-400">
+            Start generating leads
+          </button>
+        </div>
+      </div>
+      <p class="text-xs text-slate-500">
+        Each run fetches a fresh batch of prospects, builds tailored landing pages, and keeps their engagement signals at your fingertips.
+      </p>
+    </form>
+  </section>
+
+  {% if run_cards %}
+    {% for card in run_cards %}
+      {% with run=card.run metrics=card.metrics leads=card.leads %}
+      <section class="bg-white/80 backdrop-blur rounded-2xl shadow-sm border border-white/60 p-6 space-y-6">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h2 class="text-2xl font-semibold text-slate-900">Run {{ run.pk }} · {{ run.city|default:"Any city" }}</h2>
+            <p class="text-sm text-slate-500">Started {{ run.created_at|date:"M j, Y • H:i" }}</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-3">
+            <span class="inline-flex items-center rounded-full bg-purple-100 px-3 py-1 text-sm font-medium text-purple-700">{{ run.get_status_display }}</span>
+            <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700">{{ run.progress_percentage }}% ready</span>
+            <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700">{{ metrics.total }} leads</span>
+          </div>
+        </div>
+
+        <dl class="grid md:grid-cols-4 gap-3 text-sm">
+          <div class="rounded-lg border border-slate-200 bg-white px-4 py-3">
+            <dt class="text-slate-500">Shortlisted</dt>
+            <dd class="mt-1 text-lg font-semibold text-slate-900">{{ metrics.shortlisted }}</dd>
+          </div>
+          <div class="rounded-lg border border-slate-200 bg-white px-4 py-3">
+            <dt class="text-slate-500">Emails sent</dt>
+            <dd class="mt-1 text-lg font-semibold text-slate-900">{{ metrics.emailed }}</dd>
+          </div>
+          <div class="rounded-lg border border-slate-200 bg-white px-4 py-3">
+            <dt class="text-slate-500">Opens tracked</dt>
+            <dd class="mt-1 text-lg font-semibold text-slate-900">{{ metrics.opened }}</dd>
+          </div>
+          <div class="rounded-lg border border-slate-200 bg-white px-4 py-3">
+            <dt class="text-slate-500">Conversions</dt>
+            <dd class="mt-1 text-lg font-semibold text-slate-900">{{ metrics.converted }}</dd>
+          </div>
+        </dl>
+
+        <form method="post" action="{% url 'lead-run-selection' run.id %}" class="space-y-4">
+          {% csrf_token %}
+          <div class="overflow-hidden rounded-xl border border-slate-200">
+            <table class="min-w-full divide-y divide-slate-200">
+              <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th class="px-4 py-3">Shortlist</th>
+                  <th class="px-4 py-3">Restaurant</th>
+                  <th class="px-4 py-3">Email</th>
+                  <th class="px-4 py-3">Status</th>
+                  <th class="px-4 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 bg-white">
+                {% for entry in leads %}
+                  {% with lead=entry.instance %}
+                  <tr class="{% if lead.shortlisted %}bg-purple-50/70{% endif %}">
+                    <td class="px-4 py-3 align-top">
+                      <input type="checkbox" name="selected_leads" value="{{ lead.id }}" {% if lead.shortlisted %}checked{% endif %} class="h-4 w-4 rounded border-slate-300 text-purple-600 focus:ring-purple-500" />
+                    </td>
+                    <td class="px-4 py-3 align-top">
+                      <div class="font-medium text-slate-900">{{ lead.name }}</div>
+                      <div class="text-xs text-slate-500 flex items-center gap-1">
+                        <span>{{ lead.city|default:"Unknown city" }}</span>
+                        <span>·</span>
+                        <span>{{ lead.json_data.query|default_if_none:"Restaurant prospect" }}</span>
+                      </div>
+                    </td>
+                    <td class="px-4 py-3 align-top">
+                      {% if lead.email %}
+                        <span class="text-sm text-slate-700">{{ lead.email }}</span>
+                      {% else %}
+                        <span class="text-xs font-medium text-amber-600 bg-amber-100 rounded-full px-2 py-1">Missing email</span>
+                      {% endif %}
+                    </td>
+                    <td class="px-4 py-3 align-top">
+                      <div class="flex flex-wrap gap-2 text-xs font-medium">
+                        {% if lead.shortlisted %}
+                          <span class="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-1 text-purple-700">Shortlisted</span>
+                        {% endif %}
+                        {% if lead.emailed %}
+                          <span class="inline-flex items-center rounded-full bg-sky-100 px-2.5 py-1 text-sky-700">Emailed</span>
+                        {% endif %}
+                        {% if lead.opened %}
+                          <span class="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-emerald-700">Opened</span>
+                        {% endif %}
+                        {% if lead.converted %}
+                          <span class="inline-flex items-center rounded-full bg-emerald-200 px-2.5 py-1 text-emerald-800">Converted</span>
+                        {% endif %}
+                        {% if not lead.shortlisted and not lead.emailed and not lead.opened and not lead.converted %}
+                          <span class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">New</span>
+                        {% endif %}
+                      </div>
+                    </td>
+                    <td class="px-4 py-3 align-top">
+                      <div class="flex flex-col items-end gap-2 text-sm">
+                        {% with landing_url=entry.landing_url %}
+                          <a href="{{ landing_url }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-purple-600 hover:text-purple-700">
+                            Preview landing
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+                              <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
+                              <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" />
+                            </svg>
+                          </a>
+                        {% endwith %}
+                        <button type="submit" name="send_email" value="{{ lead.id }}"
+                          class="inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-sm font-medium shadow-sm transition-colors {% if entry.can_send %}bg-purple-600 text-white hover:bg-purple-700{% else %}bg-slate-200 text-slate-500 cursor-not-allowed{% endif %}"
+                          {% if not entry.can_send %}disabled aria-disabled="true"{% endif %}>
+                          Send email
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  {% endwith %}
+                {% empty %}
+                  <tr>
+                    <td colspan="5" class="px-4 py-6 text-center text-sm text-slate-500">No leads yet for this run.</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <button type="submit" class="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-slate-400">
+              Save shortlist
+            </button>
+            {% if run.status != LeadRunStatus.COMPLETED %}
+              <button type="submit" name="mark_complete" value="1" class="inline-flex items-center justify-center rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">
+                Mark run complete
+              </button>
+            {% endif %}
+          </div>
+        </form>
+      </section>
+      {% endwith %}
+    {% endfor %}
+  {% else %}
+    <div class="rounded-2xl border border-dashed border-purple-300 bg-white/60 p-10 text-center">
+      <h2 class="text-xl font-semibold text-slate-900">No lead runs yet</h2>
+      <p class="mt-2 text-sm text-slate-600">Kick things off by starting your first run above. We'll fetch a fresh batch of restaurants and craft personalized demos for you.</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

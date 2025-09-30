@@ -6,9 +6,56 @@ from django.urls import reverse
 from django.utils.text import slugify
 
 
+class LeadRun(models.Model):
+    """A batch of leads fetched together from Outscraper."""
+
+    class Status(models.TextChoices):
+        CREATED = "created", "Created"
+        FETCHING = "fetching", "Fetching leads"
+        PREPARING = "preparing", "Preparing demos"
+        READY = "ready", "Ready for review"
+        COMPLETED = "completed", "Completed"
+
+    city = models.CharField(max_length=100, blank=True, null=True)
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.CREATED,
+    )
+    expected_leads = models.PositiveIntegerField(default=10)
+    total_leads = models.PositiveIntegerField(default=0)
+    processed_leads = models.PositiveIntegerField(default=0)
+    selected_leads = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        city_label = self.city or "Any city"
+        return f"Run {self.pk} – {city_label}"
+
+    @property
+    def progress_percentage(self) -> int:
+        """Return an integer percentage of processed leads within the run."""
+
+        target = self.expected_leads or self.total_leads or 0
+        if not target:
+            return 0
+        progress = int((self.processed_leads / target) * 100)
+        return min(100, max(0, progress))
+
+
 class Lead(models.Model):
     """A potential restaurant lead discovered via external data sources."""
 
+    run = models.ForeignKey(
+        LeadRun,
+        on_delete=models.CASCADE,
+        related_name="leads",
+        null=True,
+        blank=True,
+    )
     name = models.CharField(max_length=255)
     email = models.EmailField(blank=True, null=True)
     phone = models.CharField(max_length=50, blank=True, null=True)
@@ -18,6 +65,7 @@ class Lead(models.Model):
     json_data = models.JSONField(default=dict)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    shortlisted = models.BooleanField(default=False)
     emailed = models.BooleanField(default=False)
     opened = models.BooleanField(default=False)
     followed_up = models.BooleanField(default=False)
