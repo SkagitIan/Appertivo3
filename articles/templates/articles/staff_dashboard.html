@@ -40,71 +40,101 @@
 
     <div class="grid gap-6 lg:grid-cols-[2fr,1fr]">
       <section class="space-y-6">
-        <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-5">
-          <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <details
+          id="concepts-accordion"
+          class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-5"
+          {% if not ideas %}open{% endif %}
+        >
+          <summary class="flex cursor-pointer list-none flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 class="text-lg font-semibold text-[#14080E]">1. Provide context &amp; generate concepts</h2>
-              <p class="text-sm text-slate-500 max-w-xl">Paste research context or upload excerpts to guide ideation. Only staff members can access this workflow.</p>
+              <p class="text-sm text-slate-500 max-w-xl">Paste research context or upload supporting PDFs to guide ideation.</p>
             </div>
+            <span id="concepts-loading" class="htmx-indicator inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <i class="fa-solid fa-circle-notch animate-spin" aria-hidden="true"></i>
+              Generating…
+            </span>
+          </summary>
+          <div class="space-y-4 pt-4">
+            <form
+              id="article-concepts-form"
+              method="post"
+              enctype="multipart/form-data"
+              hx-post="{% url 'articles:staff_generate_concepts' %}"
+              hx-target="#concepts-results"
+              hx-swap="innerHTML"
+              hx-encoding="multipart/form-data"
+              hx-indicator="#concepts-loading"
+              hx-on::after-request="if (event.detail.successful) { document.getElementById('concepts-accordion').removeAttribute('open'); }"
+              class="space-y-4"
+            >
+              {% csrf_token %}
+              <div class="grid gap-4 md:grid-cols-2">
+                <label class="flex flex-col gap-1 text-sm font-medium text-[#14080E]">
+                  {{ form.topic.label }}
+                  {{ form.topic }}
+                  {% if form.topic.help_text %}
+                    <span class="text-xs font-normal text-slate-500">{{ form.topic.help_text }}</span>
+                  {% endif %}
+                  {% for error in form.topic.errors %}
+                    <span class="text-xs text-red-600">{{ error }}</span>
+                  {% endfor %}
+                </label>
+              </div>
+              <div class="grid gap-4">
+                <label class="flex flex-col gap-1 text-sm font-medium text-[#14080E]">
+                  {{ form.context.label }}
+                  {{ form.context }}
+                  <span class="text-xs font-normal text-slate-500">{{ form.context.help_text }}</span>
+                  {% for error in form.context.errors %}
+                    <span class="text-xs text-red-600">{{ error }}</span>
+                  {% endfor %}
+                </label>
+                <label class="flex flex-col gap-1 text-sm font-medium text-[#14080E]">
+                  {{ form.pdf_upload.label }}
+                  {{ form.pdf_upload }}
+                  <span class="text-xs font-normal text-slate-500">{{ form.pdf_upload.help_text }}</span>
+                  {% for error in form.pdf_upload.errors %}
+                    <span class="text-xs text-red-600">{{ error }}</span>
+                  {% endfor %}
+                </label>
+              </div>
+              <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p class="text-xs text-slate-500">AI cost is estimated from gpt-4.1-nano token usage and added to the run ledger.</p>
+                <button
+                  type="submit"
+                  class="inline-flex items-center justify-center gap-2 rounded-full bg-[#5C008B] px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#460069]"
+                >
+                  <i class="fa-solid fa-sparkles" aria-hidden="true"></i>
+                  Generate concepts
+                </button>
+              </div>
+            </form>
           </div>
-          <form
-            id="article-concepts-form"
-            method="post"
-            hx-post="{% url 'articles:staff_generate_concepts' %}"
-            hx-target="#concepts-results"
-            hx-swap="innerHTML"
-            class="space-y-4"
-          >
-            {% csrf_token %}
-            <div class="grid gap-4 md:grid-cols-2">
-              <label class="flex flex-col gap-1 text-sm font-medium text-[#14080E]">
-                {{ form.topic.label }}
-                {{ form.topic }}
-                {% if form.topic.help_text %}
-                  <span class="text-xs font-normal text-slate-500">{{ form.topic.help_text }}</span>
-                {% endif %}
-                {% for error in form.topic.errors %}
-                  <span class="text-xs text-red-600">{{ error }}</span>
-                {% endfor %}
-              </label>
-            </div>
-            <div class="grid gap-4">
-              <label class="flex flex-col gap-1 text-sm font-medium text-[#14080E]">
-                {{ form.context.label }}
-                {{ form.context }}
-                <span class="text-xs font-normal text-slate-500">{{ form.context.help_text }}</span>
-                {% for error in form.context.errors %}
-                  <span class="text-xs text-red-600">{{ error }}</span>
-                {% endfor %}
-              </label>
-              <label class="flex flex-col gap-1 text-sm font-medium text-[#14080E]">
-                {{ form.references.label }}
-                {{ form.references }}
-                <span class="text-xs font-normal text-slate-500">{{ form.references.help_text }}</span>
-                {% for error in form.references.errors %}
-                  <span class="text-xs text-red-600">{{ error }}</span>
-                {% endfor %}
-              </label>
-            </div>
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <p class="text-xs text-slate-500">AI cost is estimated from gpt-4.1-nano token usage and added to the run ledger.</p>
-              <button
-                type="submit"
-                class="inline-flex items-center justify-center gap-2 rounded-full bg-[#5C008B] px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#460069]"
-              >
-                <i class="fa-solid fa-sparkles" aria-hidden="true"></i>
-                Generate concepts
-              </button>
-            </div>
-          </form>
-          <div id="concepts-results" class="space-y-4">
-            {% include "articles/_concept_results.html" with ideas=ideas active_run=active_run ideas_payload=ideas_payload only %}
-          </div>
+        </details>
+        <div id="concepts-results" class="space-y-4">
+          {% include "articles/_concept_results.html" with ideas=ideas active_run=active_run ideas_payload=ideas_payload only %}
         </div>
 
-        <div id="draft-workflow" class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          {% include "articles/_draft_workflow.html" with run=active_run draft_form=draft_form citations=citations draft_summary=draft_summary selected_index=selected_index ideas=ideas only %}
-        </div>
+        <details
+          id="research-accordion"
+          class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+          {% if draft_form %}open{% endif %}
+        >
+          <summary class="flex cursor-pointer list-none flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 class="text-lg font-semibold text-[#14080E]">2. Research &amp; draft review</h2>
+              <p class="text-sm text-slate-500 max-w-xl">Select a concept to gather citations, then edit the draft before final polish.</p>
+            </div>
+            <span id="research-loading" class="htmx-indicator inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <i class="fa-solid fa-circle-notch animate-spin" aria-hidden="true"></i>
+              Researching…
+            </span>
+          </summary>
+          <div class="mt-4" id="draft-workflow">
+            {% include "articles/_draft_workflow.html" with run=active_run draft_form=draft_form citations=citations draft_summary=draft_summary selected_index=selected_index ideas=ideas only %}
+          </div>
+        </details>
 
         <div id="final-article-panel" class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           {% include "articles/_final_article_panel.html" with article=final_article run=active_run final_payload=final_payload sources=citations only %}

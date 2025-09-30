@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Tuple
 
 from django import forms
 from django.contrib.admin.views.decorators import staff_member_required
+from django.core.validators import FileExtensionValidator
 from django.http import Http404, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
@@ -17,6 +18,61 @@ from .openai_helpers import (
     get_openai_client,
     parse_structured_payload,
 )
+from .pdf_utils import extract_pdf_text
+
+
+RESEARCH_RESPONSE_SCHEMA = {
+    "name": "article_research",
+    "type": "json_schema",
+    "strict": True,
+    "schema": {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "summary": {"type": "string"},
+            "citations": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "title": {"type": "string"},
+                        "url": {"type": "string"},
+                        "snippet": {"type": "string"},
+                        "source": {"type": "string"},
+                    },
+                    "required": ["title", "url", "snippet", "source"]
+                },
+            },
+            "draft": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "title": {"type": "string"},
+                    "sections": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "properties": {
+                                "heading": {"type": "string"},
+                                "paragraphs": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                },
+                                "body": {"type": "string"},
+                            },
+                            "required": ["heading", "paragraphs", "body"]
+                        },
+                    },
+                    "text": {"type": "string"},
+                },
+                "required": ["title", "sections", "text"]
+            },
+        },
+        "required": ["summary", "citations", "draft"],
+    },
+}
 
 
 class ArticleConceptForm(forms.Form):
@@ -37,11 +93,17 @@ class ArticleConceptForm(forms.Form):
         widget=forms.Textarea(attrs={"rows": 6, "class": "rounded-xl border border-slate-200 p-3"}),
         help_text="Paste summaries, insights, or research notes to ground the concepts.",
     )
-    references = forms.CharField(
-        label="Reference excerpts",
+    pdf_upload = forms.FileField(
+        label="Attach PDF research",
         required=False,
-        widget=forms.Textarea(attrs={"rows": 4, "class": "rounded-xl border border-slate-200 p-3"}),
-        help_text="Optional copy/paste of key quotes, statistics, or paper abstracts.",
+        validators=[FileExtensionValidator(allowed_extensions=["pdf"])],
+        widget=forms.ClearableFileInput(
+            attrs={
+                "accept": "application/pdf",
+                "class": "rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm",
+            }
+        ),
+        help_text="Optional. Upload a PDF to extract text for the research context.",
     )
 
 
@@ -209,11 +271,15 @@ def staff_dashboard(request):
 
     active_run = None
     for run in runs:
-        if run.status in {"running", "queued", "failed"} or run.steps.exists():
+        article = articles_by_run.get(run.id)
+        if run.status in {"running", "queued", "failed"}:
             active_run = run
             break
-    if not active_run and runs:
-        active_run = runs[0]
+        if article and article.status == "published":
+            continue
+        if run.steps.exists():
+            active_run = run
+            break
 
     ideas: List[Dict[str, Any]] = []
     ideas_payload: Dict[str, Any] = {}
@@ -319,7 +385,7 @@ def _create_run_with_ideas(
 @staff_member_required
 @require_POST
 def staff_generate_concepts(request):
-    form = ArticleConceptForm(request.POST)
+    form = ArticleConceptForm(request.POST, request.FILES)
     if not form.is_valid():
         return _render_partial(
             request,
@@ -330,17 +396,20 @@ def staff_generate_concepts(request):
 
     topic = form.cleaned_data.get("topic") or "Independent restaurant operations"
     context_text = form.cleaned_data["context"]
-    references = form.cleaned_data.get("references", "")
+    pdf_upload = form.cleaned_data.get("pdf_upload")
+    pdf_text = extract_pdf_text(pdf_upload) if pdf_upload else ""
 
     client = get_openai_client()
     prompt = (
         "You are an editorial strategist for independent restaurants. "
         "Provide five distinct article concepts with a compelling title and subtitle. "
         "Return JSON with an 'ideas' list where each idea has 'title', 'subtitle', and 'angle'. "
-        "Use the research context and references to ground the suggestions."
-        f"\n\nContext:\n{context_text}\n\nReferences:\n{references}\n\n"
-        f"Working focus: {topic}"
+        "Use the research context and any extracted PDF insights to ground the suggestions."
+        f"\n\nContext:\n{context_text}\n\n"
     )
+    if pdf_text:
+        prompt += f"Extracted PDF notes:\n{pdf_text}\n\n"
+    prompt += f"Working focus: {topic}"
     response = client.responses.create(model="gpt-4.1-nano", input=prompt)
     response_dict = (
         response.model_dump() if hasattr(response, "model_dump") else getattr(response, "to_dict", lambda: {})()
@@ -360,7 +429,7 @@ def staff_generate_concepts(request):
     run_payload = {
         "topic": topic,
         "context": context_text,
-        "references": references,
+        "pdf_context": pdf_text,
     }
     run = _create_run_with_ideas(
         request,
@@ -368,7 +437,7 @@ def staff_generate_concepts(request):
         normalized_ideas,
         model_payload=payload,
         response_dict=response_dict,
-        usage=getattr(response, "usage", None),
+        usage=getattr(response, "usage", None) or response_dict.get("usage"),
     )
 
     context = {
@@ -400,16 +469,21 @@ def staff_select_concept(request):
     selected_idea = ideas[idea_index]
     client = get_openai_client()
     prompt = (
-        "You are a research assistant with access to live search. "
-        "Given an article concept, the context, and references, compile supporting citations "
+        "You are a research assistant with access to live web search. "
+        "Given an article concept and research context, compile supporting citations "
         "and draft a structured outline with section headings and bullet paragraphs. "
-        "Return JSON with keys: summary, citations (list with title and url), draft (with title, sections, and optional text)."
+        "Return structured JSON with keys: summary, citations (list with title, url, and snippet), draft (with title, sections)."
         f"\n\nSelected concept: {json.dumps(selected_idea, ensure_ascii=False)}"
         f"\n\nContext notes: {context_details.get('context', '')}"
-        f"\n\nReferences: {context_details.get('references', '')}"
+        f"\n\nExtracted PDF notes: {context_details.get('pdf_context', '')}"
         f"\n\nTopic focus: {context_details.get('topic', '')}"
     )
-    response = client.responses.create(model=run.model_info or "gpt-4.1-nano", input=prompt)
+    response = client.responses.create(
+        model="gpt-5",
+        input=prompt,
+        tools=[{"type": "web_search"}],
+        text={"format": RESEARCH_RESPONSE_SCHEMA},
+    )
     response_dict = (
         response.model_dump() if hasattr(response, "model_dump") else getattr(response, "to_dict", lambda: {})()
     )
@@ -452,7 +526,7 @@ def staff_select_concept(request):
     run.status = "running"
     run.can_resume_from_step = False
     run.save(update_fields=["current_step", "status", "can_resume_from_step"])
-    _apply_usage_cost(run, getattr(response, "usage", None))
+    _apply_usage_cost(run, getattr(response, "usage", None) or response_dict.get("usage"))
 
     draft_form = ArticleDraftReviewForm(
         initial={
@@ -537,7 +611,7 @@ def staff_finalize_article(request):
             "ended_at": timezone.now(),
         },
     )
-    _apply_usage_cost(run, getattr(response, "usage", None))
+    _apply_usage_cost(run, getattr(response, "usage", None) or response_dict.get("usage"))
 
     article_defaults = {
         "title": payload.get("title") or draft_title,

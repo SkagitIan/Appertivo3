@@ -47,6 +47,8 @@ def outscraper_webhook(request: HttpRequest) -> JsonResponse:
     logger.info("Processed %s leads from Outscraper webhook", len(lead_ids))
     return JsonResponse({"status": "ok", "processed": len(lead_ids)})
 
+def outscraper_webhook():
+    pass
 
 def lead_landing(request: HttpRequest, slug: str) -> HttpResponse:
     """Render the personalized landing page for a lead."""
