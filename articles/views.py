@@ -8,6 +8,7 @@ from django import forms
 from django.contrib.admin.views.decorators import staff_member_required
 from django.core.validators import FileExtensionValidator
 from django.http import Http404, HttpResponse, HttpResponseBadRequest
+from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
@@ -282,10 +283,12 @@ def staff_dashboard(request):
         "draft_pending": draft_details["draft_pending"],
         "run_cost": (active_run.cost_cents or 0) / 100 if active_run else 0,
     }
+    get_token(request)
     return render(request, "articles/staff_dashboard.html", context)
 
 
 def _render_partial(request, template: str, context: Dict[str, Any], *, status: int = 200) -> HttpResponse:
+    get_token(request)
     response = render(request, template, context, status=status)
     return response
 
