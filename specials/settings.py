@@ -90,6 +90,9 @@ STRIPE_TRIAL_DAYS = _env_int("STRIPE_TRIAL_DAYS", 14)
 STRIPE_PLAN_CODE = os.getenv("STRIPE_PLAN_CODE", "pro")
 STRIPE_API_KEY = STRIPE_SECRET_KEY
 
+RECAPTCHA_SITE_KEY = os.getenv("RECAPTCHA_SITE_KEY", "")
+RECAPTCHA_SECRET_KEY = os.getenv("RECAPTCHA_SECRET_KEY", "")
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',

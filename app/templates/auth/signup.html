@@ -4,6 +4,12 @@
 
 {% block auth_title %}Create Your Restaurant Workspace{% endblock %}
 
+{% block extra_head %}
+  {% if RECAPTCHA_SITE_KEY %}
+  <script src="https://www.google.com/recaptcha/api.js?render={{ RECAPTCHA_SITE_KEY }}"></script>
+  {% endif %}
+{% endblock %}
+
 {% block form_fields %}
   <div>
     <label class="block text-sm font-medium text-slate-700">Email</label>
@@ -31,6 +37,7 @@
            class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2 focus:ring-2 focus:ring-[#FF8300] focus:border-[#FF8300] outline-none">
   </div>
   <p class="text-xs text-slate-500">We'll grab the public details for your restaurant automatically after signup.</p>
+  <input type="hidden" name="recaptcha_token" id="recaptcha_token">
 {% endblock %}
 
 {% block submit_label %}Sign Up{% endblock %}
@@ -39,4 +46,28 @@
   <p class="text-center text-sm text-slate-600">
     Already have an account? <a href="{% url 'login' %}" class="text-[#5C008B] font-semibold hover:underline">Log in</a>
   </p>
+{% endblock %}
+
+{% block extra_scripts %}
+  {% if RECAPTCHA_SITE_KEY %}
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const form = document.querySelector('form');
+      const recaptchaSiteKey = '{{ RECAPTCHA_SITE_KEY }}';
+      
+      if (form && recaptchaSiteKey) {
+        form.addEventListener('submit', function(e) {
+          e.preventDefault();
+          
+          grecaptcha.ready(function() {
+            grecaptcha.execute(recaptchaSiteKey, {action: 'signup'}).then(function(token) {
+              document.getElementById('recaptcha_token').value = token;
+              form.submit();
+            });
+          });
+        });
+      }
+    });
+  </script>
+  {% endif %}
 {% endblock %}

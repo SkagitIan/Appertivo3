@@ -496,6 +496,24 @@ def signup_view(request):
             "location": location,
         }
 
+        recaptcha_token = data.get("recaptcha_token") or data.get("g-recaptcha-response")
+        if recaptcha_token:
+            remote_ip = request.META.get("HTTP_X_FORWARDED_FOR")
+            if remote_ip:
+                remote_ip = remote_ip.split(",")[0].strip()
+            else:
+                remote_ip = request.META.get("REMOTE_ADDR")
+            
+            if not onboarding.verify_recaptcha(recaptcha_token, remote_ip):
+                error_message = "Please complete the security check"
+                if is_json:
+                    return JsonResponse({"error": "recaptcha_failed"}, status=400)
+                return render(
+                    request,
+                    "auth/signup.html",
+                    {"error": error_message, "form_data": form_data, "RECAPTCHA_SITE_KEY": settings.RECAPTCHA_SITE_KEY},
+                )
+
         if is_json:
             password = data.get("password")
             if not password:
@@ -507,7 +525,7 @@ def signup_view(request):
                 return render(
                     request,
                     "auth/signup.html",
-                    {"error": "Passwords do not match", "form_data": form_data},
+                    {"error": "Passwords do not match", "form_data": form_data, "RECAPTCHA_SITE_KEY": settings.RECAPTCHA_SITE_KEY},
                 )
             password = password1
 
@@ -517,7 +535,7 @@ def signup_view(request):
             return render(
                 request,
                 "auth/signup.html",
-                {"error": "Please complete all fields.", "form_data": form_data},
+                {"error": "Please complete all fields.", "form_data": form_data, "RECAPTCHA_SITE_KEY": settings.RECAPTCHA_SITE_KEY},
             )
 
         if User.objects.filter(username__iexact=email).exists():
@@ -527,7 +545,7 @@ def signup_view(request):
             return render(
                 request,
                 "auth/signup.html",
-                {"error": error_message, "form_data": form_data},
+                {"error": error_message, "form_data": form_data, "RECAPTCHA_SITE_KEY": settings.RECAPTCHA_SITE_KEY},
             )
 
         try:
@@ -545,7 +563,7 @@ def signup_view(request):
             return render(
                 request,
                 "auth/signup.html",
-                {"error": error_message, "form_data": form_data},
+                {"error": error_message, "form_data": form_data, "RECAPTCHA_SITE_KEY": settings.RECAPTCHA_SITE_KEY},
             )
 
         user = signup_result.user
@@ -584,7 +602,7 @@ def signup_view(request):
             )
         return render(request, "auth/check_email.html", {"email": email})
 
-    return render(request, "auth/signup.html")
+    return render(request, "auth/signup.html", {"RECAPTCHA_SITE_KEY": settings.RECAPTCHA_SITE_KEY})
 
 
 
