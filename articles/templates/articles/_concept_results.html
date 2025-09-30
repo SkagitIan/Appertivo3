@@ -15,7 +15,7 @@
   <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
     <div>
       <h3 class="text-base font-semibold text-[#14080E]">Concepts ready for review</h3>
-      <p class="text-sm text-slate-500">Pick the best direction to launch research and a first draft.</p>
+      <p class="text-sm text-slate-500">Pick the best direction to launch research and a first draft. Need to tweak context? Reopen the panel above and regenerate.</p>
     </div>
     {% if active_run %}
       <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">Run #{{ active_run.id }}</span>
@@ -43,6 +43,8 @@
           hx-post="{% url 'articles:staff_select_concept' %}"
           hx-target="#draft-workflow"
           hx-swap="innerHTML"
+          hx-indicator="#research-loading"
+          hx-on::after-request="if (event.detail.successful) { document.getElementById('research-accordion').setAttribute('open', 'open'); }"
           class="mt-4"
         >
           {% csrf_token %}

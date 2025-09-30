@@ -383,6 +383,12 @@ class DashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
 
         return [
             QuickAction(
+                label="Article Studio",
+                url=str(reverse_lazy("articles:staff_dashboard")),
+                description="Launch the staff-only article ideation and publishing flow.",
+                icon="newspaper",
+            ),
+            QuickAction(
                 label="Resend onboarding email",
                 url=str(reverse_lazy("onboarding-retry")),
                 description="Send a fresh activation email to nudge new users.",
