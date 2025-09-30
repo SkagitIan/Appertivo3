@@ -10,3 +10,12 @@ These instructions apply to the entire repository.
 - Use `rg` (ripgrep) for searching the codebase rather than `grep` or `ls -R`.
 - Keep pull requests small and focused; include a summary of changes and testing results.
 
+-----------
+ I use this techique to get secrets.
+
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
+os.getenv("STRIPE_API_KEY").
+-------------------
