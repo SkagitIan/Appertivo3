@@ -1,0 +1,87 @@
+{% if article and run %}
+  <div class="flex flex-col gap-4">
+    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h2 class="text-lg font-semibold text-[#14080E]">3. Final article review</h2>
+        <p class="text-sm text-slate-500">The draft has been polished with SEO metadata. Review below and publish when approved.</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600">Run #{{ run.id }}</span>
+        <span class="rounded-full {% if article.status == 'published' %}bg-emerald-100 text-emerald-700{% else %}bg-amber-100 text-amber-700{% endif %} px-3 py-1 text-xs font-semibold">
+          {{ article.get_status_display }}
+        </span>
+      </div>
+    </div>
+    <article class="space-y-4 rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
+      <header class="space-y-2">
+        <h3 class="text-xl font-semibold text-[#14080E]">{{ article.title }}</h3>
+        {% if final_payload.seo_title %}
+          <p class="text-sm text-slate-500">SEO Title: {{ final_payload.seo_title }}</p>
+        {% endif %}
+        {% if final_payload.seo_description %}
+          <p class="text-sm text-slate-500">SEO Description: {{ final_payload.seo_description }}</p>
+        {% endif %}
+        {% if final_payload.summary %}
+          <p class="text-sm text-slate-600">Summary: {{ final_payload.summary }}</p>
+        {% endif %}
+      </header>
+      <div class="prose prose-slate max-w-none">
+        {{ article.body_markdown|linebreaksbr }}
+      </div>
+      {% if sources %}
+        <footer class="border-t border-slate-200 pt-3">
+          <h4 class="text-sm font-semibold text-slate-700">Sources</h4>
+          <ul class="mt-1 space-y-1 text-xs text-slate-500">
+            {% for source in sources %}
+              <li>
+                {% if source.title %}<span class="font-semibold">{{ source.title }}</span>{% endif %}
+                {% if source.url %}<a href="{{ source.url }}" target="_blank" rel="noopener" class="underline">{{ source.url }}</a>{% endif %}
+                {% if source.citation %}<span class="ml-1">({{ source.citation }})</span>{% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+        </footer>
+      {% endif %}
+    </article>
+    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <p class="text-xs text-slate-500">
+        Total Nano 4.1 cost for this run: <span class="font-semibold text-[#2E005D]">${{ run_cost|default:0|floatformat:2 }}</span>
+      </p>
+      {% if article.status != 'published' %}
+        <form
+          method="post"
+          hx-post="{% url 'articles:staff_publish_article' %}"
+          hx-target="#final-article-panel"
+          hx-swap="innerHTML"
+          class="inline-flex"
+        >
+          {% csrf_token %}
+          <input type="hidden" name="run_id" value="{{ run.id }}">
+          <input type="hidden" name="article_id" value="{{ article.id }}">
+          <button
+            type="submit"
+            class="inline-flex items-center justify-center gap-2 rounded-full bg-emerald-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+          >
+            <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+            Approve &amp; publish
+          </button>
+        </form>
+      {% else %}
+        <a href="{{ article.get_absolute_url }}" class="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700">
+          <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+          View live article
+        </a>
+      {% endif %}
+    </div>
+  </div>
+{% elif run %}
+  <div class="flex flex-col items-start gap-2">
+    <h2 class="text-lg font-semibold text-[#14080E]">3. Final article review</h2>
+    <p class="text-sm text-slate-500">An article run is active (Run #{{ run.id }}). Approve the draft above to generate the final article.</p>
+  </div>
+{% else %}
+  <div class="flex flex-col items-start gap-2">
+    <h2 class="text-lg font-semibold text-[#14080E]">3. Final article review</h2>
+    <p class="text-sm text-slate-500">Approve the draft to generate SEO metadata and prepare the final article.</p>
+  </div>
+{% endif %}
