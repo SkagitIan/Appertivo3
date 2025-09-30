@@ -2,13 +2,13 @@
 from __future__ import annotations
 
 from django.contrib import admin
+from django.contrib.admin.sites import NotRegistered
 from django.utils.html import format_html
 
 from . import tasks
 from .models import Concept, DishIdea, Lead
 
 
-@admin.register(Lead)
 class LeadAdmin(admin.ModelAdmin):
     """Admin interface for managing leads."""
 
@@ -47,7 +47,6 @@ class LeadAdmin(admin.ModelAdmin):
         self.message_user(request, f"Marked {updated} leads as followed up.")
 
 
-@admin.register(Concept)
 class ConceptAdmin(admin.ModelAdmin):
     """Admin configuration for concepts."""
 
@@ -56,10 +55,24 @@ class ConceptAdmin(admin.ModelAdmin):
     search_fields = ("name", "lead__name")
 
 
-@admin.register(DishIdea)
 class DishIdeaAdmin(admin.ModelAdmin):
     """Admin configuration for dish ideas."""
 
     list_display = ("title", "lead", "favorited", "concept")
     list_filter = ("favorited",)
     search_fields = ("title", "lead__name")
+
+
+def _safe_register(model, admin_class) -> None:
+    """Register ``admin_class`` for ``model`` without raising on reload."""
+
+    try:
+        admin.site.unregister(model)
+    except NotRegistered:
+        pass
+    admin.site.register(model, admin_class)
+
+
+_safe_register(Lead, LeadAdmin)
+_safe_register(Concept, ConceptAdmin)
+_safe_register(DishIdea, DishIdeaAdmin)
