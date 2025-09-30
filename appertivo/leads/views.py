@@ -11,7 +11,9 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
-
+from dotenv import load_dotenv
+load_dotenv()
+import os
 from .models import Lead, LeadRun
 from .tasks import (
     build_lead_run_pipeline,
@@ -34,7 +36,7 @@ def outscraper_webhook(request: HttpRequest) -> JsonResponse:
     except json.JSONDecodeError:
         return JsonResponse({"status": "error", "message": "Invalid JSON"}, status=400)
 
-    api_key = getattr(settings, "OUTSCRAPER_API_KEY", None)
+    api_key = os.getenv("OUTSCRAPER_API_KEY")
     headers = {"X-API-KEY": api_key} if api_key else None
     resolved_payload = resolve_outscraper_payload(payload, headers)
     entries = extract_lead_entries(resolved_payload)
@@ -47,8 +49,6 @@ def outscraper_webhook(request: HttpRequest) -> JsonResponse:
     logger.info("Processed %s leads from Outscraper webhook", len(lead_ids))
     return JsonResponse({"status": "ok", "processed": len(lead_ids)})
 
-def outscraper_webhook():
-    pass
 
 def lead_landing(request: HttpRequest, slug: str) -> HttpResponse:
     """Render the personalized landing page for a lead."""

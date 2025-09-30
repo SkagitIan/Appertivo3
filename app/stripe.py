@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 from django.conf import settings
 from django.utils import timezone
 import stripe as stripe_sdk
-
+from dotenv import load_dotenv
 load_dotenv()
 
 from . import models
