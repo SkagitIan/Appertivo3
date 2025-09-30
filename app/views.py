@@ -11,6 +11,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
+from django.core.mail import EmailMultiAlternatives
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Exists, Max, OuterRef, Prefetch, Q, TextField
 from django.db.models.functions import Cast
@@ -550,20 +551,38 @@ def signup_view(request):
         user = signup_result.user
         account = signup_result.account
         restaurant = signup_result.restaurant
+        onboarding_record = signup_result.onboarding
 
-        login(request, user)
-        request.session["onboarding_account_id"] = str(account.id)
-        request.session["onboarding_restaurant_id"] = str(restaurant.id)
-        request.session["just_signed_up"] = True
-        redirect_url = reverse("onboarding")
+        site_url = request.build_absolute_uri('/').rstrip('/')
+        activation_link = f"{site_url}/activate/{onboarding_record.activation_token}/"
+        
+        html_content = render_to_string('emails/activation_email.html', {
+            'user_email': email,
+            'restaurant_name': restaurant_name,
+            'activation_link': activation_link,
+        })
+        
+        email_message = EmailMultiAlternatives(
+            subject='Activate Your Appertivo Account',
+            body=f'Please activate your account by visiting: {activation_link}',
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[email],
+        )
+        email_message.attach_alternative(html_content, "text/html")
+        
+        try:
+            email_message.send()
+        except Exception as e:
+            logger.error(f"Failed to send activation email: {e}", extra={"email": email})
+        
         if is_json:
             return JsonResponse(
                 {
-                    "redirect_url": redirect_url,
-                    "restaurant_id": str(restaurant.id),
+                    "redirect_url": reverse("check-email"),
+                    "message": "Please check your email to activate your account",
                 }
             )
-        return redirect(redirect_url)
+        return render(request, "auth/check_email.html", {"email": email})
 
     return render(request, "auth/signup.html")
 
@@ -606,6 +625,53 @@ def logout_view(request):
     logout(request)
     redirect_target = getattr(settings, "LOGOUT_REDIRECT_URL", None) or reverse("login")
     return redirect(redirect_target)
+
+
+def activate_email_view(request, token):
+    """Activate user email via token and log them in."""
+    user_id = onboarding.verify_activation_token(token)
+    
+    if not user_id:
+        return render(
+            request,
+            "auth/login.html",
+            {"error": "This activation link is invalid or has expired. Please try signing up again or contact support."},
+        )
+    
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return render(
+            request,
+            "auth/login.html",
+            {"error": "Invalid activation link. Please contact support."},
+        )
+    
+    try:
+        onboarding_record = models.Onboarding.objects.get(user=user)
+    except models.Onboarding.DoesNotExist:
+        return render(
+            request,
+            "auth/login.html",
+            {"error": "Onboarding record not found. Please contact support."},
+        )
+    
+    if onboarding_record.state != models.Onboarding.State.CREATED:
+        login(request, user)
+        restaurant_id = (
+            models.Restaurant.objects.filter(account__membership__user=user)
+            .values_list("id", flat=True)
+            .first()
+        )
+        if restaurant_id:
+            return redirect("dashboard", restaurant_id=restaurant_id)
+        return redirect("onboarding")
+    
+    onboarding_record.mark(models.Onboarding.State.EMAIL_CONFIRMED, progress=10)
+    
+    login(request, user)
+    
+    return redirect("onboarding")
 
 
 @login_required

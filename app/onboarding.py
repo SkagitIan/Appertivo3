@@ -21,6 +21,29 @@ logger = logging.getLogger(__name__)
 
 _SIGNER = TimestampSigner()
 
+
+def generate_activation_token(user_id: str) -> str:
+    """Generate a signed activation token for a user ID."""
+    return _SIGNER.sign(str(user_id))
+
+
+def verify_activation_token(token: str, max_age: int = 86400) -> str | None:
+    """Verify activation token and return user_id or None if invalid/expired.
+    
+    Args:
+        token: The signed token string
+        max_age: Maximum age in seconds (default 86400 = 24 hours)
+    
+    Returns:
+        User ID string if valid, None otherwise
+    """
+    try:
+        user_id = _SIGNER.unsign(token, max_age=max_age)
+        return str(user_id)
+    except (BadSignature, SignatureExpired):
+        return None
+
+
 STATE_SEQUENCE: List[str] = [
     models.Onboarding.State.CREATED,
     models.Onboarding.State.EMAIL_CONFIRMED,
@@ -134,12 +157,10 @@ def start_signup(
         if not created and onboarding_record.restaurant_id != restaurant.id:
             onboarding_record.restaurant = restaurant
             onboarding_record.save(update_fields=["restaurant", "updated_at"])
-        if onboarding_record.state == models.Onboarding.State.CREATED:
-            onboarding_record.mark(
-                models.Onboarding.State.EMAIL_CONFIRMED,
-                progress=10,
-                message="Signup completed",
-            )
+        
+        activation_token = generate_activation_token(str(user.id))
+        onboarding_record.activation_token = activation_token
+        onboarding_record.save(update_fields=["activation_token", "updated_at"])
 
     return SignupResult(
         user=user,
