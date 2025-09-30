@@ -46,6 +46,7 @@
           hx-indicator="#research-loading"
           hx-on::after-request="if (event.detail.successful) { document.getElementById('research-accordion').setAttribute('open', 'open'); }"
           class="mt-4"
+          data-loading-message="Researching concept…"
         >
           {% csrf_token %}
           <input type="hidden" name="run_id" value="{{ active_run.id }}">
