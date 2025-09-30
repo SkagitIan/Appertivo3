@@ -35,6 +35,7 @@
           hx-target="#draft-workflow"
           hx-swap="innerHTML"
           hx-indicator="#research-loading"
+          hx-on::before-request="document.getElementById('concepts-accordion')?.removeAttribute('open'); console.info('Queuing research for concept {{ forloop.counter }}');"
           hx-on::after-request="if (event.detail.successful) { document.getElementById('research-accordion').setAttribute('open', 'open'); }"
           class="mt-4"
           data-loading-message="Researching concept…"
