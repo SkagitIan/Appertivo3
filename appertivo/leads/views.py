@@ -6,19 +6,20 @@ import logging
 import os
 
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from dotenv import load_dotenv
 
-from .models import Lead, LeadRun
+from .models import EmailTemplate, Lead, LeadRun
 from .tasks import (
     build_lead_run_pipeline,
     dispatch_lead_pipeline,
     extract_lead_entries,
+    generate_concepts_and_dishes,
     resolve_outscraper_payload,
     send_personalized_email,
     store_lead_entries,
@@ -131,75 +132,35 @@ def track_open(request: HttpRequest, slug: str) -> HttpResponse:
     return redirect("lead-landing", slug=lead.slug)
 
 
-def _build_dashboard_panel_context(request: HttpRequest) -> dict[str, object]:
-    """Return the reusable context required to render the dashboard panel."""
-
-    runs_qs = LeadRun.objects.prefetch_related("leads").order_by("-created_at")
-    runs = list(runs_qs)
-    pending_runs: list[LeadRun] = []
-    run_cards: list[dict[str, object]] = []
-    ready_runs = 0
-    total_leads = 0
-    for run in runs:
-        leads = list(run.leads.all())
-        total_leads += len(leads)
-        if run.status == LeadRun.Status.READY and leads:
-            ready_runs += 1
-        if not leads:
-            pending_runs.append(run)
-            continue
-
-        leads = sorted(leads, key=lambda lead: lead.created_at, reverse=True)
-        leads.sort(key=lambda lead: not lead.shortlisted)
-        metrics = {
-            "total": len(leads),
-            "shortlisted": sum(1 for lead in leads if lead.shortlisted),
-            "emailed": sum(1 for lead in leads if lead.emailed),
-            "opened": sum(1 for lead in leads if lead.opened),
-            "converted": sum(1 for lead in leads if lead.converted),
-        }
-        lead_entries = []
-        for lead in leads:
-            fallback_url = request.build_absolute_uri(reverse("lead-landing", args=[lead.slug]))
-            landing_url = lead.landing_url or fallback_url
-            can_send = bool(lead.email) and run.status in (
-                LeadRun.Status.READY,
-                LeadRun.Status.COMPLETED,
-            )
-            lead_entries.append({"instance": lead, "landing_url": landing_url, "can_send": can_send})
-        run_cards.append({"run": run, "metrics": metrics, "leads": lead_entries})
-
-    return {
-        "run_cards": run_cards,
-        "pending_runs": pending_runs,
-        "LeadRunStatus": LeadRun.Status,
-        "dashboard_metrics": {
-            "total_runs": len(runs),
-            "ready_runs": ready_runs,
-            "pending_runs": len(pending_runs),
-            "total_leads": total_leads,
-        },
-    }
-
-
 @login_required
 def lead_dashboard(request: HttpRequest) -> HttpResponse:
-    """Render a dashboard for managing Outscraper lead runs."""
+    """Render the consolidated lead management workspace."""
+
+    leads = Lead.objects.select_related("run").order_by("-created_at")
+    lead_metrics = {
+        "total": Lead.objects.count(),
+        "emailed": Lead.objects.filter(emailed=True).count(),
+        "opened": Lead.objects.filter(opened=True).count(),
+        "bounced": Lead.objects.filter(email_bounced=True).count(),
+    }
+    run_metrics = {
+        "total_runs": LeadRun.objects.count(),
+        "in_progress": LeadRun.objects.filter(
+            status__in=[LeadRun.Status.FETCHING, LeadRun.Status.PREPARING]
+        ).count(),
+        "ready": LeadRun.objects.filter(status=LeadRun.Status.READY).count(),
+        "completed": LeadRun.objects.filter(status=LeadRun.Status.COMPLETED).count(),
+    }
 
     context = {
-        **_build_dashboard_panel_context(request),
         "default_limit": 10,
         "city_choices": TOP_CULINARY_CITIES,
+        "leads": leads,
+        "lead_metrics": lead_metrics,
+        "run_metrics": run_metrics,
+        "email_templates": EmailTemplate.objects.filter(active=True).order_by("name"),
     }
     return render(request, "leads/dashboard.html", context)
-
-
-@login_required
-def lead_dashboard_panel(request: HttpRequest) -> HttpResponse:
-    """Render the fragment that lists pending runs and run cards."""
-
-    context = _build_dashboard_panel_context(request)
-    return render(request, "leads/_dashboard_panel.html", context)
 
 
 @login_required
@@ -243,45 +204,89 @@ def delete_run(request: HttpRequest, run_id: int) -> HttpResponse:
     return redirect("lead-dashboard")
 
 
+def _refresh_run_counters(run_ids: set[int]) -> None:
+    """Update cached selection counters for the provided runs."""
+
+    for run_id in run_ids:
+        try:
+            run = LeadRun.objects.get(pk=run_id)
+        except LeadRun.DoesNotExist:
+            continue
+        selected = run.leads.filter(shortlisted=True).count()
+        if run.selected_leads != selected:
+            run.selected_leads = selected
+            run.save(update_fields=["selected_leads"])
+
+
 @login_required
 @require_POST
-def update_run_selection(request: HttpRequest, run_id: int) -> HttpResponse:
-    """Persist lead selections and optional email sends for a run."""
+def process_lead_actions(request: HttpRequest) -> HttpResponse:
+    """Handle approval, email, and status actions for one or more leads."""
 
-    run = get_object_or_404(LeadRun, pk=run_id)
-
-    selected_ids: set[int] = set()
-    for raw_id in request.POST.getlist("selected_leads"):
+    action = (request.POST.get("action") or "").strip()
+    run_ids: set[int] = set()
+    lead_ids: list[int] = []
+    for raw in request.POST.getlist("lead_ids"):
         try:
-            selected_ids.add(int(raw_id))
+            lead_ids.append(int(raw))
         except (TypeError, ValueError):
             continue
 
-    run.leads.update(shortlisted=False)
-    if selected_ids:
-        run.leads.filter(id__in=selected_ids).update(shortlisted=True)
+    if not lead_ids:
+        messages.error(request, "Select at least one lead to continue.")
+        return redirect("lead-dashboard")
 
-    update_fields = ["selected_leads"]
-    run.selected_leads = len(selected_ids)
+    leads = list(Lead.objects.select_related("run").filter(id__in=lead_ids))
+    if not leads:
+        messages.error(request, "No matching leads were found.")
+        return redirect("lead-dashboard")
 
-    if request.POST.get("mark_complete"):
-        run.status = LeadRun.Status.COMPLETED
-        update_fields.append("status")
-
-    run.save(update_fields=update_fields)
-
-    lead_to_email = request.POST.get("send_email")
-    if lead_to_email:
+    template_pk: int | None = None
+    raw_template = request.POST.get("template_id")
+    if raw_template:
         try:
-            lead_id = int(lead_to_email)
+            template_pk = int(raw_template)
         except (TypeError, ValueError):
-            lead_id = None
-        if lead_id:
-            try:
-                lead = run.leads.get(pk=lead_id)
-            except Lead.DoesNotExist:
-                lead = None
-            if lead is not None:
-                send_personalized_email.delay(lead.id)
+            template_pk = None
+
+    if action == "approve":
+        for lead in leads:
+            updates: list[str] = []
+            if not lead.shortlisted:
+                lead.shortlisted = True
+                updates.append("shortlisted")
+            if lead.email_bounced:
+                lead.email_bounced = False
+                updates.append("email_bounced")
+            if updates:
+                lead.save(update_fields=updates)
+
+            signature = generate_concepts_and_dishes.s(lead.id)
+            if template_pk is not None:
+                signature = signature | send_personalized_email.s(template_pk)
+            else:
+                signature = signature | send_personalized_email.s()
+            signature.delay()
+
+            if lead.run_id:
+                run_ids.add(lead.run_id)
+        messages.success(request, f"Scheduled approval workflow for {len(leads)} lead(s).")
+    elif action == "mark_bounced":
+        for lead in leads:
+            if not lead.email_bounced:
+                lead.email_bounced = True
+                lead.save(update_fields=["email_bounced"])
+        messages.info(request, "Marked emails as bounced.")
+    elif action == "clear_bounce":
+        for lead in leads:
+            if lead.email_bounced:
+                lead.email_bounced = False
+                lead.save(update_fields=["email_bounced"])
+        messages.info(request, "Cleared bounce status.")
+    else:
+        messages.error(request, "Unknown action requested.")
+
+    if run_ids:
+        _refresh_run_counters(run_ids)
 
     return redirect("lead-dashboard")
