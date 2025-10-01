@@ -3791,6 +3791,7 @@ def upload_menu(request, restaurant_id):
 
 import hmac, hashlib, subprocess
 
+
 @csrf_exempt
 @require_POST
 def github_webhook(request):
