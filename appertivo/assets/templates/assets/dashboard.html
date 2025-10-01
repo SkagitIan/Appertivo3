@@ -140,6 +140,7 @@
               <input type="hidden" name="save-model_id" value="{{ selected_model_id }}" />
               <input type="hidden" name="save-prompt_text" value="{{ preview_prompt }}" />
               <input type="hidden" name="save-preview_url" value="{{ preview_url }}" />
+              <input type="hidden" name="save-storage_path" value="{{ preview_storage_path|default:'' }}" />
               <button type="submit" class="inline-flex items-center justify-center rounded-lg bg-emerald-600 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-400">
                 Save to gallery
               </button>
