@@ -33,11 +33,12 @@ class StaffNavigationLinkTests(TestCase):
         models.Membership.objects.create(account=self.account, user=self.member_user)
 
     def test_staff_user_sees_internal_links(self) -> None:
-        """Staff users should see the leads, articles, and dashboard links."""
+        """Staff users should see the internal workspace links."""
 
         self.client.force_login(self.staff_user)
         response = self.client.get(reverse("menus"))
         self.assertContains(response, f'href="{reverse("lead-dashboard")}"')
+        self.assertContains(response, f'href="{reverse("assets:dashboard")}"')
         self.assertContains(response, f'href="{reverse("articles:staff_dashboard")}"')
         self.assertContains(response, f'href="{reverse("dashboard:overview")}"')
 
@@ -47,5 +48,6 @@ class StaffNavigationLinkTests(TestCase):
         self.client.force_login(self.member_user)
         response = self.client.get(reverse("menus"))
         self.assertNotContains(response, f'href="{reverse("lead-dashboard")}"')
+        self.assertNotContains(response, f'href="{reverse("assets:dashboard")}"')
         self.assertNotContains(response, f'href="{reverse("articles:staff_dashboard")}"')
         self.assertNotContains(response, f'href="{reverse("dashboard:overview")}"')

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Asset Gallery · Appertivo{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-6 py-12 space-y-8">
+  <header class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-wide text-purple-600">Internal</p>
+      <h1 class="text-3xl md:text-4xl font-semibold text-slate-900">Saved assets</h1>
+      <p class="mt-2 max-w-2xl text-sm text-slate-600">Every render saved from the asset studio lives here for quick downloading or review.</p>
+    </div>
+    <div class="flex gap-2">
+      <a href="{% url 'assets:dashboard' %}" class="inline-flex items-center rounded-lg border border-slate-200 bg-white/80 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-purple-400 hover:text-purple-700">Back to studio</a>
+    </div>
+  </header>
+
+  {% if assets %}
+    <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {% for asset in assets %}
+        <article class="flex flex-col rounded-2xl border border-slate-200 bg-white/80 shadow-sm">
+          {% if asset.image %}
+            <img src="{{ asset.image.url }}" alt="{{ asset.model|default:'Asset' }}" class="h-56 w-full rounded-t-2xl object-cover" />
+          {% else %}
+            <div class="flex h-56 w-full items-center justify-center rounded-t-2xl bg-slate-100 text-sm text-slate-500">No file saved</div>
+          {% endif %}
+          <div class="flex flex-1 flex-col gap-3 p-4 text-sm text-slate-600">
+            <div>
+              <p class="font-semibold text-slate-900">{{ asset.model|default:"Unknown model" }}</p>
+              <p class="text-xs uppercase tracking-wide text-slate-500">{{ asset.created_at|date:"M j, Y g:i a" }}</p>
+            </div>
+            <p class="flex-1 whitespace-pre-wrap">{{ asset.prompt }}</p>
+            <div class="flex items-center justify-between text-xs text-slate-500">
+              {% if asset.filename %}
+                <span>{{ asset.filename }}</span>
+              {% endif %}
+              {% if asset.preview_url %}
+                <a href="{{ asset.preview_url }}" target="_blank" rel="noopener" class="font-semibold text-purple-600 hover:text-purple-700">Preview URL</a>
+              {% endif %}
+            </div>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="rounded-2xl border border-slate-200 bg-white/80 px-6 py-8 text-center text-sm text-slate-600">
+      No saved images yet. Generate something new from the <a href="{% url 'assets:dashboard' %}" class="font-semibold text-purple-600 hover:text-purple-700">asset studio</a>.
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
