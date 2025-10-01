@@ -3480,7 +3480,20 @@ def create_checkout_session_view(request):
         return JsonResponse({"error": "No account found"}, status=400)
     
     account = membership.account
-    
+
+    stripe_secret = getattr(settings, "STRIPE_SECRET_KEY", "")
+    if not stripe_secret:
+        logger.warning("Stripe secret key missing; cannot start onboarding checkout.")
+        return JsonResponse(
+            {
+                "error": (
+                    "Payments are temporarily unavailable. "
+                    "Please contact support to complete your onboarding."
+                )
+            },
+            status=503,
+        )
+
     _ensure_stripe_api_key()
     
     success_url = request.build_absolute_uri(reverse("checkout-success"))

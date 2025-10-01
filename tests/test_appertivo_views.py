@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from decimal import Decimal
 from unittest.mock import patch
 
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
@@ -1251,6 +1252,21 @@ class ViewSmokeTests(TestCase):
 
         cancel = self.client.post(reverse("billing-cancel"))
         self.assertEqual(cancel.status_code, 302)
+
+    @patch("app.views.stripe.checkout.Session.create")
+    def test_onboarding_checkout_requires_configured_stripe_key(
+        self, mock_checkout
+    ):
+        with override_settings(STRIPE_SECRET_KEY=""):
+            self.assertEqual(settings.STRIPE_SECRET_KEY, "")
+            response = self.client.post(reverse("create-checkout"))
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            response.json()["error"],
+            "Payments are temporarily unavailable. Please contact support to complete your onboarding.",
+        )
+        mock_checkout.assert_not_called()
 
     def test_job_status_and_notifications(self):
         job = models.Job.objects.create(
