@@ -79,7 +79,9 @@
         <a href="{% url 'favorites' %}" class="rounded-lg px-3 py-2 transition hover:bg-slate-100">Favorites</a>
         <a href="{% url 'menus' %}" class="rounded-lg px-3 py-2 transition hover:bg-slate-100">Menus</a>
         {% if request.user.is_staff %}
-          <a href="{% url 'articles:staff_dashboard' %}" class="rounded-lg px-3 py-2 transition hover:bg-slate-100">Article Studio</a>
+          <a href="{% url 'lead-dashboard' %}" class="rounded-lg px-3 py-2 transition hover:bg-slate-100">Leads</a>
+          <a href="{% url 'articles:staff_dashboard' %}" class="rounded-lg px-3 py-2 transition hover:bg-slate-100">Staff Articles</a>
+          <a href="{% url 'dashboard:overview' %}" class="rounded-lg px-3 py-2 transition hover:bg-slate-100">Internal Dashboard</a>
         {% endif %}
 
         <a href="{% url 'settings' %}" class="rounded-lg px-3 py-2 transition hover:bg-slate-100">Settings</a>
