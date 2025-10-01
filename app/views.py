@@ -3792,7 +3792,7 @@ def upload_menu(request, restaurant_id):
 
 @csrf_exempt
 @require_POST
-def deploy_webhook(request):
+def github_webhook(request):
     # Verify GitHub secret
     secret = os.getenv("GITHUB_WEBHOOK_SECRET")
     if secret:
