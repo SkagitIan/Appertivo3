@@ -3789,4 +3789,16 @@ def upload_menu(request, restaurant_id):
 
     return restaurant_status(request, restaurant_id)
 
+import hmac, hashlib, subprocess
+@csrf_exempt
+@require_POST
+def github_webhook(request):
+    # Verify GitHub secret
+    secret = os.getenv("GITHUB_WEBHOOK_SECRET")
+    if secret:
+        import subprocess
 
+        # inside deploy_webhook
+        subprocess.run(["/home/django/deploy.sh"])
+        return HttpResponse("OK\n")
+    return HttpResponse("Ignored\n")
