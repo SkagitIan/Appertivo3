@@ -3789,6 +3789,7 @@ def upload_menu(request, restaurant_id):
 
     return restaurant_status(request, restaurant_id)
 
+import hmac, hashlib, subprocess
 
 @csrf_exempt
 @require_POST
