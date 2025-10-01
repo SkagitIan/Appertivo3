@@ -6,7 +6,7 @@ from django.contrib.admin.sites import NotRegistered
 from django.utils.html import format_html
 
 from . import tasks
-from .models import Concept, DishIdea, Lead
+from .models import Concept, DishIdea, EmailTemplate, Lead
 
 
 class LeadAdmin(admin.ModelAdmin):
@@ -19,10 +19,11 @@ class LeadAdmin(admin.ModelAdmin):
         "view_demo_button",
         "emailed",
         "opened",
+        "email_bounced",
         "followed_up",
         "converted",
     )
-    list_filter = ("emailed", "opened", "followed_up", "converted")
+    list_filter = ("emailed", "opened", "email_bounced", "followed_up", "converted")
     search_fields = ("name", "email", "city")
     actions = ("contact_selected_leads", "mark_as_followed_up")
 
@@ -63,6 +64,14 @@ class DishIdeaAdmin(admin.ModelAdmin):
     search_fields = ("title", "lead__name")
 
 
+class EmailTemplateAdmin(admin.ModelAdmin):
+    """Admin configuration for outreach templates."""
+
+    list_display = ("name", "active", "updated_at")
+    list_filter = ("active",)
+    search_fields = ("name", "subject")
+
+
 def _safe_register(model, admin_class) -> None:
     """Register ``admin_class`` for ``model`` without raising on reload."""
 
@@ -76,3 +85,4 @@ def _safe_register(model, admin_class) -> None:
 _safe_register(Lead, LeadAdmin)
 _safe_register(Concept, ConceptAdmin)
 _safe_register(DishIdea, DishIdeaAdmin)
+_safe_register(EmailTemplate, EmailTemplateAdmin)

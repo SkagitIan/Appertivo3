@@ -14,13 +14,14 @@ from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.db.models import F
 from django.template.loader import render_to_string
+from django.urls import reverse
 
 try:
     from openai import OpenAI
 except ImportError:  # pragma: no cover - optional dependency for local dev
     OpenAI = None  # type: ignore
 
-from .models import Concept, DishIdea, Lead, LeadRun
+from .models import Concept, DishIdea, EmailTemplate, Lead, LeadRun
 from .utils import extract_outscraper_job_id, pick_city
 
 
@@ -326,8 +327,34 @@ def generate_concepts_and_dishes(self, lead_id: int) -> int:
     return lead_id
 
 
+def _render_template_from_db(template: EmailTemplate, lead: Lead) -> tuple[str, str, str | None]:
+    """Render the subject and body strings for a stored email template."""
+
+    fallback_url = f"https://appertivo.com{reverse('lead-landing', args=[lead.slug])}"
+    context = {
+        "business_name": lead.name,
+        "landing_page_url": lead.landing_url or fallback_url,
+        "your_name": getattr(settings, "DEFAULT_FROM_NAME", "Appertivo Team"),
+    }
+
+    def replace_tokens(value: str) -> str:
+        result = value
+        for key, token_value in context.items():
+            result = result.replace(f"{{{{{key}}}}}", token_value or "")
+        return result
+
+    subject = replace_tokens(template.subject)
+    text_body = replace_tokens(template.body_text)
+    html_body = template.body_html.strip()
+    if html_body:
+        html_body = replace_tokens(html_body)
+    else:
+        html_body = None
+    return subject, text_body, html_body
+
+
 @shared_task(bind=True)
-def send_personalized_email(self, lead_id: int) -> int:
+def send_personalized_email(self, lead_id: int, template_id: int | None = None) -> int:
     """Send a personalized outreach email to a lead."""
 
     lead = Lead.objects.get(pk=lead_id)
@@ -335,17 +362,28 @@ def send_personalized_email(self, lead_id: int) -> int:
         logger.info("Lead %s has no email; skipping outreach", lead_id)
         return lead_id
 
-    context = {"lead": lead}
-    subject = f"{lead.name}, explore your Appertivo tasting demo"
-    text_body = render_to_string("leads/emails/outreach.txt", context)
-    html_body = render_to_string("leads/emails/outreach.html", context)
+    template: EmailTemplate | None = None
+    if template_id is not None:
+        template = EmailTemplate.objects.filter(pk=template_id, active=True).first()
+    if template is None:
+        template = EmailTemplate.objects.filter(active=True).order_by("-updated_at").first()
+
+    if template is not None:
+        subject, text_body, html_body = _render_template_from_db(template, lead)
+    else:
+        context = {"lead": lead}
+        subject = f"{lead.name}, explore your Appertivo tasting demo"
+        text_body = render_to_string("leads/emails/outreach.txt", context)
+        html_body = render_to_string("leads/emails/outreach.html", context)
 
     message = EmailMultiAlternatives(subject, text_body, settings.DEFAULT_FROM_EMAIL, [lead.email])
-    message.attach_alternative(html_body, "text/html")
+    if html_body:
+        message.attach_alternative(html_body, "text/html")
     message.send(fail_silently=False)
 
     lead.emailed = True
-    lead.save(update_fields=["emailed"])
+    lead.email_bounced = False
+    lead.save(update_fields=["emailed", "email_bounced"])
     return lead_id
 
 

@@ -69,6 +69,7 @@ class Lead(models.Model):
     shortlisted = models.BooleanField(default=False)
     emailed = models.BooleanField(default=False)
     opened = models.BooleanField(default=False)
+    email_bounced = models.BooleanField(default=False)
     followed_up = models.BooleanField(default=False)
     converted = models.BooleanField(default=False)
     restaurant = models.ForeignKey(
@@ -138,3 +139,20 @@ class DishIdea(models.Model):
 
     def __str__(self) -> str:
         return self.title
+
+
+class EmailTemplate(models.Model):
+    """Reusable outreach templates stored in the database."""
+
+    name = models.CharField(max_length=150)
+    subject = models.CharField(max_length=200)
+    body_text = models.TextField()
+    body_html = models.TextField(blank=True)
+    active = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self) -> str:
+        return self.name
