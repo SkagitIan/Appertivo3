@@ -82,7 +82,10 @@ urlpatterns = [
     path("internal-dashboard/", include("dashboard.urls")),
     path("admin/articles/",articles_admin_views.dashboard_redirect,name="articles_admin_redirect",),
     path("sitemap.xml",sitemap,{"sitemaps": {"articles": ArticlesSitemap()}},name="sitemap",),
+
+    path("github-webhook", app_views.github_webhook,name="githb_webhook"),
     # Existing API and sample views
+
     path("api/signup/", app_views.signup_view, name="api-signup"),
     path("admin/", admin.site.urls),
 ]

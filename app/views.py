@@ -3788,3 +3788,24 @@ def upload_menu(request, restaurant_id):
             return response
 
     return restaurant_status(request, restaurant_id)
+
+
+@csrf_exempt
+@require_POST
+def deploy_webhook(request):
+    # Verify GitHub secret
+    secret = os.getenv("GITHUB_WEBHOOK_SECRET")
+    if secret:
+        signature = request.headers.get("X-Hub-Signature-256")
+        mac = hmac.new(secret.encode(), msg=request.body, digestmod=hashlib.sha256)
+        expected = f"sha256={mac.hexdigest()}"
+        if not hmac.compare_digest(expected, signature or ""):
+            return HttpResponseForbidden("Invalid signature")
+
+    # Only handle push events
+    if request.headers.get("X-GitHub-Event") == "push":
+        subprocess.run(["git", "-C", "/home/django/appertivo", "pull"])
+        subprocess.run(["systemctl", "restart", "gunicorn"])
+        return HttpResponse("Updated\n")
+
+    return HttpResponse("Ignored\n")
