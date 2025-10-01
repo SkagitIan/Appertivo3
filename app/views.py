@@ -3801,3 +3801,5 @@ def github_webhook(request):
 
         # inside deploy_webhook
         subprocess.run(["/home/django/deploy.sh"])
+        return HttpResponse("OK\n")
+    return HttpResponse("Ignored\n")
