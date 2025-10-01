@@ -15,11 +15,11 @@ class AssetModelForm(forms.ModelForm):
         fields = ["description", "identifier"]
         widgets = {
             "description": forms.TextInput(attrs={
-                "class": "mt-1 rounded-lg border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400",
+                "class": "mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400",
                 "placeholder": "High fidelity food photography",
             }),
             "identifier": forms.TextInput(attrs={
-                "class": "mt-1 rounded-lg border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400",
+                "class": "mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400",
                 "placeholder": "owner/model:version",
             }),
         }
@@ -33,12 +33,12 @@ class PromptTemplateForm(forms.ModelForm):
         fields = ["title", "text"]
         widgets = {
             "title": forms.TextInput(attrs={
-                "class": "mt-1 rounded-lg border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400",
+                "class": "mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400",
                 "placeholder": "Mood board description",
             }),
             "text": forms.Textarea(attrs={
                 "rows": 4,
-                "class": "mt-1 rounded-lg border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400",
+                "class": "mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400",
                 "placeholder": "Detailed photographic prompt...",
             }),
         }
@@ -51,7 +51,7 @@ class AssetGenerationForm(forms.Form):
         queryset=AssetModel.objects.none(),
         label="Model",
         widget=forms.Select(attrs={
-            "class": "mt-1 rounded-lg border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400",
+            "class": "mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400",
         }),
     )
     prompt_template = forms.ModelChoiceField(
@@ -59,7 +59,7 @@ class AssetGenerationForm(forms.Form):
         required=False,
         label="Prompt library",
         widget=forms.Select(attrs={
-            "class": "mt-1 rounded-lg border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400",
+            "class": "mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400",
         }),
     )
     prompt_text = forms.CharField(
@@ -67,7 +67,7 @@ class AssetGenerationForm(forms.Form):
         required=False,
         widget=forms.Textarea(attrs={
             "rows": 6,
-            "class": "mt-1 rounded-lg border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400",
+            "class": "mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400",
             "placeholder": "Describe the asset you want to generate...",
         }),
     )
@@ -83,4 +83,11 @@ class AssetSaveForm(forms.Form):
 
     model_id = forms.IntegerField(widget=forms.HiddenInput)
     prompt_text = forms.CharField(widget=forms.HiddenInput)
-    preview_url = forms.URLField(widget=forms.HiddenInput)
+    preview_url = forms.CharField(widget=forms.HiddenInput)
+    storage_path = forms.CharField(required=False, widget=forms.HiddenInput)
+
+    def clean(self):
+        data = super().clean()
+        if not data.get("preview_url"):
+            raise forms.ValidationError("Preview information is missing.")
+        return data

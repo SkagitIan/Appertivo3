@@ -10,6 +10,8 @@ from unittest.mock import Mock, patch
 
 import django
 from django.contrib.auth import get_user_model
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
@@ -100,7 +102,31 @@ class AssetDashboardTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("preview_url", response.context)
         self.assertEqual(response.context["preview_url"], "https://example.com/image.png")
+        self.assertIsNone(response.context["preview_storage_path"])
         mock_replicate.run.assert_called_once()
+
+    @patch("appertivo.assets.views.replicate_client")
+    def test_generate_preview_from_bytes(self, mock_replicate) -> None:
+        """Binary outputs from Replicate are saved and surfaced in the response."""
+
+        mock_replicate.run.return_value = [b"image-bytes"]
+        self.client.force_login(self.staff_user)
+        response = self.client.post(
+            reverse("assets:dashboard"),
+            {
+                "action": "generate-asset",
+                "generate-model": str(self.model.pk),
+                "generate-prompt_text": "Binary please",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        preview_path = response.context["preview_storage_path"]
+        self.assertTrue(preview_path)
+        preview_url = response.context["preview_url"]
+        self.assertTrue(preview_url)
+        # Ensure the preview file exists in storage.
+        self.assertTrue(default_storage.exists(preview_path))
+        default_storage.delete(preview_path)
 
     @patch("appertivo.assets.views.requests.get")
     def test_save_preview_persists_file(self, mock_get: Mock) -> None:
@@ -129,6 +155,30 @@ class AssetDashboardTests(TestCase):
         self.assertEqual(asset.prompt, "A saved asset")
         self.assertEqual(asset.preview_url, "https://example.com/image.png")
         mock_get.assert_called_once_with("https://example.com/image.png", timeout=20)
+        asset.image.delete(save=False)
+
+    @patch("appertivo.assets.views.requests.get")
+    def test_save_preview_uses_storage_path(self, mock_get: Mock) -> None:
+        """Saving a preview produced from stored bytes avoids a network hop."""
+
+        self.client.force_login(self.staff_user)
+        stored_path = default_storage.save("previews/test-bytes.png", ContentFile(b"bytes"))
+        response = self.client.post(
+            reverse("assets:dashboard"),
+            {
+                "action": "save-asset",
+                "save-model_id": str(self.model.pk),
+                "save-prompt_text": "Stored asset",
+                "save-preview_url": default_storage.url(stored_path),
+                "save-storage_path": stored_path,
+            },
+        )
+        self.assertRedirects(response, reverse("assets:gallery"))
+        asset = GeneratedAsset.objects.get()
+        self.assertTrue(asset.image.name)
+        self.assertEqual(asset.prompt, "Stored asset")
+        mock_get.assert_not_called()
+        self.assertFalse(default_storage.exists(stored_path))
         asset.image.delete(save=False)
 
     def test_gallery_view_lists_assets(self) -> None:
