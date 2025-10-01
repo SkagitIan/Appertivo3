@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     'anymail',
     "django_htmx",
     'appertivo.leads.apps.LeadsConfig',
+    'appertivo.assets.apps.AssetsConfig',
     'articles.apps.ArticlesConfig',
     'django_q',
     'dashboard.apps.DashboardConfig',
