@@ -11,6 +11,7 @@ from app.outscraper import outscraper_webhook
 urlpatterns = [
     path("", app_views.home_view, name="home"),
     path("", include("appertivo.leads.urls")),
+    path("", include("appertivo.assets.urls")),
     path("", include("articles.urls")),
     path("signup/", app_views.signup_view, name="signup"),
     path("login/", app_views.login_view, name="login"),
