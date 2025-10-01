@@ -131,9 +131,8 @@ def track_open(request: HttpRequest, slug: str) -> HttpResponse:
     return redirect("lead-landing", slug=lead.slug)
 
 
-@login_required
-def lead_dashboard(request: HttpRequest) -> HttpResponse:
-    """Render a dashboard for managing Outscraper lead runs."""
+def _build_dashboard_panel_context(request: HttpRequest) -> dict[str, object]:
+    """Return the reusable context required to render the dashboard panel."""
 
     runs_qs = LeadRun.objects.prefetch_related("leads").order_by("-created_at")
     runs = list(runs_qs)
@@ -170,12 +169,10 @@ def lead_dashboard(request: HttpRequest) -> HttpResponse:
             lead_entries.append({"instance": lead, "landing_url": landing_url, "can_send": can_send})
         run_cards.append({"run": run, "metrics": metrics, "leads": lead_entries})
 
-    context = {
+    return {
         "run_cards": run_cards,
         "pending_runs": pending_runs,
         "LeadRunStatus": LeadRun.Status,
-        "default_limit": 10,
-        "city_choices": TOP_CULINARY_CITIES,
         "dashboard_metrics": {
             "total_runs": len(runs),
             "ready_runs": ready_runs,
@@ -183,7 +180,26 @@ def lead_dashboard(request: HttpRequest) -> HttpResponse:
             "total_leads": total_leads,
         },
     }
+
+
+@login_required
+def lead_dashboard(request: HttpRequest) -> HttpResponse:
+    """Render a dashboard for managing Outscraper lead runs."""
+
+    context = {
+        **_build_dashboard_panel_context(request),
+        "default_limit": 10,
+        "city_choices": TOP_CULINARY_CITIES,
+    }
     return render(request, "leads/dashboard.html", context)
+
+
+@login_required
+def lead_dashboard_panel(request: HttpRequest) -> HttpResponse:
+    """Render the fragment that lists pending runs and run cards."""
+
+    context = _build_dashboard_panel_context(request)
+    return render(request, "leads/_dashboard_panel.html", context)
 
 
 @login_required
