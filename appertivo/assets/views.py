@@ -5,12 +5,15 @@ from __future__ import annotations
 import logging
 import mimetypes
 import uuid
+from pathlib import Path
 from typing import Iterable
 
 import requests
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
+from django.conf import settings
 from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -29,35 +32,57 @@ from .models import AssetModel, GeneratedAsset, PromptTemplate
 logger = logging.getLogger(__name__)
 
 
-def _flatten_output(output: object) -> Iterable[str]:
-    """Return any string candidates from a Replicate response."""
+def _collect_preview_candidates(output: object) -> Iterable[bytes | str]:
+    """Yield potential preview values from a Replicate response."""
 
     if output is None:
         return []
+
+    if isinstance(output, (bytes, bytearray)):
+        return [bytes(output)]
 
     if isinstance(output, str):
         return [output]
 
     if isinstance(output, dict):
-        values: list[str] = []
+        values: list[bytes | str] = []
         for value in output.values():
-            values.extend(_flatten_output(value))
+            values.extend(_collect_preview_candidates(value))
         return values
 
     if isinstance(output, (list, tuple, set)):
-        values: list[str] = []
+        values: list[bytes | str] = []
         for item in output:
-            values.extend(_flatten_output(item))
+            values.extend(_collect_preview_candidates(item))
         return values
 
     return []
 
 
-def _generate_preview(model: AssetModel, prompt: str) -> tuple[str | None, str | None]:
-    """Trigger Replicate and return the temporary preview URL."""
+def _store_preview_bytes(data: bytes) -> tuple[str | None, str | None]:
+    """Persist preview bytes to storage and return the URL and storage path."""
+
+    filename = f"previews/{uuid.uuid4().hex}.png"
+    try:
+        storage_path = default_storage.save(filename, ContentFile(data))
+    except Exception as exc:  # pragma: no cover - storage guard
+        logger.warning("Failed to store preview bytes: %s", exc, exc_info=True)
+        return None, None
+
+    try:
+        url = default_storage.url(storage_path)
+    except Exception:  # pragma: no cover - fallback for storages without URL support
+        base_url = getattr(settings, "MEDIA_URL", "/media/").rstrip("/")
+        url = f"{base_url}/{storage_path}"
+
+    return url, storage_path
+
+
+def _generate_preview(model: AssetModel, prompt: str) -> tuple[str | None, str | None, str | None]:
+    """Trigger Replicate and return the preview URL and optional storage path."""
 
     if not replicate_client:
-        return None, "Replicate API is not configured."
+        return None, None, "Replicate API is not configured."
 
     try:
         output = replicate_client.run(
@@ -70,40 +95,89 @@ def _generate_preview(model: AssetModel, prompt: str) -> tuple[str | None, str |
         )
     except Exception as exc:  # pragma: no cover - defensive guard
         logger.warning("Replicate call failed: %s", exc, exc_info=True)
-        return None, "Unable to reach Replicate right now."
+        message = "Replicate timed out while generating the image. Please try again."
+        if "504" in str(exc):
+            message = "Replicate timed out before returning an image. Try again in a moment."
+        return None, None, message
 
-    for candidate in _flatten_output(output):
-        if candidate.startswith("http"):
-            logger.info("Preview generated for model %s", model.identifier)
-            return candidate, None
+    for candidate in _collect_preview_candidates(output):
+        if isinstance(candidate, str):
+            link = candidate.strip()
+            if link.startswith("http") or link.startswith("data:"):
+                logger.info("Preview generated for model %s", model.identifier)
+                return link, None, None
+        elif isinstance(candidate, (bytes, bytearray)):
+            url, storage_path = _store_preview_bytes(bytes(candidate))
+            if url and storage_path:
+                logger.info("Preview bytes stored for model %s", model.identifier)
+                return url, storage_path, None
+            return None, None, "Could not store the preview image. Check media storage permissions."
 
-    logger.warning("Replicate output did not include a URL for model %s", model.identifier)
-    return None, "Replicate did not return an image URL."
+    logger.warning("Replicate output did not include a usable image for model %s", model.identifier)
+    return None, None, "Replicate did not return an image URL."
 
 
-def _save_preview(*, user, model_id: int, prompt_text: str, preview_url: str) -> tuple[GeneratedAsset | None, str | None]:
-    """Persist the remote preview image under MEDIA_ROOT."""
+def _save_preview(
+    *,
+    user,
+    model_id: int,
+    prompt_text: str,
+    preview_url: str,
+    storage_path: str | None = None,
+) -> tuple[GeneratedAsset | None, str | None]:
+    """Persist the preview image under MEDIA_ROOT."""
 
     model = get_object_or_404(AssetModel, pk=model_id)
 
-    try:
-        response = requests.get(preview_url, timeout=20)
-        response.raise_for_status()
-    except requests.RequestException as exc:  # pragma: no cover - network guard
-        logger.warning("Failed to download preview %s: %s", preview_url, exc)
-        return None, "Could not download the preview image."
+    file_bytes: bytes | None = None
+    extension = ".png"
 
-    content_type = response.headers.get("content-type", "image/png").split(";")[0].strip()
-    extension = mimetypes.guess_extension(content_type) or ".png"
+    if storage_path:
+        try:
+            with default_storage.open(storage_path, "rb") as stored_file:
+                file_bytes = stored_file.read()
+        except FileNotFoundError:
+            logger.warning("Stored preview missing at %s", storage_path)
+            return None, "Preview file is no longer available. Please generate it again."
+        except OSError as exc:  # pragma: no cover - storage guard
+            logger.warning("Failed to read stored preview %s: %s", storage_path, exc)
+            return None, "Could not read the preview image from storage."
+
+        suffix = Path(storage_path).suffix
+        if suffix:
+            extension = suffix
+    else:
+        try:
+            response = requests.get(preview_url, timeout=20)
+            response.raise_for_status()
+        except requests.RequestException as exc:  # pragma: no cover - network guard
+            logger.warning("Failed to download preview %s: %s", preview_url, exc)
+            return None, "Could not download the preview image."
+
+        file_bytes = response.content
+        header_type = response.headers.get("content-type", "image/png").split(";")[0].strip()
+        extension = mimetypes.guess_extension(header_type) or ".png"
+
     filename = f"{slugify(model.description) or 'asset'}-{uuid.uuid4().hex}{extension}"
 
     asset = GeneratedAsset(
         model=model,
         prompt=prompt_text,
         created_by=user if getattr(user, "is_authenticated", False) else None,
-        preview_url=preview_url,
+        preview_url=preview_url or "",
     )
-    asset.image.save(filename, ContentFile(response.content), save=True)
+    try:
+        asset.image.save(filename, ContentFile(file_bytes or b""), save=True)
+    except OSError as exc:  # pragma: no cover - filesystem guard
+        logger.error("Unable to save generated asset %s: %s", filename, exc, exc_info=True)
+        return None, "Could not save the image to storage. Check media folder permissions."
+
+    if storage_path:
+        try:
+            default_storage.delete(storage_path)
+        except Exception:  # pragma: no cover - best effort cleanup
+            logger.info("Temporary preview %s could not be deleted", storage_path)
+
     logger.info("Saved generated asset %s", asset.image.name)
     return asset, None
 
@@ -119,6 +193,7 @@ def dashboard(request: HttpRequest) -> HttpResponse:
     preview_url: str | None = None
     preview_prompt: str = ""
     selected_model_id: int | None = None
+    preview_storage_path: str | None = None
 
     if request.method == "POST":
         action = request.POST.get("action")
@@ -146,7 +221,7 @@ def dashboard(request: HttpRequest) -> HttpResponse:
                 if not prompt_text:
                     generation_form.add_error("prompt_text", "Provide a prompt or choose from the library.")
                 else:
-                    preview_url, error = _generate_preview(model, prompt_text)
+                    preview_url, preview_storage_path, error = _generate_preview(model, prompt_text)
                     preview_prompt = prompt_text
                     selected_model_id = model.pk
                     if error:
@@ -161,12 +236,14 @@ def dashboard(request: HttpRequest) -> HttpResponse:
                     model_id=save_form.cleaned_data["model_id"],
                     prompt_text=save_form.cleaned_data["prompt_text"],
                     preview_url=save_form.cleaned_data["preview_url"],
+                    storage_path=save_form.cleaned_data.get("storage_path") or None,
                 )
                 if error:
                     messages.error(request, error)
                     preview_url = save_form.cleaned_data["preview_url"]
                     preview_prompt = save_form.cleaned_data["prompt_text"]
                     selected_model_id = save_form.cleaned_data["model_id"]
+                    preview_storage_path = save_form.cleaned_data.get("storage_path") or None
                 else:
                     messages.success(request, "Image saved to the gallery.")
                     return redirect("assets:gallery")
@@ -177,6 +254,7 @@ def dashboard(request: HttpRequest) -> HttpResponse:
                     selected_model_id = int(save_form.data.get("save-model_id", ""))
                 except (TypeError, ValueError):
                     selected_model_id = None
+                preview_storage_path = save_form.data.get("save-storage_path") or None
 
     recent_assets: QuerySet[GeneratedAsset] = GeneratedAsset.objects.select_related("model").all()[:6]
 
@@ -190,6 +268,7 @@ def dashboard(request: HttpRequest) -> HttpResponse:
         "selected_model_id": selected_model_id,
         "recent_assets": recent_assets,
         "has_replicate": replicate_client is not None,
+        "preview_storage_path": preview_storage_path,
     }
     return render(request, "assets/dashboard.html", context)
 
