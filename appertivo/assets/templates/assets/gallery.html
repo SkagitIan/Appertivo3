@@ -2,7 +2,13 @@
 {% block title %}Asset Gallery · Appertivo{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto px-6 py-12 space-y-8">
+<div class="max-w-7xl mx-auto px-6 py-12 space-y-8" data-unlocked-folders="{{ unlocked_folder_ids|join:',' }}">
+  <nav class="flex flex-wrap items-center gap-2 text-sm text-slate-600">
+    <a href="{% url 'assets:dashboard' %}" class="rounded-full px-3 py-1 font-semibold text-slate-600 hover:bg-slate-100">Studio</a>
+    <a href="{% url 'assets:manage-models' %}" class="rounded-full px-3 py-1 font-semibold text-slate-600 hover:bg-slate-100">Models</a>
+    <a href="{% url 'assets:manage-prompts' %}" class="rounded-full px-3 py-1 font-semibold text-slate-600 hover:bg-slate-100">Prompts</a>
+    <span class="rounded-full bg-purple-100 px-3 py-1 font-semibold text-purple-700">Gallery</span>
+  </nav>
   <header class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
     <div>
       <p class="text-xs font-semibold uppercase tracking-wide text-purple-600">Internal</p>
@@ -26,78 +32,84 @@
     <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
       <div>
         <h2 class="text-lg font-semibold text-slate-900">Folders</h2>
-        <p class="mt-1 text-sm text-slate-600">Group assets for quicker navigation.</p>
+        <p class="mt-1 text-sm text-slate-600">Keep everything organized and locked when needed.</p>
       </div>
-      <form method="post" class="w-full max-w-md space-y-2 md:w-auto">
+      <form method="post" class="flex flex-wrap items-end gap-2 text-sm text-slate-600">
         {% csrf_token %}
         <input type="hidden" name="action" value="create-folder" />
-        <label class="block text-sm font-medium text-slate-700" for="{{ folder_form.name.id_for_label }}">Create folder</label>
-        {{ folder_form.name }}
-        {% if folder_form.name.errors %}
-          <p class="text-xs text-rose-600">{{ folder_form.name.errors|join:', ' }}</p>
-        {% endif %}
-        <div class="grid gap-2 sm:grid-cols-2">
-          <div>
-            <label class="text-sm font-medium text-slate-700" for="{{ folder_form.pin.id_for_label }}">PIN</label>
-            {{ folder_form.pin }}
-            {% if folder_form.pin.errors %}
-              <p class="text-xs text-rose-600">{{ folder_form.pin.errors|join:', ' }}</p>
-            {% endif %}
-          </div>
-          <div class="flex items-end gap-2">
-            {{ folder_form.is_locked }}
-            <label class="text-sm font-medium text-slate-700" for="{{ folder_form.is_locked.id_for_label }}">Lock folder</label>
-          </div>
-        </div>
+        <label class="flex flex-col" for="{{ folder_form.name.id_for_label }}">
+          <span class="text-xs font-semibold uppercase tracking-wide text-slate-500">Name</span>
+          {{ folder_form.name }}
+        </label>
+        <label class="flex flex-col" for="{{ folder_form.pin.id_for_label }}">
+          <span class="text-xs font-semibold uppercase tracking-wide text-slate-500">PIN</span>
+          {{ folder_form.pin }}
+        </label>
+        <label class="flex items-center gap-2" for="{{ folder_form.is_locked.id_for_label }}">
+          {{ folder_form.is_locked }}
+          <span class="text-xs font-semibold uppercase tracking-wide text-slate-500">Locked</span>
+        </label>
+        <button type="submit" class="inline-flex items-center rounded-lg bg-purple-600 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-400">Add</button>
         {% if folder_form.non_field_errors %}
-          <p class="text-xs text-rose-600">{{ folder_form.non_field_errors|join:', ' }}</p>
+          <span class="w-full text-xs text-rose-600">{{ folder_form.non_field_errors|join:', ' }}</span>
         {% endif %}
-        <button type="submit" class="inline-flex items-center rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-400">Add folder</button>
       </form>
     </div>
     {% if folders %}
-      <ul class="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white/70 text-sm text-slate-600">
-        {% for folder, security_form in folder_entries %}
-          <li class="flex flex-col gap-3 px-4 py-3">
-            <div class="flex items-center justify-between gap-3">
-              <span class="font-medium text-slate-800">{{ folder.name }}</span>
-              {% if folder.is_locked %}
-                <span class="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-600">Locked</span>
-              {% endif %}
-            </div>
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-              <form method="post" class="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-4">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="update-folder-security" />
-                <input type="hidden" name="folder_id" value="{{ folder.id }}" />
-                <div>
-                  <label class="text-xs font-semibold uppercase tracking-wide text-slate-500" for="{{ security_form.pin.id_for_label }}">PIN</label>
-                  {{ security_form.pin }}
-                  {% if security_form.pin.errors %}
-                    <p class="text-xs text-rose-600">{{ security_form.pin.errors|join:', ' }}</p>
-                  {% endif %}
-                </div>
-                <label for="{{ security_form.is_locked.id_for_label }}" class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  {{ security_form.is_locked }}
-                  <span>Locked</span>
-                </label>
-                <button type="submit" class="inline-flex items-center rounded-lg bg-slate-900 px-3 py-1 text-xs font-semibold text-white shadow hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500">Save</button>
-              </form>
-              <form method="post" class="flex items-center gap-2" onsubmit="return confirm('Delete this folder? Assets will remain available.');">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="delete-folder" />
-                <input type="hidden" name="folder_id" value="{{ folder.id }}" />
-                <button type="submit" class="text-sm font-semibold text-rose-600 hover:text-rose-700">Delete</button>
-              </form>
-            </div>
-          </li>
-        {% endfor %}
-      </ul>
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-slate-200 text-sm text-slate-600">
+          <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <tr>
+              <th class="px-3 py-2 text-left">Folder</th>
+              <th class="px-3 py-2 text-left">Security</th>
+              <th class="px-3 py-2 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200 bg-white/60">
+            {% for entry in folder_entries %}
+              <tr>
+                <td class="px-3 py-2 font-medium text-slate-800">{{ entry.folder.name }}</td>
+                <td class="px-3 py-2">
+                  <form method="post" class="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="update-folder-security" />
+                    <input type="hidden" name="folder_id" value="{{ entry.folder.id }}" />
+                    <label class="flex flex-col" for="{{ entry.form.pin.id_for_label }}">
+                      <span class="font-semibold uppercase">PIN</span>
+                      {{ entry.form.pin }}
+                    </label>
+                    <label class="flex items-center gap-2 font-semibold uppercase" for="{{ entry.form.is_locked.id_for_label }}">
+                      {{ entry.form.is_locked }}
+                      <span>Locked</span>
+                    </label>
+                    <button type="submit" class="inline-flex items-center rounded bg-slate-900 px-3 py-1 font-semibold text-white shadow hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500">Save</button>
+                    {% if entry.form.errors %}
+                      <span class="w-full text-rose-600">{{ entry.form.errors|join:', ' }}</span>
+                    {% endif %}
+                  </form>
+                </td>
+                <td class="px-3 py-2 text-right">
+                  <div class="flex items-center justify-end gap-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    {% if entry.folder.is_locked %}
+                      <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">🔒 {% if entry.is_unlocked %}Unlocked this session{% else %}Locked{% endif %}</span>
+                    {% endif %}
+                    <form method="post" class="inline" onsubmit="return confirm('Delete this folder? Assets will remain available.');">
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="delete-folder" />
+                      <input type="hidden" name="folder_id" value="{{ entry.folder.id }}" />
+                      <button type="submit" class="text-rose-600 hover:text-rose-700">Delete</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     {% else %}
-      <p class="text-sm text-slate-500">No folders created yet. Add one using the form above.</p>
+      <p class="text-sm text-slate-500">No folders created yet. Add one using the quick form above.</p>
     {% endif %}
   </section>
-
   <section class="rounded-2xl border border-slate-200 bg-white/80 p-4">
     <div class="flex flex-wrap items-center gap-2 text-sm text-slate-600">
       <span class="font-semibold text-slate-900">Filter:</span>
@@ -112,12 +124,13 @@
   {% if assets %}
     <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {% for asset in assets %}
-        <article class="flex flex-col rounded-2xl border border-slate-200 bg-white/80 shadow-sm">
+        {% with folder=asset.folder %}
+        <article class="flex flex-col rounded-2xl border border-slate-200 bg-white/80 shadow-sm" data-asset-card data-folder-id="{{ folder.id|default:'' }}" data-locked="{% if folder and folder.is_locked and folder.id not in unlocked_folder_ids %}true{% else %}false{% endif %}" data-original-prompt="{{ asset.prompt|escape }}">
           {% if asset.image %}
-            <div class="relative">
-              <img src="{{ asset.image.url }}" alt="{{ asset.model|default:'Asset' }}" class="h-56 w-full rounded-t-2xl object-cover{% if asset.folder and asset.folder.is_locked %} blur-sm{% endif %}" />
-              {% if asset.folder and asset.folder.is_locked %}
-                <div class="absolute inset-0 flex items-center justify-center rounded-t-2xl bg-slate-900/40 text-sm font-semibold uppercase tracking-wide text-white">Locked</div>
+            <div class="relative" data-locked-trigger tabindex="{% if folder and folder.is_locked and folder.id not in unlocked_folder_ids %}0{% else %}-1{% endif %}" role="{% if folder and folder.is_locked and folder.id not in unlocked_folder_ids %}button{% else %}presentation{% endif %}">
+              <img src="{{ asset.image.url }}" alt="{{ asset.model|default:'Asset' }}" class="h-56 w-full rounded-t-2xl object-cover{% if folder and folder.is_locked and folder.id not in unlocked_folder_ids %} blur-2xl{% endif %}" />
+              {% if folder and folder.is_locked and folder.id not in unlocked_folder_ids %}
+                <div class="absolute inset-0 flex items-center justify-center rounded-t-2xl bg-slate-900/50 text-sm font-semibold uppercase tracking-wide text-white">Locked • tap to unlock</div>
               {% endif %}
             </div>
           {% else %}
@@ -128,7 +141,7 @@
               <p class="font-semibold text-slate-900">{{ asset.model|default:"Unknown model" }}</p>
               <p class="text-xs uppercase tracking-wide text-slate-500">{{ asset.created_at|date:"M j, Y g:i a" }}</p>
             </div>
-            <p class="flex-1 whitespace-pre-wrap">{% if asset.folder and asset.folder.is_locked %}<span class="italic text-slate-500">Hidden for locked folder</span>{% else %}{{ asset.prompt }}{% endif %}</p>
+            <p class="flex-1 whitespace-pre-wrap" data-prompt-text>{% if folder and folder.is_locked and folder.id not in unlocked_folder_ids %}<span class="italic text-slate-500">Hidden for locked folder</span>{% else %}{{ asset.prompt }}{% endif %}</p>
             <div class="space-y-3">
               <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
                 <div class="flex flex-wrap items-center gap-2">
@@ -165,6 +178,7 @@
             </div>
           </div>
         </article>
+        {% endwith %}
       {% endfor %}
     </div>
   {% else %}
@@ -172,5 +186,103 @@
       No saved images yet. Generate something new from the <a href="{% url 'assets:dashboard' %}" class="font-semibold text-purple-600 hover:text-purple-700">asset studio</a>.
     </div>
   {% endif %}
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const root = document.querySelector('[data-unlocked-folders]');
+    const unlockedFolders = new Set();
+    if (root) {
+      const initial = (root.getAttribute('data-unlocked-folders') || '').split(',').map((value) => value.trim()).filter(Boolean);
+      initial.forEach((value) => unlockedFolders.add(value));
+    }
+
+    function getCsrfToken() {
+      const tokenInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+      return tokenInput ? tokenInput.value : '';
+    }
+
+    function decodePrompt(value) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(`<span>${value}</span>`, 'text/html');
+      return doc.body.textContent || '';
+    }
+
+    function markUnlocked(card) {
+      card.dataset.locked = 'false';
+      const image = card.querySelector('img');
+      const overlay = card.querySelector('.absolute');
+      if (image) {
+        image.classList.remove('blur-2xl');
+      }
+      if (overlay) {
+        overlay.remove();
+      }
+      const promptElement = card.querySelector('[data-prompt-text]');
+      if (promptElement) {
+        const stored = decodePrompt(card.getAttribute('data-original-prompt') || '');
+        promptElement.textContent = stored;
+      }
+    }
+
+    function requestUnlock(card, folderId) {
+      if (!folderId) {
+        return;
+      }
+      const pin = window.prompt('Enter the folder PIN to unlock this asset:');
+      if (!pin) {
+        return;
+      }
+      fetch(`{% url 'assets:verify-folder' 0 %}`.replace('/0/', `/${folderId}/`), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCsrfToken(),
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: JSON.stringify({ pin }),
+        credentials: 'same-origin',
+      })
+        .then((response) => {
+          if (!response.ok) {
+            return response.json().then((payload) => {
+              throw payload;
+            });
+          }
+          return response.json();
+        })
+        .then(() => {
+          unlockedFolders.add(String(folderId));
+          markUnlocked(card);
+        })
+        .catch((payload) => {
+          const message = payload && payload.message ? payload.message : 'Incorrect PIN.';
+          window.alert(message);
+        });
+    }
+
+    document.querySelectorAll('[data-asset-card][data-locked="true"]').forEach((card) => {
+      const folderId = card.getAttribute('data-folder-id');
+      if (!folderId) {
+        return;
+      }
+      if (unlockedFolders.has(folderId)) {
+        markUnlocked(card);
+        return;
+      }
+      const trigger = card.querySelector('[data-locked-trigger]');
+      if (!trigger) {
+        return;
+      }
+      const handler = () => requestUnlock(card, folderId);
+      trigger.addEventListener('click', handler);
+      trigger.addEventListener('keypress', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          handler();
+        }
+      });
+    });
+  });
+</script>
 </div>
 {% endblock %}

@@ -3,6 +3,12 @@
 
 {% block content %}
 <div class="max-w-6xl mx-auto px-6 py-12 space-y-10">
+  <nav class="flex flex-wrap items-center gap-2 text-sm text-slate-600">
+    <span class="rounded-full bg-purple-100 px-3 py-1 font-semibold text-purple-700">Studio</span>
+    <a href="{% url 'assets:manage-models' %}" class="rounded-full px-3 py-1 font-semibold text-slate-600 hover:bg-slate-100">Models</a>
+    <a href="{% url 'assets:manage-prompts' %}" class="rounded-full px-3 py-1 font-semibold text-slate-600 hover:bg-slate-100">Prompts</a>
+    <a href="{% url 'assets:gallery' %}" class="rounded-full px-3 py-1 font-semibold text-slate-600 hover:bg-slate-100">Gallery</a>
+  </nav>
   <header class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
     <div>
       <p class="text-xs font-semibold uppercase tracking-wide text-purple-600">Internal</p>
@@ -34,164 +40,21 @@
     </div>
   {% endif %}
 
-  <section class="grid gap-6 md:grid-cols-2">
-    <details class="group rounded-2xl border border-slate-200 bg-white/80 p-5" id="add-model-accordion">
-      <summary class="flex cursor-pointer items-center justify-between text-lg font-semibold text-slate-900">
-        <span>Add a model</span>
-        <svg class="h-4 w-4 text-slate-500 transition-transform group-open:rotate-180" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-          <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.086l3.71-3.855a.75.75 0 0 1 1.08 1.04l-4.24 4.403a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd" />
-        </svg>
-      </summary>
-      <div class="mt-3 space-y-4 border-t border-slate-200 pt-4 text-sm text-slate-600">
-        <p>Store the full model path including version. We list entries alphabetically by description.</p>
-        <form method="post" class="space-y-4">
-          {% csrf_token %}
-          <input type="hidden" name="action" value="create-model" />
-          <div>
-            <label class="text-sm font-medium text-slate-700">Description</label>
-            {{ model_form.description }}
-            {% if model_form.description.errors %}
-              <p class="mt-1 text-xs text-rose-600">{{ model_form.description.errors|join:', ' }}</p>
-            {% endif %}
-          </div>
-          <div>
-            <label class="text-sm font-medium text-slate-700">Identifier</label>
-            {{ model_form.identifier }}
-            {% if model_form.identifier.errors %}
-              <p class="mt-1 text-xs text-rose-600">{{ model_form.identifier.errors|join:', ' }}</p>
-            {% endif %}
-          </div>
-          <button type="submit" class="inline-flex items-center rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-400">
-            Save model
-          </button>
-        </form>
-      </div>
-    </details>
-
-    <details class="group rounded-2xl border border-slate-200 bg-white/80 p-5" id="prompt-library-accordion">
-      <summary class="flex cursor-pointer items-center justify-between text-lg font-semibold text-slate-900">
-        <span>Prompt library</span>
-        <svg class="h-4 w-4 text-slate-500 transition-transform group-open:rotate-180" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-          <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.086l3.71-3.855a.75.75 0 0 1 1.08 1.04l-4.24 4.403a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd" />
-        </svg>
-      </summary>
-      <div class="mt-3 space-y-4 border-t border-slate-200 pt-4 text-sm text-slate-600">
-        <p>Keep reusable prompts handy for future renders.</p>
-        <form method="post" class="space-y-4">
-          {% csrf_token %}
-          <input type="hidden" name="action" value="create-prompt" />
-          <div>
-            <label class="text-sm font-medium text-slate-700">Title</label>
-            {{ prompt_form.title }}
-            {% if prompt_form.title.errors %}
-              <p class="mt-1 text-xs text-rose-600">{{ prompt_form.title.errors|join:', ' }}</p>
-            {% endif %}
-          </div>
-          <div>
-            <label class="text-sm font-medium text-slate-700">Prompt text</label>
-            {{ prompt_form.text }}
-            {% if prompt_form.text.errors %}
-              <p class="mt-1 text-xs text-rose-600">{{ prompt_form.text.errors|join:', ' }}</p>
-            {% endif %}
-          </div>
-          <button type="submit" class="inline-flex items-center rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-400">
-            Add prompt
-          </button>
-        </form>
-      </div>
-    </details>
-  </section>
-
-  <section class="grid gap-6 md:grid-cols-2">
-    <div class="rounded-2xl border border-slate-200 bg-white/80 p-5 space-y-4">
+  <section class="grid gap-4 md:grid-cols-2">
+    <a href="{% url 'assets:manage-models' %}" class="flex items-center justify-between rounded-2xl border border-slate-200 bg-white/80 p-5 text-sm text-slate-600 transition hover:border-purple-300 hover:shadow-sm">
       <div>
-        <h2 class="text-lg font-semibold text-slate-900">Saved models</h2>
-        <p class="mt-1 text-sm text-slate-600">Update identifiers or remove entries that are no longer needed.</p>
+        <p class="text-lg font-semibold text-slate-900">Manage models</p>
+        <p class="mt-1">Keep the Replicate identifiers tidy in one place.</p>
       </div>
-      {% if model_forms %}
-        <ul class="space-y-4">
-          {% for model_id, form in model_forms.items %}
-            <li class="rounded-xl border border-slate-200 bg-white/90 p-4 space-y-3">
-              <form method="post" class="space-y-3">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="update-model" />
-                <input type="hidden" name="model_id" value="{{ model_id }}" />
-                <div>
-                  <label class="text-sm font-medium text-slate-700" for="{{ form.description.id_for_label }}">Description</label>
-                  {{ form.description }}
-                  {% if form.description.errors %}
-                    <p class="mt-1 text-xs text-rose-600">{{ form.description.errors|join:', ' }}</p>
-                  {% endif %}
-                </div>
-                <div>
-                  <label class="text-sm font-medium text-slate-700" for="{{ form.identifier.id_for_label }}">Identifier</label>
-                  {{ form.identifier }}
-                  {% if form.identifier.errors %}
-                    <p class="mt-1 text-xs text-rose-600">{{ form.identifier.errors|join:', ' }}</p>
-                  {% endif %}
-                </div>
-                <div class="flex items-center justify-end">
-                  <button type="submit" class="inline-flex items-center rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white shadow hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500">Save changes</button>
-                </div>
-              </form>
-              <form method="post" class="flex justify-end" onsubmit="return confirm('Delete this model?');">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="delete-model" />
-                <input type="hidden" name="model_id" value="{{ model_id }}" />
-                <button type="submit" class="text-xs font-semibold text-rose-600 hover:text-rose-700">Delete</button>
-              </form>
-            </li>
-          {% endfor %}
-        </ul>
-      {% else %}
-        <p class="text-sm text-slate-600">No models added yet.</p>
-      {% endif %}
-    </div>
-
-    <div class="rounded-2xl border border-slate-200 bg-white/80 p-5 space-y-4">
+      <span class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-purple-100 text-purple-700">→</span>
+    </a>
+    <a href="{% url 'assets:manage-prompts' %}" class="flex items-center justify-between rounded-2xl border border-slate-200 bg-white/80 p-5 text-sm text-slate-600 transition hover:border-purple-300 hover:shadow-sm">
       <div>
-        <h2 class="text-lg font-semibold text-slate-900">Prompt templates</h2>
-        <p class="mt-1 text-sm text-slate-600">Tweak saved prompt text or remove unused entries.</p>
+        <p class="text-lg font-semibold text-slate-900">Manage prompts</p>
+        <p class="mt-1">Organize reusable copy for faster experiments.</p>
       </div>
-      {% if prompt_forms %}
-        <ul class="space-y-4">
-          {% for prompt_id, form in prompt_forms.items %}
-            <li class="rounded-xl border border-slate-200 bg-white/90 p-4 space-y-3">
-              <form method="post" class="space-y-3">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="update-prompt" />
-                <input type="hidden" name="prompt_id" value="{{ prompt_id }}" />
-                <div>
-                  <label class="text-sm font-medium text-slate-700" for="{{ form.title.id_for_label }}">Title</label>
-                  {{ form.title }}
-                  {% if form.title.errors %}
-                    <p class="mt-1 text-xs text-rose-600">{{ form.title.errors|join:', ' }}</p>
-                  {% endif %}
-                </div>
-                <div>
-                  <label class="text-sm font-medium text-slate-700" for="{{ form.text.id_for_label }}">Prompt text</label>
-                  {{ form.text }}
-                  {% if form.text.errors %}
-                    <p class="mt-1 text-xs text-rose-600">{{ form.text.errors|join:', ' }}</p>
-                  {% endif %}
-                </div>
-                <div class="flex items-center justify-end">
-                  <button type="submit" class="inline-flex items-center rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white shadow hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500">Save changes</button>
-                </div>
-              </form>
-              <form method="post" class="flex justify-end" onsubmit="return confirm('Delete this prompt?');">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="delete-prompt" />
-                <input type="hidden" name="prompt_id" value="{{ prompt_id }}" />
-                <button type="submit" class="text-xs font-semibold text-rose-600 hover:text-rose-700">Delete</button>
-              </form>
-            </li>
-          {% endfor %}
-        </ul>
-      {% else %}
-        <p class="text-sm text-slate-600">No prompt templates yet.</p>
-      {% endif %}
-    </div>
+      <span class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-purple-100 text-purple-700">→</span>
+    </a>
   </section>
 
   <section class="rounded-2xl border border-slate-200 bg-white/80 p-6 space-y-6">
