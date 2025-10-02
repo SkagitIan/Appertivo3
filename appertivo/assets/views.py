@@ -164,6 +164,10 @@ def dashboard(request: HttpRequest) -> HttpResponse:
                     )
 
             if generation_form.errors:
+                logger.warning(
+                    "Asset preview validation failed: %s",
+                    generation_form.errors,
+                )
                 return JsonResponse({"errors": generation_form.errors}, status=400)
 
             assert model is not None  # Satisfy type checkers.
@@ -175,6 +179,9 @@ def dashboard(request: HttpRequest) -> HttpResponse:
                 "appertivo.assets.tasks.run_preview_job",
                 job.pk,
                 timeout=180,
+            )
+            logger.info(
+                "Queued asset preview job %s for model %s", job.pk, model.pk
             )
             return JsonResponse(
                 {
@@ -344,6 +351,9 @@ def preview_status(request: HttpRequest, job_id: int) -> JsonResponse:
         return HttpResponseNotAllowed(["GET"])
 
     job = get_object_or_404(AssetPreviewJob, pk=job_id)
+    logger.info(
+        "Preview status requested for job %s (%s)", job.pk, job.status
+    )
     return JsonResponse(
         {
             "id": job.pk,
@@ -481,15 +491,30 @@ def verify_folder_pin(request: HttpRequest, folder_id: int) -> JsonResponse:
     pin = (payload.get("pin") or "").strip()
 
     if folder.is_locked and not pin:
+        logger.warning(
+            "Folder %s PIN missing for user %s",
+            folder.pk,
+            getattr(request.user, "pk", None),
+        )
         return JsonResponse({"status": "error", "message": "Enter the folder PIN."}, status=400)
 
     if folder.is_locked and pin != folder.pin:
+        logger.warning(
+            "Folder %s PIN mismatch for user %s",
+            folder.pk,
+            getattr(request.user, "pk", None),
+        )
         return JsonResponse({"status": "error", "message": "Incorrect PIN."}, status=400)
 
     unlocked = set(request.session.get("asset_unlocked_folders", []))
     unlocked.add(folder.pk)
     request.session["asset_unlocked_folders"] = list(unlocked)
 
+    logger.info(
+        "Folder %s unlocked by user %s",
+        folder.pk,
+        getattr(request.user, "pk", None),
+    )
     return JsonResponse({"status": "ok"})
 
 
@@ -505,18 +530,24 @@ def discard_preview(request: HttpRequest) -> JsonResponse:
 
     storage_path = (payload.get("storage_path") or "").strip()
     if not storage_path:
+        logger.info("Discard preview skipped: missing path")
         return JsonResponse({"status": "skipped"})
 
     if ".." in storage_path or storage_path.startswith("/"):
+        logger.warning("Discard preview rejected for unsafe path: %s", storage_path)
         return JsonResponse({"status": "invalid"}, status=400)
 
     if not storage_path.startswith("previews/"):
+        logger.warning(
+            "Discard preview rejected for unexpected prefix: %s", storage_path
+        )
         return JsonResponse({"status": "invalid"}, status=400)
 
     try:
         default_storage.delete(storage_path)
     except Exception:  # pragma: no cover - storage guard
-        logger.info("Failed to delete preview %s", storage_path, exc_info=True)
+        logger.error("Failed to delete preview %s", storage_path, exc_info=True)
         return JsonResponse({"status": "error"}, status=500)
 
+    logger.info("Discarded preview %s", storage_path)
     return JsonResponse({"status": "deleted"})
