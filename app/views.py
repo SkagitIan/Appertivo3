@@ -124,6 +124,7 @@ def _queue_outscraper_payload(
     *,
     restaurant_name: Optional[str] = None,
     location: Optional[str] = None,
+    requested_by: Optional[User] = None,
 ) -> "models.OutscraperPayload":
     """Create a queued Outscraper payload for the given restaurant."""
 
@@ -137,6 +138,7 @@ def _queue_outscraper_payload(
 
     payload = models.OutscraperPayload.objects.create(
         restaurant=restaurant,
+        requested_by=requested_by,
         status=models.OutscraperPayload.Status.QUEUED,
         request_params={
             "query": query,
@@ -3216,7 +3218,10 @@ def update_restaurant_info(request):
 @require_POST
 def rescrape_restaurant(request, restaurant_id):
     restaurant = get_object_or_404(models.Restaurant, id=restaurant_id)
-    payload = _queue_outscraper_payload(restaurant)
+    payload = _queue_outscraper_payload(
+        restaurant,
+        requested_by=request.user if request.user.is_authenticated else None,
+    )
     run_outscraper_search.delay(str(payload.id))
     return HttpResponse("rescrape_complete", content_type="text/plain")
 

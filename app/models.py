@@ -217,9 +217,16 @@ class OutscraperPayload(TimestampedModel):
         FAILED = "failed"
 
     restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE)
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
     status = models.TextField(choices=Status.choices)
     request_params = models.JSONField()
     response_json = models.JSONField(null=True, blank=True)
+    response_status = models.PositiveIntegerField(null=True, blank=True)
     discovered_menu_url = models.TextField(null=True, blank=True)
     started_at = models.DateTimeField(null=True, blank=True)
     finished_at = models.DateTimeField(null=True, blank=True)
