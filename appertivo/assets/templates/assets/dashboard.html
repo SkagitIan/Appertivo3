@@ -93,7 +93,7 @@
       <h2 class="text-lg font-semibold text-slate-900">Generate an image</h2>
       <p class="mt-1 text-sm text-slate-600">Choose a model, optionally load a prompt from the library, and adjust the text before sending to Replicate.</p>
     </div>
-    <form method="post" class="space-y-5">
+    <form method="post" class="space-y-5" id="generate-form">
       {% csrf_token %}
       <input type="hidden" name="action" value="generate-asset" />
       <div class="grid gap-4 md:grid-cols-2">
@@ -113,42 +113,45 @@
         {% if generation_form.prompt_text.errors %}
           <p class="mt-1 text-xs text-rose-600">{{ generation_form.prompt_text.errors|join:', ' }}</p>
         {% endif %}
+        <p id="generate-error" class="mt-1 text-xs text-rose-600 hidden"></p>
       </div>
       <div class="flex justify-end">
-        <button type="submit" class="inline-flex items-center rounded-lg bg-purple-600 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-400">
+        <button type="submit" id="generate-submit" class="inline-flex items-center rounded-lg bg-purple-600 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-400">
           Generate preview
         </button>
       </div>
     </form>
 
-    {% if preview_url %}
-      <div class="border-t border-slate-200 pt-6">
-        <h3 class="text-md font-semibold text-slate-900">Preview</h3>
-        <p class="mt-1 text-sm text-slate-600">Replicate returned a temporary image URL. Save it if you want to keep this render.</p>
-        <div class="mt-4 grid gap-6 md:grid-cols-2">
-          <div class="rounded-xl border border-slate-200 bg-white p-4">
-            <img src="{{ preview_url }}" alt="Generated preview" class="w-full rounded-lg object-cover" />
+    <div class="border-t border-slate-200 pt-6" id="preview-container">
+      <h3 class="text-md font-semibold text-slate-900">Preview</h3>
+      <p class="mt-1 text-sm text-slate-600">Submit a job to Replicate and we'll update this panel as soon as it finishes.</p>
+      <div id="preview-status" class="mt-4 hidden rounded-lg border px-4 py-3 text-sm"></div>
+      <div id="preview-empty" class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600{% if preview_url %} hidden{% endif %}">
+        No preview generated yet. Choose a model and prompt above to start.
+      </div>
+      <div id="preview-content" class="mt-4 grid gap-6 md:grid-cols-2{% if not preview_url %} hidden{% endif %}">
+        <div class="rounded-xl border border-slate-200 bg-white p-4">
+          <img src="{{ preview_url|default:'' }}" alt="Generated preview" id="preview-image" class="w-full rounded-lg object-cover" />
+        </div>
+        <div class="flex flex-col justify-between gap-4">
+          <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+            <p class="font-semibold text-slate-900">Prompt used</p>
+            <p class="mt-2 whitespace-pre-wrap" id="preview-prompt">{{ preview_prompt }}</p>
           </div>
-          <div class="flex flex-col justify-between gap-4">
-            <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-              <p class="font-semibold text-slate-900">Prompt used</p>
-              <p class="mt-2 whitespace-pre-wrap">{{ preview_prompt }}</p>
-            </div>
-            <form method="post" class="flex flex-col gap-3">
-              {% csrf_token %}
-              <input type="hidden" name="action" value="save-asset" />
-              <input type="hidden" name="save-model_id" value="{{ selected_model_id }}" />
-              <input type="hidden" name="save-prompt_text" value="{{ preview_prompt }}" />
-              <input type="hidden" name="save-preview_url" value="{{ preview_url }}" />
-              <input type="hidden" name="save-storage_path" value="{{ preview_storage_path|default:'' }}" />
-              <button type="submit" class="inline-flex items-center justify-center rounded-lg bg-emerald-600 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-400">
-                Save to gallery
-              </button>
-            </form>
-          </div>
+          <form method="post" class="flex flex-col gap-3" id="save-form">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="save-asset" />
+            <input type="hidden" name="save-model_id" id="save-model-id" value="{{ selected_model_id|default:'' }}" />
+            <input type="hidden" name="save-prompt_text" id="save-prompt" value="{{ preview_prompt|default:'' }}" />
+            <input type="hidden" name="save-preview_url" id="save-preview-url" value="{{ preview_url|default:'' }}" />
+            <input type="hidden" name="save-storage_path" id="save-storage-path" value="{{ preview_storage_path|default:'' }}" />
+            <button type="submit" id="save-button" class="inline-flex items-center justify-center rounded-lg bg-emerald-600 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-400"{% if not preview_url %} disabled{% endif %}>
+              Save to gallery
+            </button>
+          </form>
         </div>
       </div>
-    {% endif %}
+    </div>
   </section>
 
   <section class="space-y-4">
@@ -180,4 +183,242 @@
     {% endif %}
   </section>
 </div>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const generateForm = document.getElementById("generate-form");
+    if (!generateForm) {
+      return;
+    }
+
+    const statusElement = document.getElementById("preview-status");
+    const previewContent = document.getElementById("preview-content");
+    const previewEmpty = document.getElementById("preview-empty");
+    const previewImage = document.getElementById("preview-image");
+    const previewPrompt = document.getElementById("preview-prompt");
+    const saveButton = document.getElementById("save-button");
+    const saveModelInput = document.getElementById("save-model-id");
+    const savePromptInput = document.getElementById("save-prompt");
+    const saveUrlInput = document.getElementById("save-preview-url");
+    const saveStorageInput = document.getElementById("save-storage-path");
+    const errorElement = document.getElementById("generate-error");
+    const submitButton = document.getElementById("generate-submit");
+
+    const statusBaseClass = "mt-4 rounded-lg border px-4 py-3 text-sm";
+    const statusVariants = {
+      info: "border-slate-200 bg-slate-50 text-slate-700",
+      success: "border-emerald-200 bg-emerald-50 text-emerald-700",
+      error: "border-rose-200 bg-rose-50 text-rose-700",
+    };
+
+    let pollTimer = null;
+    let activeStatusUrl = null;
+
+    function showStatus(message, variant) {
+      if (!statusElement) {
+        return;
+      }
+      if (!message) {
+        statusElement.className = statusBaseClass + " hidden";
+        statusElement.textContent = "";
+        return;
+      }
+      const variantClasses = statusVariants[variant] || statusVariants.info;
+      statusElement.className = statusBaseClass + " " + variantClasses;
+      statusElement.textContent = message;
+    }
+
+    function resetPreview() {
+      if (pollTimer) {
+        window.clearTimeout(pollTimer);
+        pollTimer = null;
+      }
+      activeStatusUrl = null;
+      if (saveButton) {
+        saveButton.disabled = true;
+      }
+      if (previewContent) {
+        previewContent.classList.add("hidden");
+      }
+      if (previewEmpty) {
+        previewEmpty.classList.remove("hidden");
+      }
+      if (previewImage) {
+        previewImage.src = "";
+      }
+      if (previewPrompt) {
+        previewPrompt.textContent = "";
+      }
+      if (saveModelInput) {
+        saveModelInput.value = "";
+      }
+      if (savePromptInput) {
+        savePromptInput.value = "";
+      }
+      if (saveUrlInput) {
+        saveUrlInput.value = "";
+      }
+      if (saveStorageInput) {
+        saveStorageInput.value = "";
+      }
+      showStatus("", "info");
+    }
+
+    function applyPreview(data) {
+      if (previewEmpty) {
+        previewEmpty.classList.add("hidden");
+      }
+      if (previewContent) {
+        previewContent.classList.remove("hidden");
+      }
+      if (previewImage && data.preview_url) {
+        previewImage.src = data.preview_url;
+      }
+      if (previewPrompt && data.prompt) {
+        previewPrompt.textContent = data.prompt;
+      }
+      if (saveModelInput) {
+        saveModelInput.value = data.model_id || "";
+      }
+      if (savePromptInput) {
+        savePromptInput.value = data.prompt || "";
+      }
+      if (saveUrlInput) {
+        saveUrlInput.value = data.preview_url || "";
+      }
+      if (saveStorageInput) {
+        saveStorageInput.value = data.storage_path || "";
+      }
+      if (saveButton) {
+        saveButton.disabled = !data.preview_url;
+      }
+    }
+
+    function pollStatus(url) {
+      if (!url || url !== activeStatusUrl) {
+        return;
+      }
+      fetch(url, { headers: { Accept: "application/json" } })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error("status-error");
+          }
+          return response.json();
+        })
+        .then((data) => {
+          if (url !== activeStatusUrl) {
+            return;
+          }
+          if (data.status === "success") {
+            showStatus("Preview ready. Save it below if you like the result.", "success");
+            applyPreview(data);
+            activeStatusUrl = null;
+          } else if (data.status === "failed") {
+            showStatus(data.error || "Preview generation failed.", "error");
+            if (previewContent) {
+              previewContent.classList.add("hidden");
+            }
+            if (previewEmpty) {
+              previewEmpty.classList.remove("hidden");
+            }
+            if (saveButton) {
+              saveButton.disabled = true;
+            }
+            activeStatusUrl = null;
+          } else {
+            showStatus("Generating preview…", "info");
+            pollTimer = window.setTimeout(() => pollStatus(url), 2000);
+          }
+        })
+        .catch(() => {
+          if (url === activeStatusUrl) {
+            showStatus("Could not check the preview status. Try again in a moment.", "error");
+            activeStatusUrl = null;
+          }
+        });
+    }
+
+    function handleSubmit(event) {
+      event.preventDefault();
+      resetPreview();
+      if (submitButton) {
+        submitButton.disabled = true;
+      }
+      if (errorElement) {
+        errorElement.classList.add("hidden");
+        errorElement.textContent = "";
+      }
+      if (previewEmpty) {
+        previewEmpty.classList.add("hidden");
+      }
+      showStatus("Starting preview job…", "info");
+
+      const formData = new FormData(generateForm);
+      fetch(generateForm.getAttribute("action") || window.location.href, {
+        method: "POST",
+        body: formData,
+        headers: {
+          "X-Requested-With": "XMLHttpRequest",
+          Accept: "application/json",
+        },
+        credentials: "same-origin",
+      })
+        .then((response) => {
+          if (!response.ok) {
+            return response.json().then((data) => {
+              throw data;
+            });
+          }
+          return response.json();
+        })
+        .then((data) => {
+          if (!data || !data.status_url) {
+            throw {};
+          }
+          activeStatusUrl = data.status_url;
+          pollStatus(activeStatusUrl);
+        })
+        .catch((data) => {
+          showStatus("", "info");
+          if (errorElement) {
+            let message = "Something went wrong starting the preview job.";
+            if (data && data.errors) {
+              const promptErrors =
+                data.errors["prompt_text"] ||
+                data.errors["prompt"] ||
+                data.errors["__all__"] ||
+                [];
+              if (promptErrors.length) {
+                message = promptErrors.join(" ");
+              }
+            }
+            errorElement.textContent = message;
+            errorElement.classList.remove("hidden");
+          }
+          if (previewEmpty) {
+            previewEmpty.classList.remove("hidden");
+          }
+        })
+        .finally(() => {
+          if (submitButton) {
+            submitButton.disabled = false;
+          }
+        });
+    }
+
+    generateForm.addEventListener("submit", handleSubmit);
+
+    if (saveUrlInput && saveUrlInput.value) {
+      applyPreview({
+        preview_url: saveUrlInput.value,
+        prompt: savePromptInput ? savePromptInput.value : "",
+        model_id: saveModelInput ? saveModelInput.value : "",
+        storage_path: saveStorageInput ? saveStorageInput.value : "",
+      });
+      if (saveButton) {
+        saveButton.disabled = false;
+      }
+      showStatus("Preview ready. Save it below if you like the result.", "success");
+    }
+  });
+</script>
 {% endblock %}

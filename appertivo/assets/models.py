@@ -6,6 +6,40 @@ from django.conf import settings
 from django.db import models
 
 
+class AssetPreviewJob(models.Model):
+    """Track asynchronous preview generation for an asset model."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        RUNNING = "running", "Running"
+        SUCCESS = "success", "Success"
+        FAILED = "failed", "Failed"
+
+    model = models.ForeignKey(
+        "AssetModel",
+        on_delete=models.CASCADE,
+        related_name="preview_jobs",
+    )
+    prompt = models.TextField()
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    preview_url = models.URLField(blank=True)
+    storage_path = models.CharField(max_length=500, blank=True)
+    error_message = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:  # pragma: no cover - human readable representation
+        status = self.get_status_display()
+        return f"Preview job for {self.model} ({status})"
+
+
 class AssetModel(models.Model):
     """Represents a Replicate model staff can run."""
 
