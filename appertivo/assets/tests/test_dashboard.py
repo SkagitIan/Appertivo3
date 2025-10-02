@@ -17,7 +17,8 @@ from django.urls import reverse
 
 django.setup()
 
-from appertivo.assets.models import AssetModel, GeneratedAsset
+from appertivo.assets import tasks
+from appertivo.assets.models import AssetModel, AssetPreviewJob, GeneratedAsset
 
 
 class AssetDashboardTests(TestCase):
@@ -85,11 +86,10 @@ class AssetDashboardTests(TestCase):
 
         self.assertTrue(PromptTemplate.objects.filter(title="Hero shot").exists())
 
-    @patch("appertivo.assets.views.replicate_client")
-    def test_generate_preview_flow(self, mock_replicate) -> None:
-        """Posting generate should surface the preview URL in the response."""
+    @patch("appertivo.assets.views.async_task")
+    def test_generate_preview_flow(self, mock_async: Mock) -> None:
+        """Posting generate returns a job identifier for polling."""
 
-        mock_replicate.run.return_value = ["https://example.com/image.png"]
         self.client.force_login(self.staff_user)
         response = self.client.post(
             reverse("assets:dashboard"),
@@ -98,35 +98,39 @@ class AssetDashboardTests(TestCase):
                 "generate-model": str(self.model.pk),
                 "generate-prompt_text": "Create something nice",
             },
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            HTTP_ACCEPT="application/json",
         )
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("preview_url", response.context)
-        self.assertEqual(response.context["preview_url"], "https://example.com/image.png")
-        self.assertIsNone(response.context["preview_storage_path"])
-        mock_replicate.run.assert_called_once()
+        self.assertEqual(response.status_code, 202)
+        payload = response.json()
+        self.assertIn("job_id", payload)
+        self.assertIn("status_url", payload)
+        job = AssetPreviewJob.objects.get(pk=payload["job_id"])
+        self.assertEqual(job.prompt, "Create something nice")
+        self.assertEqual(job.status, AssetPreviewJob.Status.PENDING)
+        mock_async.assert_called_once_with("appertivo.assets.tasks.run_preview_job", job.pk)
 
-    @patch("appertivo.assets.views.replicate_client")
-    def test_generate_preview_from_bytes(self, mock_replicate) -> None:
-        """Binary outputs from Replicate are saved and surfaced in the response."""
+    @patch("appertivo.assets.views.async_task")
+    def test_generate_preview_requires_prompt(self, mock_async: Mock) -> None:
+        """Missing prompt data surfaces a validation error response."""
 
-        mock_replicate.run.return_value = [b"image-bytes"]
         self.client.force_login(self.staff_user)
         response = self.client.post(
             reverse("assets:dashboard"),
             {
                 "action": "generate-asset",
                 "generate-model": str(self.model.pk),
-                "generate-prompt_text": "Binary please",
+                "generate-prompt_text": "",
             },
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            HTTP_ACCEPT="application/json",
         )
-        self.assertEqual(response.status_code, 200)
-        preview_path = response.context["preview_storage_path"]
-        self.assertTrue(preview_path)
-        preview_url = response.context["preview_url"]
-        self.assertTrue(preview_url)
-        # Ensure the preview file exists in storage.
-        self.assertTrue(default_storage.exists(preview_path))
-        default_storage.delete(preview_path)
+        self.assertEqual(response.status_code, 400)
+        payload = response.json()
+        self.assertIn("errors", payload)
+        self.assertIn("prompt_text", payload["errors"])
+        self.assertFalse(AssetPreviewJob.objects.exists())
+        mock_async.assert_not_called()
 
     @patch("appertivo.assets.views.requests.get")
     def test_save_preview_persists_file(self, mock_get: Mock) -> None:
@@ -181,6 +185,43 @@ class AssetDashboardTests(TestCase):
         self.assertFalse(default_storage.exists(stored_path))
         asset.image.delete(save=False)
 
+    @patch("appertivo.assets.tasks.replicate_client")
+    def test_run_preview_job_records_url(self, mock_replicate: Mock) -> None:
+        """A successful job stores the preview URL and marks the job as complete."""
+
+        mock_replicate.run.return_value = ["https://example.com/image.png"]
+        job = AssetPreviewJob.objects.create(model=self.model, prompt="Preview me")
+        tasks.run_preview_job(job.pk)
+        job.refresh_from_db()
+        self.assertEqual(job.status, AssetPreviewJob.Status.SUCCESS)
+        self.assertEqual(job.preview_url, "https://example.com/image.png")
+        self.assertEqual(job.storage_path, "")
+
+    @patch("appertivo.assets.tasks.replicate_client")
+    def test_run_preview_job_saves_bytes(self, mock_replicate: Mock) -> None:
+        """Binary payloads from Replicate are saved to storage."""
+
+        mock_replicate.run.return_value = [b"image-bytes"]
+        job = AssetPreviewJob.objects.create(model=self.model, prompt="Bytes please")
+        tasks.run_preview_job(job.pk)
+        job.refresh_from_db()
+        self.assertEqual(job.status, AssetPreviewJob.Status.SUCCESS)
+        self.assertTrue(job.preview_url)
+        self.assertTrue(job.storage_path)
+        self.assertTrue(default_storage.exists(job.storage_path))
+        default_storage.delete(job.storage_path)
+
+    @patch("appertivo.assets.tasks.replicate_client")
+    def test_run_preview_job_handles_errors(self, mock_replicate: Mock) -> None:
+        """Unexpected errors mark the job as failed with a message."""
+
+        mock_replicate.run.side_effect = RuntimeError("boom")
+        job = AssetPreviewJob.objects.create(model=self.model, prompt="This will fail")
+        tasks.run_preview_job(job.pk)
+        job.refresh_from_db()
+        self.assertEqual(job.status, AssetPreviewJob.Status.FAILED)
+        self.assertTrue(job.error_message)
+
     def test_gallery_view_lists_assets(self) -> None:
         """The gallery page renders saved items."""
 
@@ -190,3 +231,28 @@ class AssetDashboardTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Saved assets")
         self.assertTemplateUsed(response, "assets/gallery.html")
+
+    def test_preview_status_requires_staff(self) -> None:
+        """The polling endpoint is staff-only."""
+
+        job = AssetPreviewJob.objects.create(model=self.model, prompt="Check access")
+        response = self.client.get(reverse("assets:preview-status", args=[job.pk]))
+        self.assertEqual(response.status_code, 302)
+
+    def test_preview_status_returns_payload(self) -> None:
+        """Staff can retrieve job status and preview details as JSON."""
+
+        job = AssetPreviewJob.objects.create(
+            model=self.model,
+            prompt="Check payload",
+            status=AssetPreviewJob.Status.SUCCESS,
+            preview_url="https://example.com/asset.png",
+            storage_path="previews/test.png",
+        )
+        self.client.force_login(self.staff_user)
+        response = self.client.get(reverse("assets:preview-status", args=[job.pk]))
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], AssetPreviewJob.Status.SUCCESS)
+        self.assertEqual(payload["preview_url"], "https://example.com/asset.png")
+        self.assertEqual(payload["storage_path"], "previews/test.png")
