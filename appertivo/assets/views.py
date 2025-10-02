@@ -6,18 +6,18 @@ import logging
 import mimetypes
 import uuid
 from pathlib import Path
-from typing import Iterable
 
 import requests
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
-from django.conf import settings
 from django.db.models import QuerySet
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils.text import slugify
+from django_q.tasks import async_task
 
 from app.llm import replicate_client
 
@@ -27,94 +27,9 @@ from .forms import (
     AssetSaveForm,
     PromptTemplateForm,
 )
-from .models import AssetModel, GeneratedAsset, PromptTemplate
+from .models import AssetModel, AssetPreviewJob, GeneratedAsset, PromptTemplate
 
 logger = logging.getLogger(__name__)
-
-
-def _collect_preview_candidates(output: object) -> Iterable[bytes | str]:
-    """Yield potential preview values from a Replicate response."""
-
-    if output is None:
-        return []
-
-    if isinstance(output, (bytes, bytearray)):
-        return [bytes(output)]
-
-    if isinstance(output, str):
-        return [output]
-
-    if isinstance(output, dict):
-        values: list[bytes | str] = []
-        for value in output.values():
-            values.extend(_collect_preview_candidates(value))
-        return values
-
-    if isinstance(output, (list, tuple, set)):
-        values: list[bytes | str] = []
-        for item in output:
-            values.extend(_collect_preview_candidates(item))
-        return values
-
-    return []
-
-
-def _store_preview_bytes(data: bytes) -> tuple[str | None, str | None]:
-    """Persist preview bytes to storage and return the URL and storage path."""
-
-    filename = f"previews/{uuid.uuid4().hex}.png"
-    try:
-        storage_path = default_storage.save(filename, ContentFile(data))
-    except Exception as exc:  # pragma: no cover - storage guard
-        logger.warning("Failed to store preview bytes: %s", exc, exc_info=True)
-        return None, None
-
-    try:
-        url = default_storage.url(storage_path)
-    except Exception:  # pragma: no cover - fallback for storages without URL support
-        base_url = getattr(settings, "MEDIA_URL", "/media/").rstrip("/")
-        url = f"{base_url}/{storage_path}"
-
-    return url, storage_path
-
-
-def _generate_preview(model: AssetModel, prompt: str) -> tuple[str | None, str | None, str | None]:
-    """Trigger Replicate and return the preview URL and optional storage path."""
-
-    if not replicate_client:
-        return None, None, "Replicate API is not configured."
-
-    try:
-        output = replicate_client.run(
-            model.identifier,
-            input={
-                "prompt": prompt,
-                "output_format": "png",
-                "output_quality": 95,
-            },
-        )
-    except Exception as exc:  # pragma: no cover - defensive guard
-        logger.warning("Replicate call failed: %s", exc, exc_info=True)
-        message = "Replicate timed out while generating the image. Please try again."
-        if "504" in str(exc):
-            message = "Replicate timed out before returning an image. Try again in a moment."
-        return None, None, message
-
-    for candidate in _collect_preview_candidates(output):
-        if isinstance(candidate, str):
-            link = candidate.strip()
-            if link.startswith("http") or link.startswith("data:"):
-                logger.info("Preview generated for model %s", model.identifier)
-                return link, None, None
-        elif isinstance(candidate, (bytes, bytearray)):
-            url, storage_path = _store_preview_bytes(bytes(candidate))
-            if url and storage_path:
-                logger.info("Preview bytes stored for model %s", model.identifier)
-                return url, storage_path, None
-            return None, None, "Could not store the preview image. Check media storage permissions."
-
-    logger.warning("Replicate output did not include a usable image for model %s", model.identifier)
-    return None, None, "Replicate did not return an image URL."
 
 
 def _save_preview(
@@ -212,6 +127,8 @@ def dashboard(request: HttpRequest) -> HttpResponse:
                 return redirect("assets:dashboard")
         elif action == "generate-asset":
             generation_form = AssetGenerationForm(request.POST, prefix="generate")
+            model = None
+            prompt_text = ""
             if generation_form.is_valid():
                 model = generation_form.cleaned_data["model"]
                 template = generation_form.cleaned_data["prompt_template"]
@@ -219,15 +136,28 @@ def dashboard(request: HttpRequest) -> HttpResponse:
                 if not prompt_text and template:
                     prompt_text = template.text
                 if not prompt_text:
-                    generation_form.add_error("prompt_text", "Provide a prompt or choose from the library.")
-                else:
-                    preview_url, preview_storage_path, error = _generate_preview(model, prompt_text)
-                    preview_prompt = prompt_text
-                    selected_model_id = model.pk
-                    if error:
-                        messages.error(request, error)
-                    elif preview_url:
-                        messages.success(request, "Preview ready. Save it below if you like the result.")
+                    generation_form.add_error(
+                        "prompt_text",
+                        "Provide a prompt or choose from the library.",
+                    )
+
+            if generation_form.errors:
+                return JsonResponse({"errors": generation_form.errors}, status=400)
+
+            assert model is not None  # Satisfy type checkers.
+            job = AssetPreviewJob.objects.create(
+                model=model,
+                prompt=prompt_text,
+            )
+            async_task("appertivo.assets.tasks.run_preview_job", job.pk)
+            return JsonResponse(
+                {
+                    "job_id": job.pk,
+                    "status": job.status,
+                    "status_url": reverse("assets:preview-status", args=[job.pk]),
+                },
+                status=202,
+            )
         elif action == "save-asset":
             save_form = AssetSaveForm(request.POST, prefix="save")
             if save_form.is_valid():
@@ -271,6 +201,27 @@ def dashboard(request: HttpRequest) -> HttpResponse:
         "preview_storage_path": preview_storage_path,
     }
     return render(request, "assets/dashboard.html", context)
+
+
+@staff_member_required
+def preview_status(request: HttpRequest, job_id: int) -> JsonResponse:
+    """Return the current status for a preview generation job."""
+
+    if request.method != "GET":
+        return HttpResponseNotAllowed(["GET"])
+
+    job = get_object_or_404(AssetPreviewJob, pk=job_id)
+    return JsonResponse(
+        {
+            "id": job.pk,
+            "status": job.status,
+            "prompt": job.prompt,
+            "model_id": job.model_id,
+            "preview_url": job.preview_url,
+            "storage_path": job.storage_path,
+            "error": job.error_message,
+        }
+    )
 
 
 @staff_member_required
