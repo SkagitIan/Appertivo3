@@ -132,42 +132,31 @@ def _save_preview(
 def dashboard(request: HttpRequest) -> HttpResponse:
     """Render the internal workspace for generating image assets."""
 
-    model_form = AssetModelForm(prefix="model")
-    prompt_form = PromptTemplateForm(prefix="prompt")
     generation_form = AssetGenerationForm(prefix="generate")
     save_form = AssetSaveForm(prefix="save")
     preview_url: str | None = None
     preview_prompt: str = ""
     selected_model_id: int | None = None
     preview_storage_path: str | None = None
-    model_forms: dict[int, AssetModelForm] = {}
-    prompt_forms: dict[int, PromptTemplateForm] = {}
 
     if request.method == "POST":
         action = request.POST.get("action")
 
-        if action == "create-model":
-            model_form = AssetModelForm(request.POST, prefix="model")
-            if model_form.is_valid():
-                model_form.save()
-                messages.success(request, "Model saved. It is now available in the dropdown.")
-                return redirect("assets:dashboard")
-        elif action == "create-prompt":
-            prompt_form = PromptTemplateForm(request.POST, prefix="prompt")
-            if prompt_form.is_valid():
-                prompt = prompt_form.save()
-                messages.success(request, f'Prompt "{prompt.title}" added to the library.')
-                return redirect("assets:dashboard")
-        elif action == "generate-asset":
+        if action == "generate-asset":
             generation_form = AssetGenerationForm(request.POST, prefix="generate")
             model = None
             prompt_text = ""
             if generation_form.is_valid():
                 model = generation_form.cleaned_data["model"]
                 template = generation_form.cleaned_data["prompt_template"]
-                prompt_text = (generation_form.cleaned_data["prompt_text"] or "").strip()
-                if not prompt_text and template:
-                    prompt_text = template.text
+                additional_text = (generation_form.cleaned_data["prompt_text"] or "").strip()
+                if template:
+                    prompt_text = (template.text or "").strip()
+                if additional_text:
+                    if prompt_text:
+                        prompt_text = f"{prompt_text}\n\n{additional_text}".strip()
+                    else:
+                        prompt_text = additional_text
                 if not prompt_text:
                     generation_form.add_error(
                         "prompt_text",
@@ -223,72 +212,13 @@ def dashboard(request: HttpRequest) -> HttpResponse:
                     selected_model_id = None
                 preview_storage_path = save_form.data.get("save-storage_path") or None
 
-        elif action == "update-model":
-            try:
-                model_id = int(request.POST.get("model_id", ""))
-            except (TypeError, ValueError):
-                messages.error(request, "Invalid model selection.")
-            else:
-                model_instance = get_object_or_404(AssetModel, pk=model_id)
-                prefix = f"model-edit-{model_instance.pk}"
-                form = AssetModelForm(request.POST, prefix=prefix, instance=model_instance)
-                if form.is_valid():
-                    form.save()
-                    messages.success(request, "Model updated.")
-                    return redirect("assets:dashboard")
-                model_forms[model_instance.pk] = form
-        elif action == "delete-model":
-            try:
-                model_id = int(request.POST.get("model_id", ""))
-            except (TypeError, ValueError):
-                messages.error(request, "Invalid model selection.")
-            else:
-                model_instance = get_object_or_404(AssetModel, pk=model_id)
-                model_instance.delete()
-                messages.success(request, "Model deleted.")
-                return redirect("assets:dashboard")
-        elif action == "update-prompt":
-            try:
-                prompt_id = int(request.POST.get("prompt_id", ""))
-            except (TypeError, ValueError):
-                messages.error(request, "Invalid prompt selection.")
-            else:
-                prompt_instance = get_object_or_404(PromptTemplate, pk=prompt_id)
-                prefix = f"prompt-edit-{prompt_instance.pk}"
-                form = PromptTemplateForm(request.POST, prefix=prefix, instance=prompt_instance)
-                if form.is_valid():
-                    form.save()
-                    messages.success(request, "Prompt updated.")
-                    return redirect("assets:dashboard")
-                prompt_forms[prompt_instance.pk] = form
-        elif action == "delete-prompt":
-            try:
-                prompt_id = int(request.POST.get("prompt_id", ""))
-            except (TypeError, ValueError):
-                messages.error(request, "Invalid prompt selection.")
-            else:
-                prompt_instance = get_object_or_404(PromptTemplate, pk=prompt_id)
-                prompt_instance.delete()
-                messages.success(request, "Prompt deleted.")
-                return redirect("assets:dashboard")
-
     recent_assets: QuerySet[GeneratedAsset] = (
         GeneratedAsset.objects.select_related("model", "folder")
         .exclude(folder__is_locked=True)
         [:6]
     )
 
-    for model in AssetModel.objects.all():
-        prefix = f"model-edit-{model.pk}"
-        model_forms.setdefault(model.pk, AssetModelForm(prefix=prefix, instance=model))
-
-    for prompt in PromptTemplate.objects.all():
-        prefix = f"prompt-edit-{prompt.pk}"
-        prompt_forms.setdefault(prompt.pk, PromptTemplateForm(prefix=prefix, instance=prompt))
-
     context = {
-        "model_form": model_form,
-        "prompt_form": prompt_form,
         "generation_form": generation_form,
         "save_form": save_form,
         "preview_url": preview_url,
@@ -298,10 +228,112 @@ def dashboard(request: HttpRequest) -> HttpResponse:
         "has_replicate": replicate_client is not None,
         "preview_storage_path": preview_storage_path,
         "discard_preview_url": reverse("assets:discard-preview"),
-        "model_forms": model_forms,
-        "prompt_forms": prompt_forms,
     }
     return render(request, "assets/dashboard.html", context)
+
+
+@staff_member_required
+def manage_models(request: HttpRequest) -> HttpResponse:
+    """Create, update, or delete saved Replicate models."""
+
+    create_form = AssetModelForm(prefix="model")
+    edit_forms: dict[int, AssetModelForm] = {}
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "create-model":
+            create_form = AssetModelForm(request.POST, prefix="model")
+            if create_form.is_valid():
+                create_form.save()
+                messages.success(request, "Model saved. It is now available in the studio.")
+                return redirect("assets:manage-models")
+        elif action == "update-model":
+            try:
+                model_id = int(request.POST.get("model_id", ""))
+            except (TypeError, ValueError):
+                messages.error(request, "Invalid model selection.")
+            else:
+                instance = get_object_or_404(AssetModel, pk=model_id)
+                prefix = f"model-edit-{instance.pk}"
+                form = AssetModelForm(request.POST, prefix=prefix, instance=instance)
+                if form.is_valid():
+                    form.save()
+                    messages.success(request, "Model updated.")
+                    return redirect("assets:manage-models")
+                edit_forms[instance.pk] = form
+        elif action == "delete-model":
+            try:
+                model_id = int(request.POST.get("model_id", ""))
+            except (TypeError, ValueError):
+                messages.error(request, "Invalid model selection.")
+            else:
+                instance = get_object_or_404(AssetModel, pk=model_id)
+                instance.delete()
+                messages.success(request, "Model deleted.")
+                return redirect("assets:manage-models")
+
+    models = AssetModel.objects.all()
+    for model in models:
+        prefix = f"model-edit-{model.pk}"
+        edit_forms.setdefault(model.pk, AssetModelForm(prefix=prefix, instance=model))
+
+    context = {
+        "create_form": create_form,
+        "model_entries": [(model, edit_forms[model.pk]) for model in models],
+    }
+    return render(request, "assets/manage_models.html", context)
+
+
+@staff_member_required
+def manage_prompts(request: HttpRequest) -> HttpResponse:
+    """Allow staff to curate prompt templates."""
+
+    create_form = PromptTemplateForm(prefix="prompt")
+    edit_forms: dict[int, PromptTemplateForm] = {}
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "create-prompt":
+            create_form = PromptTemplateForm(request.POST, prefix="prompt")
+            if create_form.is_valid():
+                prompt = create_form.save()
+                messages.success(request, f'Prompt "{prompt.title}" added to the library.')
+                return redirect("assets:manage-prompts")
+        elif action == "update-prompt":
+            try:
+                prompt_id = int(request.POST.get("prompt_id", ""))
+            except (TypeError, ValueError):
+                messages.error(request, "Invalid prompt selection.")
+            else:
+                instance = get_object_or_404(PromptTemplate, pk=prompt_id)
+                prefix = f"prompt-edit-{instance.pk}"
+                form = PromptTemplateForm(request.POST, prefix=prefix, instance=instance)
+                if form.is_valid():
+                    form.save()
+                    messages.success(request, "Prompt updated.")
+                    return redirect("assets:manage-prompts")
+                edit_forms[instance.pk] = form
+        elif action == "delete-prompt":
+            try:
+                prompt_id = int(request.POST.get("prompt_id", ""))
+            except (TypeError, ValueError):
+                messages.error(request, "Invalid prompt selection.")
+            else:
+                instance = get_object_or_404(PromptTemplate, pk=prompt_id)
+                instance.delete()
+                messages.success(request, "Prompt deleted.")
+                return redirect("assets:manage-prompts")
+
+    prompts = PromptTemplate.objects.all()
+    for prompt in prompts:
+        prefix = f"prompt-edit-{prompt.pk}"
+        edit_forms.setdefault(prompt.pk, PromptTemplateForm(prefix=prefix, instance=prompt))
+
+    context = {
+        "create_form": create_form,
+        "prompt_entries": [(prompt, edit_forms[prompt.pk]) for prompt in prompts],
+    }
+    return render(request, "assets/manage_prompts.html", context)
 
 
 @staff_member_required
@@ -333,6 +365,11 @@ def gallery(request: HttpRequest) -> HttpResponse:
     folders = AssetFolder.objects.all()
     folder_form = AssetFolderForm(prefix="folder")
     folder_security_forms: dict[int, AssetFolderSecurityForm] = {}
+    unlocked_folder_ids = {
+        int(folder_id)
+        for folder_id in request.session.get("asset_unlocked_folders", [])
+        if isinstance(folder_id, int) or str(folder_id).isdigit()
+    }
     for folder in folders:
         prefix = f"folder-security-{folder.pk}"
         folder_security_forms[folder.pk] = AssetFolderSecurityForm(prefix=prefix, instance=folder)
@@ -409,7 +446,14 @@ def gallery(request: HttpRequest) -> HttpResponse:
                     messages.success(request, "Deleted the selected asset.")
                 return redirect("assets:gallery")
 
-    folder_entries = [(folder, folder_security_forms[folder.pk]) for folder in folders]
+    folder_entries = [
+        {
+            "folder": folder,
+            "form": folder_security_forms[folder.pk],
+            "is_unlocked": folder.pk in unlocked_folder_ids,
+        }
+        for folder in folders
+    ]
 
     context = {
         "assets": assets,
@@ -418,8 +462,35 @@ def gallery(request: HttpRequest) -> HttpResponse:
         "folder_entries": folder_entries,
         "selected_filter": selected_filter,
         "selected_folder_id": selected_folder_id,
+        "unlocked_folder_ids": sorted(unlocked_folder_ids),
     }
     return render(request, "assets/gallery.html", context)
+
+
+@staff_member_required
+@require_POST
+def verify_folder_pin(request: HttpRequest, folder_id: int) -> JsonResponse:
+    """Confirm a folder PIN before revealing protected assets."""
+
+    folder = get_object_or_404(AssetFolder, pk=folder_id)
+    try:
+        payload = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        payload = request.POST
+
+    pin = (payload.get("pin") or "").strip()
+
+    if folder.is_locked and not pin:
+        return JsonResponse({"status": "error", "message": "Enter the folder PIN."}, status=400)
+
+    if folder.is_locked and pin != folder.pin:
+        return JsonResponse({"status": "error", "message": "Incorrect PIN."}, status=400)
+
+    unlocked = set(request.session.get("asset_unlocked_folders", []))
+    unlocked.add(folder.pk)
+    request.session["asset_unlocked_folders"] = list(unlocked)
+
+    return JsonResponse({"status": "ok"})
 
 
 @staff_member_required
