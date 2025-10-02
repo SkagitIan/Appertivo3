@@ -76,6 +76,8 @@ class AssetFolder(models.Model):
     """Named collection used to group generated assets."""
 
     name = models.CharField(max_length=120, unique=True)
+    pin = models.CharField(max_length=4, default="5250")
+    is_locked = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

@@ -102,6 +102,98 @@
     </details>
   </section>
 
+  <section class="grid gap-6 md:grid-cols-2">
+    <div class="rounded-2xl border border-slate-200 bg-white/80 p-5 space-y-4">
+      <div>
+        <h2 class="text-lg font-semibold text-slate-900">Saved models</h2>
+        <p class="mt-1 text-sm text-slate-600">Update identifiers or remove entries that are no longer needed.</p>
+      </div>
+      {% if model_forms %}
+        <ul class="space-y-4">
+          {% for model_id, form in model_forms.items %}
+            <li class="rounded-xl border border-slate-200 bg-white/90 p-4 space-y-3">
+              <form method="post" class="space-y-3">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update-model" />
+                <input type="hidden" name="model_id" value="{{ model_id }}" />
+                <div>
+                  <label class="text-sm font-medium text-slate-700" for="{{ form.description.id_for_label }}">Description</label>
+                  {{ form.description }}
+                  {% if form.description.errors %}
+                    <p class="mt-1 text-xs text-rose-600">{{ form.description.errors|join:', ' }}</p>
+                  {% endif %}
+                </div>
+                <div>
+                  <label class="text-sm font-medium text-slate-700" for="{{ form.identifier.id_for_label }}">Identifier</label>
+                  {{ form.identifier }}
+                  {% if form.identifier.errors %}
+                    <p class="mt-1 text-xs text-rose-600">{{ form.identifier.errors|join:', ' }}</p>
+                  {% endif %}
+                </div>
+                <div class="flex items-center justify-end">
+                  <button type="submit" class="inline-flex items-center rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white shadow hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500">Save changes</button>
+                </div>
+              </form>
+              <form method="post" class="flex justify-end" onsubmit="return confirm('Delete this model?');">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="delete-model" />
+                <input type="hidden" name="model_id" value="{{ model_id }}" />
+                <button type="submit" class="text-xs font-semibold text-rose-600 hover:text-rose-700">Delete</button>
+              </form>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-sm text-slate-600">No models added yet.</p>
+      {% endif %}
+    </div>
+
+    <div class="rounded-2xl border border-slate-200 bg-white/80 p-5 space-y-4">
+      <div>
+        <h2 class="text-lg font-semibold text-slate-900">Prompt templates</h2>
+        <p class="mt-1 text-sm text-slate-600">Tweak saved prompt text or remove unused entries.</p>
+      </div>
+      {% if prompt_forms %}
+        <ul class="space-y-4">
+          {% for prompt_id, form in prompt_forms.items %}
+            <li class="rounded-xl border border-slate-200 bg-white/90 p-4 space-y-3">
+              <form method="post" class="space-y-3">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update-prompt" />
+                <input type="hidden" name="prompt_id" value="{{ prompt_id }}" />
+                <div>
+                  <label class="text-sm font-medium text-slate-700" for="{{ form.title.id_for_label }}">Title</label>
+                  {{ form.title }}
+                  {% if form.title.errors %}
+                    <p class="mt-1 text-xs text-rose-600">{{ form.title.errors|join:', ' }}</p>
+                  {% endif %}
+                </div>
+                <div>
+                  <label class="text-sm font-medium text-slate-700" for="{{ form.text.id_for_label }}">Prompt text</label>
+                  {{ form.text }}
+                  {% if form.text.errors %}
+                    <p class="mt-1 text-xs text-rose-600">{{ form.text.errors|join:', ' }}</p>
+                  {% endif %}
+                </div>
+                <div class="flex items-center justify-end">
+                  <button type="submit" class="inline-flex items-center rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white shadow hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500">Save changes</button>
+                </div>
+              </form>
+              <form method="post" class="flex justify-end" onsubmit="return confirm('Delete this prompt?');">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="delete-prompt" />
+                <input type="hidden" name="prompt_id" value="{{ prompt_id }}" />
+                <button type="submit" class="text-xs font-semibold text-rose-600 hover:text-rose-700">Delete</button>
+              </form>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-sm text-slate-600">No prompt templates yet.</p>
+      {% endif %}
+    </div>
+  </section>
+
   <section class="rounded-2xl border border-slate-200 bg-white/80 p-6 space-y-6">
     <div>
       <h2 class="text-lg font-semibold text-slate-900">Generate an image</h2>
@@ -188,7 +280,7 @@
       <a href="{% url 'assets:gallery' %}" class="text-sm font-semibold text-purple-600 hover:text-purple-700">Open gallery</a>
     </div>
     {% if recent_assets %}
-      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div class="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {% for asset in recent_assets %}
           <div class="rounded-2xl border border-slate-200 bg-white/80 p-3">
             {% if asset.image %}
