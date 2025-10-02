@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Iterable, List, Mapping, Sequence
 
 import requests
+from outscraper import ApiClient
 from celery import shared_task
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
@@ -32,6 +33,18 @@ def get_outscraper_webhook_url() -> str:
     """Return the configured Outscraper webhook URL for lead imports."""
 
     return "https://appertivo.com/leads/outscraper-webhook/"
+
+
+def _create_outscraper_client(api_key: str | None) -> ApiClient | None:
+    """Instantiate the Outscraper SDK client when credentials are available."""
+
+    if not api_key:
+        return None
+    try:
+        return ApiClient(api_key=api_key)
+    except Exception as exc:  # pragma: no cover - depends on SDK internals
+        logger.exception("Failed to create Outscraper client: %s", exc)
+        return None
 
 
 def extract_lead_entries(payload: object) -> list[dict]:
@@ -80,6 +93,25 @@ def resolve_outscraper_payload(payload: object, headers: Mapping[str, str] | Non
     if not job_id:
         return payload
 
+    api_key = None
+    if request_headers:
+        api_key = request_headers.get("X-API-KEY")
+    api_key = api_key or os.getenv("OUTSCRAPER_API_KEY") or getattr(settings, "OUTSCRAPER_API_KEY", None)
+
+    client = _create_outscraper_client(api_key)
+    if client is not None:
+        try:
+            job_payload = client.get_request_archive(job_id)
+            if (
+                isinstance(job_payload, dict)
+                and "Data" in job_payload
+                and "data" not in job_payload
+            ):
+                job_payload["data"] = job_payload["Data"]
+            return job_payload
+        except Exception as exc:  # pragma: no cover - network failure
+            logger.exception("Failed to fetch Outscraper job %s via SDK: %s", job_id, exc)
+
     job_url = f"https://api.outscraper.cloud/requests/{job_id}"
     try:
         response = requests.get(job_url, headers=request_headers or None, timeout=60)
@@ -97,27 +129,134 @@ def resolve_outscraper_payload(payload: object, headers: Mapping[str, str] | Non
         return payload
 
 
-def store_lead_entries(entries: Sequence[Mapping[str, object]], *, city: str | None = None, run: LeadRun | None = None) -> list[int]:
+def store_lead_entries(
+    entries: Sequence[Mapping[str, object]],
+    *,
+    city: str | None = None,
+    run: LeadRun | None = None,
+) -> list[int]:
     """Create or update Lead objects for the supplied Outscraper entries."""
 
     created_ids: list[int] = []
+
+    def _clean_list(values: Iterable[object | None]) -> list[str]:
+        cleaned: list[str] = []
+        for value in values:
+            if isinstance(value, str):
+                candidate = value.strip()
+                if candidate and candidate not in cleaned:
+                    cleaned.append(candidate)
+        return cleaned
+
+    def _coerce_float(value: object | None) -> float | None:
+        try:
+            if value is None:
+                return None
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
     for entry in entries:
         if not isinstance(entry, Mapping):
             continue
+
+        email_candidates = [
+            entry.get("email"),
+            entry.get("email_1"),
+            entry.get("email_2"),
+            entry.get("email_3"),
+        ]
+        emails = _clean_list(email_candidates)
+        extra_emails = entry.get("emails")
+        if isinstance(extra_emails, Iterable) and not isinstance(extra_emails, (str, bytes)):
+            emails.extend(_clean_list(extra_emails))
+            emails = _clean_list(emails)
+
+        phone_candidates = [
+            entry.get("phone"),
+            entry.get("phone_1"),
+            entry.get("phone_2"),
+            entry.get("phone_3"),
+        ]
+        phones = _clean_list(phone_candidates)
+        extra_phones = entry.get("phones")
+        if isinstance(extra_phones, Iterable) and not isinstance(extra_phones, (str, bytes)):
+            phones.extend(_clean_list(extra_phones))
+            phones = _clean_list(phones)
+
+        socials: dict[str, str] = {}
+        for key in [
+            "facebook",
+            "instagram",
+            "linkedin",
+            "tiktok",
+            "twitter",
+            "youtube",
+            "vimeo",
+            "github",
+            "twitch",
+            "telegram",
+            "whatsapp",
+            "medium",
+            "snapchat",
+            "reddit",
+        ]:
+            value = entry.get(key)
+            if isinstance(value, str) and value.strip():
+                socials[key] = value.strip()
+
+        menu_links = _clean_list([entry.get("menu_link")])
+        entry_menu_links = entry.get("menu_links")
+        if isinstance(entry_menu_links, Iterable) and not isinstance(entry_menu_links, (str, bytes)):
+            menu_links.extend(_clean_list(entry_menu_links))
+            menu_links = _clean_list(menu_links)
+
+        order_links: list[str] = []
+        entry_order_links = entry.get("order_links")
+        if isinstance(entry_order_links, Iterable) and not isinstance(entry_order_links, (str, bytes)):
+            order_links.extend(_clean_list(entry_order_links))
+        elif isinstance(entry.get("order_link"), str):
+            order_links.append(str(entry.get("order_link")))
+        order_links = _clean_list(order_links)
+
+        working_hours = entry.get("working_hours")
+        if not isinstance(working_hours, Mapping):
+            working_hours = {}
+
         lead_defaults: dict[str, object | None] = {
             "name": entry.get("name") or entry.get("title") or "Unknown Restaurant",
-            "email": entry.get("email"),
-            "phone": entry.get("phone"),
+            "email": emails[0] if emails else entry.get("email"),
+            "phone": phones[0] if phones else entry.get("phone"),
             "city": entry.get("city") or city,
+            "full_address": entry.get("full_address") or entry.get("address"),
+            "latitude": _coerce_float(entry.get("latitude")),
+            "longitude": _coerce_float(entry.get("longitude")),
+            "website": entry.get("site") or entry.get("website"),
+            "google_place_id": entry.get("place_id") or entry.get("google_id"),
+            "description": entry.get("description"),
+            "rating": entry.get("rating"),
+            "review_count": entry.get("reviews_count") or entry.get("reviews"),
+            "price_level": entry.get("range") or entry.get("price_level"),
+            "emails": emails,
+            "phones": phones,
+            "social_links": socials,
+            "menu_links": menu_links,
+            "order_links": order_links,
+            "hours": working_hours,
             "json_data": dict(entry),
         }
         if run is not None:
             lead_defaults["run"] = run
             lead_defaults["shortlisted"] = False
-        identifier = entry.get("email") or entry.get("phone") or entry.get("name")
+        identifier = (
+            lead_defaults["email"]
+            or lead_defaults["phone"]
+            or entry.get("name")
+            or entry.get("place_id")
+        )
         if not identifier:
             continue
-        email = entry.get("email")
+        email = lead_defaults.get("email")
         if email:
             lead, created = Lead.objects.update_or_create(
                 email=email,
@@ -198,35 +337,60 @@ def fetch_leads(
         else:
             city = pick_city()
     logger.info("Fetching leads for city %s", city)
-    api_key = os.getenv('OUTSCRAPER_API_KEY')
-    if not api_key:
+    api_key = os.getenv("OUTSCRAPER_API_KEY") or getattr(settings, "OUTSCRAPER_API_KEY", None)
+    client = _create_outscraper_client(api_key)
+    if client is None:
         logger.warning("OUTSCRAPER_API_KEY not configured; skipping fetch")
         return []
 
-    params = {
-        "query": f"independent restaurants in {city}",
-        "limit": max(1, limit),
-        "async": "true",
-        "webhook": get_outscraper_webhook_url(),
-        "fields": "query,name,place_id,full_address,latitude,longitude,site,phone,type,description,category,subtypes,about,menu_link,order_links",
-        "enrichment": json.dumps(["domains_service"]),
-
-    }
-    logger.info(params)
-    headers = {"X-API-KEY": api_key}
+    query = f"independent restaurants in {city}"
     try:
-        response = requests.get("https://api.outscraper.cloud/google-maps-search", params=params, headers=headers, timeout=60)
-        response.raise_for_status()
-    except requests.RequestException as exc:  # pragma: no cover - network failure
+        payload = client.google_maps_search(
+            query,
+            limit=max(1, limit),
+            enrichment=["domains_service"],
+            fields=[
+                "query",
+                "name",
+                "place_id",
+                "full_address",
+                "latitude",
+                "longitude",
+                "site",
+                "phone",
+                "type",
+                "description",
+                "category",
+                "subtypes",
+                "about",
+                "menu_link",
+                "menu_links",
+                "order_links",
+                "working_hours",
+                "email",
+                "email_1",
+                "email_2",
+                "email_3",
+                "phone_1",
+                "phone_2",
+                "phone_3",
+                "instagram",
+                "facebook",
+                "twitter",
+                "tiktok",
+                "linkedin",
+                "youtube",
+            ],
+        )
+    except Exception as exc:  # pragma: no cover - network failure/SDK error
         logger.exception("Outscraper request failed: %s", exc)
         return []
-    initial_payload = response.json()
-    logger.info(initial_payload)
-    payload = resolve_outscraper_payload(initial_payload, headers)
-    job_id = extract_outscraper_job_id(payload) or extract_outscraper_job_id(initial_payload)
+
+    job_id = extract_outscraper_job_id(payload)
     if run is not None and job_id and run.outscraper_job_id != job_id:
         run.outscraper_job_id = job_id
         run.save(update_fields=["outscraper_job_id"])
+
     entries = extract_lead_entries(payload)
     if not entries:
         if isinstance(payload, dict):
