@@ -26,9 +26,12 @@ class AssetPreviewJob(models.Model):
         choices=Status.choices,
         default=Status.PENDING,
     )
+    prediction_id = models.CharField(max_length=120, blank=True)
+    replicate_status = models.CharField(max_length=50, blank=True)
     preview_url = models.URLField(blank=True)
     storage_path = models.CharField(max_length=500, blank=True)
     error_message = models.TextField(blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -323,6 +323,13 @@
       }
     }
 
+    const replicateStatusMessages = {
+      starting: "Replicate is starting your preview…",
+      processing: "Replicate is generating the preview…",
+      queued: "Preview job queued with Replicate…",
+      running: "Generating preview…",
+    };
+
     function pollStatus(url) {
       if (!url || url !== activeStatusUrl) {
         return;
@@ -338,13 +345,21 @@
           if (url !== activeStatusUrl) {
             return;
           }
-          if (data.status === "success") {
+          const replicateStatus = (data.replicate_status || "").toLowerCase();
+          if (replicateStatus === "succeeded" || data.status === "success") {
             showStatus("Preview ready. Save it below if you like the result.", "success");
             applyPreview(data);
             activeStatusUrl = null;
             setWorking(false);
-          } else if (data.status === "failed") {
-            showStatus(data.error || "Preview generation failed.", "error");
+          } else if (
+            replicateStatus === "failed" ||
+            replicateStatus === "canceled" ||
+            data.status === "failed"
+          ) {
+            const failureMessage = data.error
+              ? `Preview generation failed: ${data.error}`
+              : "Preview generation failed.";
+            showStatus(failureMessage, "error");
             if (previewContent) {
               previewContent.classList.add("hidden");
             }
@@ -360,7 +375,8 @@
             activeStatusUrl = null;
             setWorking(false);
           } else {
-            showStatus("Generating preview…", "info");
+            const message = replicateStatusMessages[replicateStatus] || "Generating preview…";
+            showStatus(message, "info");
             setWorking(true);
             pollTimer = window.setTimeout(() => pollStatus(url), 2000);
           }
