@@ -8,5 +8,5 @@ app_name = "assets"
 
 urlpatterns = [
     path("assets/", views.dashboard, name="dashboard"),
-    path("assets/gallery/", views.gallery, name="gallery"),
+    path("assets/library/", views.gallery, name="gallery"),
 ]
