@@ -23,6 +23,13 @@ def _collect_preview_candidates(output: object) -> Iterable[bytes | str]:
     if output is None:
         return []
 
+    if hasattr(output, "read"):
+        try:
+            return [bytes(output.read())]
+        except Exception:  # pragma: no cover - defensive guard
+            logger.warning("Failed to read file-like Replicate output", exc_info=True)
+            return []
+
     if isinstance(output, (bytes, bytearray)):
         return [bytes(output)]
 
