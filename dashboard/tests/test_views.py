@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 from pathlib import Path
 
 from django.conf import settings
@@ -170,10 +170,19 @@ class LogFeedViewTests(TestCase):
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
         self.log_path.write_text("", encoding="utf-8")
 
-    def _write_entries(self, total: int) -> None:
+    def _write_entries(self, total: int, level: str = "ERROR") -> None:
+        base_time = datetime(2024, 1, 1, 0, 0, tzinfo=dt_timezone.utc)
         with self.log_path.open("w", encoding="utf-8") as stream:
             for index in range(total):
-                entry = {"message": f"entry-{index}", "index": index}
+                timestamp = (base_time + timedelta(minutes=index)).isoformat().replace(
+                    "+00:00", "Z"
+                )
+                entry = {
+                    "timestamp": timestamp,
+                    "level": level,
+                    "name": "appertivo.tests",
+                    "message": f"entry-{index}",
+                }
                 stream.write(json.dumps(entry) + "\n")
 
     def test_logs_require_staff(self) -> None:
@@ -191,7 +200,12 @@ class LogFeedViewTests(TestCase):
         self.client.force_login(self.staff)
         response = self.client.get(reverse("dashboard:logs"))
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), [])
+        payload = response.json()
+        self.assertIn("generated_at", payload)
+        self.assertEqual(payload["total_entries"], 0)
+        self.assertEqual(payload["levels"], {})
+        self.assertEqual(payload["top_errors"], [])
+        self.assertEqual(payload["recent_errors"], [])
 
     def test_logs_limit_to_recent_entries(self) -> None:
         """Only the most recent 200 log entries should be returned."""
@@ -201,6 +215,50 @@ class LogFeedViewTests(TestCase):
         response = self.client.get(reverse("dashboard:logs"))
         self.assertEqual(response.status_code, 200)
         payload = response.json()
-        self.assertEqual(len(payload), 200)
-        self.assertEqual(payload[0]["index"], 5)
-        self.assertEqual(payload[-1]["index"], 204)
+        self.assertEqual(payload["total_entries"], 200)
+        self.assertEqual(payload["levels"].get("ERROR"), 200)
+        self.assertEqual(len(payload["recent_errors"]), 20)
+        self.assertEqual(payload["recent_errors"][0]["message"], "entry-204")
+        self.assertEqual(payload["recent_errors"][-1]["message"], "entry-185")
+
+    def test_logs_group_errors(self) -> None:
+        """Error entries should be summarized for quick review."""
+
+        entries = [
+            {
+                "timestamp": "2024-01-01T00:00:00Z",
+                "level": "ERROR",
+                "name": "app.worker",
+                "message": "Boom",
+            },
+            {
+                "timestamp": "2024-01-01T00:05:00Z",
+                "level": "ERROR",
+                "name": "app.worker",
+                "message": "Boom",
+            },
+            {
+                "timestamp": "2024-01-01T00:10:00Z",
+                "level": "WARNING",
+                "name": "app.worker",
+                "message": "Heads up",
+            },
+        ]
+        with self.log_path.open("w", encoding="utf-8") as stream:
+            for entry in entries:
+                stream.write(json.dumps(entry) + "\n")
+
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse("dashboard:logs"))
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["levels"].get("ERROR"), 2)
+        self.assertEqual(payload["levels"].get("WARNING"), 1)
+        self.assertEqual(len(payload["recent_errors"]), 2)
+        self.assertEqual(payload["recent_errors"][0]["timestamp"], "2024-01-01T00:05:00Z")
+        self.assertTrue(payload["top_errors"])
+        top_error = payload["top_errors"][0]
+        self.assertEqual(top_error["message"], "Boom")
+        self.assertEqual(top_error["count"], 2)
+        self.assertEqual(top_error["logger"], "app.worker")
+        self.assertEqual(top_error["last_seen"], "2024-01-01T00:05:00Z")

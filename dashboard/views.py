@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
@@ -438,5 +439,53 @@ class LogFeedView(StaffOnlyMixin, View):
                     continue
                 if isinstance(payload, dict):
                     entries.append(payload)
+        level_counts: Counter[str] = Counter()
+        error_groups: dict[tuple[str, str], dict[str, Any]] = {}
+        error_entries: list[dict[str, str]] = []
+        error_levels = {"ERROR", "CRITICAL"}
 
-        return JsonResponse(entries, safe=False)
+        for entry in entries:
+            level = str(entry.get("level") or "INFO").upper()
+            message = str(entry.get("message") or "").strip()
+            logger_name = str(entry.get("name") or "").strip()
+            timestamp = str(entry.get("timestamp") or "").strip()
+
+            level_counts[level] += 1
+
+            if level in error_levels:
+                key = (message, logger_name)
+                group = error_groups.get(key)
+                if group is None:
+                    group = {
+                        "message": message or "(no message)",
+                        "logger": logger_name or "(unknown)",
+                        "count": 0,
+                        "last_seen": "",
+                    }
+                group["count"] += 1
+                if timestamp and (not group["last_seen"] or timestamp > group["last_seen"]):
+                    group["last_seen"] = timestamp
+                error_groups[key] = group
+                error_entries.append(
+                    {
+                        "message": group["message"],
+                        "logger": group["logger"],
+                        "timestamp": timestamp,
+                        "level": level,
+                    }
+                )
+
+        top_errors = sorted(
+            error_groups.values(), key=lambda item: (-item["count"], item["message"])
+        )
+        recent_errors = list(reversed(error_entries[-20:]))
+
+        payload = {
+            "generated_at": timezone.now().isoformat(),
+            "total_entries": len(entries),
+            "levels": dict(level_counts),
+            "top_errors": top_errors,
+            "recent_errors": recent_errors,
+        }
+
+        return JsonResponse(payload)
