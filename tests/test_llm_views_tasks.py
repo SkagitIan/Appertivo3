@@ -9,7 +9,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from app import models, tasks, llm
+from app import models, tasks, llm, views
 
 
 class LLMGenerationTests(TestCase):
@@ -472,6 +472,7 @@ class TaskExecutionTests(TestCase):
         payload.refresh_from_db()
         self.restaurant.refresh_from_db()
         self.assertEqual(payload.status, models.OutscraperPayload.Status.SUCCEEDED)
+        self.assertEqual(payload.response_status, 200)
         self.assertEqual(payload.discovered_menu_url, "http://example.com/menu")
         self.assertEqual(self.restaurant.primary_menu_url, "http://example.com/menu")
         self.assertEqual(self.restaurant.menu_urls, ["http://example.com/menu"])
@@ -488,6 +489,7 @@ class TaskExecutionTests(TestCase):
         mock_get.return_value.json.return_value = {
             "data": [[{"name": "No Menu", "full_address": "City"}]]
         }
+        mock_get.return_value.status_code = 200
         payload = models.OutscraperPayload.objects.create(
             restaurant=self.restaurant,
             status=models.OutscraperPayload.Status.QUEUED,
@@ -498,8 +500,33 @@ class TaskExecutionTests(TestCase):
 
         payload.refresh_from_db()
         self.assertEqual(payload.status, models.OutscraperPayload.Status.SUCCEEDED)
+        self.assertEqual(payload.response_status, 200)
         self.assertIsNone(payload.discovered_menu_url)
         self.assertEqual(models.MenuVersion.objects.count(), 0)
+        mock_scrape.delay.assert_not_called()
+
+    @patch("app.tasks.scrape_menu")
+    @patch("app.tasks.requests.get")
+    def test_queue_records_requester_and_response_status(self, mock_get, mock_scrape):
+        """Queued payloads retain requester information and HTTP status."""
+        user = User.objects.create_user("requester@example.com", password="pass1234")
+        self.client.force_login(user)
+        payload = views._queue_outscraper_payload(
+            self.restaurant,
+            restaurant_name="Ristorante Uno",
+            location="City",
+            requested_by=user,
+        )
+        mock_get.return_value.json.return_value = {
+            "data": [[{"name": "Ristorante Uno", "full_address": "City"}]]
+        }
+        mock_get.return_value.status_code = 200
+
+        tasks.run_outscraper_search(str(payload.id))
+
+        payload.refresh_from_db()
+        self.assertEqual(payload.requested_by, user)
+        self.assertEqual(payload.response_status, 200)
         mock_scrape.delay.assert_not_called()
 
     @patch("app.tasks.validate_menu_text", return_value=True)

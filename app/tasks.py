@@ -50,12 +50,29 @@ def run_outscraper_search(payload_id: str) -> dict:
     payload.save(update_fields=["status", "started_at"])
 
     headers = {"X-API-KEY": os.getenv("OUTSCRAPER_API_KEY")}
-    response = requests.get(
-        "https://api.app.outscraper.com/maps/search-v3",
-        params=payload.request_params,
-        headers=headers,
-    )
+    try:
+        response = requests.get(
+            "https://api.app.outscraper.com/maps/search-v3",
+            params=payload.request_params,
+            headers=headers,
+        )
+    except requests.RequestException as exc:
+        payload.status = models.OutscraperPayload.Status.FAILED
+        payload.error_message = str(exc)
+        payload.response_status = getattr(getattr(exc, "response", None), "status_code", None)
+        payload.finished_at = timezone.now()
+        payload.save(
+            update_fields=[
+                "status",
+                "error_message",
+                "response_status",
+                "finished_at",
+            ]
+        )
+        raise
+
     data = response.json()
+    payload.response_status = response.status_code
     payload.response_json = data
 
     businesses = (
@@ -88,12 +105,15 @@ def run_outscraper_search(payload_id: str) -> dict:
     payload.discovered_menu_url = menu_url
     payload.status = models.OutscraperPayload.Status.SUCCEEDED
     payload.finished_at = timezone.now()
+    payload.error_message = ""
     payload.save(
         update_fields=[
             "response_json",
             "discovered_menu_url",
             "status",
             "finished_at",
+            "response_status",
+            "error_message",
         ]
     )
 
