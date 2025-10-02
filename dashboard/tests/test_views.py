@@ -7,6 +7,7 @@ import uuid
 from datetime import datetime, timedelta, timezone as dt_timezone
 from pathlib import Path
 
+from django.apps import apps as django_apps
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -120,6 +121,19 @@ class DashboardViewTests(TestCase):
             cost_cents=0,
         )
 
+        if django_apps.is_installed("articles"):
+            from articles import models as article_models
+
+            article_run = article_models.ArticleRun.objects.create(
+                created_by=self.staff,
+            )
+            article_models.RunStep.objects.create(
+                run=article_run,
+                name="draft",
+                status="ok",
+                raw_response={"result": "ok"},
+            )
+
     def test_dashboard_requires_staff(self) -> None:
         """Non-staff users should receive a forbidden response."""
 
@@ -143,7 +157,11 @@ class DashboardViewTests(TestCase):
         self.assertIn("onboarding", response.context)
         self.assertIn("subscriptions", response.context)
         self.assertIn("operations", response.context)
+        self.assertIn("api_activity", response.context)
         self.assertGreaterEqual(len(response.context["quick_actions"]), 1)
+        self.assertContains(response, "Outscraper")
+        if django_apps.is_installed("articles"):
+            self.assertContains(response, "Article: Draft")
 
 
 class LogFeedViewTests(TestCase):
