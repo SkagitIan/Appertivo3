@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import mimetypes
 import uuid
@@ -18,17 +19,22 @@ from django.http import HttpRequest, HttpResponse, JsonResponse, HttpResponseNot
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.text import slugify
+from django.views.decorators.http import require_POST
 from django_q.tasks import async_task
 
 from app.llm import replicate_client
 
 from .forms import (
+    AssetDeleteForm,
+    AssetFolderAssignmentForm,
+    AssetFolderDeleteForm,
+    AssetFolderForm,
     AssetGenerationForm,
     AssetModelForm,
     AssetSaveForm,
     PromptTemplateForm,
 )
-from .models import AssetModel, AssetPreviewJob, GeneratedAsset, PromptTemplate
+from .models import AssetFolder, AssetModel, AssetPreviewJob, GeneratedAsset, PromptTemplate
 
 logger = logging.getLogger(__name__)
 
@@ -223,6 +229,7 @@ def dashboard(request: HttpRequest) -> HttpResponse:
         "recent_assets": recent_assets,
         "has_replicate": replicate_client is not None,
         "preview_storage_path": preview_storage_path,
+        "discard_preview_url": reverse("assets:discard-preview"),
     }
     return render(request, "assets/dashboard.html", context)
 
@@ -252,8 +259,88 @@ def preview_status(request: HttpRequest, job_id: int) -> JsonResponse:
 def gallery(request: HttpRequest) -> HttpResponse:
     """Display every saved generated asset in a gallery view."""
 
-    assets = GeneratedAsset.objects.select_related("model", "created_by").all()
+    assets = GeneratedAsset.objects.select_related("model", "created_by", "folder").all()
+    folders = AssetFolder.objects.all()
+    folder_form = AssetFolderForm(prefix="folder")
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+
+        if action == "create-folder":
+            folder_form = AssetFolderForm(request.POST, prefix="folder")
+            if folder_form.is_valid():
+                folder = folder_form.save()
+                messages.success(request, f'Folder "{folder.name}" created.')
+                return redirect("assets:gallery")
+        elif action == "delete-folder":
+            delete_form = AssetFolderDeleteForm(request.POST)
+            if delete_form.is_valid():
+                folder = get_object_or_404(AssetFolder, pk=delete_form.cleaned_data["folder_id"])
+                folder_name = folder.name
+                folder.delete()
+                messages.success(request, f'Folder "{folder_name}" deleted.')
+                return redirect("assets:gallery")
+        elif action == "assign-folder":
+            assign_form = AssetFolderAssignmentForm(request.POST)
+            if assign_form.is_valid():
+                asset = get_object_or_404(GeneratedAsset, pk=assign_form.cleaned_data["asset_id"])
+                folder_id = assign_form.cleaned_data.get("folder_id")
+                folder = None
+                if folder_id:
+                    folder = get_object_or_404(AssetFolder, pk=folder_id)
+                asset.folder = folder
+                asset.save(update_fields=["folder"])
+                if folder:
+                    messages.success(request, "Asset assigned to folder.")
+                else:
+                    messages.success(request, "Asset removed from its folder.")
+                return redirect("assets:gallery")
+        elif action == "delete-asset":
+            asset_delete_form = AssetDeleteForm(request.POST)
+            if asset_delete_form.is_valid():
+                asset = get_object_or_404(GeneratedAsset, pk=asset_delete_form.cleaned_data["asset_id"])
+                filename = asset.filename()
+                if asset.image:
+                    asset.image.delete(save=False)
+                asset.delete()
+                if filename:
+                    messages.success(request, f"Deleted {filename}.")
+                else:
+                    messages.success(request, "Deleted the selected asset.")
+                return redirect("assets:gallery")
+
     context = {
         "assets": assets,
+        "folders": folders,
+        "folder_form": folder_form,
     }
     return render(request, "assets/gallery.html", context)
+
+
+@staff_member_required
+@require_POST
+def discard_preview(request: HttpRequest) -> JsonResponse:
+    """Delete a stored preview file after a rejection."""
+
+    try:
+        payload = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        payload = request.POST
+
+    storage_path = (payload.get("storage_path") or "").strip()
+    if not storage_path:
+        return JsonResponse({"status": "skipped"})
+
+    if ".." in storage_path or storage_path.startswith("/"):
+        return JsonResponse({"status": "invalid"}, status=400)
+
+    if not storage_path.startswith("previews/"):
+        return JsonResponse({"status": "invalid"}, status=400)
+
+    try:
+        default_storage.delete(storage_path)
+    except Exception:  # pragma: no cover - storage guard
+        logger.info("Failed to delete preview %s", storage_path, exc_info=True)
+        return JsonResponse({"status": "error"}, status=500)
+
+    return JsonResponse({"status": "deleted"})
