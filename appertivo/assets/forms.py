@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from django import forms
 
-from .models import AssetModel, PromptTemplate
+from .models import AssetFolder, AssetModel, PromptTemplate
 
 
 class AssetModelForm(forms.ModelForm):
@@ -91,3 +91,38 @@ class AssetSaveForm(forms.Form):
         if not data.get("preview_url"):
             raise forms.ValidationError("Preview information is missing.")
         return data
+
+
+class AssetFolderForm(forms.ModelForm):
+    """Create a folder that can group saved assets."""
+
+    class Meta:
+        model = AssetFolder
+        fields = ["name"]
+        widgets = {
+            "name": forms.TextInput(
+                attrs={
+                    "class": "mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400",
+                    "placeholder": "New folder name",
+                }
+            )
+        }
+
+
+class AssetFolderDeleteForm(forms.Form):
+    """Validate folder deletion requests."""
+
+    folder_id = forms.IntegerField(widget=forms.HiddenInput)
+
+
+class AssetFolderAssignmentForm(forms.Form):
+    """Assign an asset to a folder or remove the assignment."""
+
+    asset_id = forms.IntegerField(widget=forms.HiddenInput)
+    folder_id = forms.IntegerField(required=False)
+
+
+class AssetDeleteForm(forms.Form):
+    """Remove a saved generated asset."""
+
+    asset_id = forms.IntegerField(widget=forms.HiddenInput)
