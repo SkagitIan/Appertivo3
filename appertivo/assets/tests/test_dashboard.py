@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import shutil
-import tempfile
+import os
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -11,9 +10,10 @@ from unittest.mock import Mock, patch
 import django
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
-from django.core.files.storage import default_storage
-from django.test import TestCase, override_settings
+from django.core.files.storage import Storage, default_storage
+from django.test import TestCase
 from django.urls import reverse
+from django.utils.deconstruct import deconstructible
 
 django.setup()
 
@@ -21,15 +21,97 @@ from appertivo.assets import tasks
 from appertivo.assets.models import AssetModel, AssetPreviewJob, GeneratedAsset
 
 
+@deconstructible
+class _BaseMemoryStorage(Storage):
+    """A minimal in-memory storage backend for tests."""
+
+    drop_extension: bool = False
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self._files: dict[str, bytes] = {}
+        self._aliases: dict[str, str] = {}
+
+    def _normalize(self, name: str) -> str:
+        return str(name).replace("\\", "/")
+
+    def _canonical_name(self, name: str) -> str:
+        normalized = self._normalize(name)
+        return self._aliases.get(normalized, normalized)
+
+    def _save(self, name: str, content) -> str:
+        normalized = self._normalize(name)
+        if hasattr(content, "chunks"):
+            data = b"".join(bytes(chunk) for chunk in content.chunks())
+        else:
+            raw = content.read()
+            if isinstance(raw, str):
+                data = raw.encode()
+            elif isinstance(raw, (bytes, bytearray)):
+                data = bytes(raw)
+            else:
+                data = bytes(raw or b"")
+
+        base, _ = os.path.splitext(normalized)
+        canonical = base if self.drop_extension else normalized
+        self._files[canonical] = data
+        if canonical != normalized:
+            self._aliases[normalized] = canonical
+        return canonical
+
+    def _open(self, name: str, mode: str = "rb"):
+        canonical = self._canonical_name(name)
+        if canonical not in self._files:
+            base, _ = os.path.splitext(canonical)
+            canonical = base
+        if canonical not in self._files:
+            raise FileNotFoundError(name)
+        return ContentFile(self._files[canonical], name=canonical)
+
+    def exists(self, name: str) -> bool:  # noqa: D401 - short helper
+        canonical = self._canonical_name(name)
+        if canonical in self._files:
+            return True
+        base, _ = os.path.splitext(canonical)
+        return base in self._files
+
+    def delete(self, name: str) -> None:
+        canonical = self._canonical_name(name)
+        self._files.pop(canonical, None)
+        aliases_to_remove = [alias for alias, target in self._aliases.items() if target == canonical]
+        for alias in aliases_to_remove:
+            self._aliases.pop(alias, None)
+        base, _ = os.path.splitext(canonical)
+        self._files.pop(base, None)
+
+    def url(self, name: str) -> str:
+        canonical = self._canonical_name(name).lstrip("/")
+        return f"https://storage.test/{canonical}"
+
+    def clear(self) -> None:
+        """Reset stored files between tests."""
+
+        self._files.clear()
+        self._aliases.clear()
+
+
+class CloudMemoryStorage(_BaseMemoryStorage):
+    """Storage that mimics Cloudinary public IDs by omitting file extensions."""
+
+    drop_extension = True
+
+
 class AssetDashboardTests(TestCase):
     """Exercise staff-only workflows for the asset studio."""
 
     def setUp(self) -> None:
-        media_root = Path(tempfile.mkdtemp(prefix="appertivo-test-media-"))
-        self.addCleanup(lambda: shutil.rmtree(media_root, ignore_errors=True))
-        override = override_settings(MEDIA_ROOT=media_root)
-        override.enable()
-        self.addCleanup(override.disable)
+        super().setUp()
+        original_storage = getattr(default_storage, "_wrapped", None)
+        self.addCleanup(lambda: setattr(default_storage, "_wrapped", original_storage))
+
+        storage_backend = CloudMemoryStorage()
+        default_storage._wrapped = storage_backend
+        self.storage = storage_backend
 
         user_model = get_user_model()
         self.staff_user = user_model.objects.create_user(
@@ -167,6 +249,7 @@ class AssetDashboardTests(TestCase):
 
         self.client.force_login(self.staff_user)
         stored_path = default_storage.save("previews/test-bytes.png", ContentFile(b"bytes"))
+        self.assertFalse(Path(stored_path).suffix)
         response = self.client.post(
             reverse("assets:dashboard"),
             {
@@ -208,6 +291,7 @@ class AssetDashboardTests(TestCase):
         self.assertEqual(job.status, AssetPreviewJob.Status.SUCCESS)
         self.assertTrue(job.preview_url)
         self.assertTrue(job.storage_path)
+        self.assertFalse(Path(job.storage_path).suffix)
         self.assertTrue(default_storage.exists(job.storage_path))
         default_storage.delete(job.storage_path)
 

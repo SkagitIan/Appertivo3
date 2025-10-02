@@ -9,12 +9,28 @@ from typing import Iterable
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
+from django.utils.functional import empty
 
 from app.llm import replicate_client
 
 from .models import AssetPreviewJob
 
 logger = logging.getLogger(__name__)
+
+
+def _storage_backend_name() -> str:
+    """Return a descriptive name for the active default storage backend."""
+
+    storage_obj = getattr(default_storage, "_wrapped", empty)
+    if storage_obj is empty:  # pragma: no cover - defensive lazy storage setup
+        default_storage._setup()  # type: ignore[attr-defined]
+        storage_obj = getattr(default_storage, "_wrapped", None)
+
+    if not storage_obj:
+        return "configured storage"
+
+    storage_class = storage_obj.__class__
+    return f"{storage_class.__module__}.{storage_class.__name__}"
 
 
 def _collect_preview_candidates(output: object) -> Iterable[bytes | str]:
@@ -58,7 +74,20 @@ def _store_preview_bytes(data: bytes) -> tuple[str | None, str | None]:
     try:
         storage_path = default_storage.save(filename, ContentFile(data))
     except Exception as exc:  # pragma: no cover - storage guard
-        logger.warning("Failed to store preview bytes: %s", exc, exc_info=True)
+        storage_label = _storage_backend_name()
+        if "cloudinary" in storage_label.lower():
+            logger.warning(
+                "Failed to store preview bytes via Cloudinary storage: %s",
+                exc,
+                exc_info=True,
+            )
+        else:
+            logger.warning(
+                "Failed to store preview bytes via %s: %s",
+                storage_label,
+                exc,
+                exc_info=True,
+            )
         return None, None
 
     try:
