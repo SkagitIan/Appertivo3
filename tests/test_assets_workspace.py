@@ -46,16 +46,40 @@ class AssetWorkspaceTests(TestCase):
     def test_create_folder(self) -> None:
         response = self.client.post(
             reverse("assets:gallery"),
-            {"action": "create-folder", "folder-name": "Menus"},
+            {
+                "action": "create-folder",
+                "folder-name": "Menus",
+                "folder-pin": "1234",
+            },
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(AssetFolder.objects.filter(name="Menus").exists())
+        folder = AssetFolder.objects.get(name="Menus")
+        self.assertEqual(folder.pin, "1234")
+        self.assertFalse(folder.is_locked)
+
+    def test_update_folder_security(self) -> None:
+        folder = AssetFolder.objects.create(name="Decks", pin="9999", is_locked=False)
+
+        response = self.client.post(
+            reverse("assets:gallery"),
+            {
+                "action": "update-folder-security",
+                "folder_id": folder.pk,
+                f"folder-security-{folder.pk}-pin": "1111",
+                f"folder-security-{folder.pk}-is_locked": "on",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        folder.refresh_from_db()
+        self.assertEqual(folder.pin, "1111")
+        self.assertTrue(folder.is_locked)
 
     def test_assign_and_remove_folder(self) -> None:
         model = self._create_model()
         asset = GeneratedAsset.objects.create(model=model, prompt="Test prompt")
-        folder = AssetFolder.objects.create(name="Decks")
+        folder = AssetFolder.objects.create(name="Decks", pin="3333")
 
         assign_response = self.client.post(
             reverse("assets:gallery"),
@@ -80,6 +104,19 @@ class AssetWorkspaceTests(TestCase):
         self.assertEqual(remove_response.status_code, 302)
         asset.refresh_from_db()
         self.assertIsNone(asset.folder)
+
+    def test_gallery_filters_by_folder(self) -> None:
+        model = self._create_model()
+        folder_one = AssetFolder.objects.create(name="Decks", pin="3333")
+        folder_two = AssetFolder.objects.create(name="Menus", pin="4444")
+        in_first = GeneratedAsset.objects.create(model=model, prompt="First", folder=folder_one)
+        GeneratedAsset.objects.create(model=model, prompt="Second", folder=folder_two)
+
+        response = self.client.get(reverse("assets:gallery"), {"folder": str(folder_one.pk)})
+
+        self.assertEqual(response.status_code, 200)
+        assets = list(response.context["assets"])
+        self.assertEqual(assets, [in_first])
 
     def test_delete_asset_removes_file(self) -> None:
         model = self._create_model()
