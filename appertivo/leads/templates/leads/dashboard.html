@@ -104,16 +104,35 @@
               <td class="px-4 py-4">
                 <div class="font-semibold text-slate-900">{{ lead.name }}</div>
                 <div class="text-xs text-slate-500">{{ lead.city|default:"Unknown city" }}</div>
+                {% if lead.landing_url %}
+                  <a href="{{ lead.landing_url }}" target="_blank" rel="noopener" class="mt-1 inline-flex items-center text-xs font-medium text-purple-600 hover:text-purple-700">Open landing page</a>
+                {% endif %}
                 <details class="mt-2 text-xs text-slate-600">
                   <summary class="cursor-pointer text-purple-600 hover:text-purple-700">View details</summary>
                   <div class="mt-2 space-y-1">
                     <div><span class="font-medium">Run:</span> {{ lead.run|default:"—" }}</div>
                     <div><span class="font-medium">Created:</span> {{ lead.created_at|date:"M j, Y H:i" }}</div>
+                    {% if lead.landing_url %}
+                      <div><span class="font-medium">Landing page:</span> <a href="{{ lead.landing_url }}" target="_blank" rel="noopener" class="text-purple-600 hover:text-purple-700">View landing</a></div>
+                    {% endif %}
                     {% if lead.json_data %}
-                      <pre class="whitespace-pre-wrap rounded bg-slate-100/80 p-2 text-[11px] text-slate-700">{{ lead.json_data|pprint }}</pre>
+                      <button type="button" data-json-modal-target="lead-json-{{ lead.id }}" class="mt-1 inline-flex items-center rounded border border-slate-200 px-2 py-1 font-medium text-purple-600 hover:border-purple-400 hover:text-purple-700">View JSON data</button>
                     {% endif %}
                   </div>
                 </details>
+                {% if lead.json_data %}
+                  <div id="lead-json-{{ lead.id }}" data-json-modal class="fixed inset-0 z-50 hidden bg-slate-900/60 p-4">
+                    <div role="dialog" aria-modal="true" aria-labelledby="lead-json-title-{{ lead.id }}" class="mx-auto flex h-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-lg">
+                      <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+                        <h3 id="lead-json-title-{{ lead.id }}" class="text-sm font-semibold text-slate-800">Lead JSON details</h3>
+                        <button type="button" data-json-modal-close class="rounded-md border border-slate-200 px-2 py-1 text-xs font-medium text-slate-600 hover:border-slate-300 hover:text-slate-800">Close</button>
+                      </div>
+                      <div class="flex-1 overflow-auto bg-slate-50 px-4 py-3">
+                        <pre class="whitespace-pre-wrap text-[11px] leading-relaxed text-slate-700">{{ lead.json_data|pprint }}</pre>
+                      </div>
+                    </div>
+                  </div>
+                {% endif %}
               </td>
               <td class="px-4 py-4 space-y-1">
                 {% if lead.email %}
@@ -147,10 +166,10 @@
                   {% endif %}
                 </div>
               </td>
-              <td class="px-4 py-4 text-right space-y-2">
-                <div class="flex justify-end gap-2">
+              <td class="px-4 py-4 text-right">
+                <div class="flex flex-col items-end gap-2">
                   {% if lead.landing_url %}
-                    <a href="{{ lead.landing_url }}" target="_blank" rel="noopener" class="inline-flex items-center rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-purple-400 hover:text-purple-600">View page</a>
+                    <a href="{{ lead.landing_url }}" target="_blank" rel="noopener" class="inline-flex items-center rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-purple-400 hover:text-purple-600">View landing</a>
                   {% endif %}
                   <form method="post" action="{% url 'lead-actions' %}" class="inline-flex items-center gap-2">
                     {% csrf_token %}
@@ -166,6 +185,13 @@
                     {% endif %}
                     <button type="submit" name="action" value="approve" onclick="return confirm('Approve this lead, generate a landing page, and send the email?');" class="inline-flex items-center rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-semibold text-white shadow hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-400">
                       Approve
+                    </button>
+                  </form>
+                  <form method="post" action="{% url 'lead-actions' %}" class="inline-flex items-center gap-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="lead_ids" value="{{ lead.id }}" />
+                    <button type="submit" name="action" value="delete" onclick="return confirm('Delete this lead?');" class="inline-flex items-center rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:border-red-300 hover:text-red-700">
+                      Delete
                     </button>
                   </form>
                 </div>
@@ -204,4 +230,51 @@
     </div>
   </section>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+  {{ block.super }}
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      var openButtons = document.querySelectorAll('[data-json-modal-target]');
+      var modals = document.querySelectorAll('[data-json-modal]');
+
+      openButtons.forEach(function (button) {
+        button.addEventListener('click', function () {
+          var targetId = button.getAttribute('data-json-modal-target');
+          var modal = document.getElementById(targetId);
+          if (modal) {
+            modal.classList.remove('hidden');
+          }
+        });
+      });
+
+      document.querySelectorAll('[data-json-modal-close]').forEach(function (button) {
+        button.addEventListener('click', function () {
+          var modal = button.closest('[data-json-modal]');
+          if (modal) {
+            modal.classList.add('hidden');
+          }
+        });
+      });
+
+      modals.forEach(function (modal) {
+        modal.addEventListener('click', function (event) {
+          if (event.target === modal) {
+            modal.classList.add('hidden');
+          }
+        });
+      });
+
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+          modals.forEach(function (modal) {
+            if (!modal.classList.contains('hidden')) {
+              modal.classList.add('hidden');
+            }
+          });
+        }
+      });
+    });
+  </script>
 {% endblock %}
