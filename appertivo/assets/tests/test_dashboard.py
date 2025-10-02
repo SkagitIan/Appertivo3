@@ -9,13 +9,13 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import django
-from django_q.tasks import async_task as queue_async_task
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from django.core.files.storage import Storage, default_storage
 from django.test import TestCase
 from django.urls import reverse
 from django.utils.deconstruct import deconstructible
+from django_q.tasks import async_task as queue_async_task
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "specials.settings")
 django.setup()
@@ -402,19 +402,30 @@ class AssetDashboardTests(TestCase):
     def test_run_preview_job_records_url(self, mock_replicate: Mock) -> None:
         """A successful job stores the preview URL and marks the job as complete."""
 
-        mock_replicate.run.return_value = ["https://example.com/image.png"]
+        mock_replicate.predictions.create.return_value = SimpleNamespace(
+            id="pred-123",
+            status="succeeded",
+            output=["https://example.com/image.png"],
+        )
         job = AssetPreviewJob.objects.create(model=self.model, prompt="Preview me")
         tasks.run_preview_job(job.pk)
         job.refresh_from_db()
         self.assertEqual(job.status, AssetPreviewJob.Status.SUCCESS)
         self.assertEqual(job.preview_url, "https://example.com/image.png")
         self.assertEqual(job.storage_path, "")
+        self.assertEqual(job.prediction_id, "pred-123")
+        self.assertEqual(job.replicate_status, "succeeded")
+        self.assertIsNotNone(job.completed_at)
 
     @patch("appertivo.assets.tasks.replicate_client")
     def test_run_preview_job_saves_bytes(self, mock_replicate: Mock) -> None:
         """Binary payloads from Replicate are saved to storage."""
 
-        mock_replicate.run.return_value = [b"image-bytes"]
+        mock_replicate.predictions.create.return_value = SimpleNamespace(
+            id="pred-bytes",
+            status="succeeded",
+            output=[b"image-bytes"],
+        )
         job = AssetPreviewJob.objects.create(model=self.model, prompt="Bytes please")
         tasks.run_preview_job(job.pk)
         job.refresh_from_db()
@@ -436,7 +447,11 @@ class AssetDashboardTests(TestCase):
             def read(self) -> bytes:
                 return self._data
 
-        mock_replicate.run.return_value = DummyFile(b"file-bytes")
+        mock_replicate.predictions.create.return_value = SimpleNamespace(
+            id="pred-file",
+            status="succeeded",
+            output=DummyFile(b"file-bytes"),
+        )
         job = AssetPreviewJob.objects.create(model=self.model, prompt="File please")
         tasks.run_preview_job(job.pk)
         job.refresh_from_db()
@@ -450,12 +465,13 @@ class AssetDashboardTests(TestCase):
     def test_run_preview_job_handles_errors(self, mock_replicate: Mock) -> None:
         """Unexpected errors mark the job as failed with a message."""
 
-        mock_replicate.run.side_effect = RuntimeError("boom")
+        mock_replicate.predictions.create.side_effect = RuntimeError("boom")
         job = AssetPreviewJob.objects.create(model=self.model, prompt="This will fail")
         tasks.run_preview_job(job.pk)
         job.refresh_from_db()
         self.assertEqual(job.status, AssetPreviewJob.Status.FAILED)
         self.assertTrue(job.error_message)
+        self.assertEqual(job.replicate_status, "failed")
 
     def test_gallery_view_lists_assets(self) -> None:
         """The gallery page renders saved items."""
@@ -489,8 +505,64 @@ class AssetDashboardTests(TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(payload["status"], AssetPreviewJob.Status.SUCCESS)
+        self.assertEqual(payload["replicate_status"], "")
         self.assertEqual(payload["preview_url"], "https://example.com/asset.png")
         self.assertEqual(payload["storage_path"], "previews/test.png")
+
+    @patch("appertivo.assets.tasks.replicate_client")
+    def test_preview_status_refreshes_prediction(self, mock_replicate: Mock) -> None:
+        """Polling triggers a Replicate refresh for in-progress jobs."""
+
+        mock_replicate.predictions.get.return_value = SimpleNamespace(
+            id="pred-200",
+            status="succeeded",
+            output=["https://example.com/result.png"],
+        )
+        job = AssetPreviewJob.objects.create(
+            model=self.model,
+            prompt="Awaiting",
+            status=AssetPreviewJob.Status.RUNNING,
+            prediction_id="pred-200",
+            replicate_status="starting",
+        )
+        self.client.force_login(self.staff_user)
+        response = self.client.get(reverse("assets:preview-status", args=[job.pk]))
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], AssetPreviewJob.Status.SUCCESS)
+        self.assertEqual(payload["replicate_status"], "succeeded")
+        self.assertEqual(payload["preview_url"], "https://example.com/result.png")
+        job.refresh_from_db()
+        self.assertEqual(job.status, AssetPreviewJob.Status.SUCCESS)
+        self.assertEqual(job.preview_url, "https://example.com/result.png")
+        self.assertIsNotNone(job.completed_at)
+
+    @patch("appertivo.assets.tasks.replicate_client")
+    def test_preview_status_reports_replicate_error(self, mock_replicate: Mock) -> None:
+        """Replicate error details are surfaced to staff users."""
+
+        mock_replicate.predictions.get.return_value = SimpleNamespace(
+            id="pred-400",
+            status="failed",
+            error="Model input was invalid",
+        )
+        job = AssetPreviewJob.objects.create(
+            model=self.model,
+            prompt="Awaiting",
+            status=AssetPreviewJob.Status.RUNNING,
+            prediction_id="pred-400",
+        )
+        self.client.force_login(self.staff_user)
+        response = self.client.get(reverse("assets:preview-status", args=[job.pk]))
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], AssetPreviewJob.Status.FAILED)
+        self.assertEqual(payload["replicate_status"], "failed")
+        self.assertIn("invalid", payload["error"].lower())
+        job.refresh_from_db()
+        self.assertEqual(job.status, AssetPreviewJob.Status.FAILED)
+        self.assertEqual(job.replicate_status, "failed")
+        self.assertTrue(job.error_message)
 
     def test_verify_folder_pin_unlocks_session(self) -> None:
         """Submitting the correct PIN unlocks the folder for the session."""

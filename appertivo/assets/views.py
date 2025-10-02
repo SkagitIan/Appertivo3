@@ -37,6 +37,7 @@ from .forms import (
     PromptTemplateForm,
 )
 from .models import AssetFolder, AssetModel, AssetPreviewJob, GeneratedAsset, PromptTemplate
+from .tasks import refresh_preview_job
 
 logger = logging.getLogger(__name__)
 
@@ -392,6 +393,11 @@ def preview_status(request: HttpRequest, job_id: int) -> JsonResponse:
         return HttpResponseNotAllowed(["GET"])
 
     job = get_object_or_404(AssetPreviewJob, pk=job_id)
+    if job.status not in {
+        AssetPreviewJob.Status.SUCCESS,
+        AssetPreviewJob.Status.FAILED,
+    }:
+        job = refresh_preview_job(job)
     logger.info(
         "Preview status requested for job %s (%s)", job.pk, job.status
     )
@@ -399,11 +405,14 @@ def preview_status(request: HttpRequest, job_id: int) -> JsonResponse:
         {
             "id": job.pk,
             "status": job.status,
+            "replicate_status": job.replicate_status,
+            "prediction_id": job.prediction_id,
             "prompt": job.prompt,
             "model_id": job.model_id,
             "preview_url": job.preview_url,
             "storage_path": job.storage_path,
             "error": job.error_message,
+            "completed_at": job.completed_at.isoformat() if job.completed_at else None,
         }
     )
 
