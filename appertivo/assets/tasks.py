@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import base64
 import logging
 import uuid
 from typing import Iterable
 
-from django.conf import settings
+import requests
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
+from django.urls import reverse
 from django.utils.functional import empty
 
 from app.llm import replicate_client
@@ -67,8 +69,37 @@ def _collect_preview_candidates(output: object) -> Iterable[bytes | str]:
     return []
 
 
+def _preview_token_from_path(storage_path: str | None) -> str | None:
+    """Return the token portion of a stored preview path."""
+
+    if not storage_path:
+        return None
+    name = storage_path.split("/")[-1]
+    if not name:
+        return None
+    return name.split(".")[0]
+
+
+def _protected_preview_path(storage_path: str | None) -> str | None:
+    """Generate the staff-only preview route for the stored file."""
+
+    token = _preview_token_from_path(storage_path)
+    if not token:
+        return None
+    try:
+        uuid_token = uuid.UUID(token)
+    except (TypeError, ValueError):
+        logger.warning("Preview token %s is not a valid UUID", token)
+        return None
+    try:
+        return reverse("assets:preview-file", args=[uuid_token])
+    except Exception:  # pragma: no cover - urlconf guard
+        logger.warning("Unable to reverse preview URL for %s", storage_path)
+        return None
+
+
 def _store_preview_bytes(data: bytes) -> tuple[str | None, str | None]:
-    """Persist preview bytes to storage and return the URL and storage path."""
+    """Persist preview bytes to storage and return the protected URL and path."""
 
     filename = f"previews/{uuid.uuid4().hex}.png"
     try:
@@ -90,12 +121,7 @@ def _store_preview_bytes(data: bytes) -> tuple[str | None, str | None]:
             )
         return None, None
 
-    try:
-        url = default_storage.url(storage_path)
-    except Exception:  # pragma: no cover - fallback for storages without URL support
-        base_url = getattr(settings, "MEDIA_URL", "/media/").rstrip("/")
-        url = f"{base_url}/{storage_path}"
-
+    url = _protected_preview_path(storage_path)
     return url, storage_path
 
 
@@ -124,9 +150,30 @@ def _generate_preview(model, prompt: str) -> tuple[str | None, str | None, str |
     for candidate in _collect_preview_candidates(output):
         if isinstance(candidate, str):
             link = candidate.strip()
-            if link.startswith("http") or link.startswith("data:"):
-                logger.info("Preview generated for model %s", model.identifier)
-                return link, None, None
+            if link.startswith("http"):
+                try:
+                    response = requests.get(link, timeout=20)
+                    response.raise_for_status()
+                except requests.RequestException as exc:  # pragma: no cover - network guard
+                    logger.warning("Failed to download preview %s: %s", link, exc)
+                    continue
+                url, storage_path = _store_preview_bytes(response.content)
+                if url and storage_path:
+                    logger.info("Preview stored from URL for model %s", model.identifier)
+                    return url, storage_path, None
+                return None, None, "Could not store the preview image. Check media storage permissions."
+            if link.startswith("data:"):
+                try:
+                    base64_data = link.split(",", 1)[1]
+                    decoded = base64.b64decode(base64_data)
+                except (IndexError, ValueError, TypeError) as exc:  # pragma: no cover - guard
+                    logger.warning("Invalid data URI from Replicate: %s", exc)
+                    continue
+                url, storage_path = _store_preview_bytes(decoded)
+                if url and storage_path:
+                    logger.info("Preview stored from data URI for model %s", model.identifier)
+                    return url, storage_path, None
+                return None, None, "Could not store the preview image. Check media storage permissions."
         elif isinstance(candidate, (bytes, bytearray)):
             url, storage_path = _store_preview_bytes(bytes(candidate))
             if url and storage_path:

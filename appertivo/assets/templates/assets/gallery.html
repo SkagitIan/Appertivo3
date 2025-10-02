@@ -128,7 +128,7 @@
         <article class="flex flex-col rounded-2xl border border-slate-200 bg-white/80 shadow-sm" data-asset-card data-folder-id="{{ folder.id|default:'' }}" data-locked="{% if folder and folder.is_locked and folder.id not in unlocked_folder_ids %}true{% else %}false{% endif %}" data-original-prompt="{{ asset.prompt|escape }}">
           {% if asset.image %}
             <div class="relative" data-locked-trigger tabindex="{% if folder and folder.is_locked and folder.id not in unlocked_folder_ids %}0{% else %}-1{% endif %}" role="{% if folder and folder.is_locked and folder.id not in unlocked_folder_ids %}button{% else %}presentation{% endif %}">
-              <img src="{{ asset.image.url }}" alt="{{ asset.model|default:'Asset' }}" class="h-56 w-full rounded-t-2xl object-cover{% if folder and folder.is_locked and folder.id not in unlocked_folder_ids %} blur-2xl{% endif %}" />
+              <img src="{% url 'assets:asset-image' asset.id %}" alt="{{ asset.model|default:'Asset' }}" class="h-56 w-full rounded-t-2xl object-cover{% if folder and folder.is_locked and folder.id not in unlocked_folder_ids %} blur-2xl{% endif %}" />
               {% if folder and folder.is_locked and folder.id not in unlocked_folder_ids %}
                 <div class="absolute inset-0 flex items-center justify-center rounded-t-2xl bg-slate-900/50 text-sm font-semibold uppercase tracking-wide text-white">Locked • tap to unlock</div>
               {% endif %}
@@ -150,7 +150,9 @@
                   {% endif %}
                   <span class="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">{{ asset.folder.name|default:"No folder" }}</span>
                 </div>
-                {% if asset.preview_url %}
+                {% if asset.image %}
+                  <a href="{% url 'assets:asset-image' asset.id %}" target="_blank" rel="noopener" class="font-semibold text-purple-600 hover:text-purple-700">Preview URL</a>
+                {% elif asset.preview_url %}
                   <a href="{{ asset.preview_url }}" target="_blank" rel="noopener" class="font-semibold text-purple-600 hover:text-purple-700">Preview URL</a>
                 {% endif %}
               </div>

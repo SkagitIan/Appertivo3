@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
+import uuid
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
@@ -320,15 +320,18 @@ class AssetDashboardTests(TestCase):
         """Saving a preview produced from stored bytes avoids a network hop."""
 
         self.client.force_login(self.staff_user)
-        stored_path = default_storage.save("previews/test-bytes.png", ContentFile(b"bytes"))
-        self.assertFalse(Path(stored_path).suffix)
+        token = uuid.uuid4()
+        stored_path = default_storage.save(
+            f"previews/{token.hex}.png", ContentFile(b"bytes")
+        )
+        preview_route = reverse("assets:preview-file", args=[token])
         response = self.client.post(
             reverse("assets:dashboard"),
             {
                 "action": "save-asset",
                 "save-model_id": str(self.model.pk),
                 "save-prompt_text": "Stored asset",
-                "save-preview_url": default_storage.url(stored_path),
+                "save-preview_url": preview_route,
                 "save-storage_path": stored_path,
             },
         )
@@ -340,17 +343,26 @@ class AssetDashboardTests(TestCase):
         self.assertFalse(default_storage.exists(stored_path))
         asset.image.delete(save=False)
 
+    @patch("appertivo.assets.tasks.requests.get")
     @patch("appertivo.assets.tasks.replicate_client")
-    def test_run_preview_job_records_url(self, mock_replicate: Mock) -> None:
+    def test_run_preview_job_records_url(self, mock_replicate: Mock, mock_request: Mock) -> None:
         """A successful job stores the preview URL and marks the job as complete."""
 
+        mock_response = SimpleNamespace(
+            content=b"image-bytes",
+        )
+        mock_response.raise_for_status = lambda: None
+        mock_request.return_value = mock_response
         mock_replicate.run.return_value = ["https://example.com/image.png"]
         job = AssetPreviewJob.objects.create(model=self.model, prompt="Preview me")
         tasks.run_preview_job(job.pk)
         job.refresh_from_db()
         self.assertEqual(job.status, AssetPreviewJob.Status.SUCCESS)
-        self.assertEqual(job.preview_url, "https://example.com/image.png")
-        self.assertEqual(job.storage_path, "")
+        self.assertTrue(job.preview_url.startswith("/assets/previews/"))
+        self.assertTrue(job.storage_path)
+        self.assertTrue(default_storage.exists(job.storage_path))
+        mock_request.assert_called_once_with("https://example.com/image.png", timeout=20)
+        default_storage.delete(job.storage_path)
 
     @patch("appertivo.assets.tasks.replicate_client")
     def test_run_preview_job_saves_bytes(self, mock_replicate: Mock) -> None:
@@ -361,9 +373,8 @@ class AssetDashboardTests(TestCase):
         tasks.run_preview_job(job.pk)
         job.refresh_from_db()
         self.assertEqual(job.status, AssetPreviewJob.Status.SUCCESS)
-        self.assertTrue(job.preview_url)
+        self.assertTrue(job.preview_url.startswith("/assets/previews/"))
         self.assertTrue(job.storage_path)
-        self.assertFalse(Path(job.storage_path).suffix)
         self.assertTrue(default_storage.exists(job.storage_path))
         default_storage.delete(job.storage_path)
 
@@ -383,7 +394,7 @@ class AssetDashboardTests(TestCase):
         tasks.run_preview_job(job.pk)
         job.refresh_from_db()
         self.assertEqual(job.status, AssetPreviewJob.Status.SUCCESS)
-        self.assertTrue(job.preview_url)
+        self.assertTrue(job.preview_url.startswith("/assets/previews/"))
         self.assertTrue(job.storage_path)
         self.assertTrue(default_storage.exists(job.storage_path))
         default_storage.delete(job.storage_path)
@@ -424,15 +435,59 @@ class AssetDashboardTests(TestCase):
             prompt="Check payload",
             status=AssetPreviewJob.Status.SUCCESS,
             preview_url="https://example.com/asset.png",
-            storage_path="previews/test.png",
+            storage_path="previews/12345678123456781234567812345678.png",
         )
         self.client.force_login(self.staff_user)
         response = self.client.get(reverse("assets:preview-status", args=[job.pk]))
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(payload["status"], AssetPreviewJob.Status.SUCCESS)
-        self.assertEqual(payload["preview_url"], "https://example.com/asset.png")
-        self.assertEqual(payload["storage_path"], "previews/test.png")
+        expected_url = reverse(
+            "assets:preview-file",
+            args=[uuid.UUID("12345678123456781234567812345678")],
+        )
+        self.assertEqual(payload["preview_url"], expected_url)
+        self.assertEqual(
+            payload["storage_path"], "previews/12345678123456781234567812345678.png"
+        )
+
+    def test_asset_image_requires_staff(self) -> None:
+        """Only staff can fetch stored generated assets."""
+
+        asset = GeneratedAsset.objects.create(model=self.model, prompt="Secured")
+        asset.image.save("asset.png", ContentFile(b"asset-bytes"), save=True)
+        url = reverse("assets:asset-image", args=[asset.pk])
+
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 302)
+
+        self.client.force_login(self.staff_user)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        content = b"".join(response.streaming_content)
+        self.assertEqual(content, b"asset-bytes")
+
+        asset.image.delete(save=False)
+
+    def test_preview_file_requires_staff(self) -> None:
+        """Preview files are streamed only to staff members."""
+
+        token = uuid.uuid4()
+        storage_path = default_storage.save(
+            f"previews/{token.hex}.png", ContentFile(b"preview-bytes")
+        )
+        url = reverse("assets:preview-file", args=[token])
+
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 302)
+
+        self.client.force_login(self.staff_user)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        content = b"".join(response.streaming_content)
+        self.assertEqual(content, b"preview-bytes")
+
+        default_storage.delete(storage_path)
 
     def test_verify_folder_pin_unlocks_session(self) -> None:
         """Submitting the correct PIN unlocks the folder for the session."""
