@@ -21,6 +21,7 @@ from django.contrib.messages import constants as message_constants
 from django.urls import reverse_lazy
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+APP_LOG_FILE = BASE_DIR / "logs" / "app-log.json"
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
@@ -255,19 +256,24 @@ LOGGING = {
             "level": "DEBUG",
             "class": "logging.StreamHandler",
         },
+        "app_json": {
+            "level": "INFO",
+            "class": "specials.logging_handlers.DailyJsonFileHandler",
+            "filename": str(APP_LOG_FILE),
+        },
     },
     "root": {
-        "handlers": ["console"],
+        "handlers": ["console", "app_json"],
         "level": "INFO",
     },
     "loggers": {
         "django": {
-            "handlers": ["console"],
+            "handlers": ["console", "app_json"],
             "level": "INFO",
             "propagate": True,
         },
         "app": {  # your app name here
-            "handlers": ["console"],
+            "handlers": ["console", "app_json"],
             "level": "DEBUG",
             "propagate": False,
         },

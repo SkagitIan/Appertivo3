@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import timedelta
+from pathlib import Path
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
@@ -141,3 +144,63 @@ class DashboardViewTests(TestCase):
         self.assertIn("subscriptions", response.context)
         self.assertIn("operations", response.context)
         self.assertGreaterEqual(len(response.context["quick_actions"]), 1)
+
+
+class LogFeedViewTests(TestCase):
+    """Validate the staff-only JSON log feed."""
+
+    def setUp(self) -> None:
+        user_model = get_user_model()
+        self.staff = user_model.objects.create_user(
+            username="logstaff",
+            email="logstaff@example.com",
+            password="testpass123",
+            is_staff=True,
+        )
+        self.viewer = user_model.objects.create_user(
+            username="logviewer",
+            email="logviewer@example.com",
+            password="testpass123",
+        )
+        self.log_path = Path(settings.APP_LOG_FILE)
+        self.log_path.parent.mkdir(parents=True, exist_ok=True)
+        self.log_path.write_text("", encoding="utf-8")
+
+    def tearDown(self) -> None:
+        self.log_path.parent.mkdir(parents=True, exist_ok=True)
+        self.log_path.write_text("", encoding="utf-8")
+
+    def _write_entries(self, total: int) -> None:
+        with self.log_path.open("w", encoding="utf-8") as stream:
+            for index in range(total):
+                entry = {"message": f"entry-{index}", "index": index}
+                stream.write(json.dumps(entry) + "\n")
+
+    def test_logs_require_staff(self) -> None:
+        """Non-staff users should receive a forbidden response for the log feed."""
+
+        self.client.force_login(self.viewer)
+        response = self.client.get(reverse("dashboard:logs"))
+        self.assertEqual(response.status_code, 403)
+
+    def test_logs_return_empty_when_missing(self) -> None:
+        """The endpoint should fall back to an empty array when the file is absent."""
+
+        if self.log_path.exists():
+            self.log_path.unlink()
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse("dashboard:logs"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), [])
+
+    def test_logs_limit_to_recent_entries(self) -> None:
+        """Only the most recent 200 log entries should be returned."""
+
+        self._write_entries(205)
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse("dashboard:logs"))
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(len(payload), 200)
+        self.assertEqual(payload[0]["index"], 5)
+        self.assertEqual(payload[-1]["index"], 204)
