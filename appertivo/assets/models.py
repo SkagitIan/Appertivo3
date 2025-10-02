@@ -72,6 +72,19 @@ class PromptTemplate(models.Model):
         return self.title
 
 
+class AssetFolder(models.Model):
+    """Named collection used to group generated assets."""
+
+    name = models.CharField(max_length=120, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self) -> str:  # pragma: no cover - human readable representation
+        return self.name
+
+
 class GeneratedAsset(models.Model):
     """Stores saved assets generated through Replicate."""
 
@@ -89,6 +102,13 @@ class GeneratedAsset(models.Model):
         null=True,
         blank=True,
         related_name="generated_assets",
+    )
+    folder = models.ForeignKey(
+        AssetFolder,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="assets",
     )
     preview_url = models.URLField(blank=True)
     image = models.FileField(upload_to="assets/", blank=True)
