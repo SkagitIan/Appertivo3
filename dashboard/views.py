@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import timedelta
+from pathlib import Path
 from typing import Any, Iterable
 
 from django.apps import apps
@@ -12,9 +14,10 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.db.models import Count, Q
 from django.db.models.functions import TruncWeek
-from django.http import HttpResponseForbidden
+from django.http import HttpResponseForbidden, JsonResponse
 from django.urls import reverse_lazy
 from django.utils import timezone
+from django.views import View
 from django.views.generic import TemplateView
 
 from app import models as app_models
@@ -32,24 +35,24 @@ class QuickAction:
     icon: str
 
 
-class DashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+class StaffOnlyMixin(LoginRequiredMixin, UserPassesTestMixin):
+    """Restrict a view to authenticated staff members."""
+
+    def test_func(self) -> bool:  # pragma: no cover - trivial wrapper
+        return bool(self.request.user and self.request.user.is_staff)
+
+    def handle_no_permission(self):  # pragma: no cover - simple guard
+        if self.request.user.is_authenticated:
+            return HttpResponseForbidden()
+        return super().handle_no_permission()
+
+
+class DashboardView(StaffOnlyMixin, TemplateView):
     """Render a read-only overview of product health."""
 
     template_name = "dashboard/overview.html"
     login_url = reverse_lazy("login")
     STALLED_DAYS = 3
-
-    def test_func(self) -> bool:  # pragma: no cover - trivial wrapper
-        """Restrict access to staff members only."""
-
-        return bool(self.request.user and self.request.user.is_staff)
-
-    def handle_no_permission(self):  # pragma: no cover - simple guard
-        """Return a 403 for authenticated users and fallback to login otherwise."""
-
-        if self.request.user.is_authenticated:
-            return HttpResponseForbidden()
-        return super().handle_no_permission()
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         """Assemble the dashboard context broken down by feature areas."""
@@ -415,3 +418,25 @@ class DashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
             return apps.get_model(app_label, model_name)
         except LookupError:
             return None
+
+
+class LogFeedView(StaffOnlyMixin, View):
+    """Expose the most recent structured application logs as JSON."""
+
+    def get(self, request, *args: Any, **kwargs: Any) -> JsonResponse:
+        log_path = Path(settings.APP_LOG_FILE)
+        entries: list[dict[str, Any]] = []
+
+        if log_path.exists():
+            lines = log_path.read_text(encoding="utf-8").splitlines()
+            for line in lines[-200:]:
+                if not line.strip():
+                    continue
+                try:
+                    payload = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(payload, dict):
+                    entries.append(payload)
+
+        return JsonResponse(entries, safe=False)
