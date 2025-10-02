@@ -22,7 +22,8 @@ from django.utils.text import slugify
 from django.views.decorators.http import require_POST
 from django_q.tasks import async_task
 
-from app.llm import replicate_client
+from app.llm import client as openai_client, replicate_client
+from articles.openai_helpers import extract_output_text
 
 from .forms import (
     AssetDeleteForm,
@@ -341,6 +342,47 @@ def manage_prompts(request: HttpRequest) -> HttpResponse:
         "prompt_entries": [(prompt, edit_forms[prompt.pk]) for prompt in prompts],
     }
     return render(request, "assets/manage_prompts.html", context)
+
+
+@staff_member_required
+@require_POST
+def enhance_prompt(request: HttpRequest) -> JsonResponse:
+    """Send prompt text to OpenAI for a richer version."""
+
+    if openai_client is None:
+        return JsonResponse({"error": "LLM client is not configured."}, status=503)
+
+    try:
+        payload = json.loads(request.body.decode("utf-8")) if request.body else {}
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        payload = {}
+
+    text = (payload.get("text") or "").strip()
+    if not text:
+        return JsonResponse({"error": "Add some prompt text first."}, status=400)
+
+    instructions = (
+        "You are refining an image generation prompt for a food photography model. "
+        "Rewrite the prompt with vivid scene details, plating, lighting, mood, and camera cues. "
+        "Keep it under 80 words and avoid repeating the words 'prompt' or 'rewrite'. "
+        "Return only the improved prompt text.\n\n"
+        f"Original prompt:\n{text}"
+    )
+
+    try:
+        response = openai_client.responses.create(
+            model="gpt-4.1-nano",
+            input=instructions,
+        )
+    except Exception as exc:  # pragma: no cover - network or client error
+        logger.warning("Prompt enhancement failed: %s", exc, exc_info=True)
+        return JsonResponse({"error": "We could not reach the enhancement service."}, status=502)
+
+    enhanced = extract_output_text(response).strip()
+    if not enhanced:
+        return JsonResponse({"error": "The model did not return any text."}, status=502)
+
+    return JsonResponse({"enhanced_text": enhanced})
 
 
 @staff_member_required

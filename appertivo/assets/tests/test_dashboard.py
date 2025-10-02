@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 from types import SimpleNamespace
@@ -16,6 +17,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils.deconstruct import deconstructible
 
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "specials.settings")
 django.setup()
 
 from appertivo.assets import tasks
@@ -212,6 +214,25 @@ class AssetDashboardTests(TestCase):
         )
         self.assertEqual(delete_response.status_code, 302)
         self.assertFalse(PromptTemplate.objects.filter(pk=prompt.pk).exists())
+
+    @patch("appertivo.assets.views.openai_client")
+    def test_enhance_prompt_endpoint(self, mock_client) -> None:
+        """Prompt enhancement returns richer copy from the LLM."""
+
+        self.client.force_login(self.staff_user)
+        fake_response = SimpleNamespace(output=[{"content": [{"type": "output_text", "text": "Improved prompt"}]}])
+        mock_client.responses.create.return_value = fake_response
+
+        response = self.client.post(
+            reverse("assets:enhance-prompt"),
+            data=json.dumps({"text": "Original prompt"}),
+            content_type="application/json",
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json().get("enhanced_text"), "Improved prompt")
+        mock_client.responses.create.assert_called_once()
 
     @patch("appertivo.assets.views.async_task")
     def test_generate_preview_flow(self, mock_async: Mock) -> None:
