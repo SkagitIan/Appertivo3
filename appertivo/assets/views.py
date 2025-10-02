@@ -179,7 +179,6 @@ def dashboard(request: HttpRequest) -> HttpResponse:
             async_task(
                 "appertivo.assets.tasks.run_preview_job",
                 job.pk,
-                timeout=180,
             )
             logger.info(
                 "Queued asset preview job %s for model %s", job.pk, model.pk
