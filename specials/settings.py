@@ -21,7 +21,9 @@ from django.contrib.messages import constants as message_constants
 from django.urls import reverse_lazy
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-APP_LOG_FILE = BASE_DIR / "logs" / "app-log.json"
+
+default_log_dir = Path(os.getenv("APP_LOG_DIR", "/tmp/appertivo/logs"))
+APP_LOG_FILE = Path(os.getenv("APP_LOG_FILE", str(default_log_dir / "app-log.json")))
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
