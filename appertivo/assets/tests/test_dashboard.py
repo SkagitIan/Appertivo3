@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import django
+from django_q.tasks import async_task as queue_async_task
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from django.core.files.storage import Storage, default_storage
@@ -239,6 +240,43 @@ class AssetDashboardTests(TestCase):
             job.pk,
             timeout=180,
         )
+
+    @patch("appertivo.assets.tasks.run_preview_job")
+    @patch("appertivo.assets.views.async_task")
+    def test_generate_preview_filters_queue_kwargs(self, mock_async: Mock, mock_run: Mock) -> None:
+        """Queue-specific kwargs are not passed to the job callable."""
+
+        captured_ids: list[int] = []
+
+        def fake_run(job_id: int) -> None:
+            captured_ids.append(job_id)
+
+        mock_run.side_effect = fake_run
+
+        def fake_async(func_path: str, *args, timeout=None, **kwargs):
+            call_kwargs = dict(kwargs)
+            if timeout is not None:
+                call_kwargs["timeout"] = timeout
+            return queue_async_task(func_path, *args, **call_kwargs)
+
+        mock_async.side_effect = fake_async
+
+        self.client.force_login(self.staff_user)
+        response = self.client.post(
+            reverse("assets:dashboard"),
+            {
+                "action": "generate-asset",
+                "generate-model": str(self.model.pk),
+                "generate-prompt_text": "Queue options",
+            },
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            HTTP_ACCEPT="application/json",
+        )
+
+        self.assertEqual(response.status_code, 202)
+        payload = response.json()
+        self.assertEqual(captured_ids, [payload["job_id"]])
+        self.assertEqual(mock_run.call_count, 1)
 
     @patch("appertivo.assets.views.async_task")
     def test_generate_preview_appends_additional_text(self, mock_async: Mock) -> None:
