@@ -9,6 +9,7 @@ from typing import Iterable
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
+from django.utils import timezone
 from django.utils.functional import empty
 
 from app.llm import replicate_client
@@ -99,43 +100,148 @@ def _store_preview_bytes(data: bytes) -> tuple[str | None, str | None]:
     return url, storage_path
 
 
-def _generate_preview(model, prompt: str) -> tuple[str | None, str | None, str | None]:
-    """Trigger Replicate and return the preview URL and optional storage path."""
+def _extract_prediction_error(prediction) -> str:
+    """Return the most helpful error message from a Replicate prediction."""
 
-    if not replicate_client:
-        return None, None, "Replicate API is not configured."
+    for attr in ("error", "logs", "status", "detail"):
+        value = getattr(prediction, attr, None)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return "Replicate did not return an image."
 
-    try:
-        output = replicate_client.run(
-            model.identifier,
-            input={
-                "prompt": prompt,
-                "output_format": "png",
-                "output_quality": 95,
-            },
-        )
-    except Exception as exc:  # pragma: no cover - defensive guard
-        logger.warning("Replicate call failed: %s", exc, exc_info=True)
-        message = "Replicate timed out while generating the image. Please try again."
-        if "504" in str(exc):
-            message = "Replicate timed out before returning an image. Try again in a moment."
-        return None, None, message
 
+def _collect_preview_from_prediction(prediction) -> tuple[str | None, str | None, str | None]:
+    """Extract preview data from a Replicate prediction output."""
+
+    output = getattr(prediction, "output", None)
     for candidate in _collect_preview_candidates(output):
         if isinstance(candidate, str):
             link = candidate.strip()
             if link.startswith("http") or link.startswith("data:"):
-                logger.info("Preview generated for model %s", model.identifier)
+                logger.info("Preview generated for prediction %s", getattr(prediction, "id", "?"))
                 return link, None, None
         elif isinstance(candidate, (bytes, bytearray)):
             url, storage_path = _store_preview_bytes(bytes(candidate))
             if url and storage_path:
-                logger.info("Preview bytes stored for model %s", model.identifier)
+                logger.info("Preview bytes stored for prediction %s", getattr(prediction, "id", "?"))
                 return url, storage_path, None
             return None, None, "Could not store the preview image. Check media storage permissions."
 
-    logger.warning("Replicate output did not include a usable image for model %s", model.identifier)
+    logger.warning(
+        "Replicate output did not include a usable image for prediction %s",
+        getattr(prediction, "id", "?"),
+    )
     return None, None, "Replicate did not return an image URL."
+
+
+def _synchronize_job_with_prediction(
+    job: AssetPreviewJob,
+    prediction,
+) -> AssetPreviewJob:
+    """Update the preview job to reflect the latest Replicate prediction status."""
+
+    status = (getattr(prediction, "status", "") or "").lower()
+    job.replicate_status = status
+
+    if status == "succeeded":
+        preview_url, storage_path, error = _collect_preview_from_prediction(prediction)
+        if error or not preview_url:
+            job.status = AssetPreviewJob.Status.FAILED
+            job.error_message = error or "Preview generation did not return an image."
+            job.completed_at = timezone.now()
+            job.save(
+                update_fields=[
+                    "status",
+                    "error_message",
+                    "replicate_status",
+                    "completed_at",
+                    "updated_at",
+                ]
+            )
+            return job
+
+        job.status = AssetPreviewJob.Status.SUCCESS
+        job.preview_url = preview_url
+        job.storage_path = storage_path or ""
+        job.error_message = ""
+        job.completed_at = timezone.now()
+        job.save(
+            update_fields=[
+                "status",
+                "preview_url",
+                "storage_path",
+                "error_message",
+                "replicate_status",
+                "completed_at",
+                "updated_at",
+            ]
+        )
+        return job
+
+    if status in {"failed", "canceled"}:
+        job.status = AssetPreviewJob.Status.FAILED
+        job.error_message = _extract_prediction_error(prediction)
+        job.completed_at = timezone.now()
+        job.save(
+            update_fields=[
+                "status",
+                "error_message",
+                "replicate_status",
+                "completed_at",
+                "updated_at",
+            ]
+        )
+        return job
+
+    # Status is still in progress.
+    job.status = AssetPreviewJob.Status.RUNNING
+    job.save(update_fields=["status", "replicate_status", "updated_at"])
+    return job
+
+
+def refresh_preview_job(job: AssetPreviewJob) -> AssetPreviewJob:
+    """Reload Replicate status for the given job and persist the result."""
+
+    if not job.prediction_id:
+        return job
+
+    if not replicate_client:
+        job.status = AssetPreviewJob.Status.FAILED
+        job.replicate_status = "failed"
+        job.error_message = job.error_message or "Replicate API is not configured."
+        job.completed_at = job.completed_at or timezone.now()
+        job.save(
+            update_fields=[
+                "status",
+                "replicate_status",
+                "error_message",
+                "completed_at",
+                "updated_at",
+            ]
+        )
+        return job
+
+    try:
+        prediction = replicate_client.predictions.get(job.prediction_id)
+    except Exception as exc:  # pragma: no cover - network guard
+        logger.warning("Replicate prediction refresh failed for %s: %s", job.pk, exc, exc_info=True)
+        job.status = AssetPreviewJob.Status.FAILED
+        job.replicate_status = "failed"
+        if not job.error_message:
+            job.error_message = "Could not refresh the preview status from Replicate."
+        job.completed_at = job.completed_at or timezone.now()
+        job.save(
+            update_fields=[
+                "status",
+                "replicate_status",
+                "error_message",
+                "completed_at",
+                "updated_at",
+            ]
+        )
+        return job
+
+    return _synchronize_job_with_prediction(job, prediction)
 
 
 def run_preview_job(job_id: int) -> None:
@@ -149,29 +255,70 @@ def run_preview_job(job_id: int) -> None:
 
     job.status = AssetPreviewJob.Status.RUNNING
     job.error_message = ""
-    job.save(update_fields=["status", "error_message", "updated_at"])
+    job.completed_at = None
+    job.replicate_status = ""
+    job.save(
+        update_fields=[
+            "status",
+            "error_message",
+            "completed_at",
+            "replicate_status",
+            "updated_at",
+        ]
+    )
+
+    if not replicate_client:
+        job.status = AssetPreviewJob.Status.FAILED
+        job.replicate_status = "failed"
+        job.error_message = "Replicate API is not configured."
+        job.completed_at = timezone.now()
+        job.save(
+            update_fields=[
+                "status",
+                "replicate_status",
+                "error_message",
+                "completed_at",
+                "updated_at",
+            ]
+        )
+        return
 
     try:
-        preview_url, storage_path, error = _generate_preview(job.model, job.prompt)
+        prediction = replicate_client.predictions.create(
+            version=job.model.identifier,
+            input={
+                "prompt": job.prompt,
+                "output_format": "png",
+                "output_quality": 95,
+            },
+        )
     except Exception as exc:  # pragma: no cover - defensive guard
-        logger.exception("Preview job %s failed unexpectedly: %s", job_id, exc)
+        logger.warning("Replicate call failed: %s", exc, exc_info=True)
+        message = "Replicate timed out while generating the image. Please try again."
+        if "504" in str(exc):
+            message = "Replicate timed out before returning an image. Try again in a moment."
         job.status = AssetPreviewJob.Status.FAILED
-        job.error_message = "Unexpected error while generating the preview."
-        job.save(update_fields=["status", "error_message", "updated_at"])
+        job.replicate_status = "failed"
+        job.error_message = message
+        job.completed_at = timezone.now()
+        job.save(
+            update_fields=[
+                "status",
+                "replicate_status",
+                "error_message",
+                "completed_at",
+                "updated_at",
+            ]
+        )
         return
 
-    if error or not preview_url:
-        job.status = AssetPreviewJob.Status.FAILED
-        job.error_message = error or "Preview generation did not return an image."
-        job.save(update_fields=["status", "error_message", "updated_at"])
-        return
+    job.prediction_id = getattr(prediction, "id", "") or ""
+    job.save(update_fields=["prediction_id", "updated_at"])
 
-    job.status = AssetPreviewJob.Status.SUCCESS
-    job.preview_url = preview_url
-    job.storage_path = storage_path or ""
-    job.save(update_fields=["status", "preview_url", "storage_path", "updated_at"])
+    _synchronize_job_with_prediction(job, prediction)
 
 
 __all__ = [
+    "refresh_preview_job",
     "run_preview_job",
 ]
