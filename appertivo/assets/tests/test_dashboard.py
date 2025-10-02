@@ -18,7 +18,7 @@ from django.utils.deconstruct import deconstructible
 django.setup()
 
 from appertivo.assets import tasks
-from appertivo.assets.models import AssetModel, AssetPreviewJob, GeneratedAsset
+from appertivo.assets.models import AssetFolder, AssetModel, AssetPreviewJob, GeneratedAsset, PromptTemplate
 
 
 @deconstructible
@@ -164,8 +164,6 @@ class AssetDashboardTests(TestCase):
             },
         )
         self.assertEqual(response.status_code, 302)
-        from appertivo.assets.models import PromptTemplate
-
         self.assertTrue(PromptTemplate.objects.filter(title="Hero shot").exists())
 
     @patch("appertivo.assets.views.async_task")
@@ -190,7 +188,11 @@ class AssetDashboardTests(TestCase):
         job = AssetPreviewJob.objects.get(pk=payload["job_id"])
         self.assertEqual(job.prompt, "Create something nice")
         self.assertEqual(job.status, AssetPreviewJob.Status.PENDING)
-        mock_async.assert_called_once_with("appertivo.assets.tasks.run_preview_job", job.pk)
+        mock_async.assert_called_once_with(
+            "appertivo.assets.tasks.run_preview_job",
+            job.pk,
+            timeout=180,
+        )
 
     @patch("appertivo.assets.views.async_task")
     def test_generate_preview_requires_prompt(self, mock_async: Mock) -> None:
@@ -361,3 +363,77 @@ class AssetDashboardTests(TestCase):
         self.assertEqual(payload["status"], AssetPreviewJob.Status.SUCCESS)
         self.assertEqual(payload["preview_url"], "https://example.com/asset.png")
         self.assertEqual(payload["storage_path"], "previews/test.png")
+
+    def test_recent_assets_hide_locked_folders(self) -> None:
+        """Locked folders do not surface in the recent list."""
+
+        self.client.force_login(self.staff_user)
+        unlocked = AssetFolder.objects.create(name="Open", pin="5555", is_locked=False)
+        locked = AssetFolder.objects.create(name="Private", pin="6666", is_locked=True)
+        GeneratedAsset.objects.create(model=self.model, prompt="Visible", folder=unlocked)
+        GeneratedAsset.objects.create(model=self.model, prompt="Hidden", folder=locked)
+
+        response = self.client.get(reverse("assets:dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        recent = list(response.context["recent_assets"])
+        self.assertEqual(len(recent), 1)
+        self.assertEqual(recent[0].prompt, "Visible")
+
+    def test_update_and_delete_model(self) -> None:
+        """Staff can edit or remove saved models."""
+
+        self.client.force_login(self.staff_user)
+        model = AssetModel.objects.create(description="Old", identifier="owner/old:1")
+
+        update_response = self.client.post(
+            reverse("assets:dashboard"),
+            {
+                "action": "update-model",
+                "model_id": model.pk,
+                f"model-edit-{model.pk}-description": "Updated",
+                f"model-edit-{model.pk}-identifier": "owner/new:2",
+            },
+        )
+
+        self.assertEqual(update_response.status_code, 302)
+        model.refresh_from_db()
+        self.assertEqual(model.description, "Updated")
+        self.assertEqual(model.identifier, "owner/new:2")
+
+        delete_response = self.client.post(
+            reverse("assets:dashboard"),
+            {"action": "delete-model", "model_id": model.pk},
+        )
+
+        self.assertEqual(delete_response.status_code, 302)
+        self.assertFalse(AssetModel.objects.filter(pk=model.pk).exists())
+
+    def test_update_and_delete_prompt(self) -> None:
+        """Staff can edit or remove saved prompt templates."""
+
+        self.client.force_login(self.staff_user)
+        prompt = PromptTemplate.objects.create(title="Original", text="Prompt")
+
+        update_response = self.client.post(
+            reverse("assets:dashboard"),
+            {
+                "action": "update-prompt",
+                "prompt_id": prompt.pk,
+                f"prompt-edit-{prompt.pk}-title": "Changed",
+                f"prompt-edit-{prompt.pk}-text": "Updated text",
+            },
+        )
+
+        self.assertEqual(update_response.status_code, 302)
+        prompt.refresh_from_db()
+        self.assertEqual(prompt.title, "Changed")
+        self.assertEqual(prompt.text, "Updated text")
+
+        delete_response = self.client.post(
+            reverse("assets:dashboard"),
+            {"action": "delete-prompt", "prompt_id": prompt.pk},
+        )
+
+        self.assertEqual(delete_response.status_code, 302)
+        self.assertFalse(PromptTemplate.objects.filter(pk=prompt.pk).exists())

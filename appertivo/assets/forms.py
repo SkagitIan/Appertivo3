@@ -7,6 +7,16 @@ from django import forms
 from .models import AssetFolder, AssetModel, PromptTemplate
 
 
+class _PinValidationMixin:
+    """Provide a reusable validator for four digit PIN codes."""
+
+    def _clean_pin_value(self, value: str) -> str:
+        digits = (value or "").strip()
+        if not digits.isdigit() or len(digits) != 4:
+            raise forms.ValidationError("Enter a 4 digit PIN.")
+        return digits
+
+
 class AssetModelForm(forms.ModelForm):
     """Allow staff to register a Replicate model."""
 
@@ -93,20 +103,62 @@ class AssetSaveForm(forms.Form):
         return data
 
 
-class AssetFolderForm(forms.ModelForm):
+class AssetFolderForm(_PinValidationMixin, forms.ModelForm):
     """Create a folder that can group saved assets."""
 
     class Meta:
         model = AssetFolder
-        fields = ["name"]
+        fields = ["name", "pin", "is_locked"]
         widgets = {
             "name": forms.TextInput(
                 attrs={
                     "class": "mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400",
                     "placeholder": "New folder name",
                 }
-            )
+            ),
+            "pin": forms.TextInput(
+                attrs={
+                    "class": "mt-1 w-28 rounded-lg border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400",
+                    "placeholder": "5250",
+                    "inputmode": "numeric",
+                    "maxlength": "4",
+                }
+            ),
+            "is_locked": forms.CheckboxInput(
+                attrs={
+                    "class": "h-4 w-4 rounded border-slate-300 text-purple-600 focus:ring-purple-500",
+                }
+            ),
         }
+
+
+    def clean_pin(self) -> str:
+        return self._clean_pin_value(self.cleaned_data.get("pin", ""))
+
+
+class AssetFolderSecurityForm(_PinValidationMixin, forms.ModelForm):
+    """Update the security settings for an existing folder."""
+
+    class Meta:
+        model = AssetFolder
+        fields = ["pin", "is_locked"]
+        widgets = {
+            "pin": forms.TextInput(
+                attrs={
+                    "class": "mt-1 w-24 rounded-lg border border-slate-200 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400",
+                    "inputmode": "numeric",
+                    "maxlength": "4",
+                }
+            ),
+            "is_locked": forms.CheckboxInput(
+                attrs={
+                    "class": "h-4 w-4 rounded border-slate-300 text-purple-600 focus:ring-purple-500",
+                }
+            ),
+        }
+
+    def clean_pin(self) -> str:
+        return self._clean_pin_value(self.cleaned_data.get("pin", ""))
 
 
 class AssetFolderDeleteForm(forms.Form):
