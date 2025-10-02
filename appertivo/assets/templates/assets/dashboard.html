@@ -147,7 +147,7 @@
         {% for asset in recent_assets %}
           <div class="rounded-2xl border border-slate-200 bg-white/80 p-3">
             {% if asset.image %}
-              <img src="{{ asset.image.url }}" alt="{{ asset.model }} preview" class="h-48 w-full rounded-xl object-cover" />
+              <img src="{% url 'assets:asset-image' asset.id %}" alt="{{ asset.model }} preview" class="h-48 w-full rounded-xl object-cover" />
             {% else %}
               <div class="flex h-48 w-full items-center justify-center rounded-xl bg-slate-100 text-sm text-slate-500">No file saved</div>
             {% endif %}

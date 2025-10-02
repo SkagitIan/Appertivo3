@@ -15,7 +15,14 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.db.models import QuerySet
-from django.http import HttpRequest, HttpResponse, JsonResponse, HttpResponseNotAllowed
+from django.http import (
+    FileResponse,
+    Http404,
+    HttpRequest,
+    HttpResponse,
+    JsonResponse,
+    HttpResponseNotAllowed,
+)
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.text import slugify
@@ -38,6 +45,62 @@ from .forms import (
 from .models import AssetFolder, AssetModel, AssetPreviewJob, GeneratedAsset, PromptTemplate
 
 logger = logging.getLogger(__name__)
+
+
+def _preview_token_from_path(storage_path: str | None) -> str | None:
+    """Extract the preview token from a stored path."""
+
+    if not storage_path:
+        return None
+    name = storage_path.split("/")[-1]
+    if not name:
+        return None
+    return name.split(".")[0]
+
+
+def _protected_preview_url(storage_path: str | None) -> str | None:
+    """Return the staff-protected preview route for a stored preview."""
+
+    token = _preview_token_from_path(storage_path)
+    if not token:
+        return None
+    try:
+        uuid_token = uuid.UUID(token)
+    except (TypeError, ValueError):
+        logger.warning("Invalid preview token %s", token)
+        return None
+    return reverse("assets:preview-file", args=[uuid_token])
+
+
+def _resolve_preview_storage_path(token: str) -> str:
+    """Locate the stored preview file for the provided token."""
+
+    base = f"previews/{token}"
+    candidates = [
+        base,
+        f"{base}.png",
+        f"{base}.jpg",
+        f"{base}.jpeg",
+        f"{base}.webp",
+        f"{base}.gif",
+    ]
+    for candidate in candidates:
+        try:
+            if default_storage.exists(candidate):
+                return candidate
+        except Exception:  # pragma: no cover - storage guard
+            logger.warning("Preview lookup failed for %s", candidate, exc_info=True)
+            continue
+
+    job = (
+        AssetPreviewJob.objects.filter(storage_path__startswith=base)
+        .order_by("-updated_at")
+        .first()
+    )
+    if job and job.storage_path:
+        return job.storage_path
+
+    raise Http404("Preview not found.")
 
 
 def _save_preview(
@@ -225,6 +288,9 @@ def dashboard(request: HttpRequest) -> HttpResponse:
         [:6]
     )
 
+    if preview_storage_path and not preview_url:
+        preview_url = _protected_preview_url(preview_storage_path) or preview_url
+
     context = {
         "generation_form": generation_form,
         "save_form": save_form,
@@ -354,13 +420,16 @@ def preview_status(request: HttpRequest, job_id: int) -> JsonResponse:
     logger.info(
         "Preview status requested for job %s (%s)", job.pk, job.status
     )
+    preview_url = job.preview_url
+    if job.storage_path:
+        preview_url = _protected_preview_url(job.storage_path) or preview_url
     return JsonResponse(
         {
             "id": job.pk,
             "status": job.status,
             "prompt": job.prompt,
             "model_id": job.model_id,
-            "preview_url": job.preview_url,
+            "preview_url": preview_url,
             "storage_path": job.storage_path,
             "error": job.error_message,
         }
@@ -475,6 +544,50 @@ def gallery(request: HttpRequest) -> HttpResponse:
         "unlocked_folder_ids": sorted(unlocked_folder_ids),
     }
     return render(request, "assets/gallery.html", context)
+
+
+@staff_member_required
+def asset_image(request: HttpRequest, asset_id: int) -> FileResponse:
+    """Stream a stored generated asset to the browser."""
+
+    asset = get_object_or_404(GeneratedAsset, pk=asset_id)
+    if not asset.image:
+        raise Http404("Asset does not have an image.")
+
+    storage_path = asset.image.name
+    try:
+        file_handle = default_storage.open(storage_path, "rb")
+    except FileNotFoundError as exc:
+        logger.warning("Stored asset image missing: %s", storage_path)
+        raise Http404("Image not found.") from exc
+    except OSError as exc:  # pragma: no cover - storage guard
+        logger.error("Unable to open asset image %s: %s", storage_path, exc)
+        raise Http404("Image unavailable.") from exc
+
+    content_type = mimetypes.guess_type(storage_path)[0] or "application/octet-stream"
+    response = FileResponse(file_handle, content_type=content_type)
+    response["Content-Disposition"] = f'inline; filename="{Path(storage_path).name}"'
+    return response
+
+
+@staff_member_required
+def preview_file(request: HttpRequest, token: uuid.UUID) -> FileResponse:
+    """Stream a stored preview file to the browser."""
+
+    storage_path = _resolve_preview_storage_path(token.hex)
+    try:
+        file_handle = default_storage.open(storage_path, "rb")
+    except FileNotFoundError as exc:
+        logger.warning("Preview file missing for token %s", token)
+        raise Http404("Preview not found.") from exc
+    except OSError as exc:  # pragma: no cover - storage guard
+        logger.error("Unable to open preview %s: %s", storage_path, exc)
+        raise Http404("Preview unavailable.") from exc
+
+    content_type = mimetypes.guess_type(storage_path)[0] or "application/octet-stream"
+    response = FileResponse(file_handle, content_type=content_type)
+    response["Content-Disposition"] = f'inline; filename="{Path(storage_path).name}"'
+    return response
 
 
 @staff_member_required
