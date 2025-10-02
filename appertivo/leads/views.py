@@ -283,6 +283,12 @@ def process_lead_actions(request: HttpRequest) -> HttpResponse:
                 lead.email_bounced = False
                 lead.save(update_fields=["email_bounced"])
         messages.info(request, "Cleared bounce status.")
+    elif action == "delete":
+        for lead in leads:
+            if lead.run_id:
+                run_ids.add(lead.run_id)
+        Lead.objects.filter(id__in=lead_ids).delete()
+        messages.warning(request, f"Deleted {len(leads)} lead(s).")
     else:
         messages.error(request, "Unknown action requested.")
 

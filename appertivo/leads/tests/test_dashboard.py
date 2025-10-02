@@ -137,6 +137,21 @@ class LeadDashboardTests(TestCase):
         lead.refresh_from_db()
         self.assertFalse(lead.email_bounced)
 
+    def test_process_actions_delete_removes_lead(self) -> None:
+        run = LeadRun.objects.create(status=LeadRun.Status.READY, selected_leads=1)
+        lead = Lead.objects.create(name="Wild Plum", city="Austin", shortlisted=True, run=run)
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            reverse("lead-actions"),
+            {"lead_ids": [str(lead.id)], "action": "delete"},
+        )
+
+        self.assertRedirects(response, reverse("lead-dashboard"))
+        self.assertFalse(Lead.objects.filter(pk=lead.id).exists())
+        run.refresh_from_db()
+        self.assertEqual(run.selected_leads, 0)
+
     def test_delete_run_removes_run_and_leads(self) -> None:
         run = LeadRun.objects.create(status=LeadRun.Status.READY)
         Lead.objects.create(name="Sunrise Cafe", city="Dallas", run=run)
