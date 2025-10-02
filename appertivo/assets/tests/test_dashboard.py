@@ -212,6 +212,27 @@ class AssetDashboardTests(TestCase):
         default_storage.delete(job.storage_path)
 
     @patch("appertivo.assets.tasks.replicate_client")
+    def test_run_preview_job_handles_file_output(self, mock_replicate: Mock) -> None:
+        """File-like outputs from Replicate are read and stored."""
+
+        class DummyFile:
+            def __init__(self, data: bytes) -> None:
+                self._data = data
+
+            def read(self) -> bytes:
+                return self._data
+
+        mock_replicate.run.return_value = DummyFile(b"file-bytes")
+        job = AssetPreviewJob.objects.create(model=self.model, prompt="File please")
+        tasks.run_preview_job(job.pk)
+        job.refresh_from_db()
+        self.assertEqual(job.status, AssetPreviewJob.Status.SUCCESS)
+        self.assertTrue(job.preview_url)
+        self.assertTrue(job.storage_path)
+        self.assertTrue(default_storage.exists(job.storage_path))
+        default_storage.delete(job.storage_path)
+
+    @patch("appertivo.assets.tasks.replicate_client")
     def test_run_preview_job_handles_errors(self, mock_replicate: Mock) -> None:
         """Unexpected errors mark the job as failed with a message."""
 
