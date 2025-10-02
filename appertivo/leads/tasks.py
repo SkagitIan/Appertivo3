@@ -220,7 +220,7 @@ def fetch_leads(
     except requests.RequestException as exc:  # pragma: no cover - network failure
         logger.exception("Outscraper request failed: %s", exc)
         return []
-
+    logger.info(initial_payload)
     initial_payload = response.json()
     payload = resolve_outscraper_payload(initial_payload, headers)
     job_id = extract_outscraper_job_id(payload) or extract_outscraper_job_id(initial_payload)
