@@ -259,7 +259,6 @@ class AssetDashboardTests(TestCase):
         mock_async.assert_called_once_with(
             "appertivo.assets.tasks.run_preview_job",
             job.pk,
-            timeout=180,
         )
 
     @patch("appertivo.assets.tasks.run_preview_job")
