@@ -18,6 +18,7 @@ from django.db.models.functions import TruncWeek
 from django.http import HttpResponseForbidden, JsonResponse
 from django.urls import reverse_lazy
 from django.utils import timezone
+from django.utils.safestring import mark_safe
 from django.views import View
 from django.views.generic import TemplateView
 
@@ -64,6 +65,7 @@ class DashboardView(StaffOnlyMixin, TemplateView):
                 "onboarding": self._build_onboarding_context(),
                 "subscriptions": self._build_subscription_context(),
                 "operations": self._build_operations_context(),
+                "api_activity": self._build_api_activity_context(),
                 "engagement": self._build_engagement_context(),
                 "business": self._build_business_metrics(),
                 "extras": self._build_extras_context(),
@@ -72,6 +74,86 @@ class DashboardView(StaffOnlyMixin, TemplateView):
             }
         )
         return context
+
+    def _build_api_activity_context(self) -> list[dict[str, Any]]:
+        """Return a combined feed of recent API calls and responses."""
+
+        entries: list[dict[str, Any]] = []
+
+        payload_status_map = {
+            app_models.OutscraperPayload.Status.SUCCEEDED: 200,
+            app_models.OutscraperPayload.Status.FAILED: 500,
+            app_models.OutscraperPayload.Status.RUNNING: 102,
+            app_models.OutscraperPayload.Status.QUEUED: 102,
+        }
+
+        for payload in (
+            app_models.OutscraperPayload.objects.select_related("restaurant")
+            .order_by("-created_at")[:20]
+        ):
+            payload_data: dict[str, Any] = (
+                payload.response_json
+                or payload.request_params
+                or ({"error": payload.error_message} if payload.error_message else {})
+            )
+            entries.append(
+                {
+                    "timestamp": payload.created_at,
+                    "call": "Outscraper",
+                    "actor": getattr(payload.restaurant, "name", "Unknown"),
+                    "status_code": payload_status_map.get(payload.status, 200),
+                    "payload": mark_safe(
+                        json.dumps(payload_data or {}, indent=2, sort_keys=True)
+                    ),
+                }
+            )
+
+        run_step_model = self._safe_get_model("articles", "RunStep")
+        if run_step_model is not None:
+            step_status_map = {
+                "ok": 200,
+                "failed": 500,
+                "running": 102,
+                "queued": 102,
+            }
+
+            run_steps = (
+                run_step_model.objects.select_related("run", "run__created_by")
+                .order_by("-started_at")[:20]
+            )
+            for step in run_steps:
+                run = getattr(step, "run", None)
+                actor_user = getattr(run, "created_by", None)
+                actor = "System"
+                if actor_user is not None:
+                    actor = (
+                        getattr(actor_user, "get_full_name", lambda: "")()
+                        or getattr(actor_user, "email", "")
+                        or getattr(actor_user, "username", "")
+                        or "System"
+                    )
+
+                payload_data = (
+                    step.raw_response
+                    or step.output_payload
+                    or step.input_payload
+                    or ({"error": step.error_message} if step.error_message else {})
+                )
+
+                entries.append(
+                    {
+                        "timestamp": step.started_at or getattr(run, "created_at", None),
+                        "call": f"Article: {step.name.title()}",
+                        "actor": actor,
+                        "status_code": step_status_map.get(step.status, 200),
+                        "payload": mark_safe(
+                            json.dumps(payload_data or {}, indent=2, sort_keys=True)
+                        ),
+                    }
+                )
+
+        entries.sort(key=lambda item: item["timestamp"], reverse=True)
+        return entries[:20]
 
     def _build_onboarding_context(self) -> dict[str, Any]:
         """Return counts and stalled records for onboarding progress."""
