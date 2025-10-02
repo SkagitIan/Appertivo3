@@ -167,3 +167,24 @@ class OutscraperWebhookViewTests(TestCase):
         args, kwargs = mock_delay.call_args
         self.assertIn(lead.id, args[0])
         self.assertEqual(kwargs["run_id"], run.id)
+
+    @override_settings(OUTSCRAPER_API_KEY="test-key")
+    @patch.dict(os.environ, {"OUTSCRAPER_API_KEY": "test-key"}, clear=False)
+    def test_webhook_api_alias(self) -> None:
+        payload = {
+            "data": [
+                {
+                    "name": "Alias Bistro",
+                    "email": "alias@example.com",
+                }
+            ]
+        }
+
+        response = self.client.post(
+            reverse("outscraper_webhook_api"),
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(Lead.objects.filter(email="alias@example.com").exists())
