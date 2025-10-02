@@ -29,6 +29,7 @@ from .forms import (
     AssetFolderAssignmentForm,
     AssetFolderDeleteForm,
     AssetFolderForm,
+    AssetFolderSecurityForm,
     AssetGenerationForm,
     AssetModelForm,
     AssetSaveForm,
@@ -139,6 +140,8 @@ def dashboard(request: HttpRequest) -> HttpResponse:
     preview_prompt: str = ""
     selected_model_id: int | None = None
     preview_storage_path: str | None = None
+    model_forms: dict[int, AssetModelForm] = {}
+    prompt_forms: dict[int, PromptTemplateForm] = {}
 
     if request.method == "POST":
         action = request.POST.get("action")
@@ -179,7 +182,11 @@ def dashboard(request: HttpRequest) -> HttpResponse:
                 model=model,
                 prompt=prompt_text,
             )
-            async_task("appertivo.assets.tasks.run_preview_job", job.pk)
+            async_task(
+                "appertivo.assets.tasks.run_preview_job",
+                job.pk,
+                timeout=180,
+            )
             return JsonResponse(
                 {
                     "job_id": job.pk,
@@ -216,7 +223,68 @@ def dashboard(request: HttpRequest) -> HttpResponse:
                     selected_model_id = None
                 preview_storage_path = save_form.data.get("save-storage_path") or None
 
-    recent_assets: QuerySet[GeneratedAsset] = GeneratedAsset.objects.select_related("model").all()[:6]
+        elif action == "update-model":
+            try:
+                model_id = int(request.POST.get("model_id", ""))
+            except (TypeError, ValueError):
+                messages.error(request, "Invalid model selection.")
+            else:
+                model_instance = get_object_or_404(AssetModel, pk=model_id)
+                prefix = f"model-edit-{model_instance.pk}"
+                form = AssetModelForm(request.POST, prefix=prefix, instance=model_instance)
+                if form.is_valid():
+                    form.save()
+                    messages.success(request, "Model updated.")
+                    return redirect("assets:dashboard")
+                model_forms[model_instance.pk] = form
+        elif action == "delete-model":
+            try:
+                model_id = int(request.POST.get("model_id", ""))
+            except (TypeError, ValueError):
+                messages.error(request, "Invalid model selection.")
+            else:
+                model_instance = get_object_or_404(AssetModel, pk=model_id)
+                model_instance.delete()
+                messages.success(request, "Model deleted.")
+                return redirect("assets:dashboard")
+        elif action == "update-prompt":
+            try:
+                prompt_id = int(request.POST.get("prompt_id", ""))
+            except (TypeError, ValueError):
+                messages.error(request, "Invalid prompt selection.")
+            else:
+                prompt_instance = get_object_or_404(PromptTemplate, pk=prompt_id)
+                prefix = f"prompt-edit-{prompt_instance.pk}"
+                form = PromptTemplateForm(request.POST, prefix=prefix, instance=prompt_instance)
+                if form.is_valid():
+                    form.save()
+                    messages.success(request, "Prompt updated.")
+                    return redirect("assets:dashboard")
+                prompt_forms[prompt_instance.pk] = form
+        elif action == "delete-prompt":
+            try:
+                prompt_id = int(request.POST.get("prompt_id", ""))
+            except (TypeError, ValueError):
+                messages.error(request, "Invalid prompt selection.")
+            else:
+                prompt_instance = get_object_or_404(PromptTemplate, pk=prompt_id)
+                prompt_instance.delete()
+                messages.success(request, "Prompt deleted.")
+                return redirect("assets:dashboard")
+
+    recent_assets: QuerySet[GeneratedAsset] = (
+        GeneratedAsset.objects.select_related("model", "folder")
+        .exclude(folder__is_locked=True)
+        [:6]
+    )
+
+    for model in AssetModel.objects.all():
+        prefix = f"model-edit-{model.pk}"
+        model_forms.setdefault(model.pk, AssetModelForm(prefix=prefix, instance=model))
+
+    for prompt in PromptTemplate.objects.all():
+        prefix = f"prompt-edit-{prompt.pk}"
+        prompt_forms.setdefault(prompt.pk, PromptTemplateForm(prefix=prefix, instance=prompt))
 
     context = {
         "model_form": model_form,
@@ -230,6 +298,8 @@ def dashboard(request: HttpRequest) -> HttpResponse:
         "has_replicate": replicate_client is not None,
         "preview_storage_path": preview_storage_path,
         "discard_preview_url": reverse("assets:discard-preview"),
+        "model_forms": model_forms,
+        "prompt_forms": prompt_forms,
     }
     return render(request, "assets/dashboard.html", context)
 
@@ -262,6 +332,22 @@ def gallery(request: HttpRequest) -> HttpResponse:
     assets = GeneratedAsset.objects.select_related("model", "created_by", "folder").all()
     folders = AssetFolder.objects.all()
     folder_form = AssetFolderForm(prefix="folder")
+    folder_security_forms: dict[int, AssetFolderSecurityForm] = {}
+    for folder in folders:
+        prefix = f"folder-security-{folder.pk}"
+        folder_security_forms[folder.pk] = AssetFolderSecurityForm(prefix=prefix, instance=folder)
+
+    selected_filter = request.GET.get("folder", "all").strip()
+    selected_folder_id: int | None = None
+    if selected_filter == "unassigned":
+        assets = assets.filter(folder__isnull=True)
+    elif selected_filter not in {"", "all"}:
+        try:
+            selected_folder_id = int(selected_filter)
+        except (TypeError, ValueError):
+            selected_filter = "all"
+        else:
+            assets = assets.filter(folder_id=selected_folder_id)
 
     if request.method == "POST":
         action = request.POST.get("action")
@@ -295,6 +381,20 @@ def gallery(request: HttpRequest) -> HttpResponse:
                 else:
                     messages.success(request, "Asset removed from its folder.")
                 return redirect("assets:gallery")
+        elif action == "update-folder-security":
+            try:
+                folder_id = int(request.POST.get("folder_id", ""))
+            except (TypeError, ValueError):
+                messages.error(request, "Invalid folder selection.")
+            else:
+                folder = get_object_or_404(AssetFolder, pk=folder_id)
+                prefix = f"folder-security-{folder.pk}"
+                form = AssetFolderSecurityForm(request.POST, prefix=prefix, instance=folder)
+                if form.is_valid():
+                    form.save()
+                    messages.success(request, f'Folder "{folder.name}" updated.')
+                    return redirect("assets:gallery")
+                folder_security_forms[folder.pk] = form
         elif action == "delete-asset":
             asset_delete_form = AssetDeleteForm(request.POST)
             if asset_delete_form.is_valid():
@@ -309,10 +409,15 @@ def gallery(request: HttpRequest) -> HttpResponse:
                     messages.success(request, "Deleted the selected asset.")
                 return redirect("assets:gallery")
 
+    folder_entries = [(folder, folder_security_forms[folder.pk]) for folder in folders]
+
     context = {
         "assets": assets,
         "folders": folders,
         "folder_form": folder_form,
+        "folder_entries": folder_entries,
+        "selected_filter": selected_filter,
+        "selected_folder_id": selected_folder_id,
     }
     return render(request, "assets/gallery.html", context)
 
