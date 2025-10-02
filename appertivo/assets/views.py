@@ -6,6 +6,7 @@ import logging
 import mimetypes
 import uuid
 from pathlib import Path
+from urllib.parse import urlparse
 
 import requests
 from django.contrib import messages
@@ -48,19 +49,42 @@ def _save_preview(
     extension = ".png"
 
     if storage_path:
-        try:
-            with default_storage.open(storage_path, "rb") as stored_file:
-                file_bytes = stored_file.read()
-        except FileNotFoundError:
+        preview_extension = ""
+        if preview_url:
+            preview_extension = Path(urlparse(preview_url).path).suffix
+
+        candidates: list[str] = [storage_path]
+        if not Path(storage_path).suffix:
+            if preview_extension:
+                candidate = f"{storage_path}{preview_extension}"
+                if candidate not in candidates:
+                    candidates.append(candidate)
+            fallback_candidate = f"{storage_path}.png"
+            if fallback_candidate not in candidates:
+                candidates.append(fallback_candidate)
+
+        read_path = storage_path
+        for candidate in candidates:
+            try:
+                with default_storage.open(candidate, "rb") as stored_file:
+                    file_bytes = stored_file.read()
+                read_path = candidate
+                break
+            except FileNotFoundError:
+                continue
+            except OSError as exc:  # pragma: no cover - storage guard
+                logger.warning("Failed to read stored preview %s: %s", candidate, exc)
+                return None, "Could not read the preview image from storage."
+        else:
             logger.warning("Stored preview missing at %s", storage_path)
             return None, "Preview file is no longer available. Please generate it again."
-        except OSError as exc:  # pragma: no cover - storage guard
-            logger.warning("Failed to read stored preview %s: %s", storage_path, exc)
-            return None, "Could not read the preview image from storage."
 
-        suffix = Path(storage_path).suffix
+        storage_path = read_path
+        suffix = Path(read_path).suffix
         if suffix:
             extension = suffix
+        elif preview_extension:
+            extension = preview_extension
     else:
         try:
             response = requests.get(preview_url, timeout=20)

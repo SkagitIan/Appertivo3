@@ -10,10 +10,11 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from datetime import timedelta
 from decimal import Decimal
 from pathlib import Path
-import os
+
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -27,6 +28,15 @@ APP_LOG_FILE = Path(os.getenv("APP_LOG_FILE", str(default_log_dir / "app-log.jso
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
+
+CLOUDINARY_URL = os.getenv("CLOUDINARY_URL")
+CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
+CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY")
+CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
+USE_CLOUDINARY_STORAGE = bool(
+    CLOUDINARY_URL
+    or (CLOUDINARY_CLOUD_NAME and CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET)
+)
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -67,6 +77,9 @@ INSTALLED_APPS = [
     'django_q',
     'dashboard.apps.DashboardConfig',
 ]
+
+if USE_CLOUDINARY_STORAGE and 'cloudinary_storage' not in INSTALLED_APPS:
+    INSTALLED_APPS.append('cloudinary_storage')
 
 # Map Django message levels to Bootstrap alert classes
 MESSAGE_TAGS = {
@@ -216,8 +229,27 @@ STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'  # For collectstatic
 
 # MEDIA FILES
-MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_URL = '/media/'
+
+if USE_CLOUDINARY_STORAGE:
+    cloudinary_storage_config = {
+        key: value
+        for key, value in {
+            "CLOUD_NAME": CLOUDINARY_CLOUD_NAME,
+            "API_KEY": CLOUDINARY_API_KEY,
+            "API_SECRET": CLOUDINARY_API_SECRET,
+        }.items()
+        if value
+    }
+    if cloudinary_storage_config:
+        CLOUDINARY_STORAGE = cloudinary_storage_config
+    DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
+    media_url_override = os.getenv("CLOUDINARY_MEDIA_URL")
+    if media_url_override:
+        MEDIA_URL = media_url_override
+    elif CLOUDINARY_CLOUD_NAME:
+        MEDIA_URL = f"https://res.cloudinary.com/{CLOUDINARY_CLOUD_NAME}/"
 
 # DEFAULT PRIMARY KEY
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
@@ -325,7 +357,7 @@ LLM_PRICING = {
 
 CRONJOBS = [("0 * * * *", "app.cron.unpublish_expired_specials")]
 
-for _app in ['django_extensions', 'corsheaders', 'anymail', 'cloudinary', 'django_crontab']:
+for _app in ['django_extensions', 'corsheaders', 'anymail', 'cloudinary', 'cloudinary_storage', 'django_crontab']:
     try:
         __import__(_app)
     except ModuleNotFoundError:
