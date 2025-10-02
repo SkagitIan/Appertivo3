@@ -21,49 +21,50 @@ class FetchLeadsTaskTests(TestCase):
 
     @override_settings(OUTSCRAPER_API_KEY="test-key")
     @patch.dict(os.environ, {"OUTSCRAPER_API_KEY": "test-key"}, clear=False)
-    @patch("appertivo.leads.tasks.requests.get")
-    def test_fetch_leads_uses_async_job_and_webhook(self, mock_get: Mock) -> None:
+    @patch("appertivo.leads.tasks._create_outscraper_client")
+    def test_fetch_leads_uses_sdk_and_maps_fields(self, mock_client_factory: Mock) -> None:
         run = LeadRun.objects.create(expected_leads=5)
 
-        first_response = Mock()
-        first_response.raise_for_status = Mock()
-        first_response.json.return_value = {"id": "job-123", "status": "Pending"}
-
-        second_response = Mock()
-        second_response.raise_for_status = Mock()
-        second_response.json.return_value = {
-            "Status": "Success",
-            "Data": [
+        mock_client = Mock()
+        mock_client.google_maps_search.return_value = {
+            "id": "job-123",
+            "data": [
                 {
                     "name": "Sunset Bistro",
-                    "email": "owner@example.com",
+                    "email_1": "owner@example.com",
+                    "email_2": "hello@sunset.example",
                     "phone": "555-0100",
+                    "phone_2": "+1 555-0111",
                     "city": "Austin, TX",
+                    "full_address": "123 Main St, Austin, TX",
+                    "latitude": "30.2672",
+                    "longitude": "-97.7431",
+                    "site": "https://sunset.example",
+                    "place_id": "place-123",
+                    "instagram": "https://instagram.com/sunset",
+                    "order_links": ["https://order.example"],
+                    "working_hours": {"Monday": "9AM-5PM"},
                 }
             ],
         }
-
-        mock_get.side_effect = [first_response, second_response]
+        mock_client_factory.return_value = mock_client
 
         lead_ids = fetch_leads(run_id=run.id, city="Austin, TX", limit=3)
 
         self.assertEqual(len(lead_ids), 1)
-        self.assertEqual(
-            mock_get.call_args_list[0].args[0],
-            "https://api.outscraper.cloud/google-maps-search",
-        )
-        params = mock_get.call_args_list[0].kwargs["params"]
-        self.assertEqual(params["async"], "true")
-        self.assertEqual(params["webhook"], "https://appertivo.com/leads/outscraper-webhook/")
-        self.assertEqual(params["enrichment"], json.dumps(["domains_service"]))
-        self.assertEqual(
-            mock_get.call_args_list[1].args[0],
-            "https://api.outscraper.cloud/requests/job-123",
-        )
+        mock_client.google_maps_search.assert_called_once()
+        _, kwargs = mock_client.google_maps_search.call_args
+        self.assertEqual(kwargs["limit"], 3)
+        self.assertIn("domains_service", kwargs["enrichment"])
 
         lead = Lead.objects.get(pk=lead_ids[0])
         self.assertEqual(lead.email, "owner@example.com")
         self.assertEqual(lead.json_data["name"], "Sunset Bistro")
+        self.assertEqual(lead.full_address, "123 Main St, Austin, TX")
+        self.assertAlmostEqual(lead.latitude, 30.2672)
+        self.assertIn("https://order.example", lead.order_links)
+        self.assertIn("instagram", lead.social_links)
+        self.assertEqual(sorted(lead.emails), ["hello@sunset.example", "owner@example.com"])
 
         run.refresh_from_db()
         self.assertEqual(run.status, LeadRun.Status.PREPARING)
@@ -72,17 +73,15 @@ class FetchLeadsTaskTests(TestCase):
     @override_settings(OUTSCRAPER_API_KEY="test-key")
     @patch.dict(os.environ, {"OUTSCRAPER_API_KEY": "test-key"}, clear=False)
     @patch("appertivo.leads.tasks.logger")
-    @patch("appertivo.leads.tasks.requests.get")
-    def test_fetch_leads_logs_pending_jobs(self, mock_get: Mock, mock_logger: Mock) -> None:
-        pending_response = Mock()
-        pending_response.raise_for_status = Mock()
-        pending_response.json.return_value = {
+    @patch("appertivo.leads.tasks._create_outscraper_client")
+    def test_fetch_leads_logs_pending_jobs(self, mock_client_factory: Mock, mock_logger: Mock) -> None:
+        mock_client = Mock()
+        mock_client.google_maps_search.return_value = {
             "id": "job-456",
             "status": "Pending",
             "description": "Results are expired, or the task is not yet finished",
         }
-
-        mock_get.return_value = pending_response
+        mock_client_factory.return_value = mock_client
 
         lead_ids = fetch_leads(city="Seattle, WA", limit=2)
 
