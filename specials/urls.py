@@ -4,6 +4,7 @@ from django.urls import include, path
 from django.contrib.auth import views as auth_views
 
 from app import outscraper, views as app_views
+from views import billing as billing_views
 from articles import admin_views as articles_admin_views
 from articles.sitemaps import ArticlesSitemap
 from app.outscraper import outscraper_webhook
@@ -20,6 +21,7 @@ urlpatterns = [
     path("privacy/", app_views.privacy_view, name="privacy"),
     path("terms/", app_views.terms_view, name="terms"),
     path("contact/", app_views.contact_view, name="contact"),
+    path("setup/", app_views.setup_view, name="setup"),
     path("dashboard/<uuid:restaurant_id>/", app_views.dashboard, name="dashboard"),
     path("dashboard/", app_views.dashboard_redirect, name="dashboard-redirect"),
 
@@ -75,6 +77,16 @@ urlpatterns = [
     path("billing/", app_views.billing_view, name="billing"),
     path("billing/upgrade/", app_views.billing_upgrade_view, name="billing-upgrade"),
     path("billing/cancel/", app_views.billing_cancel_view, name="billing-cancel"),
+    path(
+        "billing/create-checkout-session/",
+        billing_views.create_checkout_session,
+        name="billing-create-checkout-session",
+    ),
+    path(
+        "billing/portal/",
+        billing_views.create_billing_portal_session,
+        name="billing-portal",
+    ),
     path("checkout/create/", app_views.create_checkout_session_view, name="create-checkout"),
     path("checkout/success/", app_views.checkout_success_view, name="checkout-success"),
     path("checkout/cancel/", app_views.checkout_cancel_view, name="checkout-cancel"),
