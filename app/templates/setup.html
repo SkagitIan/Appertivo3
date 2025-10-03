@@ -1,0 +1,20 @@
+{% extends "layouts/marketing.html" %}
+
+{% block title %}Complete your workspace setup{% endblock %}
+
+{% block content %}
+  <section class="py-24">
+    <div class="max-w-2xl mx-auto px-6 text-center space-y-6">
+      <h1 class="text-3xl md:text-4xl font-bold text-[#2E005D]">You're all set!</h1>
+      <p class="text-lg text-slate-600">
+        We received your subscription. Keep this tab open while we finish preparing your workspace.
+      </p>
+      {% if session_id %}
+        <p class="text-sm text-slate-500">
+          Checkout reference: <span class="font-mono text-slate-700">{{ session_id }}</span>
+        </p>
+      {% endif %}
+      <p class="text-sm text-slate-500">You can close this page or bookmark it to return later.</p>
+    </div>
+  </section>
+{% endblock %}

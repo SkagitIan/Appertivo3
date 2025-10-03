@@ -1164,9 +1164,12 @@
           <h3 class="text-xl font-semibold text-[#FF5C00]">Pro</h3>
           <p class="mt-4 text-slate-600">Unlock enhancements, menu building, and AI-powered features.</p>
           <p class="mt-6 text-3xl font-bold text-[#FF5C00]">$59/mo</p>
-          <a href="{% url 'signup' %}" class="mt-6 inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-[#FF8300] to-[#FF5C00] px-5 py-3 text-sm font-semibold text-white transition hover:scale-105">
-            Upgrade Now
-          </a>
+          <form method="post" action="{% url 'billing-create-checkout-session' %}" class="mt-6">
+            {% csrf_token %}
+            <button type="submit" class="inline-flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-[#FF8300] to-[#FF5C00] px-5 py-3 text-sm font-semibold text-white transition hover:scale-105">
+              Upgrade Now
+            </button>
+          </form>
         </div>
         <div class="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
           <h3 class="text-xl font-semibold text-[#2E005D]">Enterprise</h3>

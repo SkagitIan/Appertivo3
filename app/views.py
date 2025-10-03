@@ -478,6 +478,13 @@ def contact_view(request):
     return render(request, "contact.html", context)
 
 
+def setup_view(request):
+    """Render the setup placeholder page shown after checkout."""
+
+    context = {"session_id": request.GET.get("session_id", "")}
+    return render(request, "setup.html", context)
+
+
 def signup_view(request):
     """Register a new user and restaurant."""
     if request.method == "POST":
