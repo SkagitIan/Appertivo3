@@ -8,7 +8,7 @@ import os
 from typing import Any, Optional
 
 import requests
-from django.http import HttpResponse, JsonResponse
+from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
 from app import models
@@ -94,12 +94,12 @@ def _load_results(payload: dict[str, Any]) -> dict[str, Any] | None:
 def outscraper_webhook(request, restaurant_id: str, token: str):
     """Handle Outscraper webhook callbacks with token verification."""
 
-    from app import onboarding  # Local import to avoid circular dependency
+    from app import signup_service  # Local import to avoid circular dependency
 
     if request.method != "POST":
         return JsonResponse({"status": "error", "message": "Only POST allowed"}, status=405)
 
-    if not onboarding.verify_restaurant_token(token, restaurant_id):
+    if not signup_service.verify_restaurant_token(token, restaurant_id):
         logger.warning("Rejected Outscraper webhook for restaurant %s due to bad token", restaurant_id)
         return JsonResponse({"status": "error", "message": "Invalid signature"}, status=403)
 
@@ -134,36 +134,5 @@ def outscraper_webhook(request, restaurant_id: str, token: str):
         update_fields.append("review_count")
 
     restaurant.save(update_fields=update_fields)
-
-    onboarding_record = models.Onboarding.objects.filter(restaurant=restaurant).first()
-    if onboarding_record:
-        job_id = str(
-            payload.get("id")
-            or payload.get("job_id")
-            or payload.get("task_id")
-            or ""
-        )
-        if job_id and onboarding_record.outscraper_reviews_job_id == job_id:
-            logger.info(
-                "Duplicate Outscraper webhook ignored",
-                extra={"onboarding": str(onboarding_record.id), "job": job_id},
-            )
-            return JsonResponse({"status": "ok", "message": "Duplicate"})
-
-        updates = ["reviews_json", "updated_at"]
-        onboarding_record.reviews_json = results_payload
-        if job_id:
-            onboarding_record.outscraper_reviews_job_id = job_id
-            updates.append("outscraper_reviews_job_id")
-        onboarding_record.save(update_fields=updates)
-
-        if onboarding.STATE_INDEX[onboarding_record.state] < onboarding.STATE_INDEX[
-            models.Onboarding.State.REVIEWS_DONE
-        ]:
-            onboarding_record.mark(
-                models.Onboarding.State.REVIEWS_DONE,
-                progress=60,
-                message="Reviews webhook received",
-            )
 
     return JsonResponse({"status": "ok"})

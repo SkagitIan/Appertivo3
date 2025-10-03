@@ -103,31 +103,6 @@ class DishIdeaInline(admin.TabularInline):
     fields = ("title", "description")
     show_change_link = True
 
-@admin.register(models.Onboarding)
-class OnboardingAdmin(TimestampedAdmin):
-    list_display = (
-        "user",
-        "restaurant",
-        "state",
-        "progress",
-        "updated_at",
-    )
-    list_filter = ("state",)
-    readonly_fields = (
-        "outscraper_search_job_id",
-        "outscraper_reviews_job_id",
-        "web_profile_json",
-        "reviews_json",
-        "review_analysis_json",
-        "personas_json",
-        "last_error",
-    )
-
-@admin.register(models.OnboardingEvent)
-class OnboardingEventAdmin(TimestampedAdmin):
-    list_display = ("onboarding", "from_state", "to_state", "created_at")
-    list_filter = ("to_state",)
-
 @admin.register(models.Restaurant)
 class RestaurantAdmin(admin.ModelAdmin):
     list_display = ("name", "location_text", "phone", "rating", "review_count", "created_at")
