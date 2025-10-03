@@ -11,16 +11,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RenameIndex(
-            model_name='provisioningjob',
-            new_name='app_provisi_onboard_8e1ab0_idx',
-            old_name='app_provisioningjob_onboarding_created_idx',
-        ),
-        migrations.RenameIndex(
-            model_name='stripewebhookevent',
-            new_name='app_stripew_created_a077d9_idx',
-            old_name='app_stripewebhookevent_created_idx',
-        ),
         migrations.AlterField(
             model_name='provisioningjob',
             name='id',
