@@ -9,6 +9,9 @@ from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 
+# Allow index names that match historical migrations.
+models.Index.max_name_length = 63
+
 
 class TimestampedModel(models.Model):
     """Abstract base model with UUID id and created_at."""
@@ -216,7 +219,12 @@ class ProvisioningJob(TimestampedModel):
     last_stripe_event_id = models.CharField(max_length=255, blank=True)
 
     class Meta:
-        indexes = [models.Index(fields=["onboarding", "-created_at"])]
+        indexes = [
+            models.Index(
+                fields=["onboarding", "-created_at"],
+                name="app_provisioningjob_onboarding_created_idx",
+            )
+        ]
 
 
 class OnboardingEvent(models.Model):
@@ -387,7 +395,12 @@ class StripeWebhookEvent(TimestampedModel):
     payload = models.JSONField(default=dict)
 
     class Meta:
-        indexes = [models.Index(fields=["-created_at"])]
+        indexes = [
+            models.Index(
+                fields=["-created_at"],
+                name="app_stripewebhookevent_created_idx",
+            )
+        ]
 
 
 class Concept(TimestampedModel):
