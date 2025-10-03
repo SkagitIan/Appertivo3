@@ -52,6 +52,42 @@ def _see_other(location: str) -> HttpResponse:
     return response
 
 
+def pricing_redirect_view(request: HttpRequest) -> HttpResponse:
+    """Public landing page that jumps straight into Stripe Checkout."""
+
+    api_key = _ensure_api_key()
+    price_id = getattr(settings, "STRIPE_PRICE_ID", "")
+
+    if not api_key or not price_id:
+        logger.warning("Stripe configuration missing for pricing redirect.")
+        return HttpResponseServerError("payments_unavailable")
+
+    domain = _marketing_domain(request)
+    session_kwargs: dict[str, Any] = {
+        "mode": "subscription",
+        "line_items": [{"price": price_id, "quantity": 1}],
+        "consent_collection": {"terms_of_service": "required"},
+        "customer_creation": "always",
+        "allow_promotion_codes": True,
+        "payment_method_collection": "always",
+        "success_url": f"{domain}/setup?session_id={{CHECKOUT_SESSION_ID}}",
+        "cancel_url": f"{domain}/pricing",
+    }
+
+    try:
+        session = stripe.checkout.Session.create(**session_kwargs)
+    except stripe.error.StripeError:
+        logger.exception("Unable to create Stripe Checkout session", exc_info=True)
+        return HttpResponseServerError("checkout_unavailable")
+
+    session_url = getattr(session, "url", "")
+    if not session_url:
+        logger.error("Stripe Checkout session created without a URL")
+        return HttpResponseServerError("checkout_unavailable")
+
+    return _see_other(session_url)
+
+
 @require_POST
 def create_checkout_session(request: HttpRequest) -> HttpResponse:
     """Start a Stripe Checkout session for the self-serve subscription."""

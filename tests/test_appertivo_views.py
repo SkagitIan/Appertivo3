@@ -17,7 +17,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from app import models, onboarding, views
+from app import models, signup_service, views
 
 
 @override_settings(
@@ -95,8 +95,8 @@ class ViewSmokeTests(TestCase):
             "location": "Town",
         }
         resp = self.client.post(reverse("signup"), data)
-        self.assertEqual(resp.status_code, 302)
-        self.assertEqual(resp["Location"], reverse("onboarding"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertTemplateUsed(resp, "auth/check_email.html")
         self.assertTrue(User.objects.filter(username="new@example.com").exists())
 
     def test_login_authenticates(self):
@@ -105,26 +105,91 @@ class ViewSmokeTests(TestCase):
             reverse("login"), {"username": "u@example.com", "password": "pw"}
         )
         self.assertEqual(resp.status_code, 302)
+        self.assertIn(str(self.restaurant.id), resp["Location"])
 
-    def test_onboarding_views(self):
-        resp = self.client.get(reverse("onboarding"))
-        self.assertEqual(resp.status_code, 200)
-        self.assertContains(resp, "Track onboarding progress")
-        status_resp = self.client.get(
-            reverse("onboarding-status"), HTTP_HX_REQUEST="true"
+    def test_login_redirects_to_getting_started_without_restaurant(self):
+        models.Restaurant.objects.filter(id=self.restaurant.id).delete()
+        resp = self.client.get(reverse("login"))
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp["Location"], reverse("getting-started"))
+
+    def test_getting_started_redirects_when_setup_incomplete(self):
+        models.Membership.objects.all().delete()
+        resp = self.client.get(reverse("getting-started"))
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp["Location"], reverse("setup"))
+
+    def test_getting_started_lists_action_steps(self):
+        concept_run = models.IdeationRun.objects.create(
+            restaurant=self.restaurant,
+            initiated_by_user=self.user,
+            type=models.IdeationRun.RunType.CONCEPTS,
+            model_name="m",
+            temperature=0,
+            classic_creative=50,
+            context_snapshot={},
+            status=models.IdeationRun.Status.SUCCEEDED,
         )
-        self.assertEqual(status_resp.status_code, 200)
-        self.assertIn("Current state", status_resp.content.decode())
+        concept = models.Concept.objects.create(
+            restaurant=self.restaurant,
+            ideation_run=concept_run,
+            name="Harvest", 
+            rank_order=1,
+        )
+        dish_run = models.IdeationRun.objects.create(
+            restaurant=self.restaurant,
+            initiated_by_user=self.user,
+            type=models.IdeationRun.RunType.DISHES,
+            model_name="m",
+            temperature=0,
+            classic_creative=50,
+            context_snapshot={},
+            parent_concept=concept,
+            status=models.IdeationRun.Status.SUCCEEDED,
+        )
+        models.DishIdea.objects.create(
+            restaurant=self.restaurant,
+            ideation_run=dish_run,
+            parent_concept=concept,
+            title="Harvest Bowl",
+            description="",
+            ingredient_names=[],
+            category_tags=[],
+        )
+        models.MenuVersion.objects.create(
+            restaurant=self.restaurant,
+            source_kind=models.MenuVersion.SourceKind.PASTED_TEXT,
+            raw_markdown="Menu",
+            status=models.MenuVersion.Status.SUCCEEDED,
+        )
+
+        resp = self.client.get(reverse("getting-started"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Generate a concept")
+        self.assertContains(resp, reverse("concepts-generate"))
+        self.assertContains(resp, "Export & share")
+
+    def test_legacy_onboarding_urls_redirect(self):
+        legacy_paths = [
+            "onboarding",
+            "onboarding-consent",
+            "onboarding-billing",
+            "onboarding-status",
+            "onboarding-status-api",
+            "onboarding-retry",
+            "manual-menu",
+        ]
+        for name in legacy_paths:
+            resp = self.client.get(reverse(name))
+            self.assertEqual(resp.status_code, 302)
+            self.assertEqual(resp["Location"], reverse("setup"))
 
     def test_billing_upgrade_starts_checkout(self):
-        onboarding.ensure_onboarding_for_user(self.user)
         with patch(
             "app.views.stripe.checkout.Session.create",
             return_value=SimpleNamespace(url="https://stripe.test/session"),
         ) as mock_create:
-            resp = self.client.post(
-                reverse("billing-upgrade"), {"next": reverse("onboarding")}
-            )
+            resp = self.client.post(reverse("billing-upgrade"), {"next": "/billing/"})
 
         self.assertEqual(resp.status_code, 302)
         self.assertEqual(resp["Location"], "https://stripe.test/session")
@@ -132,68 +197,6 @@ class ViewSmokeTests(TestCase):
         kwargs = mock_create.call_args.kwargs
         self.assertIn("success_url", kwargs)
         self.assertIn("session_id={CHECKOUT_SESSION_ID}", kwargs["success_url"])
-
-    def test_onboarding_checkout_completion_marks_paid(self):
-        onboarding_record = onboarding.ensure_onboarding_for_user(self.user)
-        with patch(
-            "app.views.stripe_service.complete_checkout_session",
-            return_value=self.account,
-        ) as mock_complete, patch("app.onboarding.kickoff_after_payment") as mock_kickoff:
-            mock_kickoff.return_value = None
-            resp = self.client.get(
-                reverse("onboarding"), {"session_id": "cs_test_checkout"}
-            )
-
-        self.assertEqual(resp.status_code, 302)
-        self.assertEqual(resp["Location"], reverse("onboarding"))
-        mock_complete.assert_called_once_with("cs_test_checkout")
-        onboarding_record.refresh_from_db()
-        self.assertEqual(
-            onboarding_record.state, models.Onboarding.State.CHECKOUT_PAID
-        )
-        mock_kickoff.assert_called_once()
-        kickoff_args = mock_kickoff.call_args.args
-        self.assertEqual(kickoff_args[0], onboarding_record.id)
-
-    def test_manual_menu(self):
-        resp = self.client.get(reverse("manual-menu"), HTTP_HX_REQUEST="true")
-        self.assertEqual(resp.status_code, 200)
-        self.assertContains(resp, "Manual menu submission")
-
-    def test_manual_menu_creates_menu_version_from_text(self):
-        payload = {"menu_text": "Lunch\n- Soup of the Day"}
-        resp = self.client.post(
-            reverse("manual-menu"), payload, HTTP_HX_REQUEST="true"
-        )
-        self.assertEqual(resp.status_code, 204)
-        self.assertEqual(resp["HX-Redirect"], reverse("onboarding"))
-
-        menu_version = models.MenuVersion.objects.get(restaurant=self.restaurant)
-        self.assertEqual(menu_version.source_kind, models.MenuVersion.SourceKind.PASTED_TEXT)
-        self.assertEqual(menu_version.raw_markdown, "Lunch\n- Soup of the Day")
-        self.assertTrue(self.client.session.get("menu_success"))
-
-    def test_manual_menu_requires_content(self):
-        resp = self.client.post(reverse("manual-menu"), {}, HTTP_HX_REQUEST="true")
-        self.assertEqual(resp.status_code, 400)
-        self.assertContains(resp, "Paste your menu or upload a PDF", status_code=400)
-        self.assertEqual(models.MenuVersion.objects.count(), 0)
-
-    @override_settings(DATA_UPLOAD_MAX_MEMORY_SIZE=10)
-    def test_manual_menu_handles_large_payload_inline(self):
-        large_text = "x" * 1024
-        resp = self.client.post(
-            reverse("manual-menu"),
-            {"menu_text": large_text},
-            HTTP_HX_REQUEST="true",
-        )
-        self.assertEqual(resp.status_code, 413)
-        self.assertContains(
-            resp,
-            "too large to paste directly",
-            status_code=413,
-        )
-
     @override_settings(DATA_UPLOAD_MAX_MEMORY_SIZE=10)
     def test_menu_modal_handles_large_payload_inline(self):
         large_text = "x" * 1024
@@ -226,12 +229,6 @@ class ViewSmokeTests(TestCase):
     def test_outscraper_webhook_saves_reviews(self):
         self.restaurant.google_place_id = "place-123"
         self.restaurant.save(update_fields=["google_place_id"])
-        models.Onboarding.objects.create(
-            user=self.user,
-            restaurant=self.restaurant,
-            state=models.Onboarding.State.CHECKOUT_PAID,
-        )
-
         payload = {
             "data": [
                 [
@@ -247,7 +244,7 @@ class ViewSmokeTests(TestCase):
                 ]
             ]
         }
-        token = onboarding.sign_restaurant_token(self.restaurant.id)
+        token = signup_service.sign_restaurant_token(self.restaurant.id)
         url = reverse("outscraper_webhook", args=[self.restaurant.id, token])
         resp = self.client.post(
             url,
@@ -260,8 +257,6 @@ class ViewSmokeTests(TestCase):
         self.assertEqual(self.restaurant.review_count, 25)
         self.assertAlmostEqual(float(self.restaurant.rating), 4.7)
         self.assertEqual(self.restaurant.reviews_json, payload)
-        onboarding_record = models.Onboarding.objects.get(restaurant=self.restaurant)
-        self.assertEqual(onboarding_record.state, models.Onboarding.State.REVIEWS_DONE)
 
     @override_settings(OUTSCRAPER_API_KEY="test-key")
     def test_refresh_reviews_calls_outscraper(self):
@@ -283,7 +278,7 @@ class ViewSmokeTests(TestCase):
         webhook_url = kwargs["params"]["webhook"]
         self.assertIn(str(self.restaurant.id), webhook_url)
         token = webhook_url.rstrip("/").split("/")[-1]
-        self.assertTrue(onboarding.verify_restaurant_token(token, self.restaurant.id))
+        self.assertTrue(signup_service.verify_restaurant_token(token, self.restaurant.id))
 
     def test_dashboard_displays_contextual_ai_component(self):
         self.restaurant.context_json = {
@@ -1260,21 +1255,6 @@ class ViewSmokeTests(TestCase):
 
         cancel = self.client.post(reverse("billing-cancel"))
         self.assertEqual(cancel.status_code, 302)
-
-    @patch("app.views.stripe.checkout.Session.create")
-    def test_onboarding_checkout_requires_configured_stripe_key(
-        self, mock_checkout
-    ):
-        with override_settings(STRIPE_SECRET_KEY=""):
-            self.assertEqual(settings.STRIPE_SECRET_KEY, "")
-            response = self.client.post(reverse("create-checkout"))
-
-        self.assertEqual(response.status_code, 503)
-        self.assertEqual(
-            response.json()["error"],
-            "Payments are temporarily unavailable. Please contact support to complete your onboarding.",
-        )
-        mock_checkout.assert_not_called()
 
     def test_job_status_and_notifications(self):
         job = models.Job.objects.create(

@@ -1,0 +1,55 @@
+{% extends "layouts/app.html" %}
+{% load static %}
+
+{% block title %}Getting started · Appertivo{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-10">
+  <div class="bg-white shadow rounded-lg p-8">
+    <h1 class="text-3xl font-semibold text-slate-900 mb-4">Welcome back</h1>
+    <p class="text-slate-600 mb-8">Three quick steps to launch your first special.</p>
+    <div class="space-y-6">
+      {% for step in steps %}
+      <div class="border border-slate-200 rounded-lg p-6 flex flex-col lg:flex-row lg:items-center lg:justify-between {% if step.completed %}bg-slate-50{% endif %}">
+        <div class="flex-1">
+          <div class="flex items-center gap-3">
+            <span class="flex h-8 w-8 items-center justify-center rounded-full {% if step.completed %}bg-emerald-500 text-white{% else %}bg-slate-200 text-slate-700{% endif %}">
+              {{ forloop.counter }}
+            </span>
+            <h2 class="text-xl font-semibold text-slate-900">{{ step.title }}</h2>
+            {% if step.completed %}
+            <span class="inline-flex items-center px-2 py-1 text-sm font-medium rounded-full bg-emerald-100 text-emerald-700">Done</span>
+            {% endif %}
+          </div>
+          <p class="text-slate-600 mt-3">{{ step.description }}</p>
+        </div>
+        <div class="mt-4 lg:mt-0 lg:ml-8">
+          <a href="{{ step.cta_url }}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-slate-900 hover:bg-slate-800">{{ step.cta_label }}</a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="mt-10 grid gap-4 md:grid-cols-2">
+    <div class="rounded-lg border border-slate-200 p-6">
+      <h3 class="text-lg font-medium text-slate-900 mb-2">Latest concept</h3>
+      {% if latest_concept %}
+      <p class="text-slate-700 font-semibold">{{ latest_concept.name }}</p>
+      <p class="text-slate-600 mt-2">Last updated {{ latest_concept.created_at|date:"M j" }}</p>
+      {% else %}
+      <p class="text-slate-600">No concepts yet. Start with the generator above.</p>
+      {% endif %}
+    </div>
+    <div class="rounded-lg border border-slate-200 p-6">
+      <h3 class="text-lg font-medium text-slate-900 mb-2">Menu progress</h3>
+      {% if latest_menu %}
+      <p class="text-slate-700">Latest menu captured {{ latest_menu.created_at|date:"M j" }}.</p>
+      {% else %}
+      <p class="text-slate-600">When you add your first menu we will surface it here.</p>
+      {% endif %}
+      <p class="text-slate-600 mt-4">Dish ideas generated: <span class="font-semibold">{{ dish_total }}</span></p>
+    </div>
+  </div>
+</div>
+{% endblock %}
