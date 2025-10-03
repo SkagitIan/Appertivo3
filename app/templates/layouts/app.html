@@ -19,6 +19,10 @@
             return decodeURIComponent(trimmed.slice(name.length));
           }
         }
+        const metaToken = document.querySelector('meta[name="csrf-token"]');
+        if (metaToken && metaToken.content) {
+          return metaToken.content;
+        }
         return null;
       }
 
