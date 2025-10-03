@@ -24,11 +24,7 @@ stripe = stripe_sdk
 def get_stripe_secret_key() -> str:
     """Return the Stripe secret key from environment or Django settings."""
 
-    return (
-        os.getenv("STRIPE_API_KEY")
-        or os.getenv("STRIPE_SECRET_KEY")
-        or getattr(settings, "STRIPE_SECRET_KEY", "")
-    )
+    return os.getenv("STRIPE_API_KEY")
 
 
 class InvalidWebhookPayload(Exception):
