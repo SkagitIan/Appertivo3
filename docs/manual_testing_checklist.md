@@ -8,15 +8,15 @@ This checklist enumerates every page and major feature exposed by the current Dj
 - **Lead landing microsite** – Test `/demo/<slug>/` renders the personalized concept and dish carousel for a lead, with `/demo/<slug>/track/` recording opens before redirecting. 【F:appertivo/leads/views.py†L10-L31】
 
 ## Authentication & account creation
-- **Signup flow (HTML & JSON)** – Exercise field validation, duplicate-email handling, automatic login, and Outscraper job kickoff for new restaurants. 【F:app/views.py†L454-L551】
-- **Login & logout** – Ensure credentials are required, successful login redirects to the user’s first restaurant dashboard, and logout returns to the login route. 【F:app/views.py†L556-L593】
-- **API signup alias** – Confirm `/api/signup/` behaves the same as the primary signup endpoint. 【F:specials/urls.py†L7-L76】【F:app/views.py†L454-L551】
+- **Signup flow (HTML & JSON)** – Exercise field validation, duplicate-email handling, activation email delivery, and check-email messaging for new restaurants. 【F:app/views.py†L454-L551】
+- **Login & logout** – Ensure credentials are required, successful login redirects to the user’s first restaurant dashboard (or the getting started hub when no restaurant exists), and logout returns to the login route. 【F:app/views.py†L556-L593】
+- **API signup alias** – Confirm `/api/signup/` behaves the same as the primary signup endpoint and returns a JSON redirect to `/check-email/`. 【F:specials/urls.py†L7-L82】【F:app/views.py†L454-L551】
 
-## Onboarding & menu ingestion
-- **Onboarding workspace** – Validate subscription messaging, menu URL submission, queued scrape jobs, and dashboard eligibility indicators on `/onboarding/`. 【F:app/views.py†L889-L995】
-- **Onboarding status API** – Hit `/onboarding/status/` to confirm JSON reflects whether a subscription exists. 【F:app/views.py†L998-L1016】
-- **Manual menu capture** – Test `/onboarding/manual_menu/` for text uploads, PDF ingestion, HX redirects, and error messaging when no content is provided. 【F:app/views.py†L1019-L1058】
-- **Restaurant status widget & modal** – Check the HTMX status fragment, menu modal, and upload endpoint for updating ingestion state. 【F:specials/urls.py†L28-L30】【F:app/views.py†L3219-L3299】
+## Getting started & provisioning
+- **Getting started hub** – Visit `/getting-started/` to verify CTA copy, completion badges, and redirects for accounts without restaurants. 【F:views/getting_started.py†L12-L83】【F:app/templates/getting_started.html†L1-L49】
+- **Setup redirect** – Hit `/setup/` after a mocked Stripe session to confirm copy nudges users toward the getting started hub. 【F:app/templates/setup.html†L1-L20】
+- **Pricing entry point** – Access `/pricing/` to ensure Stripe Checkout starts and returns a 303 redirect. 【F:specials/urls.py†L87-L99】【F:views/billing.py†L37-L74】
+- **Restaurant status widget & modal** – Check the HTMX status fragment, menu modal, and upload endpoint for updating ingestion state. 【F:specials/urls.py†L100-L112】【F:app/views.py†L3219-L3299】
 
 ## Dashboard, menus & search
 - **Restaurant dashboard** – Review subscription banners, context checklist, recent concepts/dishes, menu summaries, and AI prompt helpers. 【F:app/views.py†L595-L748】

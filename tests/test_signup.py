@@ -1,12 +1,17 @@
 import json
+import os
 from unittest.mock import patch
 
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "specials.settings")
+import django
+
+django.setup()
+
 from django.contrib.auth.models import User
-from django.db import IntegrityError
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from app import models, onboarding
+from app import models, signup_service
 
 
 @override_settings(SECURE_SSL_REDIRECT=False)
@@ -52,27 +57,20 @@ class SignupViewTests(TestCase):
         self.assertEqual(restaurant.location_text, "City, State")
         self.assertIsNone(restaurant.primary_menu_url)
         self.assertEqual(restaurant.menu_urls, [])
-        self.assertEqual(body["redirect_url"], reverse("onboarding"))
-
-        onboarding_record = models.Onboarding.objects.get(
-            user__username="owner@example.com"
-        )
-        self.assertEqual(onboarding_record.restaurant, restaurant)
-        self.assertEqual(onboarding_record.state, models.Onboarding.State.EMAIL_CONFIRMED)
-        self.assertEqual(onboarding_record.progress, 10)
+        self.assertEqual(body["redirect_url"], reverse("check-email"))
 
         mock_outscraper.delay.assert_not_called()
         mock_scrape.delay.assert_not_called()
 
     @patch(
-        "app.views.onboarding.start_signup", wraps=onboarding.start_signup
+        "app.views.signup_service.start_signup", wraps=signup_service.start_signup
     )
     @patch("app.views.run_outscraper_search")
     @patch("app.views.scrape_menu")
-    def test_form_signup_creates_onboarding_and_redirects(
+    def test_form_signup_renders_check_email(
         self, mock_scrape, mock_outscraper, mock_start_signup
     ):
-        """HTML signup should rely on the onboarding helper and redirect."""
+        """HTML signup should rely on the signup helper and render check email."""
         form_data = {
             "email": "owner@example.com",
             "password1": "pw",
@@ -85,80 +83,27 @@ class SignupViewTests(TestCase):
             response = self.client.post(reverse("signup"), data=form_data)
 
         mock_start_signup.assert_called_once()
-        restaurant = models.Restaurant.objects.get()
-        self.assertRedirects(response, reverse("onboarding"))
-        self.assertIn("_auth_user_id", self.client.session)
-
-        onboarding_record = models.Onboarding.objects.get(
-            user__username="owner@example.com"
-        )
-        self.assertEqual(onboarding_record.restaurant, restaurant)
-        self.assertEqual(onboarding_record.state, models.Onboarding.State.EMAIL_CONFIRMED)
-        self.assertEqual(onboarding_record.progress, 10)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "auth/check_email.html")
+        self.assertNotIn("_auth_user_id", self.client.session)
 
         mock_outscraper.delay.assert_not_called()
         mock_scrape.delay.assert_not_called()
 
-    @patch(
-        "app.views.onboarding.start_signup", wraps=onboarding.start_signup
-    )
-    def test_onboarding_consent_updates_state(self, mock_start_signup):
-        """Submitting consent should persist flags and keep progress updated."""
-
-        form_data = {
-            "email": "owner@example.com",
-            "password1": "pw",
-            "password2": "pw",
-            "restaurant_name": "Tasty Place",
-            "location": "City, State",
-        }
-
-        with self.captureOnCommitCallbacks(execute=True):
-            self.client.post(reverse("signup"), data=form_data)
-
-        mock_start_signup.assert_called_once()
-        onboarding_record = models.Onboarding.objects.get(
-            user__username="owner@example.com"
-        )
-        self.assertFalse(onboarding_record.accepted_terms)
-
-        response = self.client.post(
-            reverse("onboarding"),
-            data={
-                "form": "consent",
-                "accepted_terms": "on",
-                "accepted_privacy": "on",
-                "authorized_data_fetch": "on",
-            },
+    def test_activation_redirects_to_getting_started(self):
+        result = signup_service.start_signup(
+            email="owner@example.com",
+            password="pw",
+            restaurant_name="Tasty Place",
+            location="City",
         )
 
-        self.assertEqual(response.status_code, 200)
-        onboarding_record.refresh_from_db()
-        self.assertTrue(onboarding_record.accepted_terms)
-        self.assertTrue(onboarding_record.accepted_privacy)
-        self.assertTrue(onboarding_record.authorized_data_fetch)
-        self.assertEqual(onboarding_record.state, models.Onboarding.State.EMAIL_CONFIRMED)
-        self.assertGreaterEqual(onboarding_record.progress, 10)
+        token = result.activation_token
+        response = self.client.get(reverse("activate-email", args=[token]))
 
-    def test_onboarding_status_fragment_renders(self):
-        """Status endpoint should return progress markup for HTMX polling."""
-
-        form_data = {
-            "email": "owner@example.com",
-            "password1": "pw",
-            "password2": "pw",
-            "restaurant_name": "Tasty Place",
-            "location": "City, State",
-        }
-
-        with self.captureOnCommitCallbacks(execute=True):
-            self.client.post(reverse("signup"), data=form_data)
-
-        response = self.client.get(reverse("onboarding-status"))
-        self.assertEqual(response.status_code, 200)
-        content = response.content.decode()
-        self.assertIn("Current state", content)
-        self.assertIn("Email confirmed", content)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], reverse("getting-started"))
+        self.assertIn("_auth_user_id", self.client.session)
 
     def test_form_signup_with_existing_email_shows_error(self):
         """Duplicate email addresses should not trigger a server error."""

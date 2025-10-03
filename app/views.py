@@ -28,24 +28,19 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
-import requests
-from pydantic import BaseModel
 from django.core.cache import cache
 import hashlib
-from . import models
-import base64
-import cloudinary.uploader
+import requests
 from openai import OpenAI
+from . import models
 from dotenv import load_dotenv
 load_dotenv()
 _openai_api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=_openai_api_key) if _openai_api_key else None
 import datetime
-from itertools import islice
 import stripe
 
-from app.tasks import create_ideation_run
-from . import onboarding
+from . import signup_service
 from .outscraper import queue_outscraper_payload
 
 logger = logging.getLogger(__name__)
@@ -123,27 +118,6 @@ def _persist_slider_value(
 _queue_outscraper_payload = queue_outscraper_payload
 
 
-def _resolve_provisioning_job(
-    onboarding_record: "models.Onboarding", session_id: str | None
-) -> models.ProvisioningJob | None:
-    jobs = onboarding_record.provisioning_jobs.order_by("-created_at")
-    if session_id:
-        job = jobs.filter(stripe_session_id=session_id).first()
-        if job:
-            return job
-    job = jobs.filter(
-        status__in=[
-            models.ProvisioningJob.Status.RUNNING,
-            models.ProvisioningJob.Status.PENDING,
-            models.ProvisioningJob.Status.FAILED,
-        ]
-    ).first()
-    return job or jobs.first()
-
-class ConceptList(BaseModel):
-    concepts: List[str]
-
-
 def _ensure_stripe_api_key() -> None:
     """Refresh the Stripe API key from settings for the current process."""
 
@@ -205,6 +179,41 @@ def _footer_articles(limit: int = 4) -> List[Any]:
     )
     cache.set(cache_key, articles, timeout=DEFAULT_CACHE_TIMEOUT)
     return articles
+
+
+def _verify_recaptcha(token: str, remote_ip: str | None = None) -> bool:
+    """Verify a reCAPTCHA token and return True when allowed."""
+
+    secret_key = getattr(settings, "RECAPTCHA_SECRET_KEY", None)
+    if not secret_key:
+        logger.warning("RECAPTCHA_SECRET_KEY not configured, skipping verification")
+        return True
+    if not token:
+        logger.warning("No reCAPTCHA token provided")
+        return False
+
+    payload = {"secret": secret_key, "response": token}
+    if remote_ip:
+        payload["remoteip"] = remote_ip
+
+    try:
+        response = requests.post(
+            "https://www.google.com/recaptcha/api/siteverify",
+            data=payload,
+            timeout=5,
+        )
+        response.raise_for_status()
+    except requests.RequestException:
+        logger.exception("reCAPTCHA verification failed", exc_info=True)
+        return False
+
+    result = response.json()
+    success = result.get("success", False)
+    score = result.get("score", 0)
+    if not success or score < 0.5:
+        logger.warning("reCAPTCHA verification did not pass", extra={"score": score})
+        return False
+    return True
 
 
 def _stripe_timestamp(value: Optional[int]) -> datetime.datetime:
@@ -478,137 +487,132 @@ def setup_view(request):
 
 def signup_view(request):
     """Register a new user and restaurant."""
-    if request.method == "POST":
-        is_json = request.content_type == "application/json"
-        if is_json:
-            try:
-                data = json.loads(request.body or "{}")
-            except json.JSONDecodeError:
-                return JsonResponse({"error": "invalid_json"}, status=400)
-        else:
-            data = request.POST
 
-        email = (data.get("email") or "").strip()
-        restaurant_name = (data.get("restaurant_name") or "").strip()
-        location = (data.get("location") or "").strip()
-        form_data = {
-            "email": email,
-            "restaurant_name": restaurant_name,
-            "location": location,
-        }
+    context = {"RECAPTCHA_SITE_KEY": getattr(settings, "RECAPTCHA_SITE_KEY", "")}
+    if request.method != "POST":
+        return render(request, "auth/signup.html", context)
 
-        recaptcha_token = data.get("recaptcha_token") or data.get("g-recaptcha-response")
-        if recaptcha_token:
-            remote_ip = request.META.get("HTTP_X_FORWARDED_FOR")
-            if remote_ip:
-                remote_ip = remote_ip.split(",")[0].strip()
-            else:
-                remote_ip = request.META.get("REMOTE_ADDR")
-            
-            if not onboarding.verify_recaptcha(recaptcha_token, remote_ip):
-                error_message = "Please complete the security check"
-                if is_json:
-                    return JsonResponse({"error": "recaptcha_failed"}, status=400)
-                return render(
-                    request,
-                    "auth/signup.html",
-                    {"error": error_message, "form_data": form_data, "RECAPTCHA_SITE_KEY": settings.RECAPTCHA_SITE_KEY},
-                )
-
-        if is_json:
-            password = data.get("password")
-            if not password:
-                return JsonResponse({"error": "password_required"}, status=400)
-        else:
-            password1 = data.get("password1")
-            password2 = data.get("password2")
-            if password1 != password2:
-                return render(
-                    request,
-                    "auth/signup.html",
-                    {"error": "Passwords do not match", "form_data": form_data, "RECAPTCHA_SITE_KEY": settings.RECAPTCHA_SITE_KEY},
-                )
-            password = password1
-
-        if not email or not restaurant_name or not location:
-            if is_json:
-                return JsonResponse({"error": "missing_fields"}, status=400)
-            return render(
-                request,
-                "auth/signup.html",
-                {"error": "Please complete all fields.", "form_data": form_data, "RECAPTCHA_SITE_KEY": settings.RECAPTCHA_SITE_KEY},
-            )
-
-        if User.objects.filter(username__iexact=email).exists():
-            error_message = "An account with that email already exists."
-            if is_json:
-                return JsonResponse({"error": "email_in_use"}, status=400)
-            return render(
-                request,
-                "auth/signup.html",
-                {"error": error_message, "form_data": form_data, "RECAPTCHA_SITE_KEY": settings.RECAPTCHA_SITE_KEY},
-            )
-
+    is_json = request.content_type == "application/json"
+    if is_json:
         try:
-            signup_result = onboarding.start_signup(
-                email=email,
-                password=password,
-                restaurant_name=restaurant_name,
-                location=location,
-            )
-        except IntegrityError:
-            logger.exception("Signup failed due to database error", extra={"email": email})
-            error_message = "We couldn't sign you up right now. Please try again."
-            if is_json:
-                return JsonResponse({"error": "signup_failed"}, status=500)
-            return render(
-                request,
-                "auth/signup.html",
-                {"error": error_message, "form_data": form_data, "RECAPTCHA_SITE_KEY": settings.RECAPTCHA_SITE_KEY},
-            )
+            data = json.loads(request.body or "{}")
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "invalid_json"}, status=400)
+    else:
+        data = request.POST
 
-        user = signup_result.user
-        account = signup_result.account
-        restaurant = signup_result.restaurant
-        onboarding_record = signup_result.onboarding
+    email = (data.get("email") or "").strip()
+    restaurant_name = (data.get("restaurant_name") or "").strip()
+    location = (data.get("location") or "").strip()
+    form_data = {
+        "email": email,
+        "restaurant_name": restaurant_name,
+        "location": location,
+    }
 
-        site_url = request.build_absolute_uri('/').rstrip('/')
-        activation_link = f"{site_url}/activate/{onboarding_record.activation_token}/"
-        
-        html_content = render_to_string('emails/activation_email.html', {
-            'user_email': email,
-            'restaurant_name': restaurant_name,
-            'activation_link': activation_link,
-        })
-        
-        email_message = EmailMultiAlternatives(
-            subject='Activate Your Appertivo Account',
-            body=f'Please activate your account by visiting: {activation_link}',
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            to=[email],
+    recaptcha_token = data.get("recaptcha_token") or data.get("g-recaptcha-response")
+    if recaptcha_token:
+        forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR") or ""
+        remote_ip = (
+            forwarded_for.split(",")[0].strip()
+            if forwarded_for
+            else request.META.get("REMOTE_ADDR")
         )
-        email_message.attach_alternative(html_content, "text/html")
-        
-        try:
-            email_message.send()
-        except Exception as e:
-            logger.error(f"Failed to send activation email: {e}", extra={"email": email})
-        
-        if is_json:
-            return JsonResponse(
-                {
-                    "redirect_url": reverse("check-email"),
-                    "message": "Please check your email to activate your account",
-                }
-            )
-        return render(request, "auth/check_email.html", {"email": email})
+        if not _verify_recaptcha(recaptcha_token, remote_ip):
+            error_message = "Please complete the security check"
+            if is_json:
+                return JsonResponse({"error": "recaptcha_failed"}, status=400)
+            context.update({"error": error_message, "form_data": form_data})
+            return render(request, "auth/signup.html", context)
 
-    return render(request, "auth/signup.html", {"RECAPTCHA_SITE_KEY": settings.RECAPTCHA_SITE_KEY})
+    if is_json:
+        password = (data.get("password") or "").strip()
+        if not password:
+            return JsonResponse({"error": "password_required"}, status=400)
+    else:
+        password1 = (data.get("password1") or "").strip()
+        password2 = (data.get("password2") or "").strip()
+        if password1 != password2:
+            context.update({"error": "Passwords do not match", "form_data": form_data})
+            return render(request, "auth/signup.html", context)
+        password = password1
+
+    if not email or not restaurant_name or not location:
+        if is_json:
+            return JsonResponse({"error": "missing_fields"}, status=400)
+        context.update({"error": "Please complete all fields.", "form_data": form_data})
+        return render(request, "auth/signup.html", context)
+
+    if User.objects.filter(username__iexact=email).exists():
+        error_message = "An account with that email already exists."
+        if is_json:
+            return JsonResponse({"error": "email_in_use"}, status=400)
+        context.update({"error": error_message, "form_data": form_data})
+        return render(request, "auth/signup.html", context)
+
+    try:
+        signup_result = signup_service.start_signup(
+            email=email,
+            password=password,
+            restaurant_name=restaurant_name,
+            location=location,
+        )
+    except IntegrityError:
+        logger.exception("Signup failed due to database error", extra={"email": email})
+        error_message = "We couldn't sign you up right now. Please try again."
+        if is_json:
+            return JsonResponse({"error": "signup_failed"}, status=500)
+        context.update({"error": error_message, "form_data": form_data})
+        return render(request, "auth/signup.html", context)
+
+    activation_token = signup_result.activation_token
+    site_url = request.build_absolute_uri("/").rstrip("/")
+    activation_link = f"{site_url}/activate/{activation_token}/"
+
+    html_content = render_to_string(
+        "emails/activation_email.html",
+        {
+            "user_email": email,
+            "restaurant_name": restaurant_name,
+            "activation_link": activation_link,
+        },
+    )
+    email_message = EmailMultiAlternatives(
+        subject="Activate Your Appertivo Account",
+        body=f"Please activate your account by visiting: {activation_link}",
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[email],
+    )
+    email_message.attach_alternative(html_content, "text/html")
+
+    try:
+        email_message.send()
+    except Exception:
+        logger.exception("Failed to send activation email", extra={"email": email})
+
+    if is_json:
+        return JsonResponse(
+            {
+                "redirect_url": reverse("check-email"),
+                "message": "Please check your email to activate your account",
+            }
+        )
+    return render(request, "auth/check_email.html", {"email": email})
 
 
 
 def login_view(request):
     """Authenticate an existing user."""
+    if request.user.is_authenticated:
+        restaurant_id = (
+            models.Restaurant.objects.filter(account__membership__user=request.user)
+            .values_list("id", flat=True)
+            .first()
+        )
+        if restaurant_id:
+            return redirect("dashboard", restaurant_id=restaurant_id)
+        return redirect("getting-started")
+
     if request.method == "POST":
         username = (
             request.POST.get("username")
@@ -626,7 +630,8 @@ def login_view(request):
             )
             if restaurant_id:
                 return redirect("dashboard", restaurant_id=restaurant_id)
-            
+            return redirect("getting-started")
+
         return render(
             request,
             "auth/login.html",
@@ -648,15 +653,17 @@ def logout_view(request):
 
 def activate_email_view(request, token):
     """Activate user email via token and log them in."""
-    user_id = onboarding.verify_activation_token(token)
-    
+    user_id = signup_service.verify_activation_token(token)
+
     if not user_id:
         return render(
             request,
             "auth/login.html",
-            {"error": "This activation link is invalid or has expired. Please try signing up again or contact support."},
+            {
+                "error": "This activation link is invalid or has expired. Please try signing up again or contact support.",
+            },
         )
-    
+
     try:
         user = User.objects.get(id=user_id)
     except User.DoesNotExist:
@@ -665,32 +672,21 @@ def activate_email_view(request, token):
             "auth/login.html",
             {"error": "Invalid activation link. Please contact support."},
         )
-    
-    try:
-        onboarding_record = models.Onboarding.objects.get(user=user)
-    except models.Onboarding.DoesNotExist:
-        return render(
-            request,
-            "auth/login.html",
-            {"error": "Onboarding record not found. Please contact support."},
-        )
-    
-    if onboarding_record.state != models.Onboarding.State.CREATED:
-        login(request, user)
-        restaurant_id = (
-            models.Restaurant.objects.filter(account__membership__user=user)
-            .values_list("id", flat=True)
-            .first()
-        )
-        if restaurant_id:
-            return redirect("dashboard", restaurant_id=restaurant_id)
-        return redirect("onboarding")
-    
-    onboarding_record.mark(models.Onboarding.State.EMAIL_CONFIRMED, progress=10)
-    
+
+    if not user.is_active:
+        user.is_active = True
+        user.save(update_fields=["is_active"])
+
     login(request, user)
-    
-    return redirect("onboarding")
+
+    restaurant_id = (
+        models.Restaurant.objects.filter(account__membership__user=user)
+        .values_list("id", flat=True)
+        .first()
+    )
+    if restaurant_id:
+        return redirect("dashboard", restaurant_id=restaurant_id)
+    return redirect("getting-started")
 
 
 @login_required
@@ -1014,270 +1010,6 @@ def menus_view(request):
         "menus_workspace_url": reverse("menus"),
     }
     return render(request, "menus/main.html", ctx)
-
-
-@login_required
-def onboarding_view(request):
-    """Render the onboarding workspace using the state machine."""
-
-    onboarding_record = onboarding.ensure_onboarding_for_user(request.user)
-
-    membership = (
-        models.Membership.objects.filter(user=request.user)
-        .select_related("account")
-        .first()
-    )
-    account = membership.account if membership else None
-    subscription = None
-
-    session_id = request.GET.get("session_id")
-    if session_id:
-        completed_account = stripe_service.complete_checkout_session(session_id)
-        if completed_account and (not account or completed_account.id == account.id):
-            onboarding.mark_checkout_paid(completed_account)
-            return redirect(reverse("onboarding-status"))
-
-    if account:
-        subscription = (
-            models.Subscription.objects.filter(account=account)
-            .order_by("-created_at")
-            .first()
-        )
-
-    if request.method == "POST" and request.POST.get("form") == "consent":
-        onboarding.record_consent(
-            onboarding_record,
-            accepted_terms=bool(request.POST.get("accepted_terms")),
-            accepted_privacy=bool(request.POST.get("accepted_privacy")),
-            authorized_data_fetch=bool(request.POST.get("authorized_data_fetch")),
-        )
-        onboarding_record.refresh_from_db()
-
-    status = onboarding.status_for(onboarding_record)
-    state_label = dict(models.Onboarding.State.choices).get(
-        status.state, status.state.replace("_", " ").title()
-    )
-
-    if (
-        status.state == models.Onboarding.State.COMPLETE
-        and onboarding_record.restaurant
-    ):
-        return redirect(reverse("dashboard", args=[onboarding_record.restaurant.id]))
-
-    state_index = onboarding.STATE_INDEX.get(status.state, -1)
-    checkout_paid_index = onboarding.STATE_INDEX.get(models.Onboarding.State.CHECKOUT_PAID, -1)
-    if state_index >= checkout_paid_index and status.state != models.Onboarding.State.COMPLETE:
-        return redirect(reverse("onboarding-status"))
-
-    just_signed_up = request.session.pop("just_signed_up", False)
-
-    subscription_allows_dashboard = False
-    subscription_requires_update = False
-    if subscription:
-        subscription_allows_dashboard = subscription.status in {
-            models.Subscription.Status.ACTIVE,
-            models.Subscription.Status.TRIALING,
-        }
-        subscription_requires_update = not subscription_allows_dashboard
-
-    trial_days = getattr(settings, "STRIPE_TRIAL_DAYS", 14)
-    trial_ends = subscription.current_period_end if subscription else None
-    trial_days_remaining = None
-    if subscription and subscription.status == models.Subscription.Status.TRIALING:
-        remaining = subscription.current_period_end - timezone.now()
-        trial_days_remaining = max(remaining.days, 0)
-
-    restaurant = onboarding_record.restaurant
-    dashboard_url = (
-        reverse("dashboard", args=[restaurant.id]) if restaurant else ""
-    )
-
-    context = {
-        "onboarding": onboarding_record,
-        "status": status,
-        "restaurant": restaurant,
-        "subscription": subscription,
-        "trial_days": trial_days,
-        "trial_ends": trial_ends,
-        "trial_days_remaining": trial_days_remaining,
-        "show_start_trial": not subscription
-        or subscription.status == models.Subscription.Status.CANCELED,
-        "just_signed_up": just_signed_up,
-        "dashboard_url": dashboard_url,
-        "subscription_allows_dashboard": subscription_allows_dashboard,
-        "subscription_requires_update": subscription_requires_update,
-        "consent_required": not (
-            onboarding_record.accepted_terms
-            and onboarding_record.accepted_privacy
-            and onboarding_record.authorized_data_fetch
-        ),
-        "retry_url": reverse("onboarding-retry"),
-        "state_label": state_label,
-    }
-    return render(request, "onboarding.html", context)
-
-
-@login_required
-def onboarding_progress_fragment_view(request):
-    """Return the onboarding progress fragment for HTMX polling."""
-
-    onboarding_record = onboarding.ensure_onboarding_for_user(request.user)
-    status = onboarding.status_for(onboarding_record)
-    restaurant = onboarding_record.restaurant
-    state_label = dict(models.Onboarding.State.choices).get(
-        status.state, status.state.replace("_", " ").title()
-    )
-    context = {
-        "onboarding": onboarding_record,
-        "status": status,
-        "dashboard_url": (
-            reverse("dashboard", args=[restaurant.id]) if restaurant else ""
-        ),
-        "retry_url": reverse("onboarding-retry"),
-        "state_label": state_label,
-    }
-    return render(request, "onboarding/progress_fragment.html", context)
-
-
-@login_required
-def onboarding_status_api_view(request):
-    """API endpoint returning onboarding status as JSON."""
-
-    onboarding_record = onboarding.ensure_onboarding_for_user(request.user)
-    session_id = request.GET.get("session_id")
-    job = _resolve_provisioning_job(onboarding_record, session_id)
-    status = onboarding.status_for(onboarding_record)
-    restaurant = onboarding_record.restaurant
-    dashboard_url = reverse("dashboard", args=[restaurant.id]) if restaurant else ""
-
-    last_error = status.last_error or ""
-    can_retry = status.can_retry
-    if job and job.status == models.ProvisioningJob.Status.FAILED and job.error:
-        last_error = job.error
-        can_retry = True
-
-    response = JsonResponse(
-        {
-            "state": status.state,
-            "progress": status.progress,
-            "messages": status.messages,
-            "last_error": last_error,
-            "can_retry": can_retry,
-            "dashboard_url": dashboard_url,
-            "job_status": job.status if job else "",
-            "job_step": job.current_step if job else "",
-        }
-    )
-    if request.headers.get("HX-Request") and status.state == models.Onboarding.State.COMPLETE and dashboard_url:
-        response["HX-Redirect"] = dashboard_url
-    return response
-
-
-@login_required
-def onboarding_status_view(request):
-    """Render full-page onboarding status with real-time progress tracking."""
-
-    onboarding_record = onboarding.ensure_onboarding_for_user(request.user)
-    session_id = request.GET.get("session_id")
-    job = _resolve_provisioning_job(onboarding_record, session_id)
-    status = onboarding.status_for(onboarding_record)
-    restaurant = onboarding_record.restaurant
-    state_label = dict(models.Onboarding.State.choices).get(
-        status.state, status.state.replace("_", " ").title()
-    )
-
-    api_url = reverse("onboarding-status-api")
-    retry_url = reverse("onboarding-retry")
-    if session_id:
-        joiner = "&" if "?" in api_url else "?"
-        api_url = f"{api_url}{joiner}session_id={session_id}"
-        joiner = "&" if "?" in retry_url else "?"
-        retry_url = f"{retry_url}{joiner}session_id={session_id}"
-
-    context = {
-        "onboarding": onboarding_record,
-        "status": status,
-        "dashboard_url": (
-            reverse("dashboard", args=[restaurant.id]) if restaurant else ""
-        ),
-        "retry_url": retry_url,
-        "state_label": state_label,
-        "api_url": api_url,
-        "provisioning_job": job,
-        "session_id": session_id or "",
-    }
-    return render(request, "onboarding/status.html", context)
-
-
-@login_required
-@require_POST
-def onboarding_retry_view(request):
-    """Retry the onboarding pipeline after a failure."""
-
-    onboarding_record = onboarding.ensure_onboarding_for_user(request.user)
-    onboarding.retry_failed(onboarding_record)
-    session_id = request.GET.get("session_id") or request.POST.get("session_id")
-    if request.headers.get("HX-Request"):
-        response = onboarding_progress_fragment_view(request)
-        if session_id:
-            response["HX-Redirect"] = f"{reverse('onboarding-status')}?session_id={session_id}"
-        return response
-    redirect_url = reverse("onboarding-status")
-    if session_id:
-        redirect_url = f"{redirect_url}?session_id={session_id}"
-    return redirect(redirect_url)
-
-
-@login_required
-def manual_menu_view(request):
-    """Allow manual menu entry."""
-
-    membership = (
-        models.Membership.objects.filter(user=request.user)
-        .select_related("account")
-        .first()
-    )
-    restaurant = None
-    if membership:
-        restaurant = (
-            models.Restaurant.objects.filter(account=membership.account)
-            .order_by("created_at")
-            .first()
-        )
-
-    errors: list[str] = []
-    menu_text = ""
-
-    if not restaurant:
-        errors.append("We couldn't find a restaurant for your account yet.")
-    elif request.method == "POST":
-        try:
-            menu_text = (request.POST.get("menu_text") or "").strip()
-        except RequestDataTooBig:
-            errors.append(
-                "Your menu content is too large to paste directly. Please upload a PDF instead."
-            )
-            status = 413
-            context = {"errors": errors, "menu_text": menu_text}
-            return render(request, "_partials/manual_menu.html", context, status=status)
-
-        menu_pdf = request.FILES.get("menu_pdf")
-        if not menu_text and not menu_pdf:
-            errors.append("Paste your menu or upload a PDF so we can ingest it.")
-        else:
-            menu_version = _process_menu_submission(restaurant, None, menu_text, menu_pdf)
-            if menu_version:
-                request.session["menu_success"] = True
-                if request.headers.get("HX-Request"):
-                    response = HttpResponse(status=204)
-                    response["HX-Redirect"] = reverse("onboarding")
-                    return response
-                return redirect("onboarding")
-            errors.append("We couldn't process your submission. Please try again.")
-
-    status = 400 if errors else 200
-    context = {"errors": errors, "menu_text": menu_text}
-    return render(request, "_partials/manual_menu.html", context, status=status)
 
 
 @login_required
@@ -3452,7 +3184,6 @@ def billing_upgrade_view(request):
         session_kwargs["customer_email"] = request.user.email
 
     _ensure_stripe_api_key()
-    onboarding.mark_checkout_started(request.user)
 
     try:
         checkout_session = stripe.checkout.Session.create(**session_kwargs)
@@ -3500,99 +3231,6 @@ def billing_cancel_view(request):
     return redirect("billing")
 
 
-@login_required
-@require_POST
-def create_checkout_session_view(request):
-    """Create a Stripe Checkout session for $49 onboarding payment."""
-    
-    onboarding_record = onboarding.ensure_onboarding_for_user(request.user)
-    if not onboarding_record:
-        return JsonResponse({"error": "No onboarding record found"}, status=400)
-    
-    membership = (
-        models.Membership.objects.filter(user=request.user)
-        .select_related("account")
-        .first()
-    )
-    if not membership:
-        return JsonResponse({"error": "No account found"}, status=400)
-    
-    account = membership.account
-
-    stripe_secret = os.getenv("STRIPE_API_KEY")
-    if not stripe_secret:
-        logger.warning("Stripe secret key missing; cannot start onboarding checkout.")
-        return JsonResponse(
-            {
-                "error": (
-                    "Payments are temporarily unavailable. "
-                    "Please contact support to complete your onboarding."
-                )
-            },
-            status=503,
-        )
-
-    _ensure_stripe_api_key()
-    
-    success_url = request.build_absolute_uri(reverse("checkout-success"))
-    cancel_url = request.build_absolute_uri(reverse("checkout-cancel"))
-    
-    session_kwargs = {
-        "mode": "payment",
-        "line_items": [{
-            "price_data": {
-                "currency": "usd",
-                "product_data": {
-                    "name": "Appertivo Onboarding Service",
-                    "description": "Complete restaurant onboarding with AI-powered menu analysis",
-                },
-                "unit_amount": 4900,
-            },
-            "quantity": 1,
-        }],
-        "success_url": success_url,
-        "cancel_url": cancel_url,
-        "metadata": {
-            "user_id": str(request.user.id),
-            "onboarding_id": str(onboarding_record.id),
-            "account_id": str(account.id),
-        },
-    }
-    
-    if account.stripe_customer_id:
-        session_kwargs["customer"] = account.stripe_customer_id
-    else:
-        session_kwargs["customer_email"] = request.user.email
-    
-    try:
-        checkout_session = stripe.checkout.Session.create(**session_kwargs)
-        onboarding.mark_checkout_started(request.user, checkout_url=checkout_session.url)
-        return JsonResponse({"url": checkout_session.url})
-    except stripe.error.StripeError as e:
-        logger.exception("Unable to create Stripe Checkout session for onboarding", exc_info=True)
-        return JsonResponse({"error": str(e)}, status=500)
-
-
-@login_required
-def checkout_success_view(request):
-    """Show success message after payment completion."""
-    
-    context = {
-        "status_url": reverse("onboarding-status"),
-    }
-    return render(request, "checkout/success.html", context)
-
-
-@login_required
-def checkout_cancel_view(request):
-    """Show cancellation message and retry option."""
-    
-    context = {
-        "onboarding_url": reverse("onboarding"),
-    }
-    return render(request, "checkout/cancel.html", context)
-
-
 @csrf_exempt
 @require_POST
 def stripe_webhook_view(request):
@@ -3632,41 +3270,6 @@ def stripe_webhook_view(request):
             return HttpResponse(status=200)
 
     if event_type == "checkout.session.completed":
-        metadata = data_object.get("metadata", {})
-        onboarding_id = metadata.get("onboarding_id")
-        session_id = data_object.get("id") or data_object.get("session_id") or ""
-
-        if onboarding_id:
-            try:
-                onboarding_record = models.Onboarding.objects.select_related(
-                    "restaurant", "user"
-                ).get(id=onboarding_id)
-            except models.Onboarding.DoesNotExist:
-                logger.error(
-                    "Onboarding %s not found in webhook", onboarding_id
-                )
-            else:
-                onboarding_record.mark(
-                    models.Onboarding.State.CHECKOUT_PAID,
-                    progress=30,
-                    message="Payment confirmed via Stripe webhook",
-                )
-                job = models.ProvisioningJob.objects.create(
-                    onboarding=onboarding_record,
-                    stripe_session_id=session_id,
-                    last_stripe_event_id=event_id or "",
-                )
-                onboarding.kickoff_after_payment(onboarding_record.id, job.id)
-                onboarding.task_send_welcome_email.delay(str(onboarding_record.id))
-                logger.info(
-                    "Provisioning job queued",
-                    extra={
-                        "onboarding": str(onboarding_record.id),
-                        "job": str(job.id),
-                        "event": event_id,
-                    },
-                )
-
         subscription_id = data_object.get("subscription")
         if subscription_id:
             _ensure_stripe_api_key()
@@ -3677,17 +3280,13 @@ def stripe_webhook_view(request):
                     "Unable to retrieve subscription %s from Stripe", subscription_id
                 )
             else:
-                account = _sync_subscription(subscription)
-                if account:
-                    onboarding.mark_checkout_paid(account)
+                _sync_subscription(subscription)
     elif event_type in {
         "customer.subscription.created",
         "customer.subscription.updated",
         "customer.subscription.deleted",
     }:
-        account = _sync_subscription(data_object)
-        if account:
-            onboarding.mark_checkout_paid(account)
+        _sync_subscription(data_object)
 
     return HttpResponse(status=200)
 
@@ -3859,7 +3458,6 @@ def upload_menu(request, restaurant_id):
 
     return restaurant_status(request, restaurant_id)
 
-import hmac, hashlib, subprocess
 @csrf_exempt
 @require_POST
 def github_webhook(request):

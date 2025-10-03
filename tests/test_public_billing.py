@@ -19,6 +19,27 @@ class BillingViewsTests(TestCase):
         STRIPE_SECRET_KEY="sk_test_123",
         MARKETING_DOMAIN="https://example.com",
     )
+    def test_pricing_redirects_to_checkout(self):
+        """GET /pricing should create a checkout session and redirect."""
+
+        with patch("views.billing.stripe.checkout.Session.create") as mock_create:
+            mock_create.return_value = SimpleNamespace(
+                url="https://checkout.stripe.com/test"
+            )
+            response = self.client.get(reverse("pricing"))
+
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(response["Location"], "https://checkout.stripe.com/test")
+
+        kwargs = mock_create.call_args.kwargs
+        self.assertEqual(kwargs["mode"], "subscription")
+        self.assertEqual(kwargs["line_items"], [{"price": "price_123", "quantity": 1}])
+
+    @override_settings(
+        STRIPE_PRICE_ID="price_123",
+        STRIPE_SECRET_KEY="sk_test_123",
+        MARKETING_DOMAIN="https://example.com",
+    )
     def test_create_checkout_session_redirects_to_stripe(self):
         """POSTing to the checkout endpoint should create a session and redirect."""
 
