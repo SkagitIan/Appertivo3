@@ -129,6 +129,7 @@ class Onboarding(TimestampedModel):
         REVIEWS_QUEUED = "reviews_queued", "Reviews queued"
         REVIEWS_DONE = "reviews_done", "Reviews done"
         WEB_ANALYSIS_DONE = "web_analysis_done", "Web analysis done"
+        MENU_DONE = "menu_done", "Menu done"
         REVIEW_ANALYSIS_DONE = "review_analysis_done", "Review analysis done"
         PERSONAS_DONE = "personas_done", "Personas done"
         COMPLETE = "complete", "Complete"
