@@ -5,15 +5,49 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Any
+from typing import Any, Optional
 
 import requests
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
-from app import models, onboarding
+from app import models
 
 logger = logging.getLogger(__name__)
+
+
+def queue_outscraper_payload(
+    restaurant: "models.Restaurant",
+    *,
+    restaurant_name: Optional[str] = None,
+    location: Optional[str] = None,
+    requested_by: Optional[models.User] = None,
+) -> "models.OutscraperPayload":
+    """Create a queued Outscraper payload for the provided restaurant."""
+
+    name = (restaurant_name or getattr(restaurant, "name", "") or "").strip()
+    location_text = (
+        location if location is not None else getattr(restaurant, "location_text", "")
+    )
+    location_text = (location_text or "").strip()
+    query_parts = [part for part in (name, location_text) if part]
+    query = " ".join(query_parts) if query_parts else name
+
+    payload = models.OutscraperPayload.objects.create(
+        restaurant=restaurant,
+        requested_by=requested_by,
+        status=models.OutscraperPayload.Status.QUEUED,
+        request_params={
+            "query": query,
+            "async": "false",
+            "limit": 1,
+            "fields": (
+                "query,name,place_id,full_address,latitude,longitude,site,phone,type,"
+                "description,category,subtypes,about,menu_link,order_links"
+            ),
+        },
+    )
+    return payload
 
 
 def _extract_primary_place(payload: dict[str, Any]) -> dict[str, Any] | None:
@@ -59,6 +93,8 @@ def _load_results(payload: dict[str, Any]) -> dict[str, Any] | None:
 @csrf_exempt
 def outscraper_webhook(request, restaurant_id: str, token: str):
     """Handle Outscraper webhook callbacks with token verification."""
+
+    from app import onboarding  # Local import to avoid circular dependency
 
     if request.method != "POST":
         return JsonResponse({"status": "error", "message": "Only POST allowed"}, status=405)
