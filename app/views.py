@@ -3486,7 +3486,7 @@ def create_checkout_session_view(request):
     
     account = membership.account
 
-    stripe_secret = getattr(settings, "STRIPE_SECRET_KEY", "")
+    stripe_secret = os.getenv("STRIPE_API_KEY")
     if not stripe_secret:
         logger.warning("Stripe secret key missing; cannot start onboarding checkout.")
         return JsonResponse(
