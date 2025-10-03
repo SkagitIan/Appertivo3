@@ -6,6 +6,7 @@ import json
 import uuid
 from datetime import datetime, timedelta, timezone as dt_timezone
 from pathlib import Path
+from unittest import mock
 
 from django.apps import apps as django_apps
 from django.conf import settings
@@ -68,10 +69,16 @@ class DashboardViewTests(TestCase):
         )
         self.new_user.date_joined = now - timedelta(days=1)
         self.new_user.save(update_fields=["date_joined"])
-        app_models.Onboarding.objects.create(
+        self.onboarding = app_models.Onboarding.objects.create(
             user=self.new_user,
             restaurant=self.restaurant,
             state=app_models.Onboarding.State.EMAIL_CONFIRMED,
+        )
+        app_models.OnboardingEvent.objects.create(
+            onboarding=self.onboarding,
+            from_state=app_models.Onboarding.State.CREATED,
+            to_state=self.onboarding.state,
+            message="Created during test",
         )
         app_models.Job.objects.create(
             account=self.account,
@@ -154,14 +161,50 @@ class DashboardViewTests(TestCase):
         response = self.client.get(reverse("dashboard:overview"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "SaaS Health Dashboard")
-        self.assertIn("onboarding", response.context)
-        self.assertIn("subscriptions", response.context)
-        self.assertIn("operations", response.context)
-        self.assertIn("api_activity", response.context)
-        self.assertGreaterEqual(len(response.context["quick_actions"]), 1)
+        context = response.context_data
+        self.assertIn("onboarding", context)
+        self.assertIn("subscriptions", context)
+        self.assertIn("operations", context)
+        self.assertIn("api_activity", context)
+        self.assertGreaterEqual(len(context["quick_actions"]), 1)
         self.assertContains(response, "Outscraper")
+        onboarding_ctx = context["onboarding"]
+        self.assertIn("run_targets", onboarding_ctx)
+        self.assertIn("recent_jobs", onboarding_ctx)
+        self.assertIn("recent_events", onboarding_ctx)
+        self.assertContains(response, "Trigger onboarding provisioning")
         if django_apps.is_installed("articles"):
             self.assertContains(response, "Article: Draft")
+
+    def test_manual_onboarding_trigger_creates_job(self) -> None:
+        """Staff can queue the onboarding flow for a restaurant."""
+
+        self.client.force_login(self.staff)
+        with mock.patch("dashboard.views.provision_onboarding.delay") as mock_delay:
+            response = self.client.post(
+                reverse("dashboard:run_onboarding"),
+                {"onboarding_id": str(self.onboarding.id)},
+                follow=True,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        jobs = app_models.ProvisioningJob.objects.filter(onboarding=self.onboarding)
+        self.assertEqual(jobs.count(), 1)
+        job = jobs.first()
+        assert job is not None
+        self.assertEqual(job.status, app_models.ProvisioningJob.Status.PENDING)
+        mock_delay.assert_called_once_with(job.id)
+        self.onboarding.refresh_from_db()
+        self.assertEqual(
+            self.onboarding.state,
+            app_models.Onboarding.State.SCRAPE_QUEUED,
+        )
+        self.assertTrue(
+            app_models.OnboardingEvent.objects.filter(
+                onboarding=self.onboarding,
+                to_state=app_models.Onboarding.State.SCRAPE_QUEUED,
+            ).exists()
+        )
 
 
 class LogFeedViewTests(TestCase):
