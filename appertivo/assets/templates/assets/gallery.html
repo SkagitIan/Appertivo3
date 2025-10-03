@@ -116,7 +116,16 @@
         {% with folder=asset.folder %}
         <article class="overflow-hidden rounded-2xl border border-slate-200 bg-white/80 shadow-sm transition hover:shadow-md" data-asset-card data-folder-id="{{ folder.id|default:'' }}" data-locked="{% if folder and folder.is_locked and folder.id not in unlocked_folder_ids %}true{% else %}false{% endif %}">
           {% if asset.image %}
-            <button type="button" class="relative block w-full focus:outline-none" data-locked-trigger tabindex="{% if folder and folder.is_locked and folder.id not in unlocked_folder_ids %}0{% else %}-1{% endif %}" aria-label="{% if folder and folder.is_locked and folder.id not in unlocked_folder_ids %}Unlock folder{% else %}Asset preview{% endif %}">
+            <button
+              type="button"
+              class="relative block w-full focus:outline-none"
+              data-preview-button
+              data-preview-src="{{ asset.image.url }}"
+              data-preview-alt="{{ asset.model|default:'Asset' }}"
+              {% if folder and folder.is_locked and folder.id not in unlocked_folder_ids %}data-locked-trigger{% endif %}
+              tabindex="0"
+              aria-label="{% if folder and folder.is_locked and folder.id not in unlocked_folder_ids %}Unlock folder{% else %}Asset preview{% endif %}"
+            >
               <img src="{{ asset.image.url }}" alt="{{ asset.model|default:'Asset' }}" class="h-56 w-full object-cover{% if folder and folder.is_locked and folder.id not in unlocked_folder_ids %} blur-2xl{% endif %}" />
               {% if folder and folder.is_locked and folder.id not in unlocked_folder_ids %}
                 <div class="pointer-events-none absolute inset-0 flex items-center justify-center bg-slate-900/55 text-sm font-semibold uppercase tracking-wide text-white">Locked • tap to unlock</div>
@@ -179,6 +188,25 @@
     </div>
   {% endif %}
 
+  <div class="fixed inset-0 z-50 hidden flex items-center justify-center bg-slate-900/70 px-4 py-10" data-asset-modal aria-hidden="true">
+    <div class="relative w-full max-w-5xl rounded-2xl bg-white shadow-xl">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 text-sm text-slate-600">
+        <label class="flex items-center gap-2" for="asset-modal-zoom">
+          <span class="text-xs font-semibold uppercase tracking-wide text-slate-500">Zoom</span>
+          <input id="asset-modal-zoom" type="range" min="100" max="250" value="100" step="10" class="h-2 w-40 cursor-pointer" data-zoom-control />
+        </label>
+        <div class="flex items-center gap-2">
+          <button type="button" class="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600 transition hover:border-purple-400 hover:text-purple-600" data-fullscreen-toggle>Full screen</button>
+          <button type="button" class="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600 transition hover:border-rose-400 hover:text-rose-600" data-modal-close>Close</button>
+        </div>
+      </div>
+      <div class="flex max-h-[75vh] items-center justify-center overflow-auto bg-slate-50 p-6" data-image-wrapper>
+        <img src="" alt="" class="max-h-full max-w-full object-contain transition-transform duration-150 ease-out" data-modal-image />
+      </div>
+      <button type="button" class="absolute right-3 top-3 rounded-full bg-white/90 p-2 text-slate-500 shadow hover:text-slate-700 focus:outline-none" data-modal-close aria-label="Close preview">✕</button>
+    </div>
+  </div>
+
 <script>
   document.addEventListener("DOMContentLoaded", function () {
     const root = document.querySelector('[data-unlocked-folders]');
@@ -197,11 +225,23 @@
       card.dataset.locked = 'false';
       const image = card.querySelector('img');
       const overlay = card.querySelector('.pointer-events-none');
+      const trigger = card.querySelector('[data-preview-button]');
       if (image) {
         image.classList.remove('blur-2xl');
       }
       if (overlay) {
         overlay.remove();
+      }
+      if (trigger) {
+        trigger.removeAttribute('data-locked-trigger');
+        trigger.setAttribute('tabindex', '0');
+        if (trigger._unlockHandler) {
+          trigger.removeEventListener('click', trigger._unlockHandler);
+          trigger.removeEventListener('keypress', trigger._unlockKeyHandler);
+          delete trigger._unlockHandler;
+          delete trigger._unlockKeyHandler;
+        }
+        attachPreviewHandler(trigger);
       }
     }
 
@@ -241,6 +281,28 @@
         });
     }
 
+    function attachPreviewHandler(button) {
+      if (!button || button._previewHandlerAttached) {
+        return;
+      }
+      const handler = () => {
+        if (button.hasAttribute('data-locked-trigger')) {
+          return;
+        }
+        const src = button.getAttribute('data-preview-src');
+        const alt = button.getAttribute('data-preview-alt') || '';
+        if (src) {
+          openModal(src, alt);
+        }
+      };
+      button.addEventListener('click', handler);
+      button._previewHandlerAttached = true;
+    }
+
+    document.querySelectorAll('[data-preview-button]').forEach((button) => {
+      attachPreviewHandler(button);
+    });
+
     document.querySelectorAll('[data-asset-card][data-locked="true"]').forEach((card) => {
       const folderId = card.getAttribute('data-folder-id');
       if (!folderId) {
@@ -255,13 +317,16 @@
         return;
       }
       const handler = () => requestUnlock(card, folderId);
-      trigger.addEventListener('click', handler);
-      trigger.addEventListener('keypress', (event) => {
+      const keyHandler = (event) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
           handler();
         }
-      });
+      };
+      trigger.addEventListener('click', handler);
+      trigger.addEventListener('keypress', keyHandler);
+      trigger._unlockHandler = handler;
+      trigger._unlockKeyHandler = keyHandler;
     });
 
     document.querySelectorAll('[data-toggle-details]').forEach((button) => {
@@ -285,6 +350,99 @@
           icon.textContent = isOpen ? '▾' : '▴';
         }
       });
+    });
+
+    const modal = document.querySelector('[data-asset-modal]');
+    const modalImage = modal ? modal.querySelector('[data-modal-image]') : null;
+    const zoomControl = modal ? modal.querySelector('[data-zoom-control]') : null;
+    const fullscreenToggle = modal ? modal.querySelector('[data-fullscreen-toggle]') : null;
+    const modalCloseButtons = modal ? modal.querySelectorAll('[data-modal-close]') : [];
+    const imageWrapper = modal ? modal.querySelector('[data-image-wrapper]') : null;
+    let zoomValue = 100;
+
+    function setZoom(value) {
+      zoomValue = value;
+      if (modalImage) {
+        modalImage.style.transform = `scale(${zoomValue / 100})`;
+      }
+      if (zoomControl && zoomControl.value !== String(value)) {
+        zoomControl.value = String(value);
+      }
+    }
+
+    function openModal(src, alt) {
+      if (!modal || !modalImage) {
+        return;
+      }
+      modalImage.src = src;
+      modalImage.alt = alt;
+      setZoom(100);
+      modal.classList.remove('hidden');
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('overflow-hidden');
+    }
+
+    function closeModal() {
+      if (!modal || !modalImage) {
+        return;
+      }
+      modal.classList.add('hidden');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('overflow-hidden');
+      if (document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+      modalImage.src = '';
+      modalImage.alt = '';
+    }
+
+    if (zoomControl) {
+      zoomControl.addEventListener('input', (event) => {
+        const value = Number(event.target.value);
+        if (!Number.isNaN(value)) {
+          setZoom(value);
+        }
+      });
+    }
+
+    if (fullscreenToggle && imageWrapper) {
+      const updateFullscreenLabel = () => {
+        const isFullscreen = Boolean(document.fullscreenElement);
+        fullscreenToggle.textContent = isFullscreen ? 'Exit full screen' : 'Full screen';
+      };
+
+      fullscreenToggle.addEventListener('click', () => {
+        if (document.fullscreenElement) {
+          if (document.exitFullscreen) {
+            document.exitFullscreen();
+          }
+          return;
+        }
+        if (imageWrapper.requestFullscreen) {
+          imageWrapper.requestFullscreen();
+        }
+      });
+
+      document.addEventListener('fullscreenchange', updateFullscreenLabel);
+      updateFullscreenLabel();
+    }
+
+    modalCloseButtons.forEach((button) => {
+      button.addEventListener('click', closeModal);
+    });
+
+    if (modal) {
+      modal.addEventListener('click', (event) => {
+        if (event.target === modal) {
+          closeModal();
+        }
+      });
+    }
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && modal && !modal.classList.contains('hidden')) {
+        closeModal();
+      }
     });
   });
 </script>
