@@ -49,6 +49,7 @@ def _save_preview(
     prompt_text: str,
     preview_url: str,
     storage_path: str | None = None,
+    folder_id: int | None = None,
 ) -> tuple[GeneratedAsset | None, str | None]:
     """Persist the preview image under MEDIA_ROOT."""
 
@@ -113,6 +114,7 @@ def _save_preview(
         prompt=prompt_text,
         created_by=user if getattr(user, "is_authenticated", False) else None,
         preview_url=preview_url or "",
+        folder_id=folder_id,
     )
     try:
         asset.image.save(filename, ContentFile(file_bytes or b""), save=True)
@@ -140,6 +142,7 @@ def dashboard(request: HttpRequest) -> HttpResponse:
     preview_prompt: str = ""
     selected_model_id: int | None = None
     preview_storage_path: str | None = None
+    selected_folder_id: int | None = None
 
     if request.method == "POST":
         action = request.POST.get("action")
@@ -195,12 +198,14 @@ def dashboard(request: HttpRequest) -> HttpResponse:
         elif action == "save-asset":
             save_form = AssetSaveForm(request.POST, prefix="save")
             if save_form.is_valid():
+                selected_folder_id = save_form.cleaned_data.get("folder_id")
                 asset, error = _save_preview(
                     user=request.user,
                     model_id=save_form.cleaned_data["model_id"],
                     prompt_text=save_form.cleaned_data["prompt_text"],
                     preview_url=save_form.cleaned_data["preview_url"],
                     storage_path=save_form.cleaned_data.get("storage_path") or None,
+                    folder_id=selected_folder_id,
                 )
                 if error:
                     messages.error(request, error)
@@ -219,12 +224,18 @@ def dashboard(request: HttpRequest) -> HttpResponse:
                 except (TypeError, ValueError):
                     selected_model_id = None
                 preview_storage_path = save_form.data.get("save-storage_path") or None
+                folder_value = save_form.data.get("save-folder_id")
+                try:
+                    selected_folder_id = int(folder_value)
+                except (TypeError, ValueError):
+                    selected_folder_id = None
 
     recent_assets: QuerySet[GeneratedAsset] = (
         GeneratedAsset.objects.select_related("model", "folder")
         .exclude(folder__is_locked=True)
         [:6]
     )
+    folders: QuerySet[AssetFolder] = AssetFolder.objects.all()
 
     context = {
         "generation_form": generation_form,
@@ -236,6 +247,8 @@ def dashboard(request: HttpRequest) -> HttpResponse:
         "has_replicate": replicate_client is not None,
         "preview_storage_path": preview_storage_path,
         "discard_preview_url": reverse("assets:discard-preview"),
+        "asset_folders": folders,
+        "selected_folder_id": selected_folder_id,
     }
     return render(request, "assets/dashboard.html", context)
 
@@ -364,6 +377,7 @@ def enhance_prompt(request: HttpRequest) -> JsonResponse:
     instructions = (
         "You are refining an image generation prompt for a food photography model. "
         "Rewrite the prompt with vivid scene details, plating, lighting, mood, and camera cues. "
+        "Assume this will be used for a professional, high-end food shoot and push for impeccable styling, pro lighting, and camera direction. "
         "Keep it under 80 words and avoid repeating the words 'prompt' or 'rewrite'. "
         "Return only the improved prompt text.\n\n"
         f"Original prompt:\n{text}"
