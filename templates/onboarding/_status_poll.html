@@ -1,0 +1,15 @@
+<div id="onboarding-status" 
+     hx-get="{% url 'onboarding_status' onboarding.id %}"
+     hx-trigger="load, every 5s"
+     hx-target="#onboarding-status"
+     hx-swap="outerHTML">
+  <div class="p-4 rounded-xl" style="background:#49475B;color:white;">
+    <div class="text-sm opacity-80">Onboarding status</div>
+    <div class="text-lg font-semibold">{{ state|default:"PENDING" }} — {{ progress|default:0 }}%</div>
+    <div class="text-xs mt-1 opacity-80">Step: {{ current_step|default:"…" }}</div>
+    {% if last_error %}<div class="mt-2 text-xs" style="color:#f08000;">{{ last_error }}</div>{% endif %}
+    <div class="w-full h-2 mt-3 rounded" style="background:#14080E;">
+      <div style="width: {{ progress|default:0 }}%; height: 8px; background:#58B09C;" class="rounded"></div>
+    </div>
+  </div>
+</div>
