@@ -11,7 +11,9 @@ from articles import admin_views as articles_admin_views
 from articles.sitemaps import ArticlesSitemap
 from app.outscraper import outscraper_webhook
 
+
 urlpatterns = [
+    path("", include("onboarding.urls")),
     path("", app_views.home_view, name="home"),
     path("", include("appertivo.leads.urls")),
     path("", include("appertivo.assets.urls")),
