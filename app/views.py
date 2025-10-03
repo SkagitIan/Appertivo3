@@ -46,6 +46,7 @@ import stripe
 
 from app.tasks import create_ideation_run
 from . import onboarding
+from .outscraper import queue_outscraper_payload
 
 logger = logging.getLogger(__name__)
 
@@ -119,35 +120,25 @@ def _persist_slider_value(
     return settings
 
 
-def _queue_outscraper_payload(
-    restaurant: "models.Restaurant",
-    *,
-    restaurant_name: Optional[str] = None,
-    location: Optional[str] = None,
-    requested_by: Optional[User] = None,
-) -> "models.OutscraperPayload":
-    """Create a queued Outscraper payload for the given restaurant."""
+_queue_outscraper_payload = queue_outscraper_payload
 
-    name = (restaurant_name or getattr(restaurant, "name", "") or "").strip()
-    location_text = (
-        location if location is not None else getattr(restaurant, "location_text", "")
-    )
-    location_text = (location_text or "").strip()
-    query_parts = [part for part in (name, location_text) if part]
-    query = " ".join(query_parts) if query_parts else name
 
-    payload = models.OutscraperPayload.objects.create(
-        restaurant=restaurant,
-        requested_by=requested_by,
-        status=models.OutscraperPayload.Status.QUEUED,
-        request_params={
-            "query": query,
-            "async": "false",
-            "limit": 1,
-            "fields": "query,name,place_id,full_address,latitude,longitude,site,phone,type,description,category,subtypes,about,menu_link,order_links",
-        },
-    )
-    return payload
+def _resolve_provisioning_job(
+    onboarding_record: "models.Onboarding", session_id: str | None
+) -> models.ProvisioningJob | None:
+    jobs = onboarding_record.provisioning_jobs.order_by("-created_at")
+    if session_id:
+        job = jobs.filter(stripe_session_id=session_id).first()
+        if job:
+            return job
+    job = jobs.filter(
+        status__in=[
+            models.ProvisioningJob.Status.RUNNING,
+            models.ProvisioningJob.Status.PENDING,
+            models.ProvisioningJob.Status.FAILED,
+        ]
+    ).first()
+    return job or jobs.first()
 
 class ConceptList(BaseModel):
     concepts: List[str]
@@ -1153,17 +1144,33 @@ def onboarding_status_api_view(request):
     """API endpoint returning onboarding status as JSON."""
 
     onboarding_record = onboarding.ensure_onboarding_for_user(request.user)
+    session_id = request.GET.get("session_id")
+    job = _resolve_provisioning_job(onboarding_record, session_id)
     status = onboarding.status_for(onboarding_record)
     restaurant = onboarding_record.restaurant
-    
-    return JsonResponse({
-        "state": status.state,
-        "progress": status.progress,
-        "messages": status.messages,
-        "last_error": status.last_error or "",
-        "can_retry": status.can_retry,
-        "dashboard_url": reverse("dashboard", args=[restaurant.id]) if restaurant else "",
-    })
+    dashboard_url = reverse("dashboard", args=[restaurant.id]) if restaurant else ""
+
+    last_error = status.last_error or ""
+    can_retry = status.can_retry
+    if job and job.status == models.ProvisioningJob.Status.FAILED and job.error:
+        last_error = job.error
+        can_retry = True
+
+    response = JsonResponse(
+        {
+            "state": status.state,
+            "progress": status.progress,
+            "messages": status.messages,
+            "last_error": last_error,
+            "can_retry": can_retry,
+            "dashboard_url": dashboard_url,
+            "job_status": job.status if job else "",
+            "job_step": job.current_step if job else "",
+        }
+    )
+    if request.headers.get("HX-Request") and status.state == models.Onboarding.State.COMPLETE and dashboard_url:
+        response["HX-Redirect"] = dashboard_url
+    return response
 
 
 @login_required
@@ -1171,21 +1178,33 @@ def onboarding_status_view(request):
     """Render full-page onboarding status with real-time progress tracking."""
 
     onboarding_record = onboarding.ensure_onboarding_for_user(request.user)
+    session_id = request.GET.get("session_id")
+    job = _resolve_provisioning_job(onboarding_record, session_id)
     status = onboarding.status_for(onboarding_record)
     restaurant = onboarding_record.restaurant
     state_label = dict(models.Onboarding.State.choices).get(
         status.state, status.state.replace("_", " ").title()
     )
-    
+
+    api_url = reverse("onboarding-status-api")
+    retry_url = reverse("onboarding-retry")
+    if session_id:
+        joiner = "&" if "?" in api_url else "?"
+        api_url = f"{api_url}{joiner}session_id={session_id}"
+        joiner = "&" if "?" in retry_url else "?"
+        retry_url = f"{retry_url}{joiner}session_id={session_id}"
+
     context = {
         "onboarding": onboarding_record,
         "status": status,
         "dashboard_url": (
             reverse("dashboard", args=[restaurant.id]) if restaurant else ""
         ),
-        "retry_url": reverse("onboarding-retry"),
+        "retry_url": retry_url,
         "state_label": state_label,
-        "api_url": reverse("onboarding-status-api"),
+        "api_url": api_url,
+        "provisioning_job": job,
+        "session_id": session_id or "",
     }
     return render(request, "onboarding/status.html", context)
 
@@ -1197,9 +1216,16 @@ def onboarding_retry_view(request):
 
     onboarding_record = onboarding.ensure_onboarding_for_user(request.user)
     onboarding.retry_failed(onboarding_record)
+    session_id = request.GET.get("session_id") or request.POST.get("session_id")
     if request.headers.get("HX-Request"):
-        return onboarding_progress_fragment_view(request)
-    return redirect("onboarding-status")
+        response = onboarding_progress_fragment_view(request)
+        if session_id:
+            response["HX-Redirect"] = f"{reverse('onboarding-status')}?session_id={session_id}"
+        return response
+    redirect_url = reverse("onboarding-status")
+    if session_id:
+        redirect_url = f"{redirect_url}?session_id={session_id}"
+    return redirect(redirect_url)
 
 
 @login_required
@@ -3589,26 +3615,58 @@ def stripe_webhook_view(request):
         except json.JSONDecodeError:
             return HttpResponseBadRequest("invalid_json")
 
+    event_id = event.get("id")
     event_type = event.get("type")
     data_object = event.get("data", {}).get("object", {})
+
+    if event_id:
+        _, created = models.StripeWebhookEvent.objects.get_or_create(
+            event_id=event_id,
+            defaults={"event_type": event_type or "", "payload": event},
+        )
+        if not created:
+            logger.info(
+                "Stripe webhook already processed",
+                extra={"event_id": event_id},
+            )
+            return HttpResponse(status=200)
 
     if event_type == "checkout.session.completed":
         metadata = data_object.get("metadata", {})
         onboarding_id = metadata.get("onboarding_id")
-        
+        session_id = data_object.get("id") or data_object.get("session_id") or ""
+
         if onboarding_id:
             try:
-                onboarding_record = models.Onboarding.objects.get(id=onboarding_id)
+                onboarding_record = models.Onboarding.objects.select_related(
+                    "restaurant", "user"
+                ).get(id=onboarding_id)
+            except models.Onboarding.DoesNotExist:
+                logger.error(
+                    "Onboarding %s not found in webhook", onboarding_id
+                )
+            else:
                 onboarding_record.mark(
                     models.Onboarding.State.CHECKOUT_PAID,
-                    progress=25,
-                    message="Payment confirmed via Stripe webhook"
+                    progress=30,
+                    message="Payment confirmed via Stripe webhook",
                 )
-                onboarding.kickoff_after_payment(onboarding_record.id)
-                logger.info(f"Onboarding payment processed for {onboarding_id}")
-            except models.Onboarding.DoesNotExist:
-                logger.error(f"Onboarding {onboarding_id} not found in webhook")
-        
+                job = models.ProvisioningJob.objects.create(
+                    onboarding=onboarding_record,
+                    stripe_session_id=session_id,
+                    last_stripe_event_id=event_id or "",
+                )
+                onboarding.kickoff_after_payment(onboarding_record.id, job.id)
+                onboarding.task_send_welcome_email.delay(str(onboarding_record.id))
+                logger.info(
+                    "Provisioning job queued",
+                    extra={
+                        "onboarding": str(onboarding_record.id),
+                        "job": str(job.id),
+                        "event": event_id,
+                    },
+                )
+
         subscription_id = data_object.get("subscription")
         if subscription_id:
             _ensure_stripe_api_key()

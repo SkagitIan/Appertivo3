@@ -1,8 +1,14 @@
+import os
 import json
 from datetime import timedelta
 from types import SimpleNamespace
 from decimal import Decimal
 from unittest.mock import patch
+
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "specials.settings")
+import django
+
+django.setup()
 
 from django.conf import settings
 from django.contrib.auth.models import User
@@ -145,7 +151,9 @@ class ViewSmokeTests(TestCase):
         self.assertEqual(
             onboarding_record.state, models.Onboarding.State.CHECKOUT_PAID
         )
-        mock_kickoff.assert_called_once_with(onboarding_record.id)
+        mock_kickoff.assert_called_once()
+        kickoff_args = mock_kickoff.call_args.args
+        self.assertEqual(kickoff_args[0], onboarding_record.id)
 
     def test_manual_menu(self):
         resp = self.client.get(reverse("manual-menu"), HTTP_HX_REQUEST="true")
