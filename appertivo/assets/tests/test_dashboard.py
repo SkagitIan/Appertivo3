@@ -374,6 +374,36 @@ class AssetDashboardTests(TestCase):
         asset.image.delete(save=False)
 
     @patch("appertivo.assets.views.requests.get")
+    def test_save_preview_assigns_folder(self, mock_get: Mock) -> None:
+        """Saved previews can be routed into a folder from the dashboard."""
+
+        mock_response = SimpleNamespace(
+            content=b"file-bytes",
+            headers={"content-type": "image/png"},
+        )
+        mock_response.raise_for_status = lambda: None
+        mock_get.return_value = mock_response
+
+        folder = AssetFolder.objects.create(name="Campaign", pin="1234")
+
+        self.client.force_login(self.staff_user)
+        response = self.client.post(
+            reverse("assets:dashboard"),
+            {
+                "action": "save-asset",
+                "save-model_id": str(self.model.pk),
+                "save-prompt_text": "Foldered asset",
+                "save-preview_url": "https://example.com/image.png",
+                "save-folder_id": str(folder.pk),
+            },
+        )
+
+        self.assertRedirects(response, reverse("assets:gallery"))
+        asset = GeneratedAsset.objects.get()
+        self.assertEqual(asset.folder, folder)
+        asset.image.delete(save=False)
+
+    @patch("appertivo.assets.views.requests.get")
     def test_save_preview_uses_storage_path(self, mock_get: Mock) -> None:
         """Saving a preview produced from stored bytes avoids a network hop."""
 
