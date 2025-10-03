@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections import Counter
 from dataclasses import dataclass
 from datetime import timedelta
@@ -11,11 +12,13 @@ from typing import Any, Iterable
 
 from django.apps import apps
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.db.models import Count, Q
 from django.db.models.functions import TruncWeek
 from django.http import HttpResponseForbidden, JsonResponse
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.utils.safestring import mark_safe
@@ -23,8 +26,11 @@ from django.views import View
 from django.views.generic import TemplateView
 
 from app import models as app_models
+from onboarding.tasks import provision_onboarding
 
 User = get_user_model()
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -152,6 +158,36 @@ class DashboardView(StaffOnlyMixin, TemplateView):
                     }
                 )
 
+        for log in (
+            app_models.LlmCallLog.objects.filter(step="onboarding")
+            .select_related("user")
+            .order_by("-created_at")[:20]
+        ):
+            actor_user = getattr(log, "user", None)
+            actor = "System"
+            if actor_user is not None:
+                actor = (
+                    getattr(actor_user, "get_full_name", lambda: "")()
+                    or getattr(actor_user, "email", "")
+                    or getattr(actor_user, "username", "")
+                    or "System"
+                )
+            metadata = log.metadata or {}
+            status_code = metadata.get("status_code") or metadata.get("status")
+            try:
+                status_value = int(status_code)
+            except (TypeError, ValueError):
+                status_value = 200
+            entries.append(
+                {
+                    "timestamp": log.created_at,
+                    "call": f"{log.provider.title()} {log.function_name}",
+                    "actor": actor,
+                    "status_code": status_value,
+                    "payload": mark_safe(json.dumps(metadata, indent=2, sort_keys=True)),
+                }
+            )
+
         entries.sort(key=lambda item: item["timestamp"], reverse=True)
         return entries[:20]
 
@@ -164,11 +200,13 @@ class DashboardView(StaffOnlyMixin, TemplateView):
         stalled_cutoff = now - timedelta(days=self.STALLED_DAYS)
 
         onboardings = (
-            app_models.Onboarding.objects.select_related("user")
-            .order_by("-created_at")
+            app_models.Onboarding.objects.select_related("user", "restaurant")
+            .order_by("-updated_at")
             .all()
         )
         records: list[dict[str, Any]] = []
+        run_targets: list[dict[str, Any]] = []
+        state_labels = dict(app_models.Onboarding.State.choices)
         for onboarding in onboardings[:25]:
             updated_at = onboarding.updated_at or onboarding.created_at
             is_complete = onboarding.state == app_models.Onboarding.State.COMPLETE
@@ -184,11 +222,66 @@ class DashboardView(StaffOnlyMixin, TemplateView):
                 }
             )
 
+            if onboarding.restaurant_id:
+                job = onboarding.provisioning_jobs.order_by("-created_at").first()
+                run_targets.append(
+                    {
+                        "id": str(onboarding.id),
+                        "restaurant": getattr(onboarding.restaurant, "name", ""),
+                        "email": onboarding.user.email if onboarding.user_id else "-",
+                        "state": onboarding.get_state_display(),
+                        "progress": onboarding.progress,
+                        "updated_at": updated_at,
+                        "job_status": getattr(job, "status", ""),
+                        "job_step": getattr(job, "current_step", ""),
+                        "job_step_label": (
+                            getattr(job, "current_step", "") or ""
+                        ).replace("_", " ").title(),
+                    }
+                )
+
+        recent_jobs = []
+        for job in (
+            app_models.ProvisioningJob.objects.select_related("onboarding", "onboarding__restaurant")
+            .order_by("-created_at")[:10]
+        ):
+            recent_jobs.append(
+                {
+                    "id": str(job.id),
+                    "restaurant": getattr(job.onboarding.restaurant, "name", ""),
+                    "status": job.status,
+                    "step": job.current_step,
+                    "step_label": (job.current_step or "").replace("_", " ").title(),
+                    "created_at": job.created_at,
+                    "finished_at": job.finished_at,
+                }
+            )
+
+        recent_events = []
+        for event in (
+            app_models.OnboardingEvent.objects.select_related("onboarding", "onboarding__restaurant")
+            .order_by("-created_at")[:12]
+        ):
+            recent_events.append(
+                {
+                    "restaurant": getattr(event.onboarding.restaurant, "name", ""),
+                    "from_state": event.from_state,
+                    "to_state": event.to_state,
+                    "from_label": state_labels.get(event.from_state, event.from_state),
+                    "to_label": state_labels.get(event.to_state, event.to_state),
+                    "message": event.message,
+                    "created_at": event.created_at,
+                }
+            )
+
         return {
             "signups_7": User.objects.filter(date_joined__gte=seven_days).count(),
             "signups_30": User.objects.filter(date_joined__gte=thirty_days).count(),
             "stalled_days": self.STALLED_DAYS,
             "records": records,
+            "run_targets": run_targets[:10],
+            "recent_jobs": recent_jobs,
+            "recent_events": recent_events,
         }
 
     def _build_subscription_context(self) -> dict[str, Any]:
@@ -448,6 +541,14 @@ class DashboardView(StaffOnlyMixin, TemplateView):
             "support_messages": support_messages,
         }
 
+    def _safe_get_model(self, app_label: str, model_name: str):
+        """Return a model when present without failing the dashboard."""
+
+        try:
+            return apps.get_model(app_label, model_name)
+        except LookupError:
+            return None
+
     def _build_quick_actions(self) -> list[QuickAction]:
         """Return lightweight links for common follow-up workflows."""
 
@@ -494,14 +595,57 @@ class DashboardView(StaffOnlyMixin, TemplateView):
             ),
         ]
 
-    def _safe_get_model(self, app_label: str, model_name: str):
-        """Return a model when present without failing the dashboard."""
 
-        try:
-            return apps.get_model(app_label, model_name)
-        except LookupError:
-            return None
+class RunOnboardingView(StaffOnlyMixin, View):
+    """Allow staff to manually trigger onboarding provisioning."""
 
+    def post(self, request, *args: Any, **kwargs: Any):
+        onboarding_id = request.POST.get("onboarding_id", "").strip()
+        if not onboarding_id:
+            messages.error(request, "Select a restaurant before running onboarding.")
+            return redirect("dashboard:overview")
+
+        onboarding = get_object_or_404(
+            app_models.Onboarding.objects.select_related("restaurant", "user"),
+            id=onboarding_id,
+        )
+
+        if not onboarding.restaurant_id:
+            messages.error(
+                request,
+                "This onboarding record is missing a restaurant and cannot be queued.",
+            )
+            return redirect("dashboard:overview")
+
+        job = app_models.ProvisioningJob.objects.create(
+            onboarding=onboarding,
+            status=app_models.ProvisioningJob.Status.PENDING,
+            stripe_session_id="internal-dashboard",
+        )
+
+        logger.info(
+            "Manual onboarding provisioning queued",
+            extra={
+                "onboarding_id": str(onboarding.id),
+                "job_id": str(job.id),
+                "restaurant_id": str(onboarding.restaurant_id),
+            },
+        )
+
+        if onboarding.progress < 10:
+            onboarding.mark(
+                app_models.Onboarding.State.SCRAPE_QUEUED,
+                progress=10,
+                message="Queued from internal dashboard",
+            )
+
+        provision_onboarding.delay(job.id)
+
+        messages.success(
+            request,
+            f"Provisioning started for {onboarding.restaurant.name}.",
+        )
+        return redirect("dashboard:overview")
 
 class LogFeedView(StaffOnlyMixin, View):
     """Expose the most recent structured application logs as JSON."""
