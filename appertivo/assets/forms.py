@@ -95,12 +95,39 @@ class AssetSaveForm(forms.Form):
     prompt_text = forms.CharField(widget=forms.HiddenInput)
     preview_url = forms.CharField(widget=forms.HiddenInput)
     storage_path = forms.CharField(required=False, widget=forms.HiddenInput)
+    folder_id = forms.ChoiceField(
+        required=False,
+        choices=(),
+        widget=forms.Select(
+            attrs={
+                "class": "rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400",
+            }
+        ),
+    )
 
     def clean(self):
         data = super().clean()
         if not data.get("preview_url"):
             raise forms.ValidationError("Preview information is missing.")
         return data
+
+    def clean_folder_id(self) -> int | None:
+        value = self.cleaned_data.get("folder_id")
+        if not value:
+            return None
+        try:
+            folder_id = int(value)
+        except (TypeError, ValueError) as exc:
+            raise forms.ValidationError("Choose a valid folder.") from exc
+        if not AssetFolder.objects.filter(pk=folder_id).exists():
+            raise forms.ValidationError("Choose a valid folder.")
+        return folder_id
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        folder_choices = [("", "No folder")]
+        folder_choices.extend((str(folder.pk), folder.name) for folder in AssetFolder.objects.all())
+        self.fields["folder_id"].choices = folder_choices
 
 
 class AssetFolderForm(_PinValidationMixin, forms.ModelForm):
