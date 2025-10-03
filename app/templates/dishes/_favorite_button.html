@@ -4,7 +4,6 @@
   hx-trigger="click"
   hx-swap="outerHTML"
   hx-target="closest .dish-card-wrapper"
-  hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
   class="{{ base_class }} transition {% if dish.is_favorited %}text-red-500{% else %}text-slate-500 hover:text-red-400{% endif %}"
   aria-label="{% if dish.is_favorited %}Unfavorite{% else %}Favorite{% endif %} {{ dish.title }}"
   aria-pressed="{{ dish.is_favorited|yesno:'true,false' }}"
