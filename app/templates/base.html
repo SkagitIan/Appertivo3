@@ -5,6 +5,66 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="csrf-token" content="{{ csrf_token }}">
+  <script>
+    (function () {
+      function getCookie(name) {
+        const cookies = document.cookie ? document.cookie.split(';') : [];
+        for (let i = 0; i < cookies.length; i += 1) {
+          const cookie = cookies[i].trim();
+          if (cookie.startsWith(name + '=')) {
+            return decodeURIComponent(cookie.slice(name.length + 1));
+          }
+        }
+        return null;
+      }
+
+      function resolveCsrfToken() {
+        const cookieToken = getCookie('csrftoken');
+        if (cookieToken) {
+          return cookieToken;
+        }
+        const meta = document.querySelector('meta[name="csrf-token"]');
+        return meta && meta.content ? meta.content : null;
+      }
+
+      function applyHeader(event) {
+        if (!event.detail) {
+          return;
+        }
+        const token = resolveCsrfToken();
+        if (!token) {
+          return;
+        }
+        event.detail.headers = event.detail.headers || {};
+        event.detail.headers['X-CSRFToken'] = token;
+      }
+
+      function syncHxHeaders() {
+        const token = resolveCsrfToken();
+        if (!token) {
+          return;
+        }
+        document.querySelectorAll('[hx-headers]').forEach((elt) => {
+          const existing = elt.getAttribute('hx-headers') || '{}';
+          let data;
+          try {
+            data = JSON.parse(existing);
+          } catch (err) {
+            data = {};
+          }
+          if (data['X-CSRFToken'] === token) {
+            return;
+          }
+          data['X-CSRFToken'] = token;
+          elt.setAttribute('hx-headers', JSON.stringify(data));
+        });
+      }
+
+      document.addEventListener('htmx:configRequest', applyHeader);
+      document.addEventListener('DOMContentLoaded', syncHxHeaders);
+      document.addEventListener('htmx:afterSwap', syncHxHeaders);
+    })();
+  </script>
   <title>{% block title %}Appertivo{% endblock %}</title>
   <script src="https://cdn.tailwindcss.com"></script>
   {% block head_scripts %}{% endblock %}
