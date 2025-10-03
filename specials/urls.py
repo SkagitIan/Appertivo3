@@ -2,9 +2,11 @@ from django.contrib import admin
 from django.contrib.sitemaps.views import sitemap
 from django.urls import include, path
 from django.contrib.auth import views as auth_views
+from django.views.generic import RedirectView, TemplateView
 
 from app import outscraper, views as app_views
 from views import billing as billing_views
+from views.getting_started import getting_started_view
 from articles import admin_views as articles_admin_views
 from articles.sitemaps import ArticlesSitemap
 from app.outscraper import outscraper_webhook
@@ -16,21 +18,56 @@ urlpatterns = [
     path("", include("articles.urls")),
     path("signup/", app_views.signup_view, name="signup"),
     path("login/", app_views.login_view, name="login"),
+    path(
+        "check-email/",
+        TemplateView.as_view(template_name="auth/check_email.html"),
+        name="check-email",
+    ),
     path("logout/", app_views.logout_view, name="logout"),
     path("activate/<str:token>/", app_views.activate_email_view, name="activate-email"),
     path("privacy/", app_views.privacy_view, name="privacy"),
     path("terms/", app_views.terms_view, name="terms"),
     path("contact/", app_views.contact_view, name="contact"),
+    path("getting-started/", getting_started_view, name="getting-started"),
     path("setup/", app_views.setup_view, name="setup"),
     path("dashboard/<uuid:restaurant_id>/", app_views.dashboard, name="dashboard"),
     path("dashboard/", app_views.dashboard_redirect, name="dashboard-redirect"),
 
-    ## onboarding
-    path("onboarding/", app_views.onboarding_view, name="onboarding"),
-    path("onboarding/status/", app_views.onboarding_status_view, name="onboarding-status"),
-    path("api/onboarding/status/", app_views.onboarding_status_api_view, name="onboarding-status-api"),
-    path("onboarding/retry/", app_views.onboarding_retry_view, name="onboarding-retry"),
-    path("onboarding/manual_menu/", app_views.manual_menu_view, name="manual-menu"),
+    path(
+        "onboarding/",
+        RedirectView.as_view(pattern_name="setup", permanent=False),
+        name="onboarding",
+    ),
+    path(
+        "onboarding/consent/",
+        RedirectView.as_view(pattern_name="setup", permanent=False),
+        name="onboarding-consent",
+    ),
+    path(
+        "onboarding/billing/",
+        RedirectView.as_view(pattern_name="setup", permanent=False),
+        name="onboarding-billing",
+    ),
+    path(
+        "onboarding/status/",
+        RedirectView.as_view(pattern_name="setup", permanent=False),
+        name="onboarding-status",
+    ),
+    path(
+        "api/onboarding/status/",
+        RedirectView.as_view(pattern_name="setup", permanent=False),
+        name="onboarding-status-api",
+    ),
+    path(
+        "onboarding/retry/",
+        RedirectView.as_view(pattern_name="setup", permanent=False),
+        name="onboarding-retry",
+    ),
+    path(
+        "onboarding/manual_menu/",
+        RedirectView.as_view(pattern_name="setup", permanent=False),
+        name="manual-menu",
+    ),
     path("restaurants/<uuid:restaurant_id>/status/",app_views.restaurant_status,name="restaurant_status",),
     path("restaurants/<uuid:restaurant_id>/menu-modal/",app_views.show_menu_modal,name="show_menu_modal",),
     path("restaurants/<uuid:restaurant_id>/upload-menu/",app_views.upload_menu,name="upload_menu",),
@@ -77,6 +114,7 @@ urlpatterns = [
     path("billing/", app_views.billing_view, name="billing"),
     path("billing/upgrade/", app_views.billing_upgrade_view, name="billing-upgrade"),
     path("billing/cancel/", app_views.billing_cancel_view, name="billing-cancel"),
+    path("pricing/", billing_views.pricing_redirect_view, name="pricing"),
     path(
         "billing/create-checkout-session/",
         billing_views.create_checkout_session,
@@ -87,9 +125,6 @@ urlpatterns = [
         billing_views.create_billing_portal_session,
         name="billing-portal",
     ),
-    path("checkout/create/", app_views.create_checkout_session_view, name="create-checkout"),
-    path("checkout/success/", app_views.checkout_success_view, name="checkout-success"),
-    path("checkout/cancel/", app_views.checkout_cancel_view, name="checkout-cancel"),
     path("stripe/webhook/", app_views.stripe_webhook_view, name="stripe-webhook"),
     path("jobs/<uuid:job_id>/", app_views.job_status_view, name="job-status"),
     path("notifications/", app_views.notification_list_view, name="notification-list"),

@@ -10,18 +10,16 @@ A Django web application for restaurant management and menu generation using AI.
 - **Email**: Django Anymail with Brevo backend
 - **Background Tasks**: Celery (configured for memory broker in development)
 - **Authentication**: Django built-in auth system with custom forms
-- **Payment Processing**: Stripe integration for onboarding payments
+- **Payment Processing**: Stripe integration for self-serve subscriptions
 - **Security**: Google reCAPTCHA v3 for spam protection
 - **Frontend**: HTML templates with Tailwind CSS
 
 ## Recent Changes
-- 2025-09-30: Complete onboarding flow implementation
-  - Implemented email activation system with token-based confirmation
-  - Added Stripe payment integration ($49 onboarding fee)
-  - Created real-time onboarding status page with progress tracking
-  - Integrated Google reCAPTCHA v3 on signup form
-  - Added dashboard welcome banner for first-time users
-  - All migrations applied successfully
+- 2025-09-30: Getting started hub and pricing redirect
+  - Added `/getting-started/` checklist for new teams
+  - Added `/pricing/` endpoint that launches Stripe Checkout (303 redirect)
+  - Replaced onboarding workspace with streamlined setup instructions
+  - Signup emails now point to `/check-email/` and activation lands on the getting started hub
   
 - 2025-09-19: Initial Replit environment setup
   - Installed Python 3.11 and all dependencies
@@ -43,19 +41,13 @@ A Django web application for restaurant management and menu generation using AI.
 - Application configured to work with Replit's proxy environment
 - Appertivo purple branding (#5C008B) used throughout
 
-## Onboarding Flow
-1. User signs up with email, password, restaurant name, location
-2. reCAPTCHA v3 validates signup attempt
-3. Email activation link sent (24-hour expiration)
-4. User clicks link to confirm email
-5. Stripe checkout for $49 onboarding fee
-6. Real-time status page shows background processing:
-   - Outscraper data collection
-   - Google reviews fetch
-   - AI-powered analysis (OpenAI)
-   - Customer persona generation
-7. Auto-redirect to dashboard when complete
-8. Welcome banner guides new users to concept generator
+## Getting Started Flow
+1. User signs up with email, password, restaurant name, and location (with reCAPTCHA v3 validation)
+2. Application sends an activation email directing the user to `/check-email/`
+3. User clicks the activation link and lands on `/getting-started/`
+4. Optional `/pricing/` endpoint launches Stripe Checkout for subscriptions
+5. Getting started page highlights concept generation, menu workspace, and sharing steps
+6. Dashboard and menus remain available once the restaurant is provisioned
 
 ## Required Environment Variables
 - `STRIPE_SECRET_KEY`: Stripe API secret key
