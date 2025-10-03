@@ -442,7 +442,19 @@ def provision_onboarding(self, provisioning_job_id: UUID) -> None:
                     .get(id=job.onboarding_id)
                 )
                 _update_job(job, step_name)
+                logger.info(
+                    "Onboarding %s running step %s",
+                    onboarding.id,
+                    step_name,
+                    extra={"job_id": str(job.id)},
+                )
                 func(onboarding)
+                logger.info(
+                    "Onboarding %s finished step %s",
+                    onboarding.id,
+                    step_name,
+                    extra={"job_id": str(job.id)},
+                )
         with transaction.atomic():
             job = models.ProvisioningJob.objects.select_for_update().get(id=provisioning_job_id)
             onboarding = (
@@ -455,6 +467,11 @@ def provision_onboarding(self, provisioning_job_id: UUID) -> None:
             job.status = models.ProvisioningJob.Status.SUCCEEDED
             job.finished_at = _now()
             job.save(update_fields=["status", "finished_at"])
+            logger.info(
+                "Onboarding %s provisioning complete",
+                onboarding.id,
+                extra={"job_id": str(job.id)},
+            )
     except Exception as exc:  # pragma: no cover - orchestrator level guard
         logger.exception("Provisioning job %s failed", provisioning_job_id)
         with transaction.atomic():
