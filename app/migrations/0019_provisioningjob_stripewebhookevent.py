@@ -47,7 +47,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 "indexes": [
-                    models.Index(fields=["onboarding", "-created_at"]),
+                    models.Index(fields=["onboarding", "-created_at"],name="provision_created_at_index"),
                 ],
             },
         ),
@@ -61,7 +61,7 @@ class Migration(migrations.Migration):
                 ("payload", models.JSONField(default=dict)),
             ],
             options={
-                "indexes": [models.Index(fields=["-created_at"])],
+                "indexes": [models.Index(fields=["-created_at"],name="stripe_created_at_index")],
             },
         ),
     ]
