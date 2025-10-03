@@ -194,6 +194,31 @@ class Onboarding(TimestampedModel):
         self.mark(self.State.FAILED, progress=self.progress, error=error)
 
 
+class ProvisioningJob(TimestampedModel):
+    """Tracks background provisioning for an onboarding run."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        RUNNING = "running", "Running"
+        SUCCEEDED = "succeeded", "Succeeded"
+        FAILED = "failed", "Failed"
+
+    onboarding = models.ForeignKey(
+        Onboarding, related_name="provisioning_jobs", on_delete=models.CASCADE
+    )
+    stripe_session_id = models.CharField(max_length=255, blank=True)
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.PENDING
+    )
+    current_step = models.CharField(max_length=50, blank=True)
+    error = models.TextField(blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    last_stripe_event_id = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["onboarding", "-created_at"])]
+
+
 class OnboardingEvent(models.Model):
     """Audit log entry for onboarding state transitions."""
 
@@ -352,6 +377,17 @@ class LlmCallLog(TimestampedModel):
 
         dollars = (self.cost_cents or 0) / 100
         return f"${dollars:0.2f}"
+
+
+class StripeWebhookEvent(TimestampedModel):
+    """Idempotency record for processed Stripe events."""
+
+    event_id = models.CharField(max_length=255, unique=True)
+    event_type = models.CharField(max_length=100)
+    payload = models.JSONField(default=dict)
+
+    class Meta:
+        indexes = [models.Index(fields=["-created_at"])]
 
 
 class Concept(TimestampedModel):
