@@ -5,44 +5,25 @@ from __future__ import annotations
 import logging
 import os
 from typing import Any
-
+from . import tasks
 from dotenv import load_dotenv
 from django.conf import settings
 from django.http import (
     HttpRequest,
     HttpResponse,
+    JsonResponse,
     HttpResponseBadRequest,
     HttpResponseServerError,
 )
 from django.views.decorators.http import require_POST
 import stripe
-
+from django.contrib.auth import get_user_model
+from django.views.decorators.csrf import csrf_exempt
 load_dotenv()
-
+from . import models
 logger = logging.getLogger(__name__)
-
-
-def _ensure_api_key() -> str:
-    """Ensure Stripe's API key is set and return it."""
-
-    api_key = os.getenv("STRIPE_API_KEY") or getattr(settings, "STRIPE_SECRET_KEY", "")
-    if api_key and stripe.api_key != api_key:
-        stripe.api_key = api_key
-    return api_key
-
-
-def _marketing_domain(request: HttpRequest) -> str:
-    """Return the base marketing domain for redirects."""
-
-    domain = (
-        os.getenv("DOMAIN")
-        or getattr(settings, "MARKETING_DOMAIN", "")
-        or getattr(settings, "SITE_URL", "")
-    )
-    if domain:
-        return domain.rstrip("/")
-    return request.build_absolute_uri("/").rstrip("/")
-
+from .tasks import *
+from django.contrib.auth import get_user_model
 
 def _see_other(location: str) -> HttpResponse:
     """Return a HTTP 303 response to the provided location."""
@@ -89,30 +70,29 @@ def pricing_redirect_view(request: HttpRequest) -> HttpResponse:
 
 
 @require_POST
-def create_checkout_session(request: HttpRequest) -> HttpResponse:
+def create_checkout_session(request: HttpRequest, onboarding_id ) -> HttpResponse:
     """Start a Stripe Checkout session for the self-serve subscription."""
 
-    api_key = _ensure_api_key()
-    price_id = getattr(settings, "STRIPE_PRICE_ID", "")
-
-    if not api_key or not price_id:
-        logger.warning("Stripe configuration missing for checkout.")
-        return HttpResponseServerError("payments_unavailable")
-
-    domain = _marketing_domain(request)
-    session_kwargs: dict[str, Any] = {
-        "mode": "subscription",
-        "line_items": [{"price": price_id, "quantity": 1}],
-        "consent_collection": {"terms_of_service": "required"},
-        "customer_creation": "always",
-        "allow_promotion_codes": True,
-        "payment_method_collection": "always",
-        "success_url": f"{domain}/setup?session_id={{CHECKOUT_SESSION_ID}}",
-        "cancel_url": f"{domain}/pricing",
-    }
-
+    stripe.api_key = os.getenv("STRIPE_TEST_KEY")
+    price_id = os.getenv("STRIPE_TEST_PRO")
     try:
-        session = stripe.checkout.Session.create(**session_kwargs)
+        session = stripe.checkout.Session.create(
+            mode="subscription",
+            metadata={"onboarding_id": str(onboarding_id)},
+            line_items=[{"price": price_id, "quantity": 1}],
+            subscription_data={
+                "trial_period_days": 10,
+                "trial_settings": {
+                    "end_behavior": {"missing_payment_method": "cancel"},
+                },
+            },
+            consent_collection={"terms_of_service": "required"},
+            allow_promotion_codes=True,
+            payment_method_collection="always",  # card required
+            success_url=f"https://appertivo.com/setup?session_id={{CHECKOUT_SESSION_ID}}&onboarding_id={str(onboarding_id)}",
+            cancel_url=f"https://appertivo.com/pricing",
+        )
+        logger.info(session)
     except stripe.error.StripeError:
         logger.exception("Unable to create Stripe Checkout session", exc_info=True)
         return HttpResponseServerError("checkout_unavailable")
@@ -155,3 +135,36 @@ def create_billing_portal_session(request: HttpRequest) -> HttpResponse:
         return HttpResponseServerError("billing_portal_unavailable")
 
     return _see_other(portal_url)
+
+@csrf_exempt
+@require_POST
+def stripe_webhook(request: HttpRequest) -> HttpResponse:
+    payload = request.body
+    sig_header = request.META.get("HTTP_STRIPE_SIGNATURE", "")
+    secret = os.getenv("STRIPE_TEST_WEBHOOK")
+
+    try:
+        event = stripe.Webhook.construct_event(payload, sig_header, secret)
+    except (ValueError, stripe.error.SignatureVerificationError) as e:
+        logger.warning(f"Invalid Stripe webhook: {e}")
+        return HttpResponseBadRequest()
+
+    # Only handle successful checkout completions
+    if event["type"] != "checkout.session.completed":
+        return HttpResponse()
+
+    
+    data_object = event["data"]["object"]
+    logger.info(f"DATA OBJECT: {data_object}")
+    onboarding_id = data_object.get("metadata", {}).get("onboarding_id")
+
+    if not onboarding_id:
+        logger.warning(f"No onboarding_id found in metadata: {data_object.get('id')}")
+        return HttpResponse()
+
+    logger.info(f"Stripe webhook onboarding_id: {onboarding_id}")
+    run_onboarding_pipeline.delay(onboarding_id)
+
+    return JsonResponse({"queued": True})
+
+

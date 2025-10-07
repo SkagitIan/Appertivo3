@@ -39,10 +39,13 @@ _openai_api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=_openai_api_key) if _openai_api_key else None
 import datetime
 import stripe
-
 from . import signup_service
 from .outscraper import queue_outscraper_payload
-
+from .billing import create_checkout_session, _see_other
+from .tasks import *
+from django.shortcuts import render
+from django.contrib.auth.decorators import login_required
+from app.models import Onboarding
 logger = logging.getLogger(__name__)
 
 
@@ -113,34 +116,6 @@ def _persist_slider_value(
         settings.save(update_fields=["classic_creative_slider"])
     setattr(restaurant, "restaurantsettings", settings)
     return settings
-
-
-_queue_outscraper_payload = queue_outscraper_payload
-
-
-def _ensure_stripe_api_key() -> None:
-    """Refresh the Stripe API key from settings for the current process."""
-
-    stripe.api_key = settings.STRIPE_SECRET_KEY or ""
-
-
-def _get_default_plan() -> models.Plan:
-    """Fetch or create the default plan used for subscriptions."""
-
-    defaults = {
-        "name": "Pro",
-        "limits": {"concept_runs": 100, "dish_runs": 100, "price": "199"},
-        "features": [
-            "Unlimited menu scrapes",
-            "Concept and dish generation",
-            "Team collaboration",
-        ],
-    }
-    plan, _ = models.Plan.objects.get_or_create(
-        code=getattr(settings, "STRIPE_PLAN_CODE", "pro"), defaults=defaults
-    )
-    return plan
-
 
 def _current_season(current_date: Optional[datetime.date] = None) -> str:
     """Return a friendly season label for the given date."""
@@ -425,7 +400,6 @@ def _load_home_demo_favorites():
     return concept, concept_favorite, dish, dish_favorite, restaurant
 
 from app import llm
-from .tasks import parse_pdf_menu, run_outscraper_search, scrape_menu
 
 def dish_grid(request, concept_name: str):
     """Render a 3x3 grid of dishes for a concept."""
@@ -478,11 +452,21 @@ def contact_view(request):
     return render(request, "contact.html", context)
 
 
+
+
+@login_required
 def setup_view(request):
     """Render the setup placeholder page shown after checkout."""
 
-    context = {"session_id": request.GET.get("session_id", "")}
+    session_id = request.GET.get("session_id", "")
+    onboarding_id = request.GET.get("onboarding_id", "")
+    logger.info(f"setup view onboarding {onboarding_id}")
+    context = {
+        "session_id": session_id,
+        "onboarding_id": onboarding_id,
+    }
     return render(request, "setup.html", context)
+
 
 
 def signup_view(request):
@@ -556,7 +540,10 @@ def signup_view(request):
             password=password,
             restaurant_name=restaurant_name,
             location=location,
+            
         )
+        from django.contrib.auth import login
+        login(request, signup_result.user)
     except IntegrityError:
         logger.exception("Signup failed due to database error", extra={"email": email})
         error_message = "We couldn't sign you up right now. Please try again."
@@ -564,40 +551,13 @@ def signup_view(request):
             return JsonResponse({"error": "signup_failed"}, status=500)
         context.update({"error": error_message, "form_data": form_data})
         return render(request, "auth/signup.html", context)
-
+    ## get ready to send email.
     activation_token = signup_result.activation_token
     site_url = request.build_absolute_uri("/").rstrip("/")
     activation_link = f"{site_url}/activate/{activation_token}/"
-
-    html_content = render_to_string(
-        "emails/activation_email.html",
-        {
-            "user_email": email,
-            "restaurant_name": restaurant_name,
-            "activation_link": activation_link,
-        },
-    )
-    email_message = EmailMultiAlternatives(
-        subject="Activate Your Appertivo Account",
-        body=f"Please activate your account by visiting: {activation_link}",
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        to=[email],
-    )
-    email_message.attach_alternative(html_content, "text/html")
-
-    try:
-        email_message.send()
-    except Exception:
-        logger.exception("Failed to send activation email", extra={"email": email})
-
-    if is_json:
-        return JsonResponse(
-            {
-                "redirect_url": reverse("check-email"),
-                "message": "Please check your email to activate your account",
-            }
-        )
-    return render(request, "auth/check_email.html", {"email": email})
+    send_activation_email.delay(email, restaurant_name, activation_link)
+    logger.info(f"signup view before return: {signup_result.onboarding.uuid}")
+    return create_checkout_session(request, signup_result.onboarding.uuid)
 
 
 
@@ -1993,7 +1953,7 @@ def dish_detail_view(request, concept_id):
 
     return render(request, template_name, context)
 
-
+@csrf_exempt
 def dish_favorite_view(request, dish_id):
     """Toggle favorite on a dish."""
     dish = get_object_or_404(
@@ -2929,124 +2889,6 @@ def settings_view(request):
     })
 
 
-@login_required
-@require_POST
-def update_restaurant_info(request):
-    restaurant = models.Restaurant.objects.filter(account__membership__user=request.user).first()
-    if not restaurant:
-        return redirect("settings")
-
-    form_type = request.POST.get("form_type") or "urls"
-
-    if form_type == "content":
-        menu_text = (request.POST.get("menu_text") or "").strip()
-        menu_pdf = request.FILES.get("menu_pdf")
-        if menu_text or menu_pdf:
-            _process_menu_submission(restaurant, None, menu_text, menu_pdf)
-        return redirect("settings")
-
-    submitted_values = request.POST.getlist("menu_urls")
-    if submitted_values:
-        combined = []
-        for value in submitted_values:
-            if not value:
-                continue
-            combined.append(value)
-        if combined:
-            normalized = "\n".join(combined).replace("\r", "\n").replace(",", "\n")
-            urls = [line.strip() for line in normalized.split("\n") if line.strip()]
-        else:
-            urls = []
-    else:
-        raw_urls = request.POST.get("menu_urls")
-        if raw_urls is None:
-            menu_url = (request.POST.get("menu_url") or "").strip()
-            urls = [menu_url] if menu_url else []
-        else:
-            normalized = raw_urls.replace("\r", "\n").replace(",", "\n")
-            urls = [line.strip() for line in normalized.split("\n") if line.strip()]
-
-    restaurant.set_menu_urls(urls)
-    restaurant.save(update_fields=["menu_urls", "primary_menu_url"])
-
-    ingredient_names = [
-        name.strip()
-        for name in (request.POST.get("ingredients", "") or "").split(",")
-        if name.strip()
-    ]
-    for name in ingredient_names:
-        models.Ingredient.objects.get_or_create(restaurant=restaurant, name=name)
-
-    return redirect("settings")
-
-
-@require_POST
-def rescrape_restaurant(request, restaurant_id):
-    restaurant = get_object_or_404(models.Restaurant, id=restaurant_id)
-    payload = _queue_outscraper_payload(
-        restaurant,
-        requested_by=request.user if request.user.is_authenticated else None,
-    )
-    run_outscraper_search.delay(str(payload.id))
-    return HttpResponse("rescrape_complete", content_type="text/plain")
-
-
-@login_required
-@require_POST
-def refresh_reviews(request, restaurant_id):
-    """Trigger an Outscraper reviews refresh for the restaurant."""
-
-    restaurant = get_object_or_404(
-        models.Restaurant,
-        id=restaurant_id,
-        account__membership__user=request.user,
-    )
-
-    api_key = getattr(settings, "OUTSCRAPER_API_KEY", os.getenv("OUTSCRAPER_API_KEY"))
-    if not api_key:
-        logger.warning("Outscraper API key missing; cannot refresh reviews for %s", restaurant.id)
-        return redirect("settings")
-
-    query_value = (
-        restaurant.google_place_id
-        or (restaurant.context_json or {}).get("google_id")
-        or restaurant.name
-        or restaurant.location_text
-    )
-    if not query_value:
-        logger.warning("No query value available for Outscraper reviews on %s", restaurant.id)
-        return redirect("settings")
-
-
-    webhook_url = request.build_absolute_uri(reverse("outscraper_webhook"))
-    params = {
-        "query": query_value,
-        "limit": 1,
-        "reviewsLimit": 10,
-        "async": "true",
-        "webhook": webhook_url,
-        "sort":"newest",
-        "ignoreEmpty": "true",
-        "fields":"place_id,reviews_data.review_text",
-
-    }
-    headers = {"X-API-KEY": api_key}
-
-    try:
-        requests.get(
-            "https://api.outscraper.cloud/google-maps-reviews",
-            params=params,
-            headers=headers,
-            timeout=10,
-        )
-    except requests.RequestException as exc:  # pragma: no cover - network guard
-        logger.warning(
-            "Outscraper reviews request failed for %s: %s", restaurant.id, exc, exc_info=True
-        )
-
-    return redirect("settings")
-
-
 @require_POST
 def update_creativity(request, restaurant_id):
     restaurant = get_object_or_404(models.Restaurant, id=restaurant_id)
@@ -3054,36 +2896,6 @@ def update_creativity(request, restaurant_id):
     if slider_value is not None:
         _persist_slider_value(restaurant, slider_value)
     return JsonResponse({"status": "ok"})
-
-
-@login_required
-@require_POST
-def rescrape_menu(request, restaurant_id):
-    restaurant = get_object_or_404(models.Restaurant, id=restaurant_id)
-    logger.info("Rescrape requested by user=%s for restaurant=%s (%s)",
-                request.user.id, restaurant.name, restaurant.id)
-
-    if not restaurant.primary_menu_url:
-        logger.warning("Restaurant %s (%s) has no primary_menu_url set. Cannot rescrape.",
-                       restaurant.name, restaurant.id)
-        return JsonResponse({"error": "missing_menu_url"}, status=400)
-
-    mv = models.MenuVersion.objects.create(
-        restaurant=restaurant,
-        source_url=restaurant.primary_menu_url,
-        source_kind=models.MenuVersion.SourceKind.URL_SCRAPE,
-        raw_markdown="",
-        status=models.MenuVersion.Status.QUEUED,
-    )
-    logger.info("Created MenuVersion id=%s for restaurant=%s (%s)",
-                mv.id, restaurant.name, restaurant.id)
-
-    # Queue Celery task
-    scrape_menu.delay(str(mv.id))
-    logger.info("Dispatched scrape_menu task for MenuVersion id=%s", mv.id)
-
-    return JsonResponse({"rescrape_complete": True})
-
 
 
 @login_required
@@ -3230,65 +3042,6 @@ def billing_cancel_view(request):
 
     return redirect("billing")
 
-
-@csrf_exempt
-@require_POST
-def stripe_webhook_view(request):
-    """Handle Stripe webhook callbacks for subscriptions."""
-
-    payload = request.body
-    sig_header = request.META.get("HTTP_STRIPE_SIGNATURE", "")
-    secret = getattr(settings, "STRIPE_WEBHOOK_SECRET", "")
-
-    if secret:
-        try:
-            event = stripe.Webhook.construct_event(payload, sig_header, secret)
-        except ValueError:
-            return HttpResponseBadRequest("invalid_payload")
-        except stripe.error.SignatureVerificationError:
-            return HttpResponseForbidden("invalid_signature")
-    else:
-        try:
-            event = json.loads(payload or "{}")
-        except json.JSONDecodeError:
-            return HttpResponseBadRequest("invalid_json")
-
-    event_id = event.get("id")
-    event_type = event.get("type")
-    data_object = event.get("data", {}).get("object", {})
-
-    if event_id:
-        _, created = models.StripeWebhookEvent.objects.get_or_create(
-            event_id=event_id,
-            defaults={"event_type": event_type or "", "payload": event},
-        )
-        if not created:
-            logger.info(
-                "Stripe webhook already processed",
-                extra={"event_id": event_id},
-            )
-            return HttpResponse(status=200)
-
-    if event_type == "checkout.session.completed":
-        subscription_id = data_object.get("subscription")
-        if subscription_id:
-            _ensure_stripe_api_key()
-            try:
-                subscription = stripe.Subscription.retrieve(subscription_id)
-            except stripe.error.StripeError:
-                logger.exception(
-                    "Unable to retrieve subscription %s from Stripe", subscription_id
-                )
-            else:
-                _sync_subscription(subscription)
-    elif event_type in {
-        "customer.subscription.created",
-        "customer.subscription.updated",
-        "customer.subscription.deleted",
-    }:
-        _sync_subscription(data_object)
-
-    return HttpResponse(status=200)
 
 
 def job_status_view(request, job_id):

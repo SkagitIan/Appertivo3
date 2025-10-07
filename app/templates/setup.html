@@ -1,20 +1,121 @@
 {% extends "layouts/marketing.html" %}
-
 {% block title %}Complete your workspace setup{% endblock %}
 
 {% block content %}
-  <section class="py-24">
-    <div class="max-w-2xl mx-auto px-6 text-center space-y-6">
-      <h1 class="text-3xl md:text-4xl font-bold text-[#2E005D]">You're all set!</h1>
-      <p class="text-lg text-slate-600">
-        We received your subscription and are preparing your workspace. Once ready you'll land in the getting started hub with next steps.
+<style>
+  /* Soft animated gradient backdrop */
+  .ai-gradient {
+    background: radial-gradient(1200px 600px at 10% 10%, #B993D6 0%, transparent 60%),
+                radial-gradient(800px 400px at 90% 20%, #f08000 0%, transparent 65%),
+                radial-gradient(900px 500px at 30% 90%, #58B09C 0%, transparent 60%),
+                radial-gradient(700px 350px at 70% 85%, #49475B 0%, transparent 70%);
+    filter: saturate(1.05);
+  }
+  @keyframes floaty {
+    0%, 100% { transform: translateY(0) }
+    50% { transform: translateY(-6px) }
+  }
+  @keyframes shine {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  .shine {
+    background-size: 200% 100%;
+    background-image: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.18) 50%, rgba(255,255,255,0) 100%);
+    animation: shine 2.4s linear infinite;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  .animate-spin { animation: spin 1.5s linear infinite; }
+</style>
+
+<section class="relative py-20 md:py-28 overflow-hidden">
+  <div class="absolute inset-0 ai-gradient opacity-25"></div>
+
+  <div class="relative max-w-5xl mx-auto px-6">
+    <header class="text-center mb-10">
+      <span class="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"
+            style="background:#FFE7CC;color:#f08000;">
+        Inside the Appertivo Lab
+      </span>
+      <h1 class="mt-4 text-3xl md:text-5xl font-extrabold" style="color:#14080E">
+        You're all set — training your AI menu partner now
+      </h1>
+      <p class="mt-3 text-lg text-slate-600 max-w-2xl mx-auto">
+        We’re pulling in your menus, reviews, and vibe to generate concepts and dishes tailored to your restaurant.
       </p>
-      {% if session_id %}
-        <p class="text-sm text-slate-500">
-          Checkout reference: <span class="font-mono text-slate-700">{{ session_id }}</span>
-        </p>
-      {% endif %}
-      <p class="text-sm text-slate-500">We&rsquo;ll nudge you toward <a class="text-[#2E005D] underline" href="{% url 'getting-started' %}">your getting started checklist</a> as soon as everything is set.</p>
+    </header>
+
+    <!-- Status Card -->
+    <div class="bg-white/80 backdrop-blur rounded-2xl shadow-xl border border-slate-200 p-6 md:p-8">
+      <!-- Progress header -->
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <div class="relative">
+            <div class="w-12 h-12 rounded-full" style="background:#B993D6; opacity:.2;"></div>
+            <div class="absolute inset-0 rounded-full border-4"
+                 style="border-color:#B993D6; border-top-color:#f08000"
+                 aria-hidden="true"></div>
+            <div class="absolute inset-0 rounded-full animate-spin border-4 border-transparent"
+                 style="border-top-color:#58B09C" aria-hidden="true"></div>
+          </div>
+          <div>
+            <p class="text-sm text-slate-500">Status</p>
+            <p class="text-base font-semibold" style="color:#49475B">
+              Live training in progress
+            </p>
+          </div>
+        </div>
+        <div class="text-right">
+          <p class="text-sm text-slate-500">Checkout reference</p>
+          {% if session_id %}
+            <p class="font-mono text-sm text-slate-700">{{ session_id }}</p>
+          {% else %}
+            <p class="text-sm text-slate-400">—</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Progress bar -->
+      <div class="mt-6">
+        <div class="w-full h-3 rounded-full bg-slate-200 overflow-hidden">
+          <div id="progress-bar"
+               class="h-3 rounded-full shine"
+               style="width: {{ progress|default:'2' }}%; background-image: linear-gradient(90deg, #B993D6, #f08000, #58B09C);">
+          </div>
+        </div>
+        <div class="mt-2 flex items-center justify-between text-sm">
+          <span class="text-slate-600" id="progress-label">
+            {{ message|default:"Booting up…" }}
+          </span>
+          <span class="font-semibold" style="color:#14080E">{{ progress|default:"2" }}%</span>
+        </div>
+      </div>
+
+      <!-- Steps timeline (HTMX will refresh this whole block) -->
+      <div id="onboarding-status"
+           class="mt-8"
+           hx-get="{% url 'onboarding_status' onboarding_id %}"
+           hx-trigger="load, every 2s"
+           hx-swap="outerHTML"
+           hx-indicator="#hx-indicator">
+        {% include "_partials/onboarding_status.html" with steps=steps progress=progress message=message %}
+      </div>
+
+      <!-- Subtle tip + Dutch mini-lesson -->
+      <div class="mt-6 text-sm text-slate-500">
+        Tip: you can leave this tab open—we’ll take you to your dashboard automatically when training finishes.<br>
+        <em>Mini Dutch</em>: “We trainen je AI op reviews” → “We’re training your AI on reviews.”
+      </div>
     </div>
-  </section>
+
+    <!-- HTMX indicator (optional) -->
+    <div id="hx-indicator" class="fixed bottom-6 right-6 hidden opacity-90">
+      <div class="px-3 py-2 rounded-lg shadow-lg text-xs font-medium text-white" style="background:#49475B;">
+        Syncing…
+      </div>
+    </div>
+  </div>
+</section>
 {% endblock %}

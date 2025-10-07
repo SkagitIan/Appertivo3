@@ -89,14 +89,6 @@ class MembershipAdmin(TimestampedAdmin):
     list_filter = ("role", "account")
 
 
-# Restaurant + data
-class MenuVersionInline(admin.TabularInline):
-    model = models.MenuVersion
-    extra = 0
-    fields = ("source_kind", "status", "parsed_at")
-    readonly_fields = ("parsed_at",)
-
-
 class DishIdeaInline(admin.TabularInline):
     model = models.DishIdea
     extra = 0
@@ -105,33 +97,8 @@ class DishIdeaInline(admin.TabularInline):
 
 @admin.register(models.Restaurant)
 class RestaurantAdmin(admin.ModelAdmin):
-    list_display = ("name", "location_text", "phone", "rating", "review_count", "created_at")
-    search_fields = ("name", "location_text", "phone")
-    list_filter = ("rating", "account")
-    readonly_fields = ("context_json", "reviews_json")
-    inlines = (MenuVersionInline, DishIdeaInline)
-
-    fieldsets = (
-        ("Core Info", {
-            "fields": (
-                "account",
-                "name",
-                "location_text",
-                "primary_menu_url",
-                "menu_urls",
-            )
-        }),
-        ("Outscraper Data", {
-            "fields": (
-                "phone", "website", "google_place_id",
-                "description", "rating", "review_count",
-                "hours_json", "about_json", "context_json", "reviews_json"
-            )
-        }),
-        ("Menu", {
-            "fields": ("active_menu_version",)
-        }),
-    )
+    list_display = ("name", "location_text")
+    
 
 @admin.register(models.RestaurantSettings)
 class RestaurantSettingsAdmin(TimestampedAdmin):
@@ -147,19 +114,6 @@ class RestaurantSettingsAdmin(TimestampedAdmin):
 class OutscraperPayloadAdmin(TimestampedAdmin):
     list_display = ("restaurant", "status", "started_at", "finished_at")
     list_filter = ("status", "restaurant")
-
-
-@admin.register(models.MenuVersion)
-class MenuVersionAdmin(TimestampedAdmin):
-    list_display = ("restaurant", "source_kind", "status", "parsed_at")
-    list_filter = ("status", "source_kind", "restaurant")
-
-
-@admin.register(models.Ingredient)
-class IngredientAdmin(TimestampedAdmin):
-    list_display = ("restaurant", "name", "canonical_name", "confidence")
-    search_fields = ("name", "canonical_name")
-
 
 # Ideation + results
 @admin.register(models.IdeationRun)
@@ -177,12 +131,6 @@ class ConceptAdmin(TimestampedAdmin):
 class DishIdeaAdmin(TimestampedAdmin):
     list_display = ("restaurant", "title", "description", "created_at")
     search_fields = ("title", "description")
-
-
-@admin.register(models.DishIdeaIngredient)
-class DishIdeaIngredientAdmin(TimestampedAdmin):
-    list_display = ("dish", "ingredient", "source", "confidence")
-    list_filter = ("source",)
 
 
 # Favorites
@@ -296,13 +244,6 @@ class EntitlementCounterAdmin(TimestampedAdmin):
     )
 
 
-# Jobs, events, tags
-@admin.register(models.Job)
-class JobAdmin(TimestampedAdmin):
-    list_display = ("account", "kind", "status", "progress_pct")
-    list_filter = ("status", "kind")
-
-
 @admin.register(models.UiEvent)
 class UiEventAdmin(TimestampedAdmin):
     list_display = ("user", "name", "entity_type", "created_at")
@@ -315,3 +256,19 @@ class TagDictionaryAdmin(TimestampedAdmin):
     list_filter = ("kind",)
 
 
+
+@admin.register(models.Onboarding)
+class OnboardingAdmin(admin.ModelAdmin):
+    list_display = (
+        "restaurant",
+        "state",
+        "progress",
+        "updated_at",
+        "uuid",
+    )
+    ordering = ("-updated_at",)
+    
+
+    def has_add_permission(self, request):
+        # onboarding records are created automatically by the system
+        return False

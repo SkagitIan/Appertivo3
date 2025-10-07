@@ -103,82 +103,164 @@ def _extract_contact(text: str) -> dict:
         "emails": sorted(emails),
     }
 
+def web_search_profile_prompt():
+    prompt = f"""
+        You are a precise restaurant analyst. Use the web_search tool to thoroughly explore the restaurant’s site and any directly linked pages/PDFs within allowed_domains only.
 
-def build_profile(onboarding: models.Onboarding, allowed_domains: List[str]) -> dict:
-    """Crawl a limited set of pages to build the web profile JSON."""
+        GOALS
+        1) Atmosphere & Identity
+        • Describe the restaurant’s style, aesthetic, ambiance, and brand personality (concise, vivid).
 
-    if not allowed_domains:
-        return {
-            "primary_domain": "",
-            "pages": [],
-            "menu_links": [],
-            "contact": {"phones": [], "emails": []},
-            "about_snippet": "",
-        }
+        2) Menu Links & Structure
+        • Collect ALL menu URLs (HTML, PDFs, embeds).
+        • For each menu section, list items with: name, description, price_cents (integer or null), currency (ISO code or null), allergens (array).
+        • Provide a section-level source_url (page or PDF URL where the section was found).
 
-    allowed_netlocs = { _normalize_domain(domain) for domain in allowed_domains if domain }
-    if not allowed_netlocs:
-        return {
-            "primary_domain": "",
-            "pages": [],
-            "menu_links": [],
-            "contact": {"phones": [], "emails": []},
-            "about_snippet": "",
-        }
+        3) Contact & Operational
+        • phone, email, address (strings).
+        • reservation_url (string; empty string if not present).
+        • social_links (array of absolute URLs; empty if none).
 
-    visited: set[str] = set()
-    queue: deque[str] = deque()
+        4) Personas (EXACTLY THREE)
+        • Return an array of exactly 3 paragraphs (strings).
+        • Each paragraph is 2–4 sentences describing a distinct guest persona grounded in site evidence (and reviews if linked).
 
-    primary_domain = next(iter(allowed_netlocs))
-    seed_url = allowed_domains[0]
-    if not urlparse(seed_url).scheme:
-        seed_url = f"https://{seed_url.strip('/') }"
-    queue.append(seed_url)
+        5) Master Ingredient List
+        • Parse all menu item names and descriptions to extract ingredients.
+        • Normalize to singular, lowercase US spelling.
+        • Return ONLY a de-duplicated array of ingredient names (strings).
 
-    pages: List[PageSnapshot] = []
+        RULES
+        • Stay within allowed_domains = Absolute URLs only.
+        • If a field is unknown, still include it with the correct empty value type.
+        • Return ONLY valid JSON conforming exactly to the schema named “restaurant_profile”.
+        """
+    return prompt
 
-    while queue and len(pages) < _MAX_PAGES:
-        current_url = queue.popleft()
-        if current_url in visited:
-            continue
-        visited.add(current_url)
-
-        try:
-            started = time.monotonic()
-            response = requests.get(current_url, timeout=_TIMEOUT_SECONDS)
-            response.raise_for_status()
-            html = response.text
-            latency_ms = int((time.monotonic() - started) * 1000)
-        except requests.RequestException as exc:
-            logger.warning("Failed to fetch %s: %s", current_url, exc)
-            continue
-
-        snapshot = _parse_html(current_url, html)
-        pages.append(snapshot)
-
-        for link in snapshot.links:
-            absolute = urljoin(current_url, link)
-            if _should_visit(absolute, allowed_netlocs) and absolute not in visited:
-                queue.append(absolute)
-
-    combined_text = " ".join(snapshot.text for snapshot in pages)
-    menu_links = []
-    for snapshot in pages:
-        for link in _extract_menu_links(snapshot.links):
-            absolute = urljoin(snapshot.url, link)
-            if absolute not in menu_links:
-                menu_links.append(absolute)
-
-    about_snippet = combined_text[:1000]
-    contact = _extract_contact(combined_text)
-
-    result = {
-        "primary_domain": primary_domain,
-        "pages": [snapshot.url for snapshot in pages],
-        "menu_links": menu_links,
-        "contact": contact,
-        "about_snippet": about_snippet,
+def web_search_profile_schema():
+    schema = {
+        "name": "restaurant_profile",
+        "type": "json_schema",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "style_vibe": {"type": "string"},
+                "menu_urls": {"type": "array", "items": {"type": "string"}},
+                "menus": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "section": {"type": "string"},
+                            "source_url": {"type": "string"},
+                            "items": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": False,
+                                    "properties": {
+                                        "name": {"type": "string"},
+                                        "description": {"type": "string"},
+                                        "price_cents": {"type": ["integer", "null"]},
+                                        "currency": {"type": ["string", "null"]},
+                                        "allergens": {
+                                            "type": "array",
+                                            "items": {"type": "string"},
+                                        },
+                                    },
+                                    "required": [
+                                        "name",
+                                        "description",
+                                        "price_cents",
+                                        "currency",
+                                        "allergens",
+                                    ],
+                                },
+                            },
+                        },
+                        "required": ["section", "source_url", "items"],
+                    },
+                },
+                "contact": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "phone": {"type": "string"},
+                        "email": {"type": "string"},
+                        "address": {"type": "string"},
+                        "reservation_url": {"type": "string"},
+                        "social_links": {"type": "array", "items": {"type": "string"}},
+                    },
+                    "required": [
+                        "phone",
+                        "email",
+                        "address",
+                        "reservation_url",
+                        "social_links",
+                    ],
+                },
+                "personas": {
+                    "type": "array",
+                    "minItems": 3,
+                    "maxItems": 3,
+                    "items": {"type": "string"},
+                },
+                "ingredients": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": [
+                "style_vibe",
+                "menu_urls",
+                "menus",
+                "contact",
+                "personas",
+                "ingredients",
+            ],
+        },
     }
+    return schema
 
-    _log_profile_call({"primary_domain": primary_domain, "page_count": len(pages), "menu_links": len(menu_links)})
-    return result
+def build_profile(onboarding: models.Onboarding, website) -> dict:
+    raw_url = (website or "").strip()
+    if not raw_url:
+        return {"domain": "", "menu_links": [], "contact": {}, "about": ""}
+
+    # normalize to domain.com form
+    parsed = urlparse(raw_url if "://" in raw_url else f"https://{raw_url}")
+    domain = parsed.netloc or parsed.path
+    domain = domain.lower().removeprefix("www.")
+    # --- Execute web search via OpenAI ---
+    logger.info(domain)
+    try:
+        response = client.responses.create(
+            model="gpt-5",
+            tools=[
+                {
+                    "type": "web_search",
+                    "filters": {"allowed_domains": allowed_domains},
+                }
+            ],
+            input=web_search_profile_prompt(),
+            text={"format": web_search_profile_schema()},
+        )
+
+        profile = response.output_parsed or {}
+        logger.info(profile)
+        if not profile:
+            logger.error("Empty response for restaurant %s", restaurant.id)
+            return None
+
+        # --- Save structured data to DB ---
+        restaurant.websearch_json = json.dumps(profile, indent=2)
+        restaurant.menu_json = json.dumps(profile.get("menus", []))
+        restaurant.ingredients_json = json.dumps(profile.get("ingredients", []))
+        restaurant.save()
+
+        logger.info("Saved web profile for %s", restaurant.name)
+        return profile
+
+    except Exception as e:
+        logger.exception("Error building profile for %s: %s", restaurant.id, e)
+        return None

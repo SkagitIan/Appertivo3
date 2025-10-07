@@ -26,7 +26,6 @@ from django.views import View
 from django.views.generic import TemplateView
 
 from app import models as app_models
-from onboarding.tasks import provision_onboarding
 
 User = get_user_model()
 
