@@ -1238,8 +1238,8 @@ class ViewSmokeTests(TestCase):
         self.assertEqual(mv.source_kind, models.MenuVersion.SourceKind.IMAGE_OCR)
         mock_parse.assert_called_once()
 
-    @patch("app.stripe.stripe.Subscription.modify")
-    @patch("app.stripe.stripe.checkout.Session.create")
+    @patch("app.views.stripe.Subscription.modify")
+    @patch("app.views.stripe.checkout.Session.create")
     def test_billing_views(self, mock_checkout, mock_modify):
         mock_checkout.return_value = SimpleNamespace(url="https://stripe.test/session")
 

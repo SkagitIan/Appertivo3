@@ -10,20 +10,23 @@ from typing import Any, Dict, List
 
 import requests
 from django.conf import settings
-
+from dotenv import load_dotenv
+load_dotenv()
 from app import models
 
 logger = logging.getLogger(__name__)
 
 OUTSCRAPER_SEARCH_URL = "https://api.app.outscraper.com/maps/search-v3"
-OUTSCRAPER_REVIEWS_URL = "https://api.app.outscraper.com/maps/reviews-v3"
-_TIMEOUT_SECONDS = 12
+OUTSCRAPER_REVIEWS_URL = "https://api.outscraper.cloud/google-maps-reviews"
+_TIMEOUT_SECONDS = 60
+_MAX_HTTP_RETRIES = 3
+_RETRY_BACKOFF_SECONDS = 0.75
 
 
 def _api_key() -> str:
     """Return the Outscraper API key from settings or environment."""
 
-    return getattr(settings, "OUTSCRAPER_API_KEY", "") or os.getenv("OUTSCRAPER_API_KEY", "")
+    return os.getenv("OUTSCRAPER_API_KEY")
 
 
 def _log_external_call(provider: str, function_name: str, metadata: Dict[str, Any]) -> None:
@@ -40,6 +43,68 @@ def _log_external_call(provider: str, function_name: str, metadata: Dict[str, An
         )
     except Exception:  # pragma: no cover - logging failures should not break flow
         logger.exception("Unable to persist external call log", exc_info=True)
+
+
+def _outscraper_get(
+    url: str,
+    *,
+    params: Dict[str, Any],
+    headers: Dict[str, str],
+    timeout: int,
+    call_name: str,
+) -> requests.Response:
+    """Execute an Outscraper GET request with basic retry + logging."""
+
+    sanitized_headers = dict(headers)
+    sanitized_headers.setdefault("Connection", "close")
+    metadata = {"url": url, "params": params, "timeout": timeout}
+
+    last_exc: Exception | None = None
+    for attempt in range(1, _MAX_HTTP_RETRIES + 1):
+        attempt_meta = {**metadata, "attempt": attempt}
+        logger.info("Outscraper %s request", call_name, extra={"outscraper": attempt_meta})
+        try:
+            response = requests.get(
+                url,
+                params=params,
+                headers=sanitized_headers,
+                timeout=timeout,
+            )
+            logger.info(
+                "Outscraper %s response",
+                call_name,
+                extra={
+                    "outscraper": {
+                        **attempt_meta,
+                        "status_code": response.status_code,
+                        "content_length": len(response.content or b"") if response.content else 0,
+                    }
+                },
+            )
+            return response
+        except requests.exceptions.ConnectionError as exc:
+            last_exc = exc
+            logger.warning(
+                "Outscraper %s connection error",
+                call_name,
+                exc_info=True,
+                extra={"outscraper": {**attempt_meta, "error": str(exc)}},
+            )
+            if attempt < _MAX_HTTP_RETRIES:
+                backoff = min(_RETRY_BACKOFF_SECONDS * attempt, 3)
+                time.sleep(backoff)
+        except requests.RequestException as exc:
+            # Non-connection errors should surface immediately.
+            logger.warning(
+                "Outscraper %s request exception",
+                call_name,
+                exc_info=True,
+                extra={"outscraper": {**attempt_meta, "error": str(exc)}},
+            )
+            raise
+
+    assert last_exc is not None  # for type checking
+    raise last_exc
 
 
 def fetch_context(onboarding: models.Onboarding) -> Dict[str, Any]:
@@ -72,7 +137,13 @@ def fetch_context(onboarding: models.Onboarding) -> Dict[str, Any]:
     headers = {"X-API-KEY": api_key}
     started = time.monotonic()
     try:
-        response = requests.get(OUTSCRAPER_SEARCH_URL, params=params, headers=headers, timeout=_TIMEOUT_SECONDS)
+        response = _outscraper_get(
+            OUTSCRAPER_SEARCH_URL,
+            params=params,
+            headers=headers,
+            timeout=_TIMEOUT_SECONDS,
+            call_name="maps-search-v3",
+        )
         response.raise_for_status()
     except requests.RequestException as exc:
         metadata = {
@@ -114,15 +185,24 @@ def fetch_reviews(place_id: str) -> List[Dict[str, Any]]:
         return []
 
     params = {
-        "place_id": place_id,
-        "limit": 100,
+        "query": place_id,
         "language": "en",
-        "reviews_limit": 100,
+        "reviews_limit": 1,
+        "sort":"newest",
+        "ignore_empty": "true",
+        "async":"false",
+        "fields":"placed_id,reviews_data.review_text",
     }
     headers = {"X-API-KEY": api_key}
     started = time.monotonic()
     try:
-        response = requests.get(OUTSCRAPER_REVIEWS_URL, params=params, headers=headers, timeout=_TIMEOUT_SECONDS)
+        response = _outscraper_get(
+            OUTSCRAPER_REVIEWS_URL,
+            params=params,
+            headers=headers,
+            timeout=_TIMEOUT_SECONDS,
+            call_name="google-maps-reviews",
+        )
         if response.status_code == 404:
             _log_external_call(
                 "outscraper",

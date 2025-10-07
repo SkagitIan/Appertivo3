@@ -74,8 +74,6 @@ INSTALLED_APPS = [
     'appertivo.leads.apps.LeadsConfig',
     'appertivo.assets.apps.AssetsConfig',
     'articles.apps.ArticlesConfig',
-    'django_q',
-    'dashboard.apps.DashboardConfig',
 ]
 
 if USE_CLOUDINARY_STORAGE and 'cloudinary_storage' not in INSTALLED_APPS:
@@ -259,9 +257,10 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Celery configuration
-CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "memory://")
-CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "cache+memory://")
-CELERY_TASK_ALWAYS_EAGER = os.getenv("CELERY_TASK_ALWAYS_EAGER", "True") == "True"
+CELERY_BROKER_URL = "redis://localhost:6379/0"
+CELERY_RESULT_BACKEND = CELERY_BROKER_URL
+CELERY_TASK_ALWAYS_EAGER = False  # make sure it’s async!
+
 
 CELERY_BEAT_SCHEDULE = {
     "leads-fetch-weekly": {

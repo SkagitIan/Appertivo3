@@ -925,10 +925,10 @@
           <h3 class="text-xl font-semibold text-[#FF5C00]">Pro</h3>
           <p class="mt-4 text-slate-600">Unlock enhancements, menu building, and AI-powered features.</p>
           <p class="mt-6 text-3xl font-bold text-[#FF5C00]">$59/mo</p>
-          <form method="post" action="{% url 'billing-create-checkout-session' %}" class="mt-6">
+          <form method="post" action="{% url 'signup' %}" class="mt-6">
             {% csrf_token %}
             <button type="submit" class="inline-flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-[#FF8300] to-[#FF5C00] px-5 py-3 text-sm font-semibold text-white transition hover:scale-105">
-              Upgrade Now
+              Signup
             </button>
           </form>
         </div>

@@ -8,6 +8,7 @@ from django.contrib.auth import get_user_model
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
+import uuid
 
 # Allow index names that match historical migrations.
 models.Index.max_name_length = 63
@@ -75,11 +76,18 @@ class Restaurant(TimestampedModel):
     description = models.TextField(null=True, blank=True)
     rating = models.DecimalField(max_digits=3, decimal_places=1, null=True, blank=True)
     review_count = models.IntegerField(null=True, blank=True)
+    ## deep research
+    websearch_json = models.JSONField(null=True, blank=True)     # OPENAI Websearch 
+    websearch_markdown = models.CharField(max_length=11128, blank=True)
+    menu_json = models.JSONField(null=True, blank=True) ## menu from OPENAI websearch
+    ingredients_json = models.JSONField(null=True, blank=True) ## ingredients from OPENAI
     hours_json = models.JSONField(null=True, blank=True)     # working_hours
     about_json = models.JSONField(null=True, blank=True)     # amenities, offerings, etc.
     context_json = models.JSONField(null=True, blank=True)   # full Outscraper snapshot
     reviews_json = models.JSONField(null=True, blank=True)   # Outscraper reviews snapshot
-
+    review_analysis = models.CharField(max_length=11128, blank=True)
+    reviews_markdown = models.CharField(max_length=11128, blank=True)
+    personas = models.CharField(max_length=11128, blank=True)
     active_menu_version = models.ForeignKey(
         "MenuVersion",
         null=True,
@@ -142,15 +150,19 @@ class Onboarding(TimestampedModel):
     state = models.CharField(
         max_length=50, choices=State.choices, default=State.CREATED
     )
+    uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
 
     outscraper_search_job_id = models.CharField(max_length=128, blank=True)
     outscraper_reviews_job_id = models.CharField(max_length=128, blank=True)
     activation_token = models.CharField(max_length=255, blank=True)
 
+    outscraper_data = models.JSONField(null=True, blank=True) 
     web_profile_json = models.JSONField(null=True, blank=True)
+    
     reviews_json = models.JSONField(null=True, blank=True)
-    review_analysis_json = models.JSONField(null=True, blank=True)
-    personas_json = models.JSONField(null=True, blank=True)
+
+    review_analysis = models.CharField(max_length=11128, blank=True)
+    personas_analysis = models.CharField(max_length=11128, blank=True)
 
     last_error = models.TextField(blank=True)
     progress = models.PositiveSmallIntegerField(default=0)
@@ -196,6 +208,25 @@ class Onboarding(TimestampedModel):
         """Mark the onboarding run as failed."""
 
         self.mark(self.State.FAILED, progress=self.progress, error=error)
+
+    def status_message(self):
+        messages = {
+        self.State.CREATED: "Preparing your onboarding environment…",
+        self.State.EMAIL_CONFIRMED: "Email confirmed — setting up your workspace…",
+        self.State.CHECKOUT_STARTED: "Payment initiated — finalizing order…",
+        self.State.CHECKOUT_PAID: "Payment received — starting AI training…",
+        self.State.SCRAPE_QUEUED: "Gathering restaurant data from the web…",
+        self.State.SCRAPE_DONE: "Data collected — beginning analysis…",
+        self.State.REVIEWS_QUEUED: "Fetching and organizing customer reviews…",
+        self.State.REVIEWS_DONE: "Reviews retrieved — analyzing tone and themes…",
+        self.State.WEB_ANALYSIS_DONE: "Analyzing website and online presence…",
+        self.State.MENU_DONE: "Menu processing complete — generating insights…",
+        self.State.REVIEW_ANALYSIS_DONE: "Review analysis done — summarizing findings…",
+        self.State.PERSONAS_DONE: "Creating customer personas…",
+        self.State.COMPLETE: "All done! Your dashboard is ready.",
+        self.State.FAILED: "Something went wrong — please contact support.",
+    }
+        return messages.get(self.state, "Working on it… please stay patient.")
 
 
 class ProvisioningJob(TimestampedModel):
@@ -434,20 +465,6 @@ class DishIdea(TimestampedModel):
     category_tags = models.JSONField(default=list)
     is_deleted = models.BooleanField(default=False)
 
-
-class DishIdeaIngredient(TimestampedModel):
-    """Links dish ideas to ingredients."""
-    class Source(models.TextChoices):
-        OVERLAP = "overlap"
-        INFERRED = "inferred"
-
-    dish = models.ForeignKey(DishIdea, on_delete=models.CASCADE)
-    ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE)
-    source = models.TextField(choices=Source.choices)
-    confidence = models.DecimalField(max_digits=4, decimal_places=3, default=1)
-
-    class Meta:
-        unique_together = ("dish", "ingredient", "source")
 
 
 class FavoriteConcept(TimestampedModel):
@@ -749,42 +766,6 @@ class EntitlementCounter(TimestampedModel):
 
     class Meta:
         unique_together = ("account", "period_start")
-
-
-class Job(TimestampedModel):
-    """Background job tracking."""
-    class Kind(models.TextChoices):
-        OUTSCRAPER = "outscraper"
-        MENU_SCRAPE = "menu_scrape"
-        INGREDIENT_BUILD = "ingredient_build"
-        IDEATION = "ideation"
-        IMAGE_GENERATE = "image_generate"
-        EMAIL_SEND = "email_send"
-
-    class Status(models.TextChoices):
-        QUEUED = "queued"
-        RUNNING = "running"
-        SUCCEEDED = "succeeded"
-        FAILED = "failed"
-
-    account = models.ForeignKey(Account, on_delete=models.CASCADE)
-    restaurant = models.ForeignKey(
-        Restaurant, null=True, blank=True, on_delete=models.SET_NULL
-    )
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL
-    )
-    kind = models.TextField(choices=Kind.choices)
-    ref_table = models.TextField()
-    ref_id = models.UUIDField()
-    status = models.TextField(choices=Status.choices)
-    progress_pct = models.SmallIntegerField()
-    error_message = models.TextField(null=True, blank=True)
-    started_at = models.DateTimeField(null=True, blank=True)
-    finished_at = models.DateTimeField(null=True, blank=True)
-
-    class Meta:
-        indexes = [models.Index(fields=["account", "status", "-created_at"])]
 
 
 class UiEvent(TimestampedModel):

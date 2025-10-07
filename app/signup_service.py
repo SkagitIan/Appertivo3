@@ -27,6 +27,7 @@ class SignupResult:
     account: models.Account
     restaurant: models.Restaurant
     activation_token: str
+    onboarding: models.onboarding
 
 
 def start_signup(*, email: str, password: str, restaurant_name: str, location: str) -> SignupResult:
@@ -37,15 +38,11 @@ def start_signup(*, email: str, password: str, restaurant_name: str, location: s
         user = User.objects.create_user(username=email, email=email, password=password)
         models.UserProfile.objects.create(user=user)
         account = models.Account.objects.create(name=restaurant_name)
-        models.Membership.objects.create(
-            account=account, user=user, role=models.Membership.Role.OWNER
-        )
-        restaurant = models.Restaurant.objects.create(
-            account=account,
-            name=restaurant_name,
-            location_text=location,
-        )
+        models.Membership.objects.create(account=account, user=user, role=models.Membership.Role.OWNER)
+        restaurant = models.Restaurant.objects.create(account=account,name=restaurant_name,location_text=location)
         activation_token = generate_activation_token(str(user.id))
+        onboarding = models.Onboarding.objects.create(user=user,restaurant=restaurant,activation_token=activation_token)
+        
 
     logger.info(
         "Signup created", extra={"user": str(user.id), "account": str(account.id)}
@@ -56,7 +53,7 @@ def start_signup(*, email: str, password: str, restaurant_name: str, location: s
         account=account,
         restaurant=restaurant,
         activation_token=activation_token,
-    )
+        onboarding=onboarding,    )
 
 
 def generate_activation_token(user_id: str) -> str:

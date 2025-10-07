@@ -5,7 +5,9 @@ from django.contrib.auth import views as auth_views
 from django.views.generic import RedirectView, TemplateView
 
 from app import outscraper, views as app_views
-from views import billing as billing_views
+import app.billing as billing_views
+import app.pipeline_runner as onboarding_views
+
 from views.getting_started import getting_started_view
 from articles import admin_views as articles_admin_views
 from articles.sitemaps import ArticlesSitemap
@@ -13,7 +15,7 @@ from app.outscraper import outscraper_webhook
 
 
 urlpatterns = [
-    path("", include("onboarding.urls")),
+    #path("", include("onboarding.urls")),
     path("", app_views.home_view, name="home"),
     path("", include("appertivo.leads.urls")),
     path("", include("appertivo.assets.urls")),
@@ -32,44 +34,9 @@ urlpatterns = [
     path("contact/", app_views.contact_view, name="contact"),
     path("getting-started/", getting_started_view, name="getting-started"),
     path("setup/", app_views.setup_view, name="setup"),
+    path("onboarding-status/<uuid:onboarding_id>", onboarding_views.onboarding_status, name="onboarding_status"),
     path("dashboard/<uuid:restaurant_id>/", app_views.dashboard, name="dashboard"),
     path("dashboard/", app_views.dashboard_redirect, name="dashboard-redirect"),
-
-    path(
-        "onboarding/",
-        RedirectView.as_view(pattern_name="setup", permanent=False),
-        name="onboarding",
-    ),
-    path(
-        "onboarding/consent/",
-        RedirectView.as_view(pattern_name="setup", permanent=False),
-        name="onboarding-consent",
-    ),
-    path(
-        "onboarding/billing/",
-        RedirectView.as_view(pattern_name="setup", permanent=False),
-        name="onboarding-billing",
-    ),
-    path(
-        "onboarding/status/",
-        RedirectView.as_view(pattern_name="setup", permanent=False),
-        name="onboarding-status",
-    ),
-    path(
-        "api/onboarding/status/",
-        RedirectView.as_view(pattern_name="setup", permanent=False),
-        name="onboarding-status-api",
-    ),
-    path(
-        "onboarding/retry/",
-        RedirectView.as_view(pattern_name="setup", permanent=False),
-        name="onboarding-retry",
-    ),
-    path(
-        "onboarding/manual_menu/",
-        RedirectView.as_view(pattern_name="setup", permanent=False),
-        name="manual-menu",
-    ),
     path("restaurants/<uuid:restaurant_id>/status/",app_views.restaurant_status,name="restaurant_status",),
     path("restaurants/<uuid:restaurant_id>/menu-modal/",app_views.show_menu_modal,name="show_menu_modal",),
     path("restaurants/<uuid:restaurant_id>/upload-menu/",app_views.upload_menu,name="upload_menu",),
@@ -100,34 +67,18 @@ urlpatterns = [
     path("collab/<uuid:link_id>/feedback/", app_views.collaboration_feedback_submit_view, name="collaboration-feedback"),
     ##settings page
     path("settings/", app_views.settings_view, name="settings"),
-    path("settings/info/", app_views.update_restaurant_info, name="update_restaurant_info"),
-    path("settings/<uuid:restaurant_id>/rescrape/", app_views.rescrape_restaurant, name="rescrape_restaurant"),
-    path("settings/<uuid:restaurant_id>/rescrape-menu/",app_views.rescrape_menu,name="settings-rescrape-menu",),
+    #path("settings/info/", app_views.update_restaurant_info, name="update_restaurant_info"),
+    #path("settings/<uuid:restaurant_id>/rescrape/", app_views.rescrape_restaurant, name="rescrape_restaurant"),
+    #path("settings/<uuid:restaurant_id>/rescrape-menu/",app_views.rescrape_menu,name="settings-rescrape-menu",),
     path("settings/<uuid:restaurant_id>/update-creativity/", app_views.update_creativity, name="update_creativity"),
-    path("settings/<uuid:restaurant_id>/refresh-reviews/", app_views.refresh_reviews, name="refresh_reviews"),
+    #path("settings/<uuid:restaurant_id>/refresh-reviews/", app_views.refresh_reviews, name="refresh_reviews"),
     path("settings/notifications/", app_views.update_notifications, name="update_notifications"),
     path("api/dismiss-welcome/", app_views.dismiss_welcome_view, name="dismiss-welcome"),
-    #outscraper webhook.
-    path(
-        "outscraper-webhook/<uuid:restaurant_id>/<str:token>/",
-        outscraper_webhook,
-        name="outscraper_webhook",
-    ),
     path("billing/", app_views.billing_view, name="billing"),
     path("billing/upgrade/", app_views.billing_upgrade_view, name="billing-upgrade"),
     path("billing/cancel/", app_views.billing_cancel_view, name="billing-cancel"),
     path("pricing/", billing_views.pricing_redirect_view, name="pricing"),
-    path(
-        "billing/create-checkout-session/",
-        billing_views.create_checkout_session,
-        name="billing-create-checkout-session",
-    ),
-    path(
-        "billing/portal/",
-        billing_views.create_billing_portal_session,
-        name="billing-portal",
-    ),
-    path("stripe/webhook/", app_views.stripe_webhook_view, name="stripe-webhook"),
+    path("stripe/webhook/", billing_views.stripe_webhook, name="stripe-webhook"),
     path("jobs/<uuid:job_id>/", app_views.job_status_view, name="job-status"),
     path("notifications/", app_views.notification_list_view, name="notification-list"),
     path("internal-dashboard/", include("dashboard.urls")),
