@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Appertivo — v7 Concept → Dishes</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/animejs@3.2.2/lib/anime.min.js"></script>
+<style>
+  :root{
+    --ink:#49475B; --purple:#B993D6; --orange:#f08000; --teal:#58B09C; --black:#14080E;
+  }
+  body{ color:var(--black); background:#fff; }
+  .sketch-bg{
+    background-image:
+      radial-gradient(circle at 18% 12%, rgba(255,255,255,.95), rgba(255,255,255,.7)),
+      url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="140" height="140" viewBox="0 0 70 70"><g stroke="%2349475B" stroke-opacity=".18" stroke-width="1"><path d="M0 12 L82 94"/><path d="M-12 0 L70 82"/><path d="M0 -12 L82 70"/></g></svg>');
+    background-size:cover,140px 140px; background-position:center,0 0;
+  }
+
+  .flip-scene{ perspective:1100px; }
+  .flip-card{ transform-style:preserve-3d; transition:transform .7s cubic-bezier(.2,.7,.2,1); }
+  .flipped{ transform:rotateY(180deg); }
+  .flip-face{ backface-visibility:hidden; -webkit-backface-visibility:hidden; }
+  .flip-back{ transform:rotateY(180deg); }
+
+  #conceptGrid,#dishLayer{ transition:opacity .45s ease; }
+  .hidden-grid{ opacity:0; pointer-events:none; }
+  .dimmed { opacity:.12; filter:blur(1px); pointer-events:none; transition:opacity .2s ease, filter .2s ease; }
+
+  .heart-wrap{
+    position:absolute; top:.5rem; right:.5rem; z-index:10;
+    background:rgba(255,255,255,.92); border-radius:9999px; padding:.35rem .45rem;
+    box-shadow:0 6px 18px rgba(20,8,14,.18); border:1px solid rgba(73,71,91,.12);
+  }
+  .heart{ width:22px; height:22px; cursor:pointer; transition:all .15s ease; stroke:var(--ink); }
+  .heart.fav{ fill:var(--orange); stroke:var(--orange); transform:scale(1.05); }
+
+  .fallback{ background:linear-gradient(135deg,#B993D6,#58B09C); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; }
+
+  .modal-card{ width:min(680px,92vw); border-radius:1.5rem; overflow:hidden; box-shadow:0 30px 80px rgba(20,8,14,.22); }
+  .thinking{ transition:filter .2s ease; }
+  .bar{ height:6px; border-radius:999px; background:linear-gradient(90deg,var(--purple),var(--orange)); width:0%; }
+</style>
+</head>
+<body class="px-6 pt-20 pb-16">
+
+<h1 id="pageTitle" class="text-4xl md:text-5xl font-extrabold text-[var(--ink)] text-center mb-10">
+  Concepts That Come Alive
+</h1>
+
+<!-- Concepts Grid -->
+<section id="conceptGrid" class="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></section>
+
+<!-- Concept Modal (sketch bg + internal loader) -->
+<div id="conceptModal" class="hidden fixed inset-0 z-40 bg-[var(--black)]/50 backdrop-blur-[2px] grid place-items-center p-6">
+  <article class="modal-card bg-white">
+    <div class="sketch-bg p-6 thinking" id="modalHead">
+      <h2 id="mTitle" class="text-2xl md:text-3xl font-extrabold"></h2>
+      <p id="mSubtitle" class="text-[var(--ink)]/80 mb-4"></p>
+      <p id="mSummary" class="text-base md:text-lg"></p>
+
+      <!-- Internal loading UI (hidden until Generate) -->
+      <div id="modalLoading" class="hidden mt-6">
+        <div class="text-sm font-semibold text-[var(--ink)] mb-2">Training your AI chef…</div>
+        <div class="w-full bg-[var(--ink)]/10 rounded-full overflow-hidden">
+          <div id="progressBar" class="bar"></div>
+        </div>
+      </div>
+    </div>
+    <footer class="p-4 flex items-center justify-between border-t border-[var(--ink)]/10 bg-white">
+      <button id="mClose" class="text-sm font-semibold text-[var(--ink)]">Close</button>
+      <button id="mGenerate" class="text-sm font-semibold bg-[var(--orange)] text-white px-4 py-2 rounded-xl">Create dishes</button>
+    </footer>
+  </article>
+</div>
+
+<!-- Dishes Layer (no header text; concept tile handles nav/info) -->
+<section id="dishLayer" class="hidden max-w-6xl mx-auto">
+  <div id="dishGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+</section>
+
+<script>
+/* ---------- Data ---------- */
+const concepts = [
+  {id:'c1',title:'Harvest Buns',subtitle:'Autumn veggie medley',summary:'Warm buns with roasted squash, caramelized onions, hazelnut-gremolata.'},
+  {id:'c2',title:'Smoke & Citrus',subtitle:'Charred fish • spruce salt',summary:'Bright, smoky fish with citrus to cut richness.'},
+  {id:'c3',title:'Warm Grain Bowl',subtitle:'Market greens • tahini miso',summary:'Farro bowl, tahini-miso dressing, crunchy seeds.'},
+  {id:'c4',title:'Rainshadow Chicken',subtitle:'Buttermilk brine • herb honey',summary:'Ultra-crisp chicken finished with herb honey + pickle slaw.'},
+  {id:'c5',title:'Forager Flatbread',subtitle:'Mushroom trio • leek cream',summary:'Charred base, leeks, mixed mushrooms, parsley-lemon.'},
+  {id:'c6',title:'North Fork Smash',subtitle:'White cheddar • onion jam',summary:'Smash burger with jammy onions and tangy pickles.'},
+  {id:'c7',title:'Field & Fire Salad',subtitle:'Charred veg • chili crisp',summary:'Char-kissed vegetables, feta, mild chili crisp.'},
+  {id:'c8',title:'Bay Shrimp Roll',subtitle:'Brown butter • lemon dill',summary:'Light PNW roll, lemon-dill mayo, brioche.'},
+  {id:'c9',title:'Cider Pork Skewers',subtitle:'Apple cider • rosemary',summary:'Glazed skewers with charred apple + rosemary smoke.'}
+];
+
+const dishPhotos = [
+  {name:'Rosemary Glazed Ribs',  url:'https://images.unsplash.com/photo-1553163147-622ab57be1c7?q=80&w=1200&auto=format&fit=crop',
+   tags:['rosemary','glaze','shareable'], desc:'Sticky-sweet ribs with herbal finish.', reason:['Plays with sweet/umami','Great for groups']},
+  {name:'Cedar-Smoked Trout',    url:'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=1200&auto=format&fit=crop',
+   tags:['cedar','smoke','PNW'], desc:'Delicate trout with cedar aroma.', reason:['Regional pull','Fast line time']},
+  {name:'Apple Brined Chop',     url:'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?q=80&w=1200&auto=format&fit=crop',
+   tags:['apple','brine','pork'], desc:'Slightly sweet, super juicy.', reason:['Cross-use cider','High perceived value']},
+  {name:'Hazelnut Gnocchi',      url:'https://images.unsplash.com/photo-1525755662778-989d0524087e?q=80&w=1200&auto=format&fit=crop',
+   tags:['hazelnut','pasta','veg'], desc:'Pillowy gnocchi with nutty bite.', reason:['Local nut angle','Indulgent veg']},
+  {name:'Miso Carrot Tart',      url:'https://images.unsplash.com/photo-1512058564366-18510be2db19?q=80&w=1200&auto=format&fit=crop',
+   tags:['miso','carrot','tart'], desc:'Savory tart, bright and umami.', reason:['Low waste','Batchable']},
+  {name:'Herb Honey Wings',      url:'https://images.unsplash.com/photo-1550547660-d9450f859349?q=80&w=1200&auto=format&fit=crop',
+   tags:['wings','honey','herb'], desc:'Crispy wings, sticky herb gloss.', reason:['Bar synergy','High margin']},
+  {name:'Wild Leek Risotto',     url:'https://images.unsplash.com/photo-1547592180-85f173990554?q=80&w=1200&auto=format&fit=crop',
+   tags:['leek','risotto','veg'], desc:'Creamy risotto with wild leeks.', reason:['Comfort category','Easy hold']},
+  {name:'Pear & Thyme Flatbread',url:'https://images.unsplash.com/photo-1513104890138-7c749659a591?q=80&w=1200&auto=format&fit=crop',
+   tags:['pear','thyme','flatbread'], desc:'Sweet-savory flatbread, crackly crust.', reason:['Shareable','Seasonal swap']},
+];
+
+const state = { currentConcept:null, favDishes:new Set() };
+
+/* ---------- Elements ---------- */
+const conceptGrid  = document.getElementById('conceptGrid');
+const pageTitle    = document.getElementById('pageTitle');
+const conceptModal = document.getElementById('conceptModal');
+const mTitle = document.getElementById('mTitle');
+const mSubtitle = document.getElementById('mSubtitle');
+const mSummary = document.getElementById('mSummary');
+const mClose = document.getElementById('mClose');
+const mGenerate = document.getElementById('mGenerate');
+const modalHead = document.getElementById('modalHead');
+const modalLoading = document.getElementById('modalLoading');
+const progressBar = document.getElementById('progressBar');
+
+const dishLayer = document.getElementById('dishLayer');
+const dishGrid  = document.getElementById('dishGrid');
+
+/* ---------- Build Concepts ---------- */
+concepts.forEach(c=>{
+  const el = document.createElement('article');
+  el.className = 'concept-card rounded-2xl border border-[var(--ink)]/10 bg-white shadow-md p-8 text-center cursor-pointer hover:shadow-lg transition';
+  el.innerHTML = `<h3 class="text-xl font-bold mb-2">${c.title}</h3><p class="text-[var(--ink)]/80">${c.subtitle}</p>`;
+  el.addEventListener('click', ()=>expandConceptFromTile(el, c));
+  conceptGrid.appendChild(el);
+});
+anime({ targets: '.concept-card', opacity:[0,1], translateY:[40,0], delay:anime.stagger(90), duration:650, easing:'easeOutCubic' });
+
+/* ---------- Cinematic expand ---------- */
+function expandConceptFromTile(tile, concept){
+  state.currentConcept = concept;
+
+  anime({ targets: '.concept-card', opacity: el => el===tile ? 1 : 0.2, scale: el => el===tile ? 1.02 : 0.95, duration: 260, easing:'easeInOutQuad' });
+
+  const rect = tile.getBoundingClientRect();
+  const clone = tile.cloneNode(true);
+  Object.assign(clone.style, {position:'fixed', margin:0, left:rect.left+'px', top:rect.top+'px',
+    width:rect.width+'px', height:rect.height+'px', zIndex:60});
+  document.body.appendChild(clone);
+
+  const modalCardWidth = Math.min(680, window.innerWidth*0.92);
+  const modalCardHeight = 260;
+  const targetX = (window.innerWidth - modalCardWidth)/2;
+  const targetY = window.scrollY + 120;
+
+  anime.timeline({easing:'easeInOutCubic'})
+    .add({ targets: clone, translateX: targetX-rect.left, translateY: targetY-rect.top,
+           width: modalCardWidth, height: modalCardHeight, borderRadius:['1rem','1.5rem'], duration:520 })
+    .add({ targets: clone, opacity:[1,0], duration:200, complete:()=>{
+      clone.remove();
+      openConceptModal(concept);
+      conceptGrid.classList.add('dimmed'); // keep grid faint under modal
+    }});
+}
+
+function openConceptModal(c){
+  mTitle.textContent = c.title;
+  mSubtitle.textContent = c.subtitle;
+  mSummary.textContent = c.summary;
+  modalLoading.classList.add('hidden');
+  progressBar.style.width = '0%';
+  conceptModal.classList.remove('hidden');
+}
+
+mClose.onclick = () => {
+  conceptModal.classList.add('hidden');
+  conceptGrid.classList.remove('dimmed');
+};
+
+/* ---------- Internal modal loading with Anime.js ---------- */
+mGenerate.onclick = () => {
+  // reveal in-modal loader
+  modalLoading.classList.remove('hidden');
+
+  // cute “thinking” pulse
+  const pulse = anime({
+    targets:'#modalHead',
+    scale:[1,1.015],
+    duration:600,
+    direction:'alternate',
+    easing:'easeInOutSine',
+    loop:true
+  });
+
+  // progress bar timeline
+  const tl = anime.timeline({ easing:'easeInOutCubic' });
+  tl.add({ targets:'#progressBar', width:['0%','85%'], duration:1200 })
+    .add({ targets:'#progressBar', width:['85%','100%'], duration:800 });
+
+  // hide grid fully so nothing flashes later
+  conceptGrid.classList.add('hidden-grid');
+  setTimeout(()=>conceptGrid.classList.add('hidden'), 220);
+
+  // when timeline is done → transition to dishes
+  setTimeout(()=>{
+    pulse.pause();
+    conceptModal.classList.add('hidden');
+    showDishes();
+  }, 2100);
+};
+
+/* ---------- Dishes ---------- */
+function showDishes(){
+  pageTitle.classList.add('hidden');
+  dishGrid.innerHTML = '';
+
+  // Concept tile (top-left, handles nav/info)
+  const conceptTile = document.createElement('article');
+  conceptTile.className = 'flip-scene rounded-2xl border border-[var(--ink)]/10 bg-white shadow-lg overflow-hidden relative';
+  conceptTile.innerHTML = `
+    <div class="flip-card h-48 sm:h-56">
+      <div class="flip-face sketch-bg w-full h-full p-4 flex flex-col">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[11px] px-2 py-0.5 rounded-full bg-[var(--purple)]/20 text-[var(--ink)] font-semibold">Favorite concept</span>
+          <button id="tileBackAll" class="text-[11px] font-semibold text-[var(--orange)]">← All concepts</button>
+        </div>
+        <div class="mt-3">
+          <h4 class="text-lg font-bold">${state.currentConcept.title}</h4>
+          <p class="text-sm text-[var(--ink)]/80">${state.currentConcept.subtitle}</p>
+        </div>
+        <div class="mt-auto flex items-center gap-2">
+          <button id="tileFlipBtn" class="text-xs bg-[var(--orange)] text-white px-3 py-1.5 rounded-lg">See reasoning</button>
+        </div>
+      </div>
+      <div class="flip-face flip-back w-full h-full p-4 bg-white flex flex-col">
+        <div class="text-xs text-[var(--ink)]/70 mb-2">Reasoning & notes</div>
+        <ul class="text-[13px] leading-relaxed grow list-disc list-inside">
+          <li>Seasonal fit, local story</li>
+          <li>Approachable → shareable</li>
+          <li>Upsell sides & beverages</li>
+        </ul>
+        <div class="mt-3 flex items-center justify-between">
+          <button id="tileFlipBack" class="text-xs font-semibold text-[var(--ink)]">Back</button>
+          <button id="tileBackAll2" class="text-xs font-semibold text-[var(--orange)]">← All concepts</button>
+        </div>
+      </div>
+    </div>`;
+  dishGrid.appendChild(conceptTile);
+
+  // 8 dishes
+  dishPhotos.forEach(d=>{
+    const id = d.name.toLowerCase().replace(/\s+/g,'-');
+    const card = document.createElement('article');
+    card.className = 'dish-card flip-scene rounded-2xl border border-[var(--ink)]/10 bg-white shadow-lg overflow-hidden relative';
+    card.innerHTML = `
+      <div class="heart-wrap"><svg data-id="${id}" class="heart" viewBox="0 0 24 24" fill="none" stroke-width="1.8">
+        <path d="M12 21s-6.9-4.7-10-9.7C.8 8.3 1.4 5 4 3.5c1.6-.9 3.8-.7 5.2.8L12 7l2.8-2.7c1.4-1.5 3.6-1.7 5.2-.8 2.6 1.5 3.2 4.8 2 7.8C18.9 16.3 12 21 12 21z"/></svg></div>
+      <div class="flip-card h-48 sm:h-56 w-full cursor-pointer">
+        <!-- Front -->
+        <div class="flip-face w-full h-full relative">
+          <img class="tile-img w-full h-full object-cover" alt="${d.name}" />
+          <div class="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/70 to-transparent">
+            <h4 class="text-white font-semibold text-base">${d.name}</h4>
+          </div>
+        </div>
+        <!-- Back (basic text added) -->
+        <div class="flip-face flip-back w-full h-full bg-white p-4 flex flex-col justify-between">
+          <div>
+            <h4 class="font-semibold text-lg mb-1">${d.name}</h4>
+            <p class="text-sm text-[var(--ink)]/80 mb-2">${d.desc}</p>
+            <div class="flex flex-wrap gap-2 mb-3">
+              ${d.tags.map(t=>`<span class="text-[11px] px-2 py-0.5 rounded-full bg-[var(--teal)]/15 text-[var(--ink)] border border-[var(--teal)]/25">${t}</span>`).join('')}
+            </div>
+            <ul class="text-[12px] text-[var(--ink)]/75 list-disc list-inside space-y-1">
+              ${d.reason.map(r=>`<li>${r}</li>`).join('')}
+            </ul>
+          </div>
+          <div class="flex items-center justify-end">
+            <button class="spinBtn text-xs bg-[var(--orange)] text-white px-3 py-1.5 rounded-lg">Spin a variation</button>
+          </div>
+        </div>
+      </div>`;
+    dishGrid.appendChild(card);
+
+    // image + fallback
+    const img = card.querySelector('.tile-img');
+    img.src = d.url; img.referrerPolicy = 'no-referrer';
+    img.onerror = ()=>{ img.replaceWith(Object.assign(document.createElement('div'),{className:'tile-img fallback w-full h-full',innerText:d.name})); };
+  });
+
+  dishLayer.classList.remove('hidden');
+  anime({ targets: '.dish-card, #dishGrid > .flip-scene:first-child', opacity:[0,1], translateY:[50,0], delay:anime.stagger(90), duration:650, easing:'easeOutBack' });
+
+  // concept tile handlers
+  const tileCard = conceptTile.querySelector('.flip-card');
+  conceptTile.querySelector('#tileFlipBtn').onclick  = ()=> tileCard.classList.add('flipped');
+  conceptTile.querySelector('#tileFlipBack').onclick = ()=> tileCard.classList.remove('flipped');
+  conceptTile.querySelector('#tileBackAll').onclick  = backAll;
+  conceptTile.querySelector('#tileBackAll2').onclick = backAll;
+
+  // flip on click for dish cards
+  document.querySelectorAll('.dish-card .flip-card').forEach(fc=>{
+    fc.addEventListener('click', ()=> fc.classList.toggle('flipped'));
+  });
+
+  // hearts
+  document.querySelectorAll('.heart').forEach(h=>{
+    h.onclick = (e)=>{
+      e.stopPropagation();
+      const id = h.dataset.id;
+      if(state.favDishes.has(id)){ state.favDishes.delete(id); h.classList.remove('fav'); }
+      else { state.favDishes.add(id); h.classList.add('fav'); }
+    };
+  });
+
+  // spin variation → toast
+  document.querySelectorAll('.spinBtn').forEach(btn=>{
+    btn.onclick = (e)=>{
+      e.stopPropagation();
+      const toast = document.createElement('div');
+      toast.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-[var(--teal)] text-white px-4 py-2 rounded-full shadow';
+      toast.textContent = 'Spinning up a variation…';
+      document.body.appendChild(toast);
+      setTimeout(()=>toast.remove(),1700);
+    };
+  });
+}
+
+/* ---------- Back to concepts ---------- */
+function backAll(){
+  dishLayer.classList.add('hidden');
+  conceptGrid.classList.remove('hidden','hidden-grid','dimmed');
+  pageTitle.classList.remove('hidden');
+  anime({ targets: '.concept-card', opacity:[0,1], translateY:[30,0], delay:anime.stagger(80), duration:600, easing:'easeOutCubic' });
+}
+</script>
+</body>
+</html>

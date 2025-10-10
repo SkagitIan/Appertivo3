@@ -20,6 +20,8 @@ from django.http import JsonResponse
 from .models import Onboarding
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import get_object_or_404 
+
+
 def onboarding_status(request, onboarding_id):
     ob = get_object_or_404(Onboarding, uuid=onboarding_id)
 
