@@ -53,7 +53,7 @@
 
         </div>
 
-        <form action="{% url 'update_restaurant_info' %}" method="post" class="space-y-4">
+        <form action="" method="post" class="space-y-4">
           {% csrf_token %}
           <input type="hidden" name="form_type" value="urls">
           <div class="space-y-3" data-menu-url-list>
@@ -124,7 +124,7 @@
             </button>
             <form
               id="rescrape-form"
-              action="{% url 'rescrape_restaurant' restaurant.id %}"
+              action=""
               method="post"
               class="inline-flex"
             >
@@ -175,7 +175,7 @@
           <p class="text-sm text-slate-500">Edit what Appertivo reads from your latest menu.</p>
         </div>
         <form
-          action="{% url 'update_restaurant_info' %}"
+          action=""
           method="post"
           enctype="multipart/form-data"
           class="space-y-4"
@@ -226,7 +226,7 @@
           </div>
           {% if restaurant %}
             <form
-              action="{% url 'refresh_reviews' restaurant.id %}"
+              action=""
               method="post"
               class="shrink-0"
             >
