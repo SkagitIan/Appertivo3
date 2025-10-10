@@ -4,6 +4,7 @@ from django.urls import include, path
 from django.contrib.auth import views as auth_views
 from django.views.generic import RedirectView, TemplateView
 
+from app import lookbook as lookbook_views
 from app import outscraper, views as app_views
 import app.billing as billing_views
 import app.pipeline_runner as onboarding_views
@@ -52,6 +53,14 @@ urlpatterns = [
     path("dishes/<uuid:dish_id>/favorite/", app_views.dish_favorite_view, name="dish_favorite"),
     path("dishes/variation/<uuid:dish_id>/", app_views.dish_variation_view, name="dish-variation"),
     path("dishes/<uuid:dish_id>/delete/", app_views.dish_delete_view, name="dish-delete"),
+    path("lookbook/", lookbook_views.lookbook_view, name="lookbook"),
+    path("lookbook/data/", lookbook_views.lookbook_data_view, name="lookbook-data"),
+    path("lookbook/concepts/generate/", lookbook_views.lookbook_concepts_generate_view, name="lookbook-concepts-generate"),
+    path("lookbook/concepts/<uuid:concept_id>/favorite/", lookbook_views.lookbook_concept_favorite_view, name="lookbook-concept-favorite"),
+    path("lookbook/concepts/<uuid:concept_id>/background/", lookbook_views.lookbook_concept_background_view, name="lookbook-concept-background"),
+    path("lookbook/dishes/<uuid:concept_id>/generate/", lookbook_views.lookbook_dishes_generate_view, name="lookbook-dishes-generate"),
+    path("lookbook/dishes/<uuid:concept_id>/", lookbook_views.lookbook_dish_detail_view, name="lookbook-dish-detail"),
+    path("lookbook/dishes/<uuid:dish_id>/favorite/", lookbook_views.lookbook_dish_favorite_view, name="lookbook-dish-favorite"),
     path("favorites/", app_views.favorites_view, name="favorites"),
     path("menus/", app_views.menus_view, name="menus"),
     path("favorites/remove/<str:type>/<uuid:id>/", app_views.favorite_remove_view, name="favorite-remove"),
