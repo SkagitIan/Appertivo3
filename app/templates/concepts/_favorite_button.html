@@ -11,7 +11,7 @@
               hx-post="{{ hx_post }}"
               hx-target="{{ hx_target }}"
               hx-swap="{{ hx_swap }}"
-              hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+              hx-headers='{"X-CSRFToken": "{{ request.COOKIES.csrftoken|default_if_none:''|default:''|escapejs }}"}'
               class="concept-favorite-btn {{ base_classes }} {% if is_favorited %}concept-favorite-btn--favorited{% endif %}"
               aria-label="{% if is_favorited %}Unfavorite{% else %}Favorite{% endif %} {{ concept.name }}"
               data-concept-id="{{ concept.id }}"
@@ -40,7 +40,7 @@
               hx-post="{{ hx_post }}"
               hx-target="{{ hx_target }}"
               hx-swap="{{ hx_swap }}"
-              hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+              hx-headers='{"X-CSRFToken": "{{ request.COOKIES.csrftoken|default_if_none:''|default:''|escapejs }}"}'
               class="concept-favorite-btn {{ base_classes }} {% if is_favorited %}concept-favorite-btn--favorited{% endif %}"
               aria-label="{% if is_favorited %}Unfavorite{% else %}Favorite{% endif %} {{ concept.name }}"
               data-concept-id="{{ concept.id }}"
