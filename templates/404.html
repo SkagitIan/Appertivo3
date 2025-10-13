@@ -1,0 +1,35 @@
+{% extends "layouts/marketing.html" %}
+
+{% block title %}Page not found — Appertivo{% endblock %}
+
+{% block main_class %}flex-1{% endblock %}
+
+{% block content %}
+  <section class="min-h-[60vh] flex items-center">
+    <div class="max-w-3xl mx-auto px-6 py-16">
+      <div class="bg-white/90 backdrop-blur rounded-3xl shadow-xl border border-white/40 px-8 py-12 space-y-6 text-center">
+        <span class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-br from-[#FF8300] to-[#FF5C00] text-white text-xl font-semibold shadow-lg">
+          404
+        </span>
+        <h1 class="text-3xl sm:text-4xl font-bold text-[#2E005D]">Let's get you back on the menu</h1>
+        <p class="text-lg text-[#4B3F55] leading-relaxed">
+          We couldn't find the page you were looking for. Take a breath, then head back to the main site to keep exploring what Appertivo can do for your restaurant.
+        </p>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+          <a href="{% url 'home' %}"
+             class="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-gradient-to-r from-[#FF8300] to-[#FF5C00] text-white font-semibold shadow-md hover:scale-[1.02] transition">
+            Return to home
+          </a>
+          <a href="mailto:hello@appertivo.com"
+             class="inline-flex items-center justify-center px-6 py-3 rounded-xl border border-[#D7C7EE] text-[#2E005D] font-semibold hover:bg-[#F3E8FF] transition">
+            Contact support
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+{% endblock %}
+
+{% block footer %}
+  {{ block.super }}
+{% endblock %}
