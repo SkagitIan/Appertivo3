@@ -1128,9 +1128,8 @@ def concepts_generate_view(request):
         restaurant_menu = ""
     context = f"""
     Restaurant: {restaurant.name}, {restaurant.location_text}.  \n
-    Description: {restaurant.description}. \n
-    Current Restaurant Menu:  {restaurant_menu}
-    About Services:  {restaurant.about_json}
+    Description: {restaurant.websearch_json}. \n
+    Current Restaurant Menu:  {restaurant.menu_json}
     """
     context += (
         "\nCreative direction slider: "
@@ -1264,7 +1263,7 @@ def concepts_generate_view(request):
             text={"format": schema},
             temperature=temperature_float,
         )
-        logger.info(context)
+        #logger.info(context)
         raw_text = response.output[0].content[0].text
         try:
             data = json.loads(raw_text)
