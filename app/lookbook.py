@@ -349,8 +349,12 @@ def lookbook_view(request: HttpRequest) -> HttpResponse:
     payload = _build_lookbook_payload(request)
     return render(
         request,
-        "_partials/lookbook.html",
-        {"lookbook_payload": payload},
+        "lookbook/dashboard.html",
+        {
+            "lookbook_payload": payload,
+            "lookbook_data_url": reverse("lookbook-data"),
+            "concept_generate_url": reverse("lookbook-concepts-generate"),
+        },
     )
 
 
