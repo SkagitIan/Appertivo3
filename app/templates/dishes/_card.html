@@ -43,6 +43,7 @@
                   class="dish-delete-btn tag-delete-btn"
                   hx-post="{% url 'dish-delete' dish.id %}"
                   hx-trigger="click"
+                  hx-headers='{"X-CSRFToken": "{{ request.COOKIES.csrftoken|default_if_none:''|default:''|escapejs }}"}'
                   hx-target="closest .dish-card-wrapper"
                   hx-swap="outerHTML"
                   aria-label="Dismiss {{ dish.title }}"
@@ -58,6 +59,7 @@
                 class="dish-variation-btn card-action-button bg-white/90 text-slate-600 hover:text-slate-800"
                 hx-post="{% url 'dish-variation' dish.id %}"
                 hx-trigger="click"
+                hx-headers='{"X-CSRFToken": "{{ request.COOKIES.csrftoken|default_if_none:''|default:''|escapejs }}"}'
                 hx-target="closest .dish-card-wrapper"
                 hx-swap="outerHTML"
                 aria-label="Generate a variation of {{ dish.title }}"
@@ -239,4 +241,3 @@
     </div>
   </div>
 </div>
-
