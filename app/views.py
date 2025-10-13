@@ -2889,22 +2889,20 @@ def menu_feedback_action_view(request, feedback_id):
 def settings_view(request):
     restaurant = (
         models.Restaurant.objects.filter(account__membership__user=request.user)
-        .select_related("active_menu_version", "restaurantsettings")
+        .select_related("restaurantsettings")
         .first()
     )
-    ingredients = list(
-        models.Ingredient.objects.filter(restaurant=restaurant).values_list("name", flat=True)
-    )
+
     prefs = getattr(request.user, "notificationpref", None)
-    active_menu = restaurant.active_menu_version if restaurant else None
+    #active_menu = restaurant.active_menu_version if restaurant else None
     disliked_concepts = _get_session_list(request.session, "disliked_concepts")
     recent_disliked = list(reversed(disliked_concepts[-6:])) if disliked_concepts else []
     return render(request, "settings/main.html", {
         "restaurant": restaurant,
-        "ingredients": ingredients,
+        #"ingredients": ingredients,
         "prefs": prefs,
         "restaurant_settings": getattr(restaurant, "restaurantsettings", None),
-        "active_menu_version": active_menu,
+        #"active_menu_version": active_menu,
         "disliked_concepts": recent_disliked,
     })
 
