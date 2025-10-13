@@ -111,6 +111,7 @@
               class="inline-flex items-center gap-1.5 rounded-full border border-[#f08000]/30 bg-[#f08000]/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-[#f08000] hover:bg-[#f08000]/15"
               hx-post="{% url 'dishes-generate' concept.id %}"
               hx-trigger="click"
+              hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
               data-overlay="true"
               data-messages='["Cooking up ideas…", "Almost there…", "Plating concepts!"]'
               data-generate-button
@@ -128,6 +129,7 @@
               hx-trigger="click"
               hx-target="closest [data-concept-card]"
               hx-swap="outerHTML"
+              hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
               aria-label="Delete {{ concept.name }}"
             >
               <i class="fa-solid fa-trash-can"></i>

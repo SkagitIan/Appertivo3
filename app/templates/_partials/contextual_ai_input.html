@@ -21,6 +21,7 @@
         hx-indicator="#{{ indicator_id }}"
         class="space-y-4"
       >
+        {% csrf_token %}
         <div class="relative flex-1">
           <input
             type="text"
