@@ -65,6 +65,7 @@
           </p>
         </div>
         <form id="lookbook-generator" class="space-y-4" data-generate-form>
+          {% csrf_token %}
           <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
             <label for="concept-prompt" class="text-xs font-semibold uppercase tracking-wide text-slate-400">
               Prompt
@@ -132,7 +133,7 @@
 
     <div
       id="concept-modal"
-      class="fixed inset-0 z-40 flex items-start justify-center bg-slate-900/60 px-4 py-12"
+      class="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/60 px-4 py-6 sm:py-12 overflow-y-auto"
       aria-hidden="true"
       role="dialog"
       aria-labelledby="concept-modal-title"
@@ -263,10 +264,174 @@
       const modalDetail = document.getElementById('concept-modal-detail');
       const modalClose = document.getElementById('concept-modal-close');
       const modalCloseArea = modal ? modal.querySelector('[data-close-modal]') : null;
+      const modalArticle = modal ? modal.querySelector('article') : null;
+
+      const requestedSketches = new Set();
+      let isModalClosing = false;
+
+      function loadAnime() {
+        if (window.anime) {
+          return Promise.resolve(window.anime);
+        }
+        return new Promise(function (resolve, reject) {
+          const existing = document.querySelector('script[data-anime-source]');
+          if (existing) {
+            existing.addEventListener(
+              'load',
+              function () {
+                if (window.anime) {
+                  resolve(window.anime);
+                } else {
+                  reject(new Error('anime.js unavailable'));
+                }
+              },
+              { once: true },
+            );
+            existing.addEventListener(
+              'error',
+              function () {
+                reject(new Error('Failed to load anime.js'));
+              },
+              { once: true },
+            );
+            return;
+          }
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js';
+          script.async = true;
+          script.dataset.animeSource = 'animejs';
+          script.onload = function () {
+            if (window.anime) {
+              resolve(window.anime);
+            } else {
+              reject(new Error('anime.js unavailable'));
+            }
+          };
+          script.onerror = function () {
+            reject(new Error('Failed to load anime.js'));
+          };
+          document.head.appendChild(script);
+        });
+      }
+
+      const animeReady = loadAnime();
+
+      function runModalOpenAnimation() {
+        if (!modal || !modalArticle) {
+          return;
+        }
+        animeReady
+          .then(function (anime) {
+            modal.style.opacity = '0';
+            modalArticle.style.opacity = '0';
+            modalArticle.style.transformOrigin = 'center';
+            anime({
+              targets: modal,
+              opacity: [0, 1],
+              duration: 220,
+              easing: 'easeOutQuad',
+            });
+            anime({
+              targets: modalArticle,
+              opacity: [0, 1],
+              scale: [0.92, 1],
+              translateY: ['16px', '0px'],
+              duration: 260,
+              easing: 'easeOutQuad',
+              complete: function () {
+                modal.style.opacity = '';
+                modalArticle.style.opacity = '';
+                modalArticle.style.transform = '';
+              },
+            });
+            if (grid) {
+              anime({
+                targets: grid,
+                scale: [1, 0.98],
+                duration: 220,
+                easing: 'easeOutQuad',
+              });
+            }
+          })
+          .catch(function () {
+            modal.style.opacity = '';
+            modalArticle.style.opacity = '';
+            modalArticle.style.transform = '';
+          });
+      }
+
+      function runModalCloseAnimation(onComplete) {
+        if (!modal || !modalArticle) {
+          if (typeof onComplete === 'function') {
+            onComplete();
+          }
+          return;
+        }
+        animeReady
+          .then(function (anime) {
+            anime({
+              targets: modalArticle,
+              opacity: [1, 0],
+              scale: [1, 0.96],
+              duration: 200,
+              easing: 'easeInQuad',
+            });
+            anime({
+              targets: modal,
+              opacity: [1, 0],
+              duration: 200,
+              easing: 'easeInQuad',
+              complete: function () {
+                modal.style.opacity = '';
+                modalArticle.style.opacity = '';
+                modalArticle.style.transform = '';
+                if (grid) {
+                  grid.style.transform = '';
+                }
+                if (typeof onComplete === 'function') {
+                  onComplete();
+                }
+              },
+            });
+            if (grid) {
+              anime({
+                targets: grid,
+                scale: [0.98, 1],
+                duration: 200,
+                easing: 'easeInQuad',
+              });
+            }
+          })
+          .catch(function () {
+            if (grid) {
+              grid.style.transform = '';
+            }
+            if (typeof onComplete === 'function') {
+              onComplete();
+            }
+          });
+      }
 
       function getCsrfToken() {
-        const match = document.cookie.match(/csrftoken=([^;]+)/);
-        return match ? match[1] : null;
+        const match = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
+        if (match) {
+          try {
+            return decodeURIComponent(match[1]);
+          } catch (error) {
+            return match[1];
+          }
+        }
+        const input = document.querySelector('input[name="csrfmiddlewaretoken"]');
+        return input ? input.value : null;
+      }
+
+      function buildHeaders(additional) {
+        const headers = Object.assign({ 'X-Requested-With': 'XMLHttpRequest' }, additional || {});
+        const token = getCsrfToken();
+        if (token) {
+          headers['X-CSRFToken'] = token;
+        }
+        return headers;
       }
 
       function setSliderLabel(value) {
@@ -390,8 +555,12 @@
         }
         if (concept.sketch_image_url) {
           modalBackdrop.style.backgroundImage = `url('${concept.sketch_image_url}')`;
+          modalBackdrop.style.backgroundSize = 'cover';
+          modalBackdrop.style.backgroundPosition = 'center';
         } else {
           modalBackdrop.style.backgroundImage = 'linear-gradient(135deg, rgba(185, 147, 214, 0.6), rgba(88, 176, 156, 0.6))';
+          modalBackdrop.style.backgroundSize = '';
+          modalBackdrop.style.backgroundPosition = '';
         }
       }
 
@@ -459,10 +628,15 @@
         if (!concept || !modal) {
           return;
         }
+        const wasHidden = modal.getAttribute('aria-hidden') !== 'false';
+        isModalClosing = false;
         state.currentConceptId = conceptId;
         modal.setAttribute('aria-hidden', 'false');
         if (grid) {
           grid.classList.add('lookbook-grid--dim');
+        }
+        if (wasHidden) {
+          runModalOpenAnimation();
         }
         if (modalRuntime) {
           modalRuntime.textContent = formatRuntime(concept);
@@ -494,7 +668,7 @@
         if (modalDetail) {
           modalDetail.href = concept.dish_detail_url || '#';
         }
-        if (concept.is_favorited && !concept.sketch_image_url) {
+        if (!concept.sketch_image_url) {
           ensureConceptSketch(concept.id);
         }
       }
@@ -503,11 +677,28 @@
         if (!modal) {
           return;
         }
-        state.currentConceptId = null;
-        modal.setAttribute('aria-hidden', 'true');
-        if (grid) {
-          grid.classList.remove('lookbook-grid--dim');
+        if (modal.getAttribute('aria-hidden') === 'true') {
+          state.currentConceptId = null;
+          if (grid) {
+            grid.classList.remove('lookbook-grid--dim');
+            grid.style.transform = '';
+          }
+          return;
         }
+        if (isModalClosing) {
+          return;
+        }
+        isModalClosing = true;
+        const finalizeClose = function () {
+          state.currentConceptId = null;
+          modal.setAttribute('aria-hidden', 'true');
+          if (grid) {
+            grid.classList.remove('lookbook-grid--dim');
+            grid.style.transform = '';
+          }
+          isModalClosing = false;
+        };
+        runModalCloseAnimation(finalizeClose);
       }
 
       function updateConcept(conceptId, updates) {
@@ -534,10 +725,7 @@
         try {
           const response = await fetch(concept.favorite_url, {
             method: 'POST',
-            headers: {
-              'X-CSRFToken': getCsrfToken() || '',
-              'HX-Request': 'true',
-            },
+            headers: buildHeaders({ 'HX-Request': 'true' }),
             credentials: 'same-origin',
           });
           if (!response.ok) {
@@ -552,7 +740,6 @@
           }
           if (nextState) {
             openModal(conceptId);
-            ensureConceptSketch(conceptId);
           }
         } catch (error) {
           button.dataset.active = concept.is_favorited ? 'true' : 'false';
@@ -587,10 +774,7 @@
         try {
           const response = await fetch(dish.favorite_url, {
             method: 'POST',
-            headers: {
-              'X-CSRFToken': getCsrfToken() || '',
-              'HX-Request': 'true',
-            },
+            headers: buildHeaders({ 'HX-Request': 'true' }),
             body: formData,
             credentials: 'same-origin',
           });
@@ -610,21 +794,22 @@
         const concept = state.concepts.find(function (item) {
           return item.id === conceptId;
         });
-        if (!concept || concept.sketch_image_url) {
+        if (!concept || concept.sketch_image_url || requestedSketches.has(conceptId)) {
           return;
         }
+        requestedSketches.add(conceptId);
         try {
           await fetch(concept.background_url, {
             method: 'GET',
-            headers: {
-              'HX-Request': 'true',
-            },
+            headers: buildHeaders({ 'HX-Request': 'true' }),
             credentials: 'same-origin',
           });
         } catch (error) {
           if (modalStatus) {
             modalStatus.textContent = 'Sketch will retry shortly.';
           }
+        } finally {
+          requestedSketches.delete(conceptId);
         }
         refreshLookbook(conceptId);
       }
@@ -636,9 +821,7 @@
         try {
           const response = await fetch(dataUrl, {
             method: 'GET',
-            headers: {
-              Accept: 'application/json',
-            },
+            headers: buildHeaders({ Accept: 'application/json' }),
             credentials: 'same-origin',
           });
           if (!response.ok) {
@@ -671,10 +854,7 @@
         try {
           const response = await fetch(generateUrl, {
             method: 'POST',
-            headers: {
-              'X-CSRFToken': getCsrfToken() || '',
-              'HX-Request': 'true',
-            },
+            headers: buildHeaders({ 'HX-Request': 'true' }),
             body: formData,
             credentials: 'same-origin',
           });
@@ -709,10 +889,7 @@
         try {
           const response = await fetch(concept.dishes_generate_url, {
             method: 'POST',
-            headers: {
-              'X-CSRFToken': getCsrfToken() || '',
-              'HX-Request': 'true',
-            },
+            headers: buildHeaders({ 'HX-Request': 'true' }),
             credentials: 'same-origin',
           });
           if (!response.ok) {
