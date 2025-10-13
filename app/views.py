@@ -1083,7 +1083,7 @@ def tag_search_view(request):
     }
     return render(request, "search/results.html", context)
 
-
+@csrf_exempt
 @login_required
 @require_POST
 def concepts_generate_view(request):
@@ -1325,6 +1325,7 @@ def concepts_generate_view(request):
 
     return redirect("concepts")
 
+@csrf_exempt
 @login_required
 @require_POST
 def concept_favorite_view(request, concept_id):
@@ -1381,7 +1382,7 @@ def concept_favorite_view(request, concept_id):
     return redirect("concepts")
 
 
-
+@csrf_exempt
 @login_required
 @require_GET
 def concept_background_view(request, concept_id):

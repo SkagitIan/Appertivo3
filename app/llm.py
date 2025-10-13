@@ -235,7 +235,7 @@ def generate_concept_sketch_from_prompt(prompt: str, default_url: str, *, user=N
         prompt,
         default_url,
         folder="appertivo/sketches",
-        output_quality=60,
+        output_quality=90,
     )
 
 
