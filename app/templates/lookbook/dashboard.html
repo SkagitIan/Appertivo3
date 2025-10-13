@@ -23,11 +23,23 @@
       display: none;
     }
 
-    #concept-modal-backdrop::before {
+    #concept-modal article {
+      background-color: #14080e;
+    }
+
+    #concept-modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background-color: #14080e;
+      background-size: cover;
+      background-position: center;
+    }
+
+    #concept-modal-backdrop::after {
       content: "";
       position: absolute;
       inset: 0;
-      background: linear-gradient(180deg, rgba(20, 8, 14, 0.7), rgba(20, 8, 14, 0.82));
+      background: linear-gradient(180deg, rgba(20, 8, 14, 0.78), rgba(20, 8, 14, 0.9));
     }
 
     .lookbook-dish-card {
@@ -109,15 +121,6 @@
       </div>
     </section>
 
-    {% if lookbook_payload.disliked_concepts %}
-      <section class="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
-        <p class="text-xs text-slate-500">
-          Avoiding concepts previously marked as not a fit:
-          <span class="font-medium text-slate-600">{{ lookbook_payload.disliked_concepts|join:', ' }}</span>
-        </p>
-      </section>
-    {% endif %}
-
     <section>
       <div class="mb-4 flex items-center justify-between">
         <h2 class="text-lg font-semibold text-[#14080E]">Latest concepts</h2>
@@ -139,63 +142,34 @@
       aria-labelledby="concept-modal-title"
     >
       <div class="absolute inset-0" data-close-modal></div>
-      <article class="relative z-10 flex w-full max-w-3xl flex-col overflow-hidden rounded-3xl shadow-xl">
-        <header id="concept-modal-backdrop" class="relative bg-slate-900 px-8 py-10 text-white">
-          <div class="absolute inset-0 bg-cover bg-center opacity-30" aria-hidden="true"></div>
-          <div class="relative space-y-4">
-            <div class="flex items-start justify-between gap-4">
-              <div>
-                <p id="concept-modal-runtime" class="text-xs font-semibold uppercase tracking-wide text-white/70"></p>
-                <h2 id="concept-modal-title" class="text-2xl font-semibold leading-tight"></h2>
-                <p id="concept-modal-subtitle" class="text-sm text-white/80"></p>
-              </div>
-              <button
-                type="button"
-                id="concept-modal-favorite"
-                class="lookbook-heart inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-white/20 text-lg"
-                aria-label="Toggle favorite"
-              >
-                🤍
-              </button>
+      <article class="relative z-10 w-full max-w-3xl overflow-hidden rounded-3xl shadow-2xl text-white">
+        <div id="concept-modal-backdrop" aria-hidden="true"></div>
+        <div class="relative z-10 flex min-h-[24rem] flex-col gap-6 p-8 sm:p-10">
+          <div class="flex items-start justify-between gap-6">
+            <div class="space-y-3">
+              <h2 id="concept-modal-title" class="text-3xl font-semibold leading-tight"></h2>
+              <p id="concept-modal-subtitle" class="text-base text-white/80"></p>
+              <p id="concept-modal-reasoning" class="text-sm text-white/90"></p>
+              <div id="concept-modal-tags" class="flex flex-wrap gap-2"></div>
             </div>
-            <p id="concept-modal-reasoning" class="text-sm text-white/90"></p>
-            <div id="concept-modal-tags" class="flex flex-wrap gap-2"></div>
+            <button
+              id="concept-modal-close"
+              type="button"
+              class="rounded-full border border-white/40 bg-white/10 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-white transition hover:bg-white/20"
+            >
+              Close
+            </button>
           </div>
-        </header>
-        <section class="space-y-6 bg-white px-8 py-8">
-          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div class="space-y-1">
-              <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Sketch actions</p>
-              <p id="concept-modal-status" class="text-xs text-slate-500"></p>
-            </div>
-            <div class="flex flex-wrap gap-3">
-              <button
-                type="button"
-                id="concept-modal-generate"
-                class="inline-flex items-center justify-center gap-2 rounded-full bg-[#f08000] px-4 py-2 text-sm font-semibold uppercase tracking-wide text-white shadow-sm transition hover:bg-[#d96f00] focus:outline-none focus:ring-2 focus:ring-[#f08000]/40"
-              >
-                Generate dish ideas
-              </button>
-              <a
-                id="concept-modal-detail"
-                href="#"
-                class="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-700"
-              >
-                View dish details
-              </a>
-            </div>
+          <div>
+            <button
+              type="button"
+              id="concept-modal-generate"
+              class="inline-flex items-center justify-center gap-2 rounded-full bg-[#f08000] px-5 py-3 text-sm font-semibold uppercase tracking-wide text-white shadow-sm transition hover:bg-[#d96f00] focus:outline-none focus:ring-2 focus:ring-[#f08000]/40"
+            >
+              Generate dish ideas
+            </button>
           </div>
-
-          <div id="concept-modal-dishes" class="grid gap-4 sm:grid-cols-2"></div>
-          <p id="concept-modal-empty" class="hidden rounded-xl border border-dashed border-slate-300 bg-white px-4 py-6 text-center text-sm text-slate-500">
-            Dishes will appear here after you generate them.
-          </p>
-        </section>
-        <footer class="flex items-center justify-end gap-3 border-t border-slate-200 bg-white/90 px-6 py-4">
-          <button id="concept-modal-close" type="button" class="text-sm font-semibold text-slate-500 hover:text-slate-700">
-            Close
-          </button>
-        </footer>
+        </div>
       </article>
     </div>
   </div>
@@ -214,7 +188,6 @@
 
       const state = {
         concepts: [],
-        disliked: [],
         endpoints: {},
         placeholders: [],
         currentConceptId: null,
@@ -224,12 +197,10 @@
         try {
           const data = JSON.parse(payloadEl.textContent || '{}');
           state.concepts = data.concepts || [];
-          state.disliked = data.disliked_concepts || [];
           state.endpoints = data.endpoints || {};
           state.placeholders = data.prompt_placeholders || [];
         } catch (error) {
           state.concepts = [];
-          state.disliked = [];
           state.endpoints = {};
           state.placeholders = [];
         }
@@ -250,18 +221,12 @@
       const sliderValue = document.getElementById('concept-slider-value');
 
       const modal = document.getElementById('concept-modal');
-      const modalBackdrop = document.querySelector('#concept-modal-backdrop > .absolute');
-      const modalRuntime = document.getElementById('concept-modal-runtime');
+      const modalBackdrop = document.getElementById('concept-modal-backdrop');
       const modalTitle = document.getElementById('concept-modal-title');
       const modalSubtitle = document.getElementById('concept-modal-subtitle');
       const modalReasoning = document.getElementById('concept-modal-reasoning');
       const modalTags = document.getElementById('concept-modal-tags');
-      const modalFavorite = document.getElementById('concept-modal-favorite');
-      const modalStatus = document.getElementById('concept-modal-status');
-      const modalDishes = document.getElementById('concept-modal-dishes');
-      const modalEmpty = document.getElementById('concept-modal-empty');
       const modalGenerate = document.getElementById('concept-modal-generate');
-      const modalDetail = document.getElementById('concept-modal-detail');
       const modalClose = document.getElementById('concept-modal-close');
       const modalCloseArea = modal ? modal.querySelector('[data-close-modal]') : null;
       const modalArticle = modal ? modal.querySelector('article') : null;
@@ -472,25 +437,11 @@
         return isFav ? '❤️' : '🤍';
       }
 
-      function formatRuntime(concept) {
-        if (concept.runtime_display) {
-          return concept.runtime_display;
-        }
-        if (concept.generated_at) {
-          try {
-            const date = new Date(concept.generated_at);
-            return date.toLocaleString();
-          } catch (error) {
-            return '';
-          }
-        }
-        return '';
-      }
-
       function buildConceptCard(concept) {
         const card = document.createElement('article');
         card.className = 'relative rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:shadow-lg';
         card.dataset.conceptId = concept.id;
+        card.dataset.conceptCard = 'true';
 
         const heart = document.createElement('button');
         heart.type = 'button';
@@ -538,15 +489,56 @@
         });
         grid.innerHTML = '';
         grid.appendChild(fragment);
+        animateConceptGrid();
       }
 
-      function applyModalFavoriteState(concept) {
-        if (!modalFavorite) {
+      function animateConceptGrid() {
+        if (!grid) {
           return;
         }
-        modalFavorite.textContent = favoriteIcon(concept.is_favorited);
-        modalFavorite.dataset.active = concept.is_favorited ? 'true' : 'false';
-        modalFavorite.setAttribute('aria-label', concept.is_favorited ? 'Unfavorite concept' : 'Favorite concept');
+        const cards = Array.from(grid.querySelectorAll('[data-concept-card]'));
+        if (!cards.length) {
+          return;
+        }
+        cards.forEach(function (card) {
+          card.style.opacity = '0';
+          card.style.transform = 'translateY(16px)';
+        });
+        let didAnimate = false;
+        const reset = function () {
+          didAnimate = true;
+          cards.forEach(function (card) {
+            card.style.opacity = '';
+            card.style.transform = '';
+          });
+        };
+        const fallback = setTimeout(function () {
+          if (!didAnimate) {
+            reset();
+          }
+        }, 600);
+        animeReady
+          .then(function (anime) {
+            if (didAnimate) {
+              return;
+            }
+            anime({
+              targets: cards,
+              opacity: [0, 1],
+              translateY: ['16px', '0px'],
+              duration: 320,
+              delay: anime.stagger(70),
+              easing: 'easeOutQuad',
+              complete: function () {
+                clearTimeout(fallback);
+                reset();
+              },
+            });
+          })
+          .catch(function () {
+            clearTimeout(fallback);
+            reset();
+          });
       }
 
       function applyModalBackground(concept) {
@@ -562,63 +554,6 @@
           modalBackdrop.style.backgroundSize = '';
           modalBackdrop.style.backgroundPosition = '';
         }
-      }
-
-      function renderModalDishes(concept) {
-        if (!modalDishes || !modalEmpty) {
-          return;
-        }
-        modalDishes.innerHTML = '';
-        const dishes = concept.dishes || [];
-        if (!dishes.length) {
-          modalEmpty.classList.remove('hidden');
-          return;
-        }
-        modalEmpty.classList.add('hidden');
-        const frag = document.createDocumentFragment();
-        dishes.forEach(function (dish) {
-          const card = document.createElement('article');
-          card.className = 'lookbook-dish-card relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm';
-          const heart = document.createElement('button');
-          heart.type = 'button';
-          heart.className = 'lookbook-heart absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/60 bg-white/80 text-base text-slate-500 shadow-sm hover:text-[#f08000]';
-          heart.dataset.active = dish.is_favorited ? 'true' : 'false';
-          heart.textContent = favoriteIcon(dish.is_favorited);
-          heart.setAttribute('aria-label', dish.is_favorited ? 'Unfavorite dish' : 'Favorite dish');
-          card.appendChild(heart);
-
-          const image = document.createElement('div');
-          image.className = 'h-40 w-full bg-slate-100';
-          if (dish.enhancement_image_url) {
-            image.style.backgroundImage = `url('${dish.enhancement_image_url}')`;
-            image.style.backgroundSize = 'cover';
-            image.style.backgroundPosition = 'center';
-          } else {
-            image.classList.add('flex', 'items-center', 'justify-center', 'text-sm', 'text-slate-500');
-            image.textContent = dish.title;
-          }
-          card.appendChild(image);
-
-          const body = document.createElement('div');
-          body.className = 'space-y-2 px-4 py-4';
-          body.innerHTML = `
-            <div>
-              <h4 class="text-base font-semibold text-[#14080E]">${dish.title}</h4>
-              ${dish.enhancement_price_display ? `<p class="text-xs text-slate-500">${dish.enhancement_price_display}</p>` : ''}
-            </div>
-            <p class="text-sm text-slate-600">${dish.description || ''}</p>
-            ${dish.tags && dish.tags.length ? `<div class="flex flex-wrap gap-2">${dish.tags.map((tag) => `<span class=\"inline-flex items-center rounded-full bg-[#E8DAF7] px-2 py-1 text-[11px] font-medium text-[#49475B]\">${tag}</span>`).join('')}</div>` : ''}
-          `;
-          card.appendChild(body);
-
-          heart.addEventListener('click', function (event) {
-            event.stopPropagation();
-            toggleDishFavorite(concept.id, dish.id, heart);
-          });
-
-          frag.appendChild(card);
-        });
-        modalDishes.appendChild(frag);
       }
 
       function openModal(conceptId) {
@@ -638,36 +573,35 @@
         if (wasHidden) {
           runModalOpenAnimation();
         }
-        if (modalRuntime) {
-          modalRuntime.textContent = formatRuntime(concept);
-        }
         if (modalTitle) {
           modalTitle.textContent = concept.name || 'Untitled concept';
         }
         if (modalSubtitle) {
-          modalSubtitle.textContent = concept.subtitle || '';
+          const hasSubtitle = Boolean(concept.subtitle);
+          modalSubtitle.textContent = hasSubtitle ? concept.subtitle : '';
+          modalSubtitle.classList.toggle('hidden', !hasSubtitle);
         }
         if (modalReasoning) {
-          modalReasoning.textContent = concept.reasoning || '';
+          const hasReasoning = Boolean(concept.reasoning);
+          modalReasoning.textContent = hasReasoning ? concept.reasoning : '';
+          modalReasoning.classList.toggle('hidden', !hasReasoning);
         }
         if (modalTags) {
           modalTags.innerHTML = '';
-          (concept.tags || []).forEach(function (tag) {
-            const chip = document.createElement('span');
-            chip.className = 'inline-flex items-center rounded-full bg-white/20 px-3 py-1 text-xs font-medium text-white shadow-sm backdrop-blur';
-            chip.textContent = tag;
-            modalTags.appendChild(chip);
-          });
+          const tags = concept.tags || [];
+          if (tags.length) {
+            tags.forEach(function (tag) {
+              const chip = document.createElement('span');
+              chip.className = 'inline-flex items-center rounded-full bg-white/20 px-3 py-1 text-xs font-medium text-white shadow-sm backdrop-blur';
+              chip.textContent = tag;
+              modalTags.appendChild(chip);
+            });
+            modalTags.classList.remove('hidden');
+          } else {
+            modalTags.classList.add('hidden');
+          }
         }
-        applyModalFavoriteState(concept);
         applyModalBackground(concept);
-        renderModalDishes(concept);
-        if (modalStatus) {
-          modalStatus.textContent = concept.sketch_image_url ? 'Sketch ready.' : 'Generating sketch…';
-        }
-        if (modalDetail) {
-          modalDetail.href = concept.dish_detail_url || '#';
-        }
         if (!concept.sketch_image_url) {
           ensureConceptSketch(concept.id);
         }
@@ -732,11 +666,8 @@
             throw new Error('Favorite request failed');
           }
           updateConcept(conceptId, { is_favorited: nextState });
-          if (state.currentConceptId === conceptId) {
-            applyModalFavoriteState(state.concepts.find((item) => item.id === conceptId));
-            if (!nextState) {
-              closeModal();
-            }
+          if (state.currentConceptId === conceptId && !nextState) {
+            closeModal();
           }
           if (nextState) {
             openModal(conceptId);
@@ -747,44 +678,6 @@
           if (generatorFeedback) {
             generatorFeedback.textContent = 'Unable to update favorite right now. Please try again.';
           }
-        } finally {
-          button.disabled = false;
-        }
-      }
-
-      async function toggleDishFavorite(conceptId, dishId, button) {
-        const concept = state.concepts.find(function (item) {
-          return item.id === conceptId;
-        });
-        if (!concept || !button) {
-          return;
-        }
-        const dish = (concept.dishes || []).find(function (item) {
-          return item.id === dishId;
-        });
-        if (!dish) {
-          return;
-        }
-        const nextState = !dish.is_favorited;
-        button.disabled = true;
-        button.dataset.active = nextState ? 'true' : 'false';
-        button.textContent = favoriteIcon(nextState);
-        const formData = new FormData();
-        formData.append('context', 'lookbook');
-        try {
-          const response = await fetch(dish.favorite_url, {
-            method: 'POST',
-            headers: buildHeaders({ 'HX-Request': 'true' }),
-            body: formData,
-            credentials: 'same-origin',
-          });
-          if (!response.ok) {
-            throw new Error('Favorite request failed');
-          }
-          dish.is_favorited = nextState;
-        } catch (error) {
-          button.dataset.active = dish.is_favorited ? 'true' : 'false';
-          button.textContent = favoriteIcon(dish.is_favorited);
         } finally {
           button.disabled = false;
         }
@@ -805,9 +698,7 @@
             credentials: 'same-origin',
           });
         } catch (error) {
-          if (modalStatus) {
-            modalStatus.textContent = 'Sketch will retry shortly.';
-          }
+          // Background fetch failures are silently ignored; a retry will happen later.
         } finally {
           requestedSketches.delete(conceptId);
         }
@@ -895,10 +786,11 @@
           if (!response.ok) {
             throw new Error('Dish generation failed');
           }
-          modalStatus.textContent = 'Plating new dishes…';
           await refreshLookbook(concept.id);
         } catch (error) {
-          modalStatus.textContent = 'Unable to generate dishes right now. Try again later.';
+          if (generatorFeedback) {
+            generatorFeedback.textContent = 'Unable to generate dishes right now. Try again later.';
+          }
         } finally {
           modalGenerate.disabled = false;
           modalGenerate.textContent = 'Generate dish ideas';
@@ -907,14 +799,6 @@
 
       if (generatorForm) {
         generatorForm.addEventListener('submit', handleConceptGeneration);
-      }
-
-      if (modalFavorite) {
-        modalFavorite.addEventListener('click', function () {
-          if (state.currentConceptId) {
-            toggleConceptFavorite(state.currentConceptId, modalFavorite);
-          }
-        });
       }
 
       if (modalClose) {
