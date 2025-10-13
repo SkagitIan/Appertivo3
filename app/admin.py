@@ -163,18 +163,6 @@ class EnhancementAdmin(TimestampedAdmin):
     list_filter = ("status",)
 
 
-# Menus
-@admin.register(models.MenuCollection)
-class MenuCollectionAdmin(TimestampedAdmin):
-    list_display = ("restaurant", "name", "created_by_user", "created_at")
-
-
-@admin.register(models.MenuItem)
-class MenuItemAdmin(TimestampedAdmin):
-    list_display = ("menu", "dish", "position")
-    list_filter = ("menu",)
-
-
 @admin.register(models.CollaborationLink)
 class CollaborationLinkAdmin(TimestampedAdmin):
     list_display = (

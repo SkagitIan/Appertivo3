@@ -74,27 +74,20 @@ class Restaurant(TimestampedModel):
     website = models.TextField(null=True, blank=True)
     google_place_id = models.TextField(null=True, blank=True)
     description = models.TextField(null=True, blank=True)
-    rating = models.DecimalField(max_digits=3, decimal_places=1, null=True, blank=True)
-    review_count = models.IntegerField(null=True, blank=True)
+    #rating = models.DecimalField(max_digits=3, decimal_places=1, null=True, blank=True)
+    #review_count = models.IntegerField(null=True, blank=True)
     ## deep research
     websearch_json = models.JSONField(null=True, blank=True)     # OPENAI Websearch 
     websearch_markdown = models.CharField(max_length=11128, blank=True)
     menu_json = models.JSONField(null=True, blank=True) ## menu from OPENAI websearch
     ingredients_json = models.JSONField(null=True, blank=True) ## ingredients from OPENAI
-    hours_json = models.JSONField(null=True, blank=True)     # working_hours
-    about_json = models.JSONField(null=True, blank=True)     # amenities, offerings, etc.
-    context_json = models.JSONField(null=True, blank=True)   # full Outscraper snapshot
+    #hours_json = models.JSONField(null=True, blank=True)     # working_hours
+    #about_json = models.JSONField(null=True, blank=True)     # amenities, offerings, etc.
+    #context_json = models.JSONField(null=True, blank=True)   # full Outscraper snapshot
     reviews_json = models.JSONField(null=True, blank=True)   # Outscraper reviews snapshot
     review_analysis = models.CharField(max_length=11128, blank=True)
     reviews_markdown = models.CharField(max_length=11128, blank=True)
     personas = models.CharField(max_length=11128, blank=True)
-    active_menu_version = models.ForeignKey(
-        "MenuVersion",
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="+",
-    )
 
     class Meta:
         indexes = [models.Index(fields=["account", "name"])]
