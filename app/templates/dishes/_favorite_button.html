@@ -2,6 +2,7 @@
 <button
   hx-post="{% url 'dish_favorite' dish.id %}?context={{ card_context|default:'grid' }}"
   hx-trigger="click"
+  hx-headers='{"X-CSRFToken": "{{ request.COOKIES.csrftoken|default_if_none:''|default:''|escapejs }}"}'
   hx-swap="outerHTML"
   hx-target="closest .dish-card-wrapper"
   class="{{ base_class }} transition {% if dish.is_favorited %}text-red-500{% else %}text-slate-500 hover:text-red-400{% endif %}"

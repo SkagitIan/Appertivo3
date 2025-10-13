@@ -866,9 +866,6 @@ def dashboard(request, restaurant_id):
         "empty_concepts": [],
         "settings_url": reverse("settings"),
         "tbd_message": "Personalized tips will appear here soon.",
-        "prompt_for_menu": not (
-            has_ready_menu or bool(restaurant.primary_menu_url)
-        ),
         "concept_generate_url": reverse("concepts-generate"),
         "concept_prompt_placeholders": DEFAULT_PROMPT_PLACEHOLDERS,
         #"concept_prompt_suggestions": build_prompt_suggestions(restaurant),
@@ -2052,6 +2049,7 @@ def dish_delete_view(request, dish_id):
     return HttpResponse("")
 
 
+@csrf_exempt
 @login_required
 @require_POST
 def dish_variation_view(request, dish_id):

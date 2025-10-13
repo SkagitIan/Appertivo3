@@ -128,6 +128,13 @@
       </div>
     </section>
 
+    <div
+      id="concepts-grid"
+      class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+      aria-live="polite"
+      hidden
+    ></div>
+
     <div class="grid gap-4 lg:grid-cols-2">
 
       <section class="rounded-2xl border border-slate-200 bg-white p-6">
@@ -347,25 +354,6 @@
   </div>
 
   <div id="menu-modal"></div>
-
-  {% if prompt_for_menu %}
-    <script>
-      document.addEventListener('DOMContentLoaded', function () {
-        const modalTarget = document.getElementById('menu-modal');
-        if (!modalTarget) {
-          return;
-        }
-        fetch('{% url 'show_menu_modal' restaurant.id %}', {
-          headers: {
-            'X-Requested-With': 'XMLHttpRequest'
-          }
-        })
-          .then(function (response) { return response.text(); })
-          .then(function (html) { modalTarget.innerHTML = html; })
-          .catch(function () {});
-      });
-    </script>
-  {% endif %}
 {% endblock %}
 
 {% block extra_scripts %}
@@ -527,10 +515,15 @@
       initMenuManagers(document);
 
       document.body.addEventListener('htmx:afterSwap', function (event) {
-        if (event.detail && event.detail.target) {
-          initMenuManagers(event.detail.target);
-          initConceptProgress(event.detail.target);
+        const target = event.detail && event.detail.target;
+        if (!target) {
+          return;
         }
+        if (target.id === 'concepts-grid') {
+          target.removeAttribute('hidden');
+        }
+        initMenuManagers(target);
+        initConceptProgress(target);
       });
     });
   </script>

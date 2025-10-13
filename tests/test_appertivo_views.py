@@ -224,7 +224,7 @@ class ViewSmokeTests(TestCase):
         self.restaurant.save(update_fields=["active_menu_version"])
 
         resp = self.client.get(reverse("dashboard", args=[self.restaurant.id]))
-        self.assertFalse(resp.context["prompt_for_menu"])
+        self.assertNotIn("prompt_for_menu", resp.context)
 
     def test_outscraper_webhook_saves_reviews(self):
         self.restaurant.google_place_id = "place-123"
