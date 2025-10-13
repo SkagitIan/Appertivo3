@@ -40,4 +40,63 @@
       </div>
     </div>
   </div>
+
+  <div id="concept-spotlight" class="concept-spotlight" aria-hidden="true">
+    <div class="concept-spotlight__backdrop" data-spotlight-close></div>
+    <article class="concept-spotlight__panel">
+      <header id="concept-spotlight-media" class="concept-spotlight__media">
+        <div class="concept-spotlight__media-overlay">
+          <button type="button" class="concept-spotlight__close" data-spotlight-close>
+            <span class="sr-only">Close concept details</span>
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </header>
+      <section class="concept-spotlight__body">
+        <div class="concept-spotlight__text">
+          <h2 id="concept-spotlight-title" class="concept-spotlight__title"></h2>
+          <p id="concept-spotlight-subtitle" class="concept-spotlight__subtitle"></p>
+          <p id="concept-spotlight-reasoning" class="concept-spotlight__reasoning"></p>
+        </div>
+        <div id="concept-spotlight-tags" class="concept-spotlight__tags"></div>
+      </section>
+      <footer class="concept-spotlight__footer">
+        <div class="concept-spotlight__footer-left">
+          <a
+            id="concept-spotlight-dishes"
+            href="#"
+            class="concept-spotlight__dishes hidden"
+          >
+            <i class="fa-solid fa-lightbulb"></i>
+            <span>View latest dishes</span>
+          </a>
+        </div>
+        <div class="concept-spotlight__footer-actions">
+          <button
+            id="concept-spotlight-generate"
+            type="button"
+            class="concept-spotlight__generate"
+            data-generate-button
+            data-overlay="true"
+            data-messages='["Cooking up ideas…", "Almost there…", "Plating concepts!"]'
+            data-csrf-token="{{ csrf_token }}"
+            hx-trigger="click"
+          >
+            <span class="concept-spotlight__generate-text">Get new dish ideas</span>
+          </button>
+          <button
+            id="concept-spotlight-remove"
+            type="button"
+            class="concept-spotlight__remove concept-delete-btn"
+            data-spotlight-remove
+            data-csrf-token="{{ csrf_token }}"
+            hx-trigger="click"
+          >
+            <i class="fa-solid fa-heart-crack"></i>
+            <span>Remove favorite</span>
+          </button>
+        </div>
+      </footer>
+    </article>
+  </div>
 {% endblock %}

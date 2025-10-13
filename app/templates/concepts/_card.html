@@ -1,8 +1,19 @@
-{% with has_sketch=concept.sketch_image_url %}
+{% with has_sketch=concept.sketch_image_url concept_id=concept.id|stringformat:"s" %}
 <div
   id="concept-card-{{ concept.id }}"
-  class="concept-card-wrapper"
+  class="concept-card-wrapper {% if concept.is_favorited_for_user %}concept-card-wrapper--favorite{% endif %}"
   data-concept-card
+  data-concept-id="{{ concept_id }}"
+  data-concept-name="{{ concept.name|default_if_none:''|escape }}"
+  data-concept-subtitle="{{ concept.subtitle|default_if_none:''|escape }}"
+  data-concept-reasoning="{{ concept.reasoning|default_if_none:''|escape }}"
+  data-concept-tags="{% if concept.tags %}{{ concept.tags|join:'||'|escape }}{% endif %}"
+  data-concept-sketch="{{ concept.sketch_image_url|default_if_none:''|escape }}"
+  data-concept-has-dishes="{% if concept.has_dishes %}true{% else %}false{% endif %}"
+  data-concept-dishes-url="{% url 'dish_detail' concept.id %}"
+  data-concept-generate-url="{% url 'dishes-generate' concept.id %}"
+  data-concept-favorite-url="{% url 'concept-favorite' concept.id %}"
+  data-concept-tag-url="{% url 'tag-search' %}"
   data-favorited="{% if concept.is_favorited_for_user %}true{% else %}false{% endif %}"
 >
   <div class="flip-scene h-full">
@@ -14,7 +25,7 @@
       <!-- Front face -->
       <div class="flip-face front bg-white shadow-md border border-slate-200">
         {% if has_sketch %}
-          <div class="relative h-full w-full">
+          <div class="relative h-full w-full concept-card-front__sketch">
             <img
               src="{{ concept.sketch_image_url }}"
               alt="{{ concept.name }} concept sketch"
@@ -22,12 +33,14 @@
               decoding="async"
               class="h-full w-full object-cover"
             />
-            <div class="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/70 via-black/30 to-transparent"></div>
-            <div class="absolute inset-x-0 bottom-0 p-4 text-white drop-shadow">
+            <div class="concept-card-front__scrim"></div>
+            <div class="concept-card-front__meta">
               <div class="flex items-end justify-between gap-3">
                 <div class="max-w-[75%]">
-                  <h2 class="text-xl md:text-2xl font-semibold leading-tight">{{ concept.name }}</h2>
-                  
+                  <h2 class="text-lg md:text-xl font-semibold leading-tight">{{ concept.name }}</h2>
+                  {% if not concept.is_favorited_for_user and concept.subtitle %}
+                    <p class="text-sm text-white/80">{{ concept.subtitle }}</p>
+                  {% endif %}
                 </div>
                 <div class="flex-shrink-0" data-no-flip>
                   {% if favorite_url_override %}

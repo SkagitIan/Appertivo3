@@ -4,6 +4,280 @@
     padding: 0.25rem 0.25rem;
   }
 
+  .concept-card-wrapper--favorite .flip-card {
+    cursor: pointer;
+  }
+
+  .concept-card-front__sketch {
+    position: relative;
+  }
+
+  .concept-card-front__scrim {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(12, 10, 15, 0.2) 0%, rgba(12, 10, 15, 0.75) 85%);
+    opacity: 0.85;
+    transition: opacity 0.25s ease;
+  }
+
+  .concept-card-wrapper--favorite .concept-card-front__scrim {
+    opacity: 0.75;
+  }
+
+  .concept-card-front__meta {
+    position: absolute;
+    inset: auto 0.75rem 0.75rem 0.75rem;
+    color: #ffffff;
+    text-shadow: 0 8px 30px rgba(8, 7, 13, 0.5);
+  }
+
+  .concept-card-front__meta h2 {
+    margin-bottom: 0.15rem;
+  }
+
+  .concepts-grid--dim {
+    position: relative;
+  }
+
+  .concepts-grid--dim [data-concept-card] {
+    transition: transform 0.35s ease, opacity 0.35s ease, filter 0.35s ease;
+  }
+
+  .concepts-grid--dim [data-concept-card]:not(.concept-card--active) {
+    opacity: 0.15;
+    filter: blur(1px);
+    pointer-events: none;
+    transform: scale(0.95);
+  }
+
+  .concepts-grid--dim .concept-card--active {
+    transform: scale(1.03);
+    z-index: 2;
+  }
+
+  .concept-spotlight {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 1.5rem;
+    background: rgba(20, 8, 14, 0.6);
+    backdrop-filter: blur(3px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.35s ease;
+    z-index: 70;
+  }
+
+  .concept-spotlight.is-visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .concept-spotlight__panel {
+    position: relative;
+    width: min(720px, 92vw);
+    border-radius: 1.75rem;
+    overflow: hidden;
+    background: #ffffff;
+    box-shadow: 0 28px 90px rgba(20, 8, 14, 0.35);
+    transform: translateY(40px);
+    transition: transform 0.35s ease;
+  }
+
+  .concept-spotlight.is-visible .concept-spotlight__panel {
+    transform: translateY(0);
+  }
+
+  .concept-spotlight__media {
+    position: relative;
+    min-height: 240px;
+    background: linear-gradient(135deg, rgba(185, 147, 214, 0.8), rgba(88, 176, 156, 0.8));
+    background-size: cover;
+    background-position: center;
+  }
+
+  .concept-spotlight__media::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 20% 15%, rgba(255, 255, 255, 0.22), rgba(12, 10, 15, 0.65));
+    opacity: 0.8;
+    transition: opacity 0.4s ease;
+  }
+
+  .concept-spotlight__media.concept-spotlight__media--loaded::after {
+    opacity: 0.25;
+  }
+
+  .concept-spotlight__media::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: var(--concept-spotlight-bg, none);
+    background-size: cover;
+    background-position: center;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+
+  .concept-spotlight__media.concept-spotlight__media--loaded::before {
+    opacity: 1;
+  }
+
+  .concept-spotlight__media-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    justify-content: flex-end;
+    padding: 1rem 1rem 0 1rem;
+  }
+
+  .concept-spotlight__close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(73, 71, 91, 0.12);
+    color: #49475b;
+    box-shadow: 0 8px 24px rgba(20, 8, 14, 0.2);
+    transition: transform 0.2s ease;
+  }
+
+  .concept-spotlight__close:hover {
+    transform: scale(1.05);
+  }
+
+  .concept-spotlight__body {
+    padding: 1.75rem 2rem 1.5rem;
+    display: grid;
+    gap: 1.25rem;
+  }
+
+  .concept-spotlight__title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #14080e;
+    margin-bottom: 0.35rem;
+  }
+
+  .concept-spotlight__subtitle {
+    color: #6b7280;
+    font-size: 0.95rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .concept-spotlight__reasoning {
+    color: #4b5563;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    white-space: pre-line;
+  }
+
+  .concept-spotlight__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .concept-spotlight__tags a,
+  .concept-spotlight__tags span {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 0.4rem 0.9rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: rgba(185, 147, 214, 0.15);
+    color: #49475b;
+    text-decoration: none;
+  }
+
+  .concept-spotlight__footer {
+    border-top: 1px solid rgba(148, 163, 184, 0.2);
+    padding: 1rem 1.75rem 1.75rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .concept-spotlight__dishes {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 999px;
+    padding: 0.55rem 1rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    background: rgba(240, 128, 0, 0.14);
+    color: #f08000;
+    text-decoration: none;
+  }
+
+  .concept-spotlight__generate {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 999px;
+    padding: 0.65rem 1.5rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    background: linear-gradient(135deg, #f08000, #b993d6);
+    color: #ffffff;
+    border: none;
+    box-shadow: 0 14px 28px rgba(240, 128, 0, 0.25);
+  }
+
+  .concept-spotlight__remove {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    border-radius: 999px;
+    padding: 0.55rem 1.2rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: #fff;
+    border: 1px solid rgba(248, 113, 113, 0.35);
+    color: #ef4444;
+    box-shadow: 0 12px 26px rgba(248, 113, 113, 0.15);
+  }
+
+  .concept-spotlight__footer-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 640px) {
+    .concept-spotlight__body {
+      padding: 1.5rem;
+    }
+
+    .concept-spotlight__footer {
+      padding: 1rem 1.5rem 1.5rem;
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .concept-spotlight__footer-actions {
+      width: 100%;
+      flex-direction: column;
+    }
+
+    .concept-spotlight__generate,
+    .concept-spotlight__remove {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+
   .concept-card-wrapper .flip-scene {
     height: 100%;
   }
@@ -213,6 +487,304 @@
     const conceptGridSelector = "#concepts-grid";
     const conceptCardSelector = "[data-concept-card]";
 
+    let animePromise = null;
+    const ensureAnimeLoaded = () => {
+      if (window.anime) {
+        return Promise.resolve(window.anime);
+      }
+      if (!animePromise) {
+        const existing = document.querySelector('script[data-concepts-anime]');
+        animePromise = new Promise((resolve) => {
+          const resolveWithInstance = () => resolve(window.anime || null);
+          if (existing) {
+            if (window.anime) {
+              resolveWithInstance();
+            } else {
+              existing.addEventListener('load', resolveWithInstance, { once: true });
+              existing.addEventListener('error', () => resolve(null), { once: true });
+            }
+            return;
+          }
+          const script = document.createElement('script');
+          script.src = 'https://cdn.jsdelivr.net/npm/animejs@3.2.2/lib/anime.min.js';
+          script.async = true;
+          script.dataset.conceptsAnime = 'true';
+          script.addEventListener('load', resolveWithInstance, { once: true });
+          script.addEventListener('error', () => resolve(null), { once: true });
+          document.head.appendChild(script);
+        });
+      }
+      return animePromise;
+    };
+
+    const withAnime = (callback) => {
+      if (typeof callback !== 'function') {
+        return;
+      }
+      if (window.anime) {
+        callback(window.anime);
+        return;
+      }
+      ensureAnimeLoaded().then((instance) => {
+        if (instance) {
+          callback(instance);
+        }
+      });
+    };
+
+    ensureAnimeLoaded();
+
+    const spotlight = document.getElementById('concept-spotlight');
+    const spotlightMedia = document.getElementById('concept-spotlight-media');
+    const spotlightTitle = document.getElementById('concept-spotlight-title');
+    const spotlightSubtitle = document.getElementById('concept-spotlight-subtitle');
+    const spotlightReasoning = document.getElementById('concept-spotlight-reasoning');
+    const spotlightTags = document.getElementById('concept-spotlight-tags');
+    const dishesLink = document.getElementById('concept-spotlight-dishes');
+    const generateButton = document.getElementById('concept-spotlight-generate');
+    const removeButton = document.getElementById('concept-spotlight-remove');
+    const closeTriggers = Array.from(document.querySelectorAll('[data-spotlight-close]'));
+
+    let activeConceptId = null;
+    let activeCardWrapper = null;
+    let activeSpotlightData = null;
+
+    const getGrid = () => document.querySelector(conceptGridSelector);
+
+    const parseConceptData = (wrapper) => {
+      if (!wrapper) {
+        return null;
+      }
+      const { dataset } = wrapper;
+      const tags = (dataset.conceptTags || '')
+        .split('||')
+        .map((tag) => tag.trim())
+        .filter(Boolean);
+      return {
+        id: dataset.conceptId || null,
+        name: dataset.conceptName || '',
+        subtitle: dataset.conceptSubtitle || '',
+        reasoning: dataset.conceptReasoning || '',
+        tags,
+        sketch: dataset.conceptSketch || '',
+        hasDishes: dataset.conceptHasDishes === 'true',
+        dishesUrl: dataset.conceptDishesUrl || '',
+        generateUrl: dataset.conceptGenerateUrl || '',
+        favoriteUrl: dataset.conceptFavoriteUrl || '',
+        tagUrl: dataset.conceptTagUrl || '',
+      };
+    };
+
+    const updateSpotlightBackground = (sketchUrl) => {
+      if (!spotlightMedia) {
+        return;
+      }
+      spotlightMedia.classList.remove('concept-spotlight__media--loaded');
+      if (!sketchUrl) {
+        spotlightMedia.style.removeProperty('--concept-spotlight-bg');
+        return;
+      }
+      const image = new Image();
+      image.addEventListener('load', () => {
+        if (activeSpotlightData && activeSpotlightData.sketch === sketchUrl) {
+          spotlightMedia.style.setProperty('--concept-spotlight-bg', `url('${sketchUrl}')`);
+          spotlightMedia.classList.add('concept-spotlight__media--loaded');
+        }
+      });
+      image.src = sketchUrl;
+    };
+
+    const renderSpotlight = (data) => {
+      if (!data || !spotlight) {
+        return;
+      }
+      activeSpotlightData = data;
+      if (spotlightTitle) {
+        spotlightTitle.textContent = data.name || '';
+      }
+      if (spotlightSubtitle) {
+        spotlightSubtitle.textContent = data.subtitle || '';
+        spotlightSubtitle.classList.toggle('hidden', !data.subtitle);
+      }
+      if (spotlightReasoning) {
+        spotlightReasoning.textContent = data.reasoning || '';
+        spotlightReasoning.classList.toggle('hidden', !data.reasoning);
+      }
+      if (spotlightTags) {
+        spotlightTags.innerHTML = '';
+        if (data.tags && data.tags.length) {
+          data.tags.forEach((tag) => {
+            const link = document.createElement(data.tagUrl ? 'a' : 'span');
+            if (data.tagUrl) {
+              link.href = `${data.tagUrl}?tag=${encodeURIComponent(tag)}`;
+            }
+            link.textContent = tag;
+            spotlightTags.appendChild(link);
+          });
+          spotlightTags.classList.remove('hidden');
+        } else {
+          spotlightTags.classList.add('hidden');
+        }
+      }
+      if (dishesLink) {
+        if (data.hasDishes && data.dishesUrl) {
+          dishesLink.href = data.dishesUrl;
+          dishesLink.classList.remove('hidden');
+        } else {
+          dishesLink.href = '#';
+          dishesLink.classList.add('hidden');
+        }
+      }
+      if (generateButton) {
+        if (data.generateUrl) {
+          generateButton.setAttribute('hx-post', data.generateUrl);
+          const csrf = generateButton.dataset.csrfToken || '';
+          if (csrf) {
+            generateButton.setAttribute('hx-headers', JSON.stringify({ 'X-CSRFToken': csrf }));
+          }
+        } else {
+          generateButton.removeAttribute('hx-post');
+          generateButton.removeAttribute('hx-headers');
+        }
+      }
+      if (removeButton) {
+        if (data.favoriteUrl && data.id) {
+          removeButton.setAttribute('hx-post', data.favoriteUrl);
+          removeButton.setAttribute('hx-target', `#concept-card-${data.id}`);
+          removeButton.setAttribute('hx-swap', 'outerHTML');
+          const csrf = removeButton.dataset.csrfToken || '';
+          if (csrf) {
+            removeButton.setAttribute('hx-headers', JSON.stringify({ 'X-CSRFToken': csrf }));
+          }
+        } else {
+          removeButton.removeAttribute('hx-post');
+          removeButton.removeAttribute('hx-target');
+          removeButton.removeAttribute('hx-swap');
+          removeButton.removeAttribute('hx-headers');
+        }
+      }
+      updateSpotlightBackground(data.sketch);
+    };
+
+    const highlightActiveCard = () => {
+      const grid = getGrid();
+      if (!grid || !activeConceptId) {
+        activeCardWrapper = null;
+        return;
+      }
+      const nextCard = grid.querySelector(`${conceptCardSelector}[data-concept-id="${activeConceptId}"]`);
+      if (!nextCard) {
+        activeCardWrapper = null;
+        return;
+      }
+      grid.querySelectorAll('.concept-card--active').forEach((card) => {
+        if (card !== nextCard) {
+          card.classList.remove('concept-card--active');
+          card.style.removeProperty('transform');
+        }
+      });
+      activeCardWrapper = nextCard;
+      activeCardWrapper.classList.add('concept-card--active');
+      grid.classList.add('concepts-grid--dim');
+      withAnime((anime) => {
+        const otherCards = Array.from(grid.querySelectorAll(conceptCardSelector)).filter((card) => card !== activeCardWrapper);
+        if (otherCards.length) {
+          anime({
+            targets: otherCards,
+            opacity: 0.15,
+            scale: 0.95,
+            duration: 280,
+            easing: 'easeInOutQuad',
+          });
+        }
+        anime({
+          targets: activeCardWrapper,
+          scale: 1.03,
+          duration: 280,
+          easing: 'easeInOutQuad',
+        });
+      });
+    };
+
+    const resetActiveState = () => {
+      const grid = getGrid();
+      if (!grid) {
+        activeCardWrapper = null;
+        activeConceptId = null;
+        return;
+      }
+      grid.classList.remove('concepts-grid--dim');
+      const allCards = grid.querySelectorAll(conceptCardSelector);
+      grid.querySelectorAll('.concept-card--active').forEach((card) => {
+        card.classList.remove('concept-card--active');
+      });
+      allCards.forEach((card) => {
+        card.style.removeProperty('transform');
+        card.style.removeProperty('opacity');
+        card.style.removeProperty('filter');
+      });
+      withAnime((anime) => {
+        anime({
+          targets: allCards,
+          opacity: 1,
+          scale: 1,
+          duration: 220,
+          easing: 'easeInOutQuad',
+        });
+      });
+      activeCardWrapper = null;
+    };
+
+    const openSpotlight = (wrapper) => {
+      if (!spotlight || !wrapper) {
+        return;
+      }
+      activeConceptId = wrapper.dataset ? wrapper.dataset.conceptId || null : null;
+      renderSpotlight(parseConceptData(wrapper));
+      highlightActiveCard();
+      spotlight.classList.add('is-visible');
+      spotlight.setAttribute('aria-hidden', 'false');
+      requestAnimationFrame(() => {
+        const focusable = spotlight.querySelector('[data-spotlight-close]');
+        if (focusable && typeof focusable.focus === 'function') {
+          focusable.focus();
+        }
+      });
+    };
+
+    const closeSpotlight = () => {
+      if (!spotlight) {
+        return;
+      }
+      spotlight.classList.remove('is-visible');
+      spotlight.setAttribute('aria-hidden', 'true');
+      activeConceptId = null;
+      activeSpotlightData = null;
+      resetActiveState();
+    };
+
+    if (spotlight) {
+      spotlight.addEventListener('click', (evt) => {
+        if (evt.target && evt.target.hasAttribute('data-spotlight-close')) {
+          evt.preventDefault();
+          closeSpotlight();
+        }
+      });
+    }
+
+    closeTriggers.forEach((btn) => {
+      btn.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        closeSpotlight();
+      });
+    });
+
+    document.addEventListener('keydown', (evt) => {
+      if (evt.key === 'Escape' && spotlight && spotlight.classList.contains('is-visible')) {
+        closeSpotlight();
+      }
+    });
+
     const reorderConceptCards = () => {
       const grid = document.querySelector(conceptGridSelector);
       if (!grid) {
@@ -320,6 +892,10 @@
       const trigger = evt.detail && evt.detail.elt;
       const card = findConceptCard(trigger);
 
+      if (isConceptDeleteButton(trigger) && trigger && trigger.hasAttribute('data-spotlight-remove')) {
+        closeSpotlight();
+      }
+
       if (isConceptFavoriteButton(trigger)) {
         trigger.classList.add('concept-favorite-btn--busy');
         if (card) {
@@ -364,6 +940,15 @@
       const trigger = evt.detail && evt.detail.elt;
       const target = evt.detail && evt.detail.target;
 
+      let swappedCard = null;
+      if (target) {
+        if (typeof target.matches === 'function' && target.matches(conceptCardSelector)) {
+          swappedCard = target;
+        } else if (typeof target.querySelector === 'function') {
+          swappedCard = target.querySelector(conceptCardSelector);
+        }
+      }
+
       if (shouldShowConceptLoading(trigger)) {
         if (!target) {
           clearConceptTriggerState(trigger);
@@ -379,25 +964,39 @@
         clearConceptTriggerState(trigger);
       }
 
+      if (swappedCard && activeConceptId && swappedCard.dataset && swappedCard.dataset.conceptId === activeConceptId) {
+        renderSpotlight(parseConceptData(swappedCard));
+        highlightActiveCard();
+      }
+
+      if (isConceptFavoriteButton(trigger) && swappedCard && swappedCard.dataset && swappedCard.dataset.favorited === 'true') {
+        openSpotlight(swappedCard);
+      }
+
+      if (isConceptDeleteButton(trigger) && activeConceptId && (!swappedCard || (swappedCard.dataset && swappedCard.dataset.conceptId !== activeConceptId))) {
+        closeSpotlight();
+      }
+
       if (conceptTargetNeedsReorder(target)) {
         scheduleConceptReorder();
       }
     });
 
     document.body.addEventListener('click', function (evt) {
-      const card = evt.target.closest('[data-concept-card] .flip-card');
-      if (!card) {
+      const wrapper = evt.target.closest('[data-concept-card]');
+      if (!wrapper) {
         return;
       }
-      if (card.classList.contains('loading') || card.classList.contains('concept-generating')) {
-        return;
-      }
-      const wrapper = card.closest('[data-concept-card]');
-      if (wrapper && wrapper.dataset && wrapper.dataset.favorited !== 'true') {
+      const card = wrapper.querySelector('.flip-card');
+      if (!card || card.classList.contains('loading') || card.classList.contains('concept-generating')) {
         return;
       }
       const actionable = evt.target.closest('button, a, [data-no-flip]');
       if (actionable) {
+        return;
+      }
+      if (wrapper.dataset && wrapper.dataset.favorited === 'true') {
+        openSpotlight(wrapper);
         return;
       }
       card.classList.toggle('show-back');
