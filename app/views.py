@@ -1085,9 +1085,19 @@ def tag_search_view(request):
 
 
 @login_required
+@require_POST
 def concepts_generate_view(request):
-    membership = models.Membership.objects.filter(user=request.user).first()
+    membership = (
+        models.Membership.objects.filter(user=request.user)
+        .select_related("account")
+        .first()
+    )
+    if not membership or not membership.account:
+        return HttpResponseForbidden("Restaurant access required.")
+
     restaurant = models.Restaurant.objects.filter(account=membership.account).first()
+    if not restaurant:
+        return HttpResponseBadRequest("Restaurant not found for account.")
     raw_prompt = (request.POST.get("prompt") or "").strip()
     user_prompt = raw_prompt[:280]
 
@@ -1317,8 +1327,15 @@ def concepts_generate_view(request):
     return redirect("concepts")
 
 @login_required
+@require_POST
 def concept_favorite_view(request, concept_id):
     concept = get_object_or_404(models.Concept, id=concept_id)
+    if concept.restaurant_id:
+        has_access = models.Membership.objects.filter(
+            user=request.user, account=concept.restaurant.account
+        ).exists()
+        if not has_access:
+            return HttpResponseForbidden("Not allowed to modify this concept.")
     fav, created = models.FavoriteConcept.objects.get_or_create(
         user=request.user, concept=concept, defaults={"favorited_at": timezone.now()}
     )
@@ -1668,11 +1685,16 @@ def ensure_dish_enhancement(dish: models.DishIdea, user: Optional[User]) -> Opti
     return enhancement
 
 @login_required
+@require_POST
 def dishes_generate_view(request, concept_id):
     """Generate nine dish ideas for a concept and return updated content."""
     concept = models.Concept.objects.select_related("restaurant").get(id=concept_id)
     restaurant = concept.restaurant
-    membership = models.Membership.objects.filter(user=request.user).first()
+    has_access = models.Membership.objects.filter(
+        user=request.user, account=restaurant.account
+    ).exists()
+    if not has_access:
+        return HttpResponseForbidden("Not allowed to generate dishes for this concept.")
     htmx_request = request.headers.get("HX-Request") == "true"
     slider_value, slider_temperature = _resolve_creativity_settings(restaurant)
     slider_override = _sanitize_slider_value(
