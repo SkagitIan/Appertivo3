@@ -11,7 +11,7 @@ from app.models import Restaurant
 # Stub imports for future service integration
 # from .services import generate_concepts_batch  # to be implemented
 from swipe.llm_utils import GetConcepts
-from swipe.models import Concept, SeenConcept, SeenDish
+from swipe.models import Concept, SeenItem
 from django.shortcuts import get_object_or_404
 logger = logging.getLogger(__name__)
 
@@ -71,8 +71,11 @@ class SwipeHomeView(TemplateView):
         if user.is_authenticated and concepts:
             concept_ids = [concept.id for concept in concepts]
             seen_concept_ids = set(
-                SeenConcept.objects.filter(user=user, concept_id__in=concept_ids)
-                .values_list("concept_id", flat=True)
+                SeenItem.objects.filter(
+                    user=user,
+                    item_type=SeenItem.ItemType.CONCEPT,
+                    item_id__in=concept_ids,
+                ).values_list("item_id", flat=True)
             )
 
             dish_ids = []
@@ -81,8 +84,11 @@ class SwipeHomeView(TemplateView):
 
             if dish_ids:
                 seen_dish_ids = set(
-                    SeenDish.objects.filter(user=user, dish_id__in=dish_ids)
-                    .values_list("dish_id", flat=True)
+                    SeenItem.objects.filter(
+                        user=user,
+                        item_type=SeenItem.ItemType.DISH,
+                        item_id__in=dish_ids,
+                    ).values_list("item_id", flat=True)
                 )
 
         for concept in concepts:
@@ -233,16 +239,24 @@ class MarkSeenAPI(LoginRequiredMixin, View):
         except (TypeError, ValueError):
             return HttpResponseBadRequest("Invalid item id")
 
-        if type_ == "concept":
+        if type_ == SeenItem.ItemType.CONCEPT:
             if not Concept.objects.filter(id=item_id).exists():
                 return HttpResponseBadRequest("Unknown concept")
-            SeenConcept.objects.get_or_create(user=request.user, concept_id=item_id)
-        elif type_ == "dish":
+            SeenItem.objects.get_or_create(
+                user=request.user,
+                item_type=SeenItem.ItemType.CONCEPT,
+                item_id=item_id,
+            )
+        elif type_ == SeenItem.ItemType.DISH:
             from swipe.models import Dish
 
             if not Dish.objects.filter(id=item_id).exists():
                 return HttpResponseBadRequest("Unknown dish")
-            SeenDish.objects.get_or_create(user=request.user, dish_id=item_id)
+            SeenItem.objects.get_or_create(
+                user=request.user,
+                item_type=SeenItem.ItemType.DISH,
+                item_id=item_id,
+            )
         else:
             return HttpResponseBadRequest("Unknown type")
 

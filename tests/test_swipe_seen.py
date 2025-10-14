@@ -5,7 +5,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from app.models import Account, Restaurant
-from swipe.models import Concept, Dish, SeenConcept, SeenDish
+from swipe.models import Concept, Dish, SeenItem
 
 
 class SwipeSeenTests(TestCase):
@@ -45,8 +45,16 @@ class SwipeSeenTests(TestCase):
         dish = list(concept.dishes.all())[0]
         self.assertTrue(dish.is_new)
 
-        SeenConcept.objects.create(user=self.user, concept=self.concept)
-        SeenDish.objects.create(user=self.user, dish=self.dish)
+        SeenItem.objects.create(
+            user=self.user,
+            item_type=SeenItem.ItemType.CONCEPT,
+            item_id=self.concept.id,
+        )
+        SeenItem.objects.create(
+            user=self.user,
+            item_type=SeenItem.ItemType.DISH,
+            item_id=self.dish.id,
+        )
 
         response = self.client.get(reverse("swipe:home"))
         concept = response.context["concepts"][0]
@@ -64,7 +72,13 @@ class SwipeSeenTests(TestCase):
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(SeenConcept.objects.filter(user=self.user, concept=self.concept).exists())
+        self.assertTrue(
+            SeenItem.objects.filter(
+                user=self.user,
+                item_type=SeenItem.ItemType.CONCEPT,
+                item_id=self.concept.id,
+            ).exists()
+        )
 
         response = self.client.post(
             url,
@@ -72,4 +86,10 @@ class SwipeSeenTests(TestCase):
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(SeenDish.objects.filter(user=self.user, dish=self.dish).exists())
+        self.assertTrue(
+            SeenItem.objects.filter(
+                user=self.user,
+                item_type=SeenItem.ItemType.DISH,
+                item_id=self.dish.id,
+            ).exists()
+        )
