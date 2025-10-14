@@ -1121,11 +1121,6 @@ def concepts_generate_view(request):
     ]
     disliked_context = _get_unfavorited_concept_names(restaurant, 15)
 
-    logger.info(f"previous concepts: {session_concepts}")
-    if restaurant.active_menu_version:
-        restaurant_menu = restaurant.active_menu_version.raw_markdown
-    else:
-        restaurant_menu = ""
     context = f"""
     Restaurant: {restaurant.name}, {restaurant.location_text}.  \n
     Description: {restaurant.websearch_json}. \n
@@ -1162,6 +1157,7 @@ def concepts_generate_view(request):
                         "properties": {
                             "title": {"type": "string",},
                             "subtitle": {"type": "string"},
+                            "ideal_dishes": {"type": "string"},
                             "reasoning": {"type": "string" },
                             "tags": {
                                 "type": "array",
@@ -1170,7 +1166,7 @@ def concepts_generate_view(request):
                                 "maxItems": 3
                             }
                         },
-                        "required": ["title", "subtitle", "reasoning", "tags"],
+                        "required": ["title", "subtitle", "reasoning", "tags","ideal_dishes"],
                         "additionalProperties": False
                     },
                     "minItems": 9,
@@ -1192,6 +1188,7 @@ def concepts_generate_view(request):
                 **Format Requirements for Each Concept**:
                 - **Name**: Maximum 30 characters
                 - **Subtitle**: Maximum 80 characters (descriptive tagline)
+                - **ideal_dishes** Maximum 200 characters
                 - **Reasoning**: Explain your creative process and mindset when selecting this concept (maximum 80 characters)
                 - **Tags**: Array of 3 relevant keywords that connect the concept to user context
 
@@ -1212,10 +1209,35 @@ def concepts_generate_view(request):
 
                 **Example Structure**:
                 ```
-                1. **Name**: "Harvest Moon Monday"
-                **Subtitle**: "Celebrating autumn's bounty with locally-sourced seasonal ingredients"
-                **Reasoning**: "Captured the cozy autumn feeling and farm-to-table movement"
-                **Tags**: [seasonal, autumn, local-sourcing, comfort-food, farm-to-table, harvest, cozy, regional]
+                Name: “Harvest Moon Monday”
+                Subtitle: “Celebrating autumn's bounty with locally-sourced seasonal ingredients”
+                ideal_dishes: “Roasted squash bisque with sage cream, cider-braised pork shoulder, apple-pear galette with honey drizzle”
+                Reasoning: “Captured the cozy autumn feeling and farm-to-table movement.”
+                Tags: [seasonal, autumn, local-sourcing, comfort-food, farm-to-table, harvest, cozy, regional]
+
+                Name: “Coastal Catch Tuesday”
+                Subtitle: “Showcasing the freshest seafood from our local waters”
+                ideal_dishes: “Pan-seared halibut with lemon-herb butter, Dungeness crab cakes, sea-salt caramel panna cotta”
+                Reasoning: “Leans into coastal identity and freshness; ideal for restaurants near bays or rivers.”
+                Tags: [seafood, coastal, local, freshness, sustainability, light-fare, summer, maritime]
+
+                Name: “Woodfire Wednesday”
+                Subtitle: “Rustic warmth and smoke-kissed flavor straight from the hearth”
+                ideal_dishes: “Wood-grilled flat iron steak with rosemary potatoes, charred vegetable medley, smoked chocolate mousse”
+                Reasoning: “Centers on elemental cooking and the sensory experience of fire.”
+                Tags: [grill, rustic, smoky, comfort-food, dinner, artisan, bold-flavors, midweek-special]
+
+                Name: “Garden Glow Thursday”
+                Subtitle: “A vibrant vegetarian spread celebrating color, texture, and balance”
+                ideal_dishes: “Roasted beet and citrus salad, mushroom risotto with truffle oil, lavender panna cotta”
+                Reasoning: “Brings visual appeal and wellness focus; ideal for health-conscious diners.”
+                Tags: [vegetarian, seasonal, healthy, colorful, light, sustainable, spring, garden-to-table]
+
+                Name: “Fireside Friday”
+                Subtitle: “Hearty fare and nostalgic comfort to welcome the weekend”
+                ideal_dishes: “Short rib pot pie with puff pastry lid, smoked cheddar mac & cheese, bourbon bread pudding”
+                Reasoning: “Invites end-of-week indulgence and evokes cozy camaraderie.”
+                Tags: [comfort-food, weekend, hearty, indulgent, nostalgic, winter, fireside, crowd-pleaser]
                 ```
 
                 **Goal**: Create concepts that restaurant owners can easily adapt to their local region and seasonal availability while building customer excitement and loyalty.
@@ -1684,6 +1706,7 @@ def ensure_dish_enhancement(dish: models.DishIdea, user: Optional[User]) -> Opti
 
     return enhancement
 
+@csrf_exempt
 @login_required
 @require_POST
 def dishes_generate_view(request, concept_id):
@@ -1707,16 +1730,11 @@ def dishes_generate_view(request, concept_id):
             Decimal("0.1") + Decimal(slider_value) * Decimal("0.008")
         ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     temperature_float = float(slider_temperature)
-    if restaurant.active_menu_version:
-        restaurant_menu = restaurant.active_menu_version.raw_markdown
-    else:
-        restaurant_menu = ""
-
     context_text = f"""
         Restaurant: {restaurant.name}, {restaurant.location_text}.  \n
-        Description: {restaurant.description}. \n
-        Current Restaurant Menu:  {restaurant_menu}
-        About Services:  {restaurant.about_json}
+        Description: {restaurant.websearch_markdown}. \n
+        Current Restaurant Menu:  {restaurant.menu_json}
+        Ingredients: {restaurant.ingredients_json}
     """
     context_text += (
         "\n        Creative direction slider: "

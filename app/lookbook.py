@@ -9,7 +9,7 @@ that can be wired to the new UI without rewriting the existing system.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Sequence
 
 from django.contrib.auth.decorators import login_required
 from django.core.serializers.json import DjangoJSONEncoder
@@ -18,6 +18,7 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
 
 from . import models
 
@@ -161,6 +162,28 @@ def _primary_restaurant_for_user(user) -> Optional[models.Restaurant]:
     )
 
 
+def _restaurant_ids_for_user(user) -> List[str]:
+    """Return restaurant ids that belong to the user's accounts."""
+
+    if not getattr(user, "is_authenticated", False):
+        return []
+
+    account_ids = list(
+        models.Membership.objects.filter(user=user).values_list(
+            "account_id", flat=True
+        )
+    )
+    if not account_ids:
+        return []
+
+    restaurant_ids = list(
+        models.Restaurant.objects.filter(account_id__in=account_ids)
+        .order_by("created_at")
+        .values_list("id", flat=True)
+    )
+    return restaurant_ids
+
+
 @dataclass
 class SerializedDish:
     """Serialized representation of a dish for the lookbook."""
@@ -267,7 +290,9 @@ def _serialize_concept(
     )
 
 
-def _build_concept_queryset(user) -> Iterable[models.Concept]:
+def _build_concept_queryset(
+    user, restaurant_ids: Optional[Sequence[str]] = None
+) -> Iterable[models.Concept]:
     """Return a queryset with favorites and dishes prefetched."""
 
     concepts_qs = models.Concept.objects.order_by("-created_at").annotate(
@@ -277,6 +302,16 @@ def _build_concept_queryset(user) -> Iterable[models.Concept]:
             )
         )
     )
+
+    if restaurant_ids is None:
+        restaurant_ids = _restaurant_ids_for_user(user)
+    else:
+        restaurant_ids = list(restaurant_ids)
+
+    if restaurant_ids:
+        concepts_qs = concepts_qs.filter(restaurant_id__in=restaurant_ids)
+    else:
+        concepts_qs = concepts_qs.filter(restaurant__isnull=True)
 
     if getattr(user, "is_authenticated", False):
         concepts_qs = concepts_qs.prefetch_related(
@@ -315,11 +350,26 @@ def _collect_favorite_dish_ids(
     return {str(dish_id) for dish_id in favorites}
 
 
-def _build_lookbook_payload(request: HttpRequest) -> dict:
+def _build_lookbook_payload(
+    request: HttpRequest, restaurant_ids: Optional[Sequence[str]] = None
+) -> dict:
     """Assemble serialized concepts and related metadata for the template."""
 
+    if restaurant_ids is None:
+        restaurant_ids = _restaurant_ids_for_user(request.user)
+    else:
+        restaurant_ids = list(restaurant_ids)
+
     restaurant = _primary_restaurant_for_user(request.user)
-    concepts = list(_build_concept_queryset(request.user)[:LOOKBOOK_MAX_CONCEPTS])
+    if not restaurant and restaurant_ids:
+        restaurant = (
+            models.Restaurant.objects.filter(id__in=restaurant_ids)
+            .order_by("created_at")
+            .first()
+        )
+
+    concepts_qs = _build_concept_queryset(request.user, restaurant_ids)
+    concepts = list(concepts_qs[:LOOKBOOK_MAX_CONCEPTS])
 
     all_dishes: List[models.DishIdea] = []
     for concept in concepts:
@@ -334,10 +384,13 @@ def _build_lookbook_payload(request: HttpRequest) -> dict:
         "concepts": [asdict(concept) for concept in serialized_concepts],
         "disliked_concepts": _get_unfavorited_concept_names(restaurant, 6),
         "endpoints": {
-            "concept_generate": reverse("concepts-generate"),
+            "concept_generate": reverse("concepts-generate")
+            if restaurant_ids
+            else "",
             "favorites_overview": reverse("favorites"),
         },
         "prompt_placeholders": DEFAULT_PROMPT_PLACEHOLDERS,
+        "has_restaurant_access": bool(restaurant_ids),
     }
     return payload
 
@@ -346,14 +399,18 @@ def _build_lookbook_payload(request: HttpRequest) -> dict:
 def lookbook_view(request: HttpRequest) -> HttpResponse:
     """Render the animated lookbook template with serialized data."""
 
-    payload = _build_lookbook_payload(request)
+    restaurant_ids = _restaurant_ids_for_user(request.user)
+    payload = _build_lookbook_payload(request, restaurant_ids)
+    concept_generate_url = (
+        reverse("lookbook-concepts-generate") if restaurant_ids else ""
+    )
     return render(
         request,
         "lookbook/dashboard.html",
         {
             "lookbook_payload": payload,
             "lookbook_data_url": reverse("lookbook-data"),
-            "concept_generate_url": reverse("lookbook-concepts-generate"),
+            "concept_generate_url": concept_generate_url,
         },
     )
 
@@ -362,10 +419,12 @@ def lookbook_view(request: HttpRequest) -> HttpResponse:
 def lookbook_data_view(request: HttpRequest) -> JsonResponse:
     """Return the lookbook payload as JSON for asynchronous consumers."""
 
-    payload = _build_lookbook_payload(request)
+    restaurant_ids = _restaurant_ids_for_user(request.user)
+    payload = _build_lookbook_payload(request, restaurant_ids)
     return JsonResponse(payload, encoder=DjangoJSONEncoder, safe=False)
 
 
+@csrf_exempt
 @login_required
 def lookbook_concepts_generate_view(request: HttpRequest) -> HttpResponse:
     """Proxy to the existing concept generation workflow."""
@@ -393,6 +452,7 @@ def lookbook_concept_background_view(request: HttpRequest, concept_id) -> HttpRe
     return concept_background_view(request, concept_id)
 
 
+@csrf_exempt
 @login_required
 def lookbook_dishes_generate_view(request: HttpRequest, concept_id) -> HttpResponse:
     """Proxy to the dish generation workflow for lookbook routes."""

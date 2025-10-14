@@ -1,0 +1,42 @@
+from django.conf import settings
+from django.db import models
+from django.utils import timezone
+import json
+from app.models import Restaurant
+
+# Concept and Dish are lightweight; can be generated, cached, or persisted later.
+class Concept(models.Model):
+    # NOTE: In production you'll likely want a Restaurant FK. Omitted for skeleton.
+    restaurant = models.ForeignKey(Restaurant,on_delete=models.CASCADE,related_name="concepts")
+    name = models.CharField(max_length=200)
+    subtitle = models.CharField(max_length=240, blank=True)
+    sketch_url = models.URLField(blank=True)
+    sketch_prompt = models.CharField(max_length=1240, blank=True)
+    meta_ingredients = models.JSONField(default=list)  # list[str]
+    meta_reasoning = models.TextField(blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return self.name
+
+
+class Dish(models.Model):
+    concept = models.ForeignKey(Concept, on_delete=models.CASCADE, related_name="dishes")
+    name = models.CharField(max_length=200)
+    image_url = models.URLField(blank=True)
+    price = models.CharField(max_length=32, blank=True)  # keep string for "$18" format
+    ingredients = models.JSONField(default=list)  # list[str]
+    reasoning = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.concept.name})"
+
+
+class Favorite(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    concept = models.ForeignKey(Concept, null=True, blank=True, on_delete=models.CASCADE)
+    dish = models.ForeignKey(Dish, null=True, blank=True, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        unique_together = (("user", "concept"), ("user", "dish"))

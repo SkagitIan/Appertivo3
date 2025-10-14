@@ -52,16 +52,23 @@ def _concept_sketch_prompt(name: str, subtitle: str) -> str:
     """Describe a lightweight concept sketch request for image generation."""
 
     subtitle_text = subtitle or ""
-    return (
-        "Create a monochrome pencil sketch that could serve as background art for a "
-        "restaurant concept card. Keep the lines clean with minimal shading so the image "
-        "stays lightweight, but output it at a high-definition resolution. DO not include any text ever, "
-        "no logos, or color.  Should only be of a singular item, not a spread or motif.\n"
-        "Ideal image is one that captures the culinary concept, a sketch vignette"
-        "should not be of a singular dish but represent a the culiary concept."
-        f"Concept name: {name}\n"
-        f"Concept subtitle: {subtitle_text}"
-    )
+
+    prompt = f"""
+            Create a high-definition monochrome pencil sketch that could serve as background art for a restaurant concept card.
+
+            The sketch should interpret the concept name and subtitle as a culinary scene or composition — capturing the essence of the idea through food-related imagery, textures, and tools of the kitchen.
+
+            Draw inspiration from the atmosphere those words evoke, but express it through culinary elements: ingredients, utensils, plating gestures, produce arrangements, cookware, kitchen surfaces, or the act of preparation. The image should feel like a chef’s visual brainstorm, not a completed dish or landscape.
+
+            Style should be minimalist pencil or graphite, clean lines, restrained shading, no color, no text, and no logos. Think of it as a concept vignette — something that suggests aroma, craft, and the artistry of cooking without spelling it out.
+
+            Do not depict full meals, menus, or people. Focus instead on compositional storytelling through shape, texture, and the rhythm of culinary forms.
+
+            Concept name: {name}
+            Concept subtitle: {subtitle_text}
+    """
+    logger.info(prompt)
+    return prompt
 
 def _dish_image_prompt(title: str, description: str) -> str:
     """Return the prompt text for generating a dish image."""

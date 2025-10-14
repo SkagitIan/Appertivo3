@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>{% block title %}Appertivo · Swipe{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root{
+      --ap-purple:#B993D6; --ap-orange:#f08000; --ap-teal:#58B09C;
+      --ap-slate:#49475B;  --ap-black:#14080E;
+    }
+    body{ background: var(--ap-black); color:#fff; }
+    .glass{ background:rgba(20,8,14,.6); backdrop-filter: blur(10px); }
+    .price-tag{ background:#b22222; color:#fff; padding:.15rem .5rem; border-radius:.4rem; font-weight:700; font-size:.8rem; }
+    .badge{ background:rgba(255,255,255,.12); border-radius:.6rem; padding:.15rem .5rem; margin:.15rem; font-size:.75rem; }
+    .fav{ transition: transform .15s ease; cursor:pointer; }
+    .fav:active{ transform: scale(1.15); }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body class="min-h-screen">
+  <header class="fixed top-0 inset-x-0 h-12 glass flex items-center justify-end gap-4 px-4 text-sm text-neutral-200 z-50">
+    <a href="#" class="hover:text-[var(--ap-orange)]">Favorites</a>
+    <a href="#" class="hover:text-[var(--ap-orange)]">Profile</a>
+    <a href="#" class="hover:text-[var(--ap-orange)]">Settings</a>
+    <a href="#" class="hover:text-[var(--ap-orange)]">Login</a>
+  </header>
+
+  <main class="pt-14">{% block content %}{% endblock %}</main>
+
+  <!-- Desktop controls -->
+  <footer class="hidden md:flex fixed bottom-0 inset-x-0 h-20 glass items-center justify-center gap-6">
+    <button id="btn-up"    class="border border-[var(--ap-orange)] text-[var(--ap-orange)] w-12 h-12 rounded-full">&uarr;</button>
+    <button id="btn-left"  class="border border-[var(--ap-orange)] text-[var(--ap-orange)] w-12 h-12 rounded-full">&larr;</button>
+    <button id="btn-right" class="border border-[var(--ap-orange)] text-[var(--ap-orange)] w-12 h-12 rounded-full">&rarr;</button>
+    <button id="btn-down"  class="border border-[var(--ap-orange)] text-[var(--ap-orange)] w-12 h-12 rounded-full">&darr;</button>
+  </footer>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,424 @@
+{% extends "swipe/base.html" %}
+{% load static %}
+
+{% block title %}
+  {% if restaurant %}{{ restaurant.name }} · Concepts{% else %}Appertivo · Swipe{% endif %}
+{% endblock %}
+
+{% block head %}
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+  <style>
+    body {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      position: relative;
+      overflow: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px);
+      background-size: 20px 20px;
+      pointer-events: none;
+    }
+
+    .card {
+      background-size: cover;
+      background-position: center;
+      position: relative;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.3) 50%, transparent 100%);
+    }
+
+    .card-content {
+      position: relative;
+      z-index: 1;
+    }
+
+    .heart-btn {
+      transition: transform 0.2s;
+    }
+
+    .heart-btn:active {
+      transform: scale(0.9);
+    }
+
+    .heart-btn.favorited svg {
+      fill: #ef4444;
+      stroke: #ef4444;
+    }
+
+    .touch-area {
+      touch-action: pan-y pan-x;
+    }
+
+    .hamburger-line {
+      transition: all 0.3s;
+    }
+
+    .menu-open .hamburger-line:nth-child(1) {
+      transform: rotate(45deg) translate(5px, 5px);
+    }
+
+    .menu-open .hamburger-line:nth-child(2) {
+      opacity: 0;
+    }
+
+    .menu-open .hamburger-line:nth-child(3) {
+      transform: rotate(-45deg) translate(7px, -6px);
+    }
+
+    .slide-container {
+      transition: transform 0.3s ease-out;
+    }
+
+    #verticalSlider {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .concept-slide {
+      flex: 0 0 100%;
+    }
+
+    .horizontal-slider {
+      display: flex;
+      overflow: hidden;
+      width: 100%;
+    }
+
+    .horizontal-slider .card {
+      flex: 0 0 100%;
+    }
+
+    @keyframes float-heart {
+      0% {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+      }
+      100% {
+        transform: translateY(-100px) scale(1.5);
+        opacity: 0;
+      }
+    }
+
+    .floating-heart {
+      animation: float-heart 1s ease-out forwards;
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <div class="relative min-h-screen">
+    <!-- Top Navigation -->
+    <nav class="fixed top-0 left-0 right-0 z-40 bg-black bg-opacity-30 backdrop-blur-md">
+      <div class="flex items-center justify-between px-4 py-3">
+        <div class="text-white font-bold text-xl">
+          {% if restaurant %}{{ restaurant.name }}{% else %}Appertivo{% endif %}
+        </div>
+        <button id="menuToggle" class="w-10 h-10 flex flex-col items-center justify-center space-y-1.5">
+          <span class="hamburger-line w-6 h-0.5 bg-white block"></span>
+          <span class="hamburger-line w-6 h-0.5 bg-white block"></span>
+          <span class="hamburger-line w-6 h-0.5 bg-white block"></span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- Slide-out Menu -->
+    <div id="slideMenu" class="fixed top-0 right-0 w-64 h-full bg-gray-900 transform translate-x-full transition-transform duration-300 z-30 shadow-2xl">
+      <div class="pt-20 px-6">
+        <a href="#" class="block py-4 text-white hover:text-purple-400 transition-colors border-b border-gray-700">
+          <svg class="w-5 h-5 inline mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+          </svg>
+          Settings
+        </a>
+        <a href="#" class="block py-4 text-white hover:text-purple-400 transition-colors border-b border-gray-700">
+          <svg class="w-5 h-5 inline mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
+          </svg>
+          Billing
+        </a>
+        <a href="#" class="block py-4 text-white hover:text-purple-400 transition-colors border-b border-gray-700">
+          <svg class="w-5 h-5 inline mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+          </svg>
+          Favorites
+        </a>
+      </div>
+    </div>
+
+    {% if concepts %}
+      <!-- Main Content Area -->
+      <div class="touch-area pt-16 pb-24 h-screen overflow-hidden">
+        <div id="verticalSlider" class="slide-container h-full">
+          {% for concept in concepts %}
+            <div class="concept-slide h-screen flex items-center justify-center px-4" data-concept-index="{{ forloop.counter0 }}">
+              <div id="horizontalSlider{{ forloop.counter0 }}" class="horizontal-slider slide-container w-full max-w-md">
+                <!-- Concept Card -->
+                <div class="card w-full h-[70vh] flex flex-col justify-end p-6"
+                     style="background-image: url('{{ concept.sketch_url }}');">
+                  <div class="card-content">
+                    <button class="heart-btn absolute top-4 right-4 bg-white bg-opacity-20 backdrop-blur-sm rounded-full p-3"
+                            onclick="toggleFavorite(this, 'concept', '{{ concept.id }}')"
+                            data-id="{{ concept.id }}">
+                      <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                      </svg>
+                    </button>
+                    <div class="bg-black bg-opacity-60 backdrop-blur-md rounded-2xl p-6">
+                      <div class="flex flex-wrap gap-2 mb-3">
+                        {% for tag in concept.meta_ingredients %}
+                          <span class="px-3 py-1 bg-purple-500 bg-opacity-50 text-white text-xs rounded-full">{{ tag }}</span>
+                        {% empty %}
+                          <span class="px-3 py-1 bg-purple-500 bg-opacity-50 text-white text-xs rounded-full">Seasonal</span>
+                        {% endfor %}
+                      </div>
+                      <h2 class="text-2xl font-bold text-white mb-2">{{ concept.name }}</h2>
+                      <p class="text-purple-200 text-sm mb-3">{{ concept.subtitle }}</p>
+                      <p class="text-gray-300 text-xs">{{ concept.meta_reasoning }}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Dish Cards -->
+                {% for dish in concept.dishes.all %}
+                  <div class="card w-full h-[70vh] flex flex-col justify-end p-6"
+                       style="background-image: url('{{ dish.image_url }}');">
+                    <div class="card-content">
+                      <button class="heart-btn absolute top-4 right-4 bg-white bg-opacity-20 backdrop-blur-sm rounded-full p-3"
+                              onclick="toggleFavorite(this, 'dish', '{{ dish.id }}')"
+                              data-id="{{ dish.id }}">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                        </svg>
+                      </button>
+                      <div class="bg-black bg-opacity-60 backdrop-blur-md rounded-2xl p-6">
+                        <div class="flex flex-wrap gap-2 mb-3">
+                          {% for ingredient in dish.ingredients %}
+                            <span class="px-3 py-1 bg-indigo-500 bg-opacity-50 text-white text-xs rounded-full">{{ ingredient }}</span>
+                          {% endfor %}
+                        </div>
+                        <h3 class="text-xl font-bold text-white mb-2">{{ dish.name }}</h3>
+                        <p class="text-purple-200 text-sm mb-3">{{ dish.reasoning }}</p>
+                        <p class="text-yellow-400 font-bold">{{ dish.price }}</p>
+                      </div>
+                    </div>
+                  </div>
+                {% empty %}
+                  <div class="card w-full h-[70vh] flex items-center justify-center p-6 bg-black bg-opacity-60">
+                    <p class="text-neutral-200 text-center">No dishes generated yet for this concept.</p>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Bottom Navigation -->
+      <div class="fixed bottom-0 left-0 right-0 bg-black bg-opacity-30 backdrop-blur-md z-30">
+        <div class="flex items-center justify-around py-4">
+          <button onclick="navigateVertical(-1)" class="text-white p-2" aria-label="Previous concept">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
+            </svg>
+          </button>
+          <button onclick="navigateHorizontal(-1)" class="text-white p-2" aria-label="Previous card">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+          </button>
+          <div class="text-white text-sm" id="positionIndicator">1 / {{ concepts|length }}</div>
+          <button onclick="navigateHorizontal(1)" class="text-white p-2" aria-label="Next card">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
+          <button onclick="navigateVertical(1)" class="text-white p-2" aria-label="Next concept">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    {% else %}
+      <div class="flex items-center justify-center pt-20">
+        <div class="glass rounded-2xl p-8 text-center max-w-md bg-black bg-opacity-50">
+          <h2 class="text-2xl font-semibold mb-4">No concepts yet</h2>
+          <p class="text-sm text-neutral-200">Generate a new batch to see swipe concepts for this restaurant.</p>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ block.super }}
+  {{ dish_counts|json_script:"dish-counts-data" }}
+  <script>
+    const totalConcepts = {{ concepts|length }};
+    const dishCountsData = document.getElementById('dish-counts-data');
+    const dishCounts = dishCountsData ? JSON.parse(dishCountsData.textContent) : [];
+
+    const menuToggle = document.getElementById('menuToggle');
+    const slideMenu = document.getElementById('slideMenu');
+    if (menuToggle && slideMenu) {
+      menuToggle.addEventListener('click', () => {
+        menuToggle.classList.toggle('menu-open');
+        slideMenu.classList.toggle('translate-x-0');
+        slideMenu.classList.toggle('translate-x-full');
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!slideMenu.contains(e.target) && !menuToggle.contains(e.target)) {
+          if (!slideMenu.classList.contains('translate-x-full')) {
+            menuToggle.classList.remove('menu-open');
+            slideMenu.classList.add('translate-x-full');
+            slideMenu.classList.remove('translate-x-0');
+          }
+        }
+      });
+    }
+
+    if (totalConcepts === 0) {
+      const indicator = document.getElementById('positionIndicator');
+      if (indicator) indicator.textContent = '0 / 0';
+    } else {
+      let currentConceptIndex = 0;
+      let currentDishIndex = 0;
+
+      window.navigateVertical = function(direction) {
+        const newIndex = currentConceptIndex + direction;
+        if (newIndex >= 0 && newIndex < totalConcepts) {
+          currentConceptIndex = newIndex;
+          currentDishIndex = 0;
+          updateVerticalPosition();
+          updateHorizontalPosition();
+          updatePositionIndicator();
+        }
+      };
+
+      window.navigateHorizontal = function(direction) {
+        const dishCount = dishCounts[currentConceptIndex] || 0;
+        const newIndex = currentDishIndex + direction;
+        if (newIndex >= 0 && newIndex <= dishCount) {
+          currentDishIndex = newIndex;
+          updateHorizontalPosition();
+        }
+      };
+
+      function updateVerticalPosition() {
+        const verticalSlider = document.getElementById('verticalSlider');
+        anime({
+          targets: verticalSlider,
+          translateY: `-${currentConceptIndex * 100}vh`,
+          easing: 'easeOutCubic',
+          duration: 600
+        });
+      }
+
+      function updateHorizontalPosition() {
+        const horizontalSlider = document.getElementById(`horizontalSlider${currentConceptIndex}`);
+        if (!horizontalSlider) return;
+        anime({
+          targets: horizontalSlider,
+          translateX: `-${currentDishIndex * 100}%`,
+          easing: 'easeOutCubic',
+          duration: 500
+        });
+      }
+
+      function updatePositionIndicator() {
+        const indicator = document.getElementById('positionIndicator');
+        if (indicator) {
+          indicator.textContent = `${currentConceptIndex + 1} / ${totalConcepts}`;
+        }
+      }
+
+      let touchStartY = 0;
+      let touchStartX = 0;
+      const touchArea = document.querySelector('.touch-area');
+
+      if (touchArea) {
+        touchArea.addEventListener('touchstart', (e) => {
+          touchStartY = e.touches[0].clientY;
+          touchStartX = e.touches[0].clientX;
+        });
+
+        touchArea.addEventListener('touchend', (e) => {
+          const touchEndY = e.changedTouches[0].clientY;
+          const touchEndX = e.changedTouches[0].clientX;
+          const diffY = touchStartY - touchEndY;
+          const diffX = touchStartX - touchEndX;
+
+          if (Math.abs(diffX) > Math.abs(diffY)) {
+            if (Math.abs(diffX) > 50) {
+              window.navigateHorizontal(diffX > 0 ? 1 : -1);
+            }
+          } else {
+            if (Math.abs(diffY) > 50) {
+              window.navigateVertical(diffY > 0 ? 1 : -1);
+            }
+          }
+        });
+      }
+
+      anime({
+        targets: '.card',
+        opacity: [0, 1],
+        translateY: [50, 0],
+        delay: anime.stagger(100),
+        easing: 'easeOutCubic',
+        duration: 800
+      });
+    }
+
+    window.toggleFavorite = function(btn, type, id) {
+      btn.classList.toggle('favorited');
+
+      const rect = btn.getBoundingClientRect();
+      const heart = document.createElement('div');
+      heart.innerHTML = '❤️';
+      heart.className = 'floating-heart fixed text-4xl pointer-events-none z-50';
+      heart.style.left = rect.left + 'px';
+      heart.style.top = rect.top + 'px';
+      document.body.appendChild(heart);
+
+      setTimeout(() => heart.remove(), 1000);
+
+      anime({
+        targets: btn,
+        scale: [1, 1.3, 1],
+        duration: 400,
+        easing: 'easeInOutQuad'
+      });
+
+      fetch('/api/favorites/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+          type: type,
+          id: id,
+          action: btn.classList.contains('favorited') ? 'add' : 'remove'
+        })
+      });
+    };
+  </script>
+{% endblock %}

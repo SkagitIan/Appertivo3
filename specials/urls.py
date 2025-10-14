@@ -98,5 +98,6 @@ urlpatterns = [
     # Existing API and sample views
 
     path("api/signup/", app_views.signup_view, name="api-signup"),
+    path("swipe/", include("swipe.urls")),
     path("admin/", admin.site.urls),
 ]

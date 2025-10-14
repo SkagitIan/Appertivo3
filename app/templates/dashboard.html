@@ -120,6 +120,21 @@
       </div>
     </div>
     {% endif %}
+    <section class="flex flex-col gap-4 rounded-2xl border border-[#5C008B]/15 bg-gradient-to-br from-white via-white to-purple-50 p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+      <div class="max-w-2xl space-y-2">
+        <h2 class="text-lg font-semibold text-[#14080E]">Try the Swipe experience</h2>
+        <p class="text-sm text-[#49475B]">
+          Jump straight into a mobile-friendly flow to browse batches of AI concept ideas and dishes. Perfect for quick inspiration sessions.
+        </p>
+      </div>
+      <a
+        href="{% url 'swipe:home' %}"
+        class="inline-flex items-center justify-center gap-2 self-start rounded-full bg-[#FF5C00] px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:scale-105 hover:bg-[#e05400] lg:self-center"
+      >
+        <i class="fa-solid fa-bolt" aria-hidden="true"></i>
+        <span>Get started</span>
+      </a>
+    </section>
     {% include "concepts/_card_assets.html" %}
     <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <div class="space-y-4">

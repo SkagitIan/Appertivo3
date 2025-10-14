@@ -74,6 +74,7 @@ INSTALLED_APPS = [
     'appertivo.leads.apps.LeadsConfig',
     'appertivo.assets.apps.AssetsConfig',
     'articles.apps.ArticlesConfig',
+    'swipe.apps.SwipeConfig',
 ]
 
 if USE_CLOUDINARY_STORAGE and 'cloudinary_storage' not in INSTALLED_APPS:

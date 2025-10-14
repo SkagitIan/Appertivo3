@@ -9,7 +9,7 @@ from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 import uuid
-
+import json
 # Allow index names that match historical migrations.
 models.Index.max_name_length = 63
 
@@ -66,24 +66,14 @@ class Restaurant(TimestampedModel):
     account = models.ForeignKey(Account, on_delete=models.CASCADE)
     name = models.TextField()
     location_text = models.TextField()
-    primary_menu_url = models.TextField(null=True, blank=True)
-    menu_urls = models.JSONField(default=list, blank=True)
-
-    # Outscraper context fields
     phone = models.TextField(null=True, blank=True)
     website = models.TextField(null=True, blank=True)
     google_place_id = models.TextField(null=True, blank=True)
     description = models.TextField(null=True, blank=True)
-    #rating = models.DecimalField(max_digits=3, decimal_places=1, null=True, blank=True)
-    #review_count = models.IntegerField(null=True, blank=True)
-    ## deep research
     websearch_json = models.JSONField(null=True, blank=True)     # OPENAI Websearch 
     websearch_markdown = models.CharField(max_length=11128, blank=True)
     menu_json = models.JSONField(null=True, blank=True) ## menu from OPENAI websearch
     ingredients_json = models.JSONField(null=True, blank=True) ## ingredients from OPENAI
-    #hours_json = models.JSONField(null=True, blank=True)     # working_hours
-    #about_json = models.JSONField(null=True, blank=True)     # amenities, offerings, etc.
-    #context_json = models.JSONField(null=True, blank=True)   # full Outscraper snapshot
     reviews_json = models.JSONField(null=True, blank=True)   # Outscraper reviews snapshot
     review_analysis = models.CharField(max_length=11128, blank=True)
     reviews_markdown = models.CharField(max_length=11128, blank=True)
@@ -92,30 +82,22 @@ class Restaurant(TimestampedModel):
     class Meta:
         indexes = [models.Index(fields=["account", "name"])]
 
+    @property
+    def context(self):
+        """Concatenated context string for LLMs."""
+        sections = [
+            f"Name: {self.name}",
+            f"Location: {self.location_text}",
+            self.websearch_markdown or "",
+            json.dumps(self.menu_json or {}, ensure_ascii=False),
+            json.dumps(self.ingredients_json or {}, ensure_ascii=False),
+            self.reviews_markdown or "",
+            self.personas or "",
+        ]
+        return "\n\n".join(s for s in sections if s)
+        
     def __str__(self):
         return self.name
-
-    def set_menu_urls(self, urls: Iterable[str]) -> None:
-        """Store a unique, ordered list of menu URLs."""
-
-        cleaned: List[str] = []
-        for url in urls:
-            normalized = (url or "").strip()
-            if not normalized:
-                continue
-            if normalized not in cleaned:
-                cleaned.append(normalized)
-
-        self.menu_urls = cleaned
-        self.primary_menu_url = cleaned[0] if cleaned else None
-
-    def add_menu_url(self, url: str) -> None:
-        """Append a URL to the stored list if missing."""
-
-        current = list(self.menu_urls or [])
-        current.insert(0, url)
-        self.set_menu_urls(current)
-
 
 class Onboarding(TimestampedModel):
     """Tracks onboarding progress for a user and restaurant."""
