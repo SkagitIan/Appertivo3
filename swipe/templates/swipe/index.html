@@ -29,26 +29,91 @@
     }
 
     .card {
-      background-size: cover;
-      background-position: center;
       position: relative;
       border-radius: 28px;
-      overflow: hidden;
       border: 1px solid rgba(148, 163, 184, 0.35);
       box-shadow: 0 30px 60px -35px rgba(15, 23, 42, 0.55);
       backdrop-filter: saturate(160%) blur(6px);
+      perspective: 1600px;
+      cursor: pointer;
+      overflow: visible;
     }
 
-    .card::before {
+    .card:focus-visible {
+      outline: 2px solid rgba(129, 140, 248, 0.8);
+      outline-offset: 4px;
+    }
+
+    .card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      border-radius: inherit;
+      transform-style: preserve-3d;
+      transition: transform 0.7s ease;
+    }
+
+    .card.is-flipped .card-inner {
+      transform: rotateY(180deg);
+    }
+
+    .card-face {
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      overflow: hidden;
+      backface-visibility: hidden;
+      background-image: var(--card-image);
+      background-size: cover;
+      background-position: center;
+    }
+
+    .card-front::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(15,23,42,0.1) 0%, rgba(15,23,42,0.35) 70%, rgba(15,23,42,0.55) 100%);
+    }
+
+    .card-front {
+      position: relative;
+    }
+
+    .card-back {
+      transform: rotateY(180deg);
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 1.5rem;
+      gap: 1.5rem;
+    }
+
+    .card-back::before {
       content: '';
       position: absolute;
       inset: 0;
       background: linear-gradient(180deg, rgba(15,23,42,0.05) 0%, rgba(15,23,42,0.65) 72%, rgba(15,23,42,0.85) 100%);
     }
 
-    .card-content {
+    .card-back > * {
       position: relative;
       z-index: 1;
+    }
+
+    .card-hint {
+      position: absolute;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 0.5rem 1rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      color: rgba(241, 245, 249, 0.95);
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(6px);
+      pointer-events: none;
     }
 
     .info-panel {
@@ -239,52 +304,64 @@
               <div id="horizontalSlider{{ forloop.counter0 }}" class="horizontal-slider slide-container w-full">
                 <div class="horizontal-track">
                   <!-- Concept Card -->
-                  <div class="card w-full h-[70vh] flex flex-col justify-end p-6"
-                       style="background-image: url('{{ concept.sketch_url }}');">
-                    <div class="card-content">
-                      <button class="heart-btn absolute top-5 right-5 rounded-full border border-white/70 bg-white/80 p-3 shadow-lg"
-                              onclick="toggleFavorite(this, 'concept', '{{ concept.id }}')"
-                              data-id="{{ concept.id }}">
-                        <svg class="w-6 h-6 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
-                        </svg>
-                      </button>
-                      <div class="info-panel p-6">
-                        <div class="flex flex-wrap gap-2 mb-4">
-                          {% for tag in concept.meta_ingredients %}
-                            <span class="tag-chip">{{ tag }}</span>
-                          {% empty %}
-                            <span class="tag-chip">Seasonal</span>
-                          {% endfor %}
-                        </div>
-                        <h2 class="text-3xl font-semibold mb-2">{{ concept.name }}</h2>
-                        <p class="text-sm font-medium text-slate-500 mb-3">{{ concept.subtitle }}</p>
-                        <p class="text-sm leading-relaxed">{{ concept.meta_reasoning }}</p>
+                  <div class="card w-full h-[70vh]" data-card tabindex="0" role="button" style="--card-image: url('{{ concept.sketch_url }}');">
+                    <div class="card-inner">
+                      <div class="card-face card-front">
+                        <div class="card-hint">Tap to view details</div>
                       </div>
-                    </div>
-                  </div>
-
-                  <!-- Dish Cards -->
-                  {% for dish in concept.dishes.all %}
-                    <div class="card w-full h-[70vh] flex flex-col justify-end p-6"
-                         style="background-image: url('{{ dish.image_url }}');">
-                      <div class="card-content">
-                        <button class="heart-btn absolute top-5 right-5 rounded-full border border-white/70 bg-white/80 p-3 shadow-lg"
-                                onclick="toggleFavorite(this, 'dish', '{{ dish.id }}')"
-                                data-id="{{ dish.id }}">
+                      <div class="card-face card-back">
+                        <button type="button"
+                                class="heart-btn absolute top-5 right-5 rounded-full border border-white/70 bg-white/80 p-3 shadow-lg"
+                                data-prevent-flip
+                                onclick="toggleFavorite(this, 'concept', '{{ concept.id }}')"
+                                data-id="{{ concept.id }}">
                           <svg class="w-6 h-6 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
                           </svg>
                         </button>
                         <div class="info-panel p-6">
                           <div class="flex flex-wrap gap-2 mb-4">
-                            {% for ingredient in dish.ingredients %}
-                              <span class="tag-chip">{{ ingredient }}</span>
+                            {% for tag in concept.meta_ingredients %}
+                              <span class="tag-chip">{{ tag }}</span>
+                            {% empty %}
+                              <span class="tag-chip">Seasonal</span>
                             {% endfor %}
                           </div>
-                          <h3 class="text-2xl font-semibold mb-2">{{ dish.name }}</h3>
-                          <p class="text-sm leading-relaxed text-slate-600 mb-3">{{ dish.reasoning }}</p>
-                          <p class="text-base font-semibold text-emerald-600">{{ dish.price }}</p>
+                          <h2 class="text-3xl font-semibold mb-2">{{ concept.name }}</h2>
+                          <p class="text-sm font-medium text-slate-500 mb-3">{{ concept.subtitle }}</p>
+                          <p class="text-sm leading-relaxed">{{ concept.meta_reasoning }}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Dish Cards -->
+                  {% for dish in concept.dishes.all %}
+                    <div class="card w-full h-[70vh]" data-card tabindex="0" role="button" style="--card-image: url('{{ dish.image_url }}');">
+                      <div class="card-inner">
+                        <div class="card-face card-front">
+                          <div class="card-hint">Tap to view details</div>
+                        </div>
+                        <div class="card-face card-back">
+                          <button type="button"
+                                  class="heart-btn absolute top-5 right-5 rounded-full border border-white/70 bg-white/80 p-3 shadow-lg"
+                                  data-prevent-flip
+                                  onclick="toggleFavorite(this, 'dish', '{{ dish.id }}')"
+                                  data-id="{{ dish.id }}">
+                            <svg class="w-6 h-6 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                            </svg>
+                          </button>
+                          <div class="info-panel p-6">
+                            <div class="flex flex-wrap gap-2 mb-4">
+                              {% for ingredient in dish.ingredients %}
+                                <span class="tag-chip">{{ ingredient }}</span>
+                              {% endfor %}
+                            </div>
+                            <h3 class="text-2xl font-semibold mb-2">{{ dish.name }}</h3>
+                            <p class="text-sm leading-relaxed text-slate-600 mb-3">{{ dish.reasoning }}</p>
+                            <p class="text-base font-semibold text-emerald-600">{{ dish.price }}</p>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -348,6 +425,29 @@
     const generateFeedback = document.getElementById('generateConceptsFeedback');
     const touchArea = document.querySelector('.touch-area');
     const verticalSlider = document.getElementById('verticalSlider');
+
+    document.querySelectorAll('[data-card]').forEach((card) => {
+      const inner = card.querySelector('.card-inner');
+      if (!inner) return;
+
+      const toggleFlip = () => {
+        card.classList.toggle('is-flipped');
+      };
+
+      card.addEventListener('click', (event) => {
+        if (event.target.closest('[data-prevent-flip]')) {
+          return;
+        }
+        toggleFlip();
+      });
+
+      card.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          toggleFlip();
+        }
+      });
+    });
 
     const getSlideHeight = () => {
       if (!touchArea) {
