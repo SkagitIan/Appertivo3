@@ -9,41 +9,98 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
   <style>
     body {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: #f1f5f9;
+      min-height: 100vh;
       position: relative;
-      overflow: hidden;
+      color: #0f172a;
+      overflow-x: hidden;
     }
 
     body::before {
       content: '';
-      position: absolute;
+      position: fixed;
       inset: 0;
       background-image:
-        linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px);
-      background-size: 20px 20px;
+        radial-gradient(circle at 20% 20%, rgba(79,70,229,0.12), transparent 45%),
+        radial-gradient(circle at 80% 15%, rgba(59,130,246,0.12), transparent 40%),
+        linear-gradient(180deg, rgba(255,255,255,0.7), rgba(241,245,249,0.9));
       pointer-events: none;
+      z-index: -1;
     }
 
     .card {
       background-size: cover;
       background-position: center;
       position: relative;
-      border-radius: 20px;
+      border-radius: 28px;
       overflow: hidden;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      box-shadow: 0 30px 60px -35px rgba(15, 23, 42, 0.55);
+      backdrop-filter: saturate(160%) blur(6px);
     }
 
     .card::before {
       content: '';
       position: absolute;
       inset: 0;
-      background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.3) 50%, transparent 100%);
+      background: linear-gradient(180deg, rgba(15,23,42,0.05) 0%, rgba(15,23,42,0.65) 72%, rgba(15,23,42,0.85) 100%);
     }
 
     .card-content {
       position: relative;
       z-index: 1;
+    }
+
+    .info-panel {
+      border-radius: 24px;
+      background: rgba(248, 250, 252, 0.88);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
+      color: #0f172a;
+    }
+
+    .tag-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #4338ca;
+      background: rgba(99,102,241,0.15);
+      border: 1px solid rgba(129,140,248,0.4);
+    }
+
+    .touch-area {
+      display: block;
+      padding-left: 1rem;
+      padding-right: 1rem;
+      touch-action: pan-y pan-x;
+      width: 100%;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    @media (min-width: 768px) {
+      .touch-area {
+        padding-left: 0;
+        padding-right: 0;
+      }
+    }
+
+    .horizontal-slider {
+      overflow: hidden;
+      width: 100%;
+      max-width: 40rem;
+      margin: 0 auto;
+    }
+
+    .horizontal-track {
+      display: flex;
+      width: 100%;
+    }
+
+    .horizontal-track .card {
+      flex: 0 0 100%;
     }
 
     .heart-btn {
@@ -57,10 +114,6 @@
     .heart-btn.favorited svg {
       fill: #ef4444;
       stroke: #ef4444;
-    }
-
-    .touch-area {
-      touch-action: pan-y pan-x;
     }
 
     .hamburger-line {
@@ -91,20 +144,7 @@
 
     .concept-slide {
       flex: 0 0 100%;
-    }
-
-    .horizontal-slider {
-      overflow: hidden;
-      width: 100%;
-    }
-
-    .horizontal-track {
-      display: flex;
-      width: 100%;
-    }
-
-    .horizontal-track .card {
-      flex: 0 0 100%;
+      min-height: 100%;
     }
 
     @keyframes float-heart {
@@ -127,15 +167,15 @@
 {% block content %}
   <div class="relative min-h-screen">
     <!-- Top Navigation -->
-    <nav class="fixed top-0 left-0 right-0 z-40 bg-black bg-opacity-30 backdrop-blur-md">
+    <nav class="fixed top-0 left-0 right-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur">
       <div class="flex items-center justify-between px-4 py-3">
-        <div class="text-white font-bold text-xl">
+        <div class="text-slate-900 font-semibold text-xl">
           {% if restaurant %}{{ restaurant.name }}{% else %}Appertivo{% endif %}
         </div>
-        <button id="menuToggle" class="w-10 h-10 flex flex-col items-center justify-center space-y-1.5">
-          <span class="hamburger-line w-6 h-0.5 bg-white block"></span>
-          <span class="hamburger-line w-6 h-0.5 bg-white block"></span>
-          <span class="hamburger-line w-6 h-0.5 bg-white block"></span>
+        <button id="menuToggle" class="w-10 h-10 flex flex-col items-center justify-center space-y-1.5 rounded-full border border-slate-200 bg-white/70 shadow-sm">
+          <span class="hamburger-line w-6 h-0.5 bg-slate-700 block"></span>
+          <span class="hamburger-line w-6 h-0.5 bg-slate-700 block"></span>
+          <span class="hamburger-line w-6 h-0.5 bg-slate-700 block"></span>
         </button>
       </div>
     </nav>
@@ -166,23 +206,23 @@
     {% endif %}
 
     <!-- Slide-out Menu -->
-    <div id="slideMenu" class="fixed top-0 right-0 w-64 h-full bg-gray-900 transform translate-x-full transition-transform duration-300 z-30 shadow-2xl">
+    <div id="slideMenu" class="fixed top-0 right-0 w-64 h-full bg-white shadow-2xl border-l border-slate-200 transform translate-x-full transition-transform duration-300 z-30">
       <div class="pt-20 px-6">
-        <a href="#" class="block py-4 text-white hover:text-purple-400 transition-colors border-b border-gray-700">
-          <svg class="w-5 h-5 inline mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <a href="#" class="block py-4 text-slate-700 hover:text-purple-600 transition-colors border-b border-slate-100">
+          <svg class="w-5 h-5 inline mr-3 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
           </svg>
           Settings
         </a>
-        <a href="#" class="block py-4 text-white hover:text-purple-400 transition-colors border-b border-gray-700">
-          <svg class="w-5 h-5 inline mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <a href="#" class="block py-4 text-slate-700 hover:text-purple-600 transition-colors border-b border-slate-100">
+          <svg class="w-5 h-5 inline mr-3 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
           </svg>
           Billing
         </a>
-        <a href="#" class="block py-4 text-white hover:text-purple-400 transition-colors border-b border-gray-700">
-          <svg class="w-5 h-5 inline mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <a href="#" class="block py-4 text-slate-700 hover:text-purple-600 transition-colors">
+          <svg class="w-5 h-5 inline mr-3 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
           </svg>
           Favorites
@@ -192,34 +232,34 @@
 
     {% if concepts %}
       <!-- Main Content Area -->
-      <div class="touch-area pt-16 pb-24 h-screen overflow-hidden">
+      <div class="touch-area pt-20 pb-28 h-screen overflow-hidden">
         <div id="verticalSlider" class="slide-container h-full">
           {% for concept in concepts %}
-            <div class="concept-slide h-screen flex items-center justify-center px-4" data-concept-index="{{ forloop.counter0 }}">
-              <div id="horizontalSlider{{ forloop.counter0 }}" class="horizontal-slider slide-container w-full max-w-md">
+            <div class="concept-slide flex min-h-full items-center justify-center px-4" data-concept-index="{{ forloop.counter0 }}">
+              <div id="horizontalSlider{{ forloop.counter0 }}" class="horizontal-slider slide-container w-full">
                 <div class="horizontal-track">
                   <!-- Concept Card -->
                   <div class="card w-full h-[70vh] flex flex-col justify-end p-6"
                        style="background-image: url('{{ concept.sketch_url }}');">
                     <div class="card-content">
-                      <button class="heart-btn absolute top-4 right-4 bg-white bg-opacity-20 backdrop-blur-sm rounded-full p-3"
+                      <button class="heart-btn absolute top-5 right-5 rounded-full border border-white/70 bg-white/80 p-3 shadow-lg"
                               onclick="toggleFavorite(this, 'concept', '{{ concept.id }}')"
                               data-id="{{ concept.id }}">
-                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-6 h-6 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
                         </svg>
                       </button>
-                      <div class="bg-black bg-opacity-60 backdrop-blur-md rounded-2xl p-6">
-                        <div class="flex flex-wrap gap-2 mb-3">
+                      <div class="info-panel p-6">
+                        <div class="flex flex-wrap gap-2 mb-4">
                           {% for tag in concept.meta_ingredients %}
-                            <span class="px-3 py-1 bg-purple-500 bg-opacity-50 text-white text-xs rounded-full">{{ tag }}</span>
+                            <span class="tag-chip">{{ tag }}</span>
                           {% empty %}
-                            <span class="px-3 py-1 bg-purple-500 bg-opacity-50 text-white text-xs rounded-full">Seasonal</span>
+                            <span class="tag-chip">Seasonal</span>
                           {% endfor %}
                         </div>
-                        <h2 class="text-2xl font-bold text-white mb-2">{{ concept.name }}</h2>
-                        <p class="text-purple-200 text-sm mb-3">{{ concept.subtitle }}</p>
-                        <p class="text-gray-300 text-xs">{{ concept.meta_reasoning }}</p>
+                        <h2 class="text-3xl font-semibold mb-2">{{ concept.name }}</h2>
+                        <p class="text-sm font-medium text-slate-500 mb-3">{{ concept.subtitle }}</p>
+                        <p class="text-sm leading-relaxed">{{ concept.meta_reasoning }}</p>
                       </div>
                     </div>
                   </div>
@@ -229,28 +269,28 @@
                     <div class="card w-full h-[70vh] flex flex-col justify-end p-6"
                          style="background-image: url('{{ dish.image_url }}');">
                       <div class="card-content">
-                        <button class="heart-btn absolute top-4 right-4 bg-white bg-opacity-20 backdrop-blur-sm rounded-full p-3"
+                        <button class="heart-btn absolute top-5 right-5 rounded-full border border-white/70 bg-white/80 p-3 shadow-lg"
                                 onclick="toggleFavorite(this, 'dish', '{{ dish.id }}')"
                                 data-id="{{ dish.id }}">
-                          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg class="w-6 h-6 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
                           </svg>
                         </button>
-                        <div class="bg-black bg-opacity-60 backdrop-blur-md rounded-2xl p-6">
-                          <div class="flex flex-wrap gap-2 mb-3">
+                        <div class="info-panel p-6">
+                          <div class="flex flex-wrap gap-2 mb-4">
                             {% for ingredient in dish.ingredients %}
-                              <span class="px-3 py-1 bg-indigo-500 bg-opacity-50 text-white text-xs rounded-full">{{ ingredient }}</span>
+                              <span class="tag-chip">{{ ingredient }}</span>
                             {% endfor %}
                           </div>
-                          <h3 class="text-xl font-bold text-white mb-2">{{ dish.name }}</h3>
-                          <p class="text-purple-200 text-sm mb-3">{{ dish.reasoning }}</p>
-                          <p class="text-yellow-400 font-bold">{{ dish.price }}</p>
+                          <h3 class="text-2xl font-semibold mb-2">{{ dish.name }}</h3>
+                          <p class="text-sm leading-relaxed text-slate-600 mb-3">{{ dish.reasoning }}</p>
+                          <p class="text-base font-semibold text-emerald-600">{{ dish.price }}</p>
                         </div>
                       </div>
                     </div>
                   {% empty %}
-                    <div class="card w-full h-[70vh] flex items-center justify-center p-6 bg-black bg-opacity-60">
-                      <p class="text-neutral-200 text-center">No dishes generated yet for this concept.</p>
+                    <div class="card w-full h-[70vh] flex items-center justify-center p-6 bg-slate-100/80">
+                      <p class="text-slate-600 text-center">No dishes generated yet for this concept.</p>
                     </div>
                   {% endfor %}
                 </div>
@@ -261,25 +301,25 @@
       </div>
 
       <!-- Bottom Navigation -->
-      <div class="fixed bottom-0 left-0 right-0 bg-black bg-opacity-30 backdrop-blur-md z-30">
-        <div class="flex items-center justify-around py-4">
-          <button onclick="navigateVertical(-1)" class="text-white p-2" aria-label="Previous concept">
+      <div class="fixed bottom-0 left-0 right-0 border-t border-slate-200 bg-white/80 backdrop-blur z-30">
+        <div class="flex items-center justify-around py-4 text-slate-700">
+          <button onclick="navigateVertical(-1)" class="p-2 hover:text-purple-600 transition" aria-label="Previous concept">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
             </svg>
           </button>
-          <button onclick="navigateHorizontal(-1)" class="text-white p-2" aria-label="Previous card">
+          <button onclick="navigateHorizontal(-1)" class="p-2 hover:text-purple-600 transition" aria-label="Previous card">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
             </svg>
           </button>
-          <div class="text-white text-sm" id="positionIndicator">1 / {{ concepts|length }}</div>
-          <button onclick="navigateHorizontal(1)" class="text-white p-2" aria-label="Next card">
+          <div class="text-sm font-medium" id="positionIndicator">1 / {{ concepts|length }}</div>
+          <button onclick="navigateHorizontal(1)" class="p-2 hover:text-purple-600 transition" aria-label="Next card">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
             </svg>
           </button>
-          <button onclick="navigateVertical(1)" class="text-white p-2" aria-label="Next concept">
+          <button onclick="navigateVertical(1)" class="p-2 hover:text-purple-600 transition" aria-label="Next concept">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
             </svg>
@@ -288,9 +328,9 @@
       </div>
     {% else %}
       <div class="flex items-center justify-center pt-20">
-        <div class="glass rounded-2xl p-8 text-center max-w-md bg-black bg-opacity-50">
-          <h2 class="text-2xl font-semibold mb-4">No concepts yet</h2>
-          <p class="text-sm text-neutral-200">Generate a new batch to see swipe concepts for this restaurant.</p>
+        <div class="rounded-2xl border border-slate-200 bg-white/90 p-8 text-center shadow-lg max-w-md">
+          <h2 class="text-2xl font-semibold text-slate-900 mb-3">No concepts yet</h2>
+          <p class="text-sm text-slate-600">Generate a new batch to see swipe concepts for this restaurant.</p>
         </div>
       </div>
     {% endif %}
@@ -306,6 +346,20 @@
     const dishCounts = dishCountsData ? JSON.parse(dishCountsData.textContent) : [];
     const generateBtn = document.getElementById('generateConceptsBtn');
     const generateFeedback = document.getElementById('generateConceptsFeedback');
+    const touchArea = document.querySelector('.touch-area');
+    const verticalSlider = document.getElementById('verticalSlider');
+
+    const getSlideHeight = () => {
+      if (!touchArea) {
+        return window.innerHeight;
+      }
+
+      const styles = window.getComputedStyle(touchArea);
+      const paddingTop = parseFloat(styles.paddingTop) || 0;
+      const paddingBottom = parseFloat(styles.paddingBottom) || 0;
+
+      return touchArea.clientHeight - paddingTop - paddingBottom;
+    };
 
     if (generateBtn) {
       const plusIcon = generateBtn.querySelector('[data-icon]');
@@ -433,11 +487,21 @@
         }
       };
 
-      function updateVerticalPosition() {
-        const verticalSlider = document.getElementById('verticalSlider');
+      function updateVerticalPosition({ immediate = false } = {}) {
+        if (!verticalSlider) return;
+
+        const offset = -getSlideHeight() * currentConceptIndex;
+
+        anime.remove(verticalSlider);
+
+        if (immediate) {
+          verticalSlider.style.transform = `translateY(${offset}px)`;
+          return;
+        }
+
         anime({
           targets: verticalSlider,
-          translateY: `-${currentConceptIndex * 100}vh`,
+          translateY: offset,
           easing: 'easeOutCubic',
           duration: 600
         });
@@ -484,9 +548,14 @@
         }
       }
 
+      if (touchArea && verticalSlider) {
+        window.addEventListener('resize', () => {
+          updateVerticalPosition({ immediate: true });
+        });
+      }
+
       let touchStartY = 0;
       let touchStartX = 0;
-      const touchArea = document.querySelector('.touch-area');
 
       if (touchArea) {
         touchArea.addEventListener('touchstart', (e) => {
@@ -512,7 +581,9 @@
         });
       }
 
+      updateVerticalPosition({ immediate: true });
       updateHorizontalPosition({ instant: true });
+      updatePositionIndicator();
 
       anime({
         targets: '.card',
