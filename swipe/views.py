@@ -11,7 +11,7 @@ from app.models import Restaurant
 # Stub imports for future service integration
 # from .services import generate_concepts_batch  # to be implemented
 from swipe.llm_utils import GetConcepts
-from swipe.models import Concept
+from swipe.models import Concept, SeenConcept, SeenDish
 from django.shortcuts import get_object_or_404
 logger = logging.getLogger(__name__)
 
@@ -63,6 +63,32 @@ class SwipeHomeView(TemplateView):
                 .prefetch_related("dishes")
             )
             concepts = list(concept_qs)
+
+        user = self.request.user
+        seen_concept_ids = set()
+        seen_dish_ids = set()
+
+        if user.is_authenticated and concepts:
+            concept_ids = [concept.id for concept in concepts]
+            seen_concept_ids = set(
+                SeenConcept.objects.filter(user=user, concept_id__in=concept_ids)
+                .values_list("concept_id", flat=True)
+            )
+
+            dish_ids = []
+            for concept in concepts:
+                dish_ids.extend(dish.id for dish in concept.dishes.all())
+
+            if dish_ids:
+                seen_dish_ids = set(
+                    SeenDish.objects.filter(user=user, dish_id__in=dish_ids)
+                    .values_list("dish_id", flat=True)
+                )
+
+        for concept in concepts:
+            concept.is_new = user.is_authenticated and concept.id not in seen_concept_ids
+            for dish in concept.dishes.all():
+                dish.is_new = user.is_authenticated and dish.id not in seen_dish_ids
 
         dish_counts = [len(c.dishes.all()) for c in concepts]
 
@@ -188,3 +214,36 @@ class ToggleFavoriteAPI(LoginRequiredMixin, View):
             fav.delete()
             return JsonResponse({"favorited": False})
         return JsonResponse({"favorited": True})
+
+
+class MarkSeenAPI(LoginRequiredMixin, View):
+    def post(self, request):
+        import json
+
+        try:
+            payload = json.loads(request.body.decode("utf-8"))
+        except json.JSONDecodeError:
+            return HttpResponseBadRequest("Invalid JSON payload")
+
+        type_ = payload.get("type")
+        item_id = payload.get("id")
+
+        try:
+            item_id = int(item_id)
+        except (TypeError, ValueError):
+            return HttpResponseBadRequest("Invalid item id")
+
+        if type_ == "concept":
+            if not Concept.objects.filter(id=item_id).exists():
+                return HttpResponseBadRequest("Unknown concept")
+            SeenConcept.objects.get_or_create(user=request.user, concept_id=item_id)
+        elif type_ == "dish":
+            from swipe.models import Dish
+
+            if not Dish.objects.filter(id=item_id).exists():
+                return HttpResponseBadRequest("Unknown dish")
+            SeenDish.objects.get_or_create(user=request.user, dish_id=item_id)
+        else:
+            return HttpResponseBadRequest("Unknown type")
+
+        return JsonResponse({"seen": True})

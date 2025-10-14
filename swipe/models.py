@@ -4,6 +4,24 @@ from django.utils import timezone
 import json
 from app.models import Restaurant
 
+
+class SeenConcept(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    concept = models.ForeignKey("swipe.Concept", on_delete=models.CASCADE)
+    seen_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        unique_together = ("user", "concept")
+
+
+class SeenDish(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    dish = models.ForeignKey("swipe.Dish", on_delete=models.CASCADE)
+    seen_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        unique_together = ("user", "dish")
+
 # Concept and Dish are lightweight; can be generated, cached, or persisted later.
 class Concept(models.Model):
     # NOTE: In production you'll likely want a Restaurant FK. Omitted for skeleton.
