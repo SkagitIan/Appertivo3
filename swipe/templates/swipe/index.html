@@ -6,41 +6,36 @@
 {% endblock %}
 
 {% block head %}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@500;600;700&display=swap"
+    rel="stylesheet"
+  >
   <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
   <style>
     body {
-      background: #f1f5f9;
+      background: radial-gradient(circle at 10% 20%, #1f2937 0%, rgba(15, 23, 42, 0.95) 55%, #0b1120 100%);
       min-height: 100vh;
       position: relative;
-      color: #0f172a;
+      color: #e2e8f0;
       overflow-x: hidden;
-    }
-
-    body::before {
-      content: '';
-      position: fixed;
-      inset: 0;
-      background-image:
-        radial-gradient(circle at 20% 20%, rgba(79,70,229,0.12), transparent 45%),
-        radial-gradient(circle at 80% 15%, rgba(59,130,246,0.12), transparent 40%),
-        linear-gradient(180deg, rgba(255,255,255,0.7), rgba(241,245,249,0.9));
-      pointer-events: none;
-      z-index: -1;
+      font-family: 'Inter', sans-serif;
     }
 
     .card {
       position: relative;
       border-radius: 28px;
-      border: 1px solid rgba(148, 163, 184, 0.35);
-      box-shadow: 0 30px 60px -35px rgba(15, 23, 42, 0.55);
-      backdrop-filter: saturate(160%) blur(6px);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      box-shadow: 0 48px 80px -48px rgba(8, 11, 19, 0.75);
+      backdrop-filter: saturate(140%) blur(8px);
       perspective: 1600px;
       cursor: pointer;
       overflow: visible;
     }
 
     .card:focus-visible {
-      outline: 2px solid rgba(129, 140, 248, 0.8);
+      outline: 2px solid rgba(248, 250, 252, 0.65);
       outline-offset: 4px;
     }
 
@@ -81,7 +76,7 @@
       content: '';
       position: absolute;
       inset: 0;
-      background: linear-gradient(180deg, rgba(15,23,42,0.1) 0%, rgba(15,23,42,0.35) 70%, rgba(15,23,42,0.55) 100%);
+      background: linear-gradient(200deg, rgba(15,23,42,0.05) 10%, rgba(15,23,42,0.55) 100%);
     }
 
     .card-front {
@@ -103,7 +98,7 @@
       content: '';
       position: absolute;
       inset: 0;
-      background: linear-gradient(180deg, rgba(15,23,42,0.05) 0%, rgba(15,23,42,0.65) 72%, rgba(15,23,42,0.85) 100%);
+      background: linear-gradient(180deg, rgba(15,23,42,0.35) 0%, rgba(15,23,42,0.85) 80%, rgba(8,11,19,0.95) 100%);
     }
 
     .card-back > * {
@@ -111,27 +106,22 @@
       z-index: 1;
     }
 
-    .card-hint {
-      position: absolute;
-      bottom: 1.5rem;
-      left: 50%;
-      transform: translateX(-50%);
-      padding: 0.5rem 1rem;
-      border-radius: 9999px;
-      font-size: 0.75rem;
-      font-weight: 600;
+    .card-back h2,
+    .card-back h3 {
+      font-family: 'Playfair Display', serif;
       letter-spacing: 0.02em;
-      color: rgba(241, 245, 249, 0.95);
-      background: rgba(15, 23, 42, 0.55);
-      backdrop-filter: blur(6px);
-      pointer-events: none;
+    }
+
+    .card-back p {
+      color: rgba(226, 232, 240, 0.9);
     }
 
     .info-panel {
       border-radius: 24px;
-      background: rgba(248, 250, 252, 0.88);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
-      color: #0f172a;
+      background: rgba(15, 23, 42, 0.65);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      color: #f8fafc;
+      border: 1px solid rgba(148, 163, 184, 0.25);
     }
 
     .tag-chip {
@@ -141,9 +131,9 @@
       border-radius: 9999px;
       font-size: 0.75rem;
       font-weight: 600;
-      color: #4338ca;
-      background: rgba(99,102,241,0.15);
-      border: 1px solid rgba(129,140,248,0.4);
+      color: #f1f5f9;
+      background: rgba(148, 163, 184, 0.15);
+      border: 1px solid rgba(148, 163, 184, 0.25);
     }
 
     .touch-area {
@@ -196,27 +186,6 @@
       transition: all 0.3s;
     }
 
-    .new-flag {
-      position: absolute;
-      top: 1rem;
-      left: 1rem;
-      background: rgba(59, 130, 246, 0.95);
-      color: white;
-      font-size: 0.75rem;
-      font-weight: 600;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      padding: 0.3rem 0.65rem;
-      border-radius: 9999px;
-      box-shadow: 0 6px 16px -10px rgba(37, 99, 235, 0.8);
-      transition: opacity 0.25s ease, transform 0.25s ease;
-    }
-
-    .new-flag--fading {
-      opacity: 0;
-      transform: translateY(-4px);
-    }
-
     .menu-open .hamburger-line:nth-child(1) {
       transform: rotate(45deg) translate(5px, 5px);
     }
@@ -226,7 +195,28 @@
     }
 
     .menu-open .hamburger-line:nth-child(3) {
-      transform: rotate(-45deg) translate(7px, -6px);
+      transform: rotate(-45deg) translate(6px, -6px);
+    }
+
+    .new-flag {
+      position: absolute;
+      top: 1.25rem;
+      left: 1.25rem;
+      background: rgba(248, 250, 252, 0.85);
+      color: #0f172a;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      padding: 0.35rem 0.75rem;
+      border-radius: 9999px;
+      box-shadow: 0 12px 30px -20px rgba(15, 23, 42, 0.75);
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+
+    .new-flag--fading {
+      opacity: 0;
+      transform: translateY(-6px);
     }
 
     .slide-container {
@@ -244,44 +234,85 @@
       min-height: 100%;
     }
 
-    @keyframes float-heart {
-      0% {
-        transform: translateY(0) scale(1);
-        opacity: 1;
-      }
-      100% {
-        transform: translateY(-100px) scale(1.5);
-        opacity: 0;
-      }
+    .floating-controls {
+      position: fixed;
+      bottom: 2.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 40;
     }
 
-    .floating-heart {
-      animation: float-heart 1s ease-out forwards;
+    .floating-controls-inner {
+      display: inline-flex;
+      align-items: center;
+      gap: 1.5rem;
+      padding: 0.9rem 1.75rem;
+      border-radius: 9999px;
+      background: rgba(15, 23, 42, 0.82);
+      box-shadow: 0 24px 60px -35px rgba(8, 11, 19, 0.8);
+      backdrop-filter: blur(12px);
+    }
+
+    .floating-controls button {
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #f8fafc;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      background: rgba(15, 23, 42, 0.5);
+      transition: transform 0.2s ease, background 0.2s ease;
+    }
+
+    .floating-controls button[data-tool] {
+      width: 2.25rem;
+      height: 2.25rem;
+    }
+
+    .floating-controls button:hover {
+      transform: translateY(-2px);
+      background: rgba(148, 163, 184, 0.2);
+    }
+
+    .floating-controls button:focus-visible {
+      outline: 2px solid rgba(248, 250, 252, 0.6);
+      outline-offset: 2px;
+    }
+
+    .floating-controls-indicator {
+      font-family: 'Playfair Display', serif;
+      font-size: 0.9rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: rgba(248, 250, 252, 0.85);
+      white-space: nowrap;
     }
   </style>
 {% endblock %}
 
 {% block content %}
   <div class="relative min-h-screen">
-    <!-- Top Navigation -->
-    <nav class="fixed top-0 left-0 right-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur">
-      <div class="flex items-center justify-between px-4 py-3">
-        <div class="text-slate-900 font-semibold text-xl">
-          {% if restaurant %}{{ restaurant.name }}{% else %}Appertivo{% endif %}
-        </div>
-        <button id="menuToggle" class="w-10 h-10 flex flex-col items-center justify-center space-y-1.5 rounded-full border border-slate-200 bg-white/70 shadow-sm">
-          <span class="hamburger-line w-6 h-0.5 bg-slate-700 block"></span>
-          <span class="hamburger-line w-6 h-0.5 bg-slate-700 block"></span>
-          <span class="hamburger-line w-6 h-0.5 bg-slate-700 block"></span>
-        </button>
-      </div>
-    </nav>
+    <div class="fixed top-6 left-6 z-40 text-[0.7rem] tracking-[0.55em] uppercase text-slate-200/80">
+      {% if restaurant %}{{ restaurant.name }}{% else %}Appertivo{% endif %}
+    </div>
+    <button
+      id="menuToggle"
+      type="button"
+      class="fixed top-6 right-6 z-50 flex h-12 w-12 flex-col items-center justify-center space-y-1.5 rounded-full border border-slate-500/60 bg-slate-900/80 shadow-2xl backdrop-blur"
+      aria-label="Open navigation menu"
+    >
+      <span class="hamburger-line w-6 h-0.5 bg-slate-200 block"></span>
+      <span class="hamburger-line w-6 h-0.5 bg-slate-200 block"></span>
+      <span class="hamburger-line w-6 h-0.5 bg-slate-200 block"></span>
+    </button>
 
     {% if restaurant %}
       <button
         id="generateConceptsBtn"
         type="button"
-        class="fixed bottom-24 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-r from-[#FF8300] to-[#FF5C00] text-white shadow-xl transition-transform hover:scale-110 focus:outline-none focus:ring-4 focus:ring-white/40 disabled:cursor-wait disabled:opacity-80"
+        class="fixed bottom-28 right-8 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-fuchsia-500 text-white shadow-[0_20px_45px_-20px_rgba(244,114,182,0.8)] transition-transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-rose-200/40 disabled:cursor-wait disabled:opacity-80"
         aria-label="Generate more concepts and dishes"
         data-endpoint="{% url 'swipe:generate_concepts' restaurant.id %}"
       >
@@ -296,40 +327,33 @@
       </button>
       <div
         id="generateConceptsFeedback"
-        class="fixed bottom-40 right-6 z-40 hidden rounded-xl px-4 py-2 text-sm text-white shadow-lg backdrop-blur"
+        class="fixed bottom-44 right-8 z-40 hidden rounded-xl px-4 py-2 text-sm text-white shadow-lg backdrop-blur"
         role="status"
         aria-live="polite"
       ></div>
     {% endif %}
 
     <!-- Slide-out Menu -->
-    <div id="slideMenu" class="fixed top-0 right-0 w-64 h-full bg-white shadow-2xl border-l border-slate-200 transform translate-x-full transition-transform duration-300 z-30">
-      <div class="pt-20 px-6">
-        <a href="#" class="block py-4 text-slate-700 hover:text-purple-600 transition-colors border-b border-slate-100">
-          <svg class="w-5 h-5 inline mr-3 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-          </svg>
-          Settings
+    <div
+      id="slideMenu"
+      class="fixed top-0 right-0 z-40 h-full w-64 transform translate-x-full border-l border-slate-700/60 bg-slate-900/95 text-slate-100 shadow-[0_45px_90px_-40px_rgba(8,11,19,0.9)] transition-transform duration-300"
+    >
+      <div class="pt-24 px-6 space-y-4">
+        <a href="#" class="block border-b border-slate-700/40 pb-4 text-sm tracking-[0.3em] uppercase text-slate-300 hover:text-white">
+          Atelier Settings
         </a>
-        <a href="#" class="block py-4 text-slate-700 hover:text-purple-600 transition-colors border-b border-slate-100">
-          <svg class="w-5 h-5 inline mr-3 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
-          </svg>
-          Billing
+        <a href="#" class="block border-b border-slate-700/40 pb-4 text-sm tracking-[0.3em] uppercase text-slate-300 hover:text-white">
+          Billing Suite
         </a>
-        <a href="#" class="block py-4 text-slate-700 hover:text-purple-600 transition-colors">
-          <svg class="w-5 h-5 inline mr-3 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
-          </svg>
-          Favorites
+        <a href="#" class="block text-sm tracking-[0.3em] uppercase text-slate-300 hover:text-white">
+          Favorites Archive
         </a>
       </div>
     </div>
 
     {% if concepts %}
       <!-- Main Content Area -->
-      <div class="touch-area pt-20 pb-28 h-screen overflow-hidden">
+      <div class="touch-area pt-24 pb-52 h-screen overflow-hidden">
         <div id="verticalSlider" class="slide-container h-full">
           {% for concept in concepts %}
             <div class="concept-slide flex min-h-full items-center justify-center px-4" data-concept-index="{{ forloop.counter0 }}">
@@ -348,12 +372,11 @@
                           loading="lazy"
                           onerror="this.onerror=null;this.src='{{ concept_placeholder }}';"
                         >
-                        <div class="card-hint">Tap to view details</div>
                       </div>
                       {% endwith %}
                       <div class="card-face card-back">
                         <button type="button"
-                                class="heart-btn absolute top-5 right-5 rounded-full border border-white/70 bg-white/80 p-3 shadow-lg"
+                                class="heart-btn absolute top-5 right-5 rounded-full border border-slate-100/40 bg-slate-900/60 p-3 shadow-lg"
                                 data-prevent-flip
                                 onclick="toggleFavorite(this, 'concept', '{{ concept.id }}')"
                                 data-id="{{ concept.id }}">
@@ -361,16 +384,16 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
                           </svg>
                         </button>
-                        <div class="info-panel p-6">
-                          <div class="flex flex-wrap gap-2 mb-4">
+                        <div class="info-panel p-6 space-y-4">
+                          <div class="flex flex-wrap gap-2">
                             {% for tag in concept.meta_ingredients %}
                               <span class="tag-chip">{{ tag }}</span>
                             {% empty %}
                               <span class="tag-chip">Seasonal</span>
                             {% endfor %}
                           </div>
-                          <h2 class="text-3xl font-semibold mb-2">{{ concept.name }}</h2>
-                          <p class="text-sm font-medium text-slate-500 mb-3">{{ concept.subtitle }}</p>
+                          <h2 class="text-4xl font-medium tracking-[0.28em] uppercase">{{ concept.name }}</h2>
+                          <p class="text-xs tracking-[0.38em] uppercase text-slate-300/80">{{ concept.subtitle }}</p>
                           <p class="text-sm leading-relaxed">{{ concept.meta_reasoning }}</p>
                         </div>
                       </div>
@@ -391,12 +414,11 @@
                             loading="lazy"
                             onerror="this.onerror=null;this.src='{{ dish_placeholder }}';"
                           >
-                          <div class="card-hint">Tap to view details</div>
                         </div>
                         {% endwith %}
                         <div class="card-face card-back">
                           <button type="button"
-                                  class="heart-btn absolute top-5 right-5 rounded-full border border-white/70 bg-white/80 p-3 shadow-lg"
+                                  class="heart-btn absolute top-5 right-5 rounded-full border border-slate-100/40 bg-slate-900/60 p-3 shadow-lg"
                                   data-prevent-flip
                                   onclick="toggleFavorite(this, 'dish', '{{ dish.id }}')"
                                   data-id="{{ dish.id }}">
@@ -404,22 +426,22 @@
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
                             </svg>
                           </button>
-                          <div class="info-panel p-6">
-                            <div class="flex flex-wrap gap-2 mb-4">
+                          <div class="info-panel p-6 space-y-4">
+                            <div class="flex flex-wrap gap-2">
                               {% for ingredient in dish.ingredients %}
                                 <span class="tag-chip">{{ ingredient }}</span>
                               {% endfor %}
                             </div>
-                            <h3 class="text-2xl font-semibold mb-2">{{ dish.name }}</h3>
-                            <p class="text-sm leading-relaxed text-slate-600 mb-3">{{ dish.reasoning }}</p>
-                            <p class="text-base font-semibold text-emerald-600">{{ dish.price }}</p>
+                            <h3 class="text-3xl font-medium tracking-[0.22em] uppercase">{{ dish.name }}</h3>
+                            <p class="text-sm leading-relaxed">{{ dish.reasoning }}</p>
+                            <p class="text-base font-semibold text-emerald-300/90">{{ dish.price }}</p>
                           </div>
                         </div>
                       </div>
                     </div>
                   {% empty %}
-                    <div class="card w-full h-[70vh] flex items-center justify-center p-6 bg-slate-100/80">
-                      <p class="text-slate-600 text-center">No dishes generated yet for this concept.</p>
+                    <div class="card w-full h-[70vh] flex items-center justify-center p-6 bg-slate-900/60 border border-slate-100/20">
+                      <p class="text-slate-200/80 text-center tracking-[0.25em] uppercase">No dishes generated yet for this concept.</p>
                     </div>
                   {% endfor %}
                 </div>
@@ -429,37 +451,42 @@
         </div>
       </div>
 
-      <!-- Bottom Navigation -->
-      <div class="fixed bottom-0 left-0 right-0 border-t border-slate-200 bg-white/80 backdrop-blur z-30">
-        <div class="flex items-center justify-around py-4 text-slate-700">
-          <button onclick="navigateVertical(-1)" class="p-2 hover:text-purple-600 transition" aria-label="Previous concept">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
+      <!-- Floating Navigation -->
+      <div class="floating-controls">
+        <div class="floating-controls-inner">
+          <button onclick="navigateVertical(-1)" aria-label="Previous concept">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 5l-4 4m4-4l4 4M12 5v14" />
             </svg>
           </button>
-          <button onclick="navigateHorizontal(-1)" class="p-2 hover:text-purple-600 transition" aria-label="Previous card">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+          <button onclick="navigateHorizontal(-1)" aria-label="Previous card">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l5-5m-5 5l5 5M9 12h8" />
             </svg>
           </button>
-          <div class="text-sm font-medium" id="positionIndicator">1 / {{ concepts|length }}</div>
-          <button onclick="navigateHorizontal(1)" class="p-2 hover:text-purple-600 transition" aria-label="Next card">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+          <button type="button" id="floatingMenuButton" aria-label="Open menu" data-tool>
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 7h14M5 12h10M5 17h6" />
             </svg>
           </button>
-          <button onclick="navigateVertical(1)" class="p-2 hover:text-purple-600 transition" aria-label="Next concept">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+          <div class="floating-controls-indicator" id="positionIndicator">1 / {{ concepts|length }}</div>
+          <button onclick="navigateHorizontal(1)" aria-label="Next card">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12l-5-5m5 5l-5 5M15 12H7" />
+            </svg>
+          </button>
+          <button onclick="navigateVertical(1)" aria-label="Next concept">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l4-4m-4 4l-4-4m4 4V5" />
             </svg>
           </button>
         </div>
       </div>
     {% else %}
-      <div class="flex items-center justify-center pt-20">
-        <div class="rounded-2xl border border-slate-200 bg-white/90 p-8 text-center shadow-lg max-w-md">
-          <h2 class="text-2xl font-semibold text-slate-900 mb-3">No concepts yet</h2>
-          <p class="text-sm text-slate-600">Generate a new batch to see swipe concepts for this restaurant.</p>
+      <div class="flex items-center justify-center pt-32 pb-12">
+        <div class="max-w-md rounded-3xl border border-slate-700/60 bg-slate-900/70 p-10 text-center text-slate-200 shadow-[0_35px_70px_-40px_rgba(8,11,19,0.8)]">
+          <h2 class="mb-4 text-3xl font-medium tracking-[0.35em] uppercase">No concepts yet</h2>
+          <p class="text-sm leading-relaxed text-slate-300/80">Generate a new batch to see swipe concepts for this restaurant.</p>
         </div>
       </div>
     {% endif %}
@@ -589,6 +616,7 @@
 
     const menuToggle = document.getElementById('menuToggle');
     const slideMenu = document.getElementById('slideMenu');
+    const floatingMenuButton = document.getElementById('floatingMenuButton');
     if (menuToggle && slideMenu) {
       menuToggle.addEventListener('click', () => {
         menuToggle.classList.toggle('menu-open');
@@ -596,7 +624,17 @@
         slideMenu.classList.toggle('translate-x-full');
       });
 
+      if (floatingMenuButton) {
+        floatingMenuButton.addEventListener('click', () => {
+          menuToggle.click();
+        });
+      }
+
       document.addEventListener('click', (e) => {
+        if (floatingMenuButton && floatingMenuButton.contains(e.target)) {
+          return;
+        }
+
         if (!slideMenu.contains(e.target) && !menuToggle.contains(e.target)) {
           if (!slideMenu.classList.contains('translate-x-full')) {
             menuToggle.classList.remove('menu-open');
