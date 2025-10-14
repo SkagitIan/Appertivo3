@@ -87,10 +87,15 @@ class GetConcepts:
             concept_payload["sketch_url"] = sketch_url or self.DEFAULT_CONCEPT_IMAGE_URL
 
             concept_obj = await self._create_concept_record(concept_payload)
+            concept_id = concept_obj.pk
+            if isinstance(concept_id, uuid.UUID):
+                concept_id = str(concept_id)
+
             saved_dishes = await self._save_dishes(concept_obj, dishes)
 
             logger.info("Concept '%s' and dishes saved successfully.", concept_payload.get("title", ""))
             return {
+                "id": concept_id,
                 "restaurant_id": self.restaurant.id if self.restaurant else None,
                 "name": concept_payload.get("title", ""),
                 "subtitle": concept_payload.get("subtitle", ""),
@@ -335,7 +340,24 @@ class GetConcepts:
             )
             saved_payloads.append({**dish, "image_url": image_url})
 
-        await asyncio.to_thread(Dish.objects.bulk_create, dish_objects)
+        concept_id = concept_obj.pk
+        if isinstance(concept_id, uuid.UUID):
+            concept_id = str(concept_id)
+
+        def bulk_create():
+            return Dish.objects.bulk_create(dish_objects)
+
+        created_dishes = await asyncio.to_thread(bulk_create)
+
+        for payload, dish_obj in zip(saved_payloads, created_dishes):
+            dish_id = dish_obj.pk
+            if isinstance(dish_id, uuid.UUID):
+                dish_id = str(dish_id)
+            payload.update({
+                "id": dish_id,
+                "concept_id": concept_id,
+            })
+
         return saved_payloads
 
     async def _generate_sketch(self, c) -> str:
