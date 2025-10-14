@@ -64,6 +64,9 @@
       overflow: hidden;
       backface-visibility: hidden;
       background-color: #0f172a;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
     }
 
     .card-media {
@@ -336,7 +339,7 @@
                   <div class="card w-full h-[70vh]" data-card tabindex="0" role="button">
                     <div class="card-inner">
                       {% with concept_image=concept.display_sketch_url concept_placeholder="https://placehold.co/1200x800?text=Concept" %}
-                      <div class="card-face card-front">
+                      <div class="card-face card-front" style="background-image: url('{{ concept_image }}');">
                         <img
                           src="{{ concept_image }}"
                           alt="{{ concept.name }} concept sketch"
@@ -379,7 +382,7 @@
                     <div class="card w-full h-[70vh]" data-card tabindex="0" role="button">
                       <div class="card-inner">
                         {% with dish_image=dish.display_image_url dish_placeholder="https://placehold.co/800x600?text=Dish" %}
-                        <div class="card-face card-front">
+                        <div class="card-face card-front" style="background-image: url('{{ dish_image }}');">
                           <img
                             src="{{ dish_image }}"
                             alt="{{ dish.name }} presentation"
