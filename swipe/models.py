@@ -1,8 +1,25 @@
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
-import json
 from app.models import Restaurant
+
+
+class SeenItem(models.Model):
+    class ItemType(models.TextChoices):
+        CONCEPT = "concept", "Concept"
+        DISH = "dish", "Dish"
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    item_type = models.CharField(max_length=20, choices=ItemType.choices)
+    item_id = models.PositiveIntegerField()
+    seen_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        unique_together = ("user", "item_type", "item_id")
+        indexes = [
+            models.Index(fields=["user", "item_type"]),
+            models.Index(fields=["item_type", "item_id"]),
+        ]
 
 # Concept and Dish are lightweight; can be generated, cached, or persisted later.
 class Concept(models.Model):
