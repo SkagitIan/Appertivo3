@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -25,7 +26,7 @@ def generate_concepts_view(request, restaurant_id):
         generator = GetConcepts(restaurant=restaurant)
 
         logger.info(f"Starting concept generation for restaurant: {restaurant.name}")
-        results = generator.generate_batch()
+        results = asyncio.run(generator.generate_batch())
 
         return JsonResponse(
             {"status": "success", "restaurant": restaurant.name, "results": results},

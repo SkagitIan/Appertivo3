@@ -8,22 +8,18 @@ tests can run without network access.
 import os
 import asyncio
 import cloudinary
-from openai import OpenAI
+from openai import AsyncOpenAI
 from replicate import Client as ReplicateClient
 from django.utils import timezone
 from swipe.models import Concept, Dish
-from app.models import Restaurant
 from dotenv import load_dotenv
 load_dotenv()
 import datetime
-import cloudinary
 import cloudinary.uploader
 import logging
 import uuid
 logger = logging.getLogger(__name__)
 import json
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from django.utils import timezone
 
 class GetConcepts:
     """
@@ -40,7 +36,9 @@ class GetConcepts:
         self.cloud_secret = os.getenv("CLOUDINARY_SECRET_KEY")
 
         # --- Client initialization ---
-        self.openai_client = OpenAI(api_key=self.openai_api_key) if self.openai_api_key else None
+        self.openai_client = (
+            AsyncOpenAI(api_key=self.openai_api_key) if self.openai_api_key else None
+        )
         self.replicate_client = ReplicateClient(api_token=self.replicate_token) if self.replicate_token else None
 
         # --- Cloudinary configuration ---
@@ -64,76 +62,84 @@ class GetConcepts:
     # -----------------------------
     # 🧠 Concept generation
     # -----------------------------
-    def generate_batch(self):
-        """
-        Generate a batch of 3 concepts (each with 3 dishes and one sketch).
-        Threaded:
-        • sketches generated concurrently
-        • dish images generated concurrently per concept
-        """
-        results = []
+    async def generate_batch(self):
+        """Generate three concepts (each with dishes and sketches) concurrently."""
 
-        # --- Step 1: Generate concepts ---
-        concepts = self._generate_concepts()
+        concepts = await self._generate_concepts()
+        if not concepts:
+            logger.info("No concepts returned from OpenAI.")
+            return []
 
-        # --- Step 2: Generate sketches concurrently ---
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            future_map = {executor.submit(self._generate_sketch, c): c for c in concepts}
-            for future in as_completed(future_map):
-                c = future_map[future]
-                try:
-                    c["sketch_url"] = future.result()
-                except Exception as exc:
-                    logger.warning(f"Sketch failed for {c.get('title', 'unknown')}: {exc}")
-                    c["sketch_url"] = self.DEFAULT_CONCEPT_IMAGE_URL
-
-        # --- Step 3: For each concept, generate dishes + dish images ---
-        for c in concepts:
-            try:
-                dishes = self._generate_dishes_for_concept(c)
-
-                # --- Create Concept + Dishes in main thread (safe for ORM) ---
-                concept_obj = Concept.objects.create(
-                    restaurant=self.restaurant,
-                    name=c["title"],
-                    subtitle=c.get("subtitle", ""),
-                    sketch_url=c.get("sketch_url", ""),
-                    meta_ingredients=c.get("tags", []),
-                    meta_reasoning=f"{c['reasoning']}\n\nIdeal dishes: {c['ideal_dishes']}",
-                    created_at=timezone.now(),
-                )
-
-                saved_dishes = self._save_dishes(concept_obj, dishes)
-
-                results.append({
-                    "restaurant_id": self.restaurant.id,
-                    "name": c["title"],
-                    "subtitle": c["subtitle"],
-                    "sketch_url": c.get("sketch_url", ""),
-                    "tags": c["tags"],
-                    "ideal_dishes": c["ideal_dishes"],
-                    "reasoning": c["reasoning"],
-                    "dishes": saved_dishes,
-                })
-                logger.info(f"Concept '{c['title']}' and dishes saved successfully.")
-
-            except Exception as exc:
-                logger.warning(f"Concept generation failed for {c.get('title','unknown')}: {exc}")
-
+        tasks = [self._process_single_concept(concept) for concept in concepts]
+        processed = await asyncio.gather(*tasks)
+        results = [result for result in processed if result]
+        logger.info("All concepts and dishes generated and saved.")
         return results
 
-    def append_dishes_to_concept(self, concept):
-        """
-        Generate and append a new set of dishes for an existing concept.
-        Accepts either a Concept instance or its primary key.
-        """
-        concept_obj = concept
-        if not isinstance(concept_obj, Concept):
-            concept_obj = Concept.objects.get(pk=concept)
+    async def _process_single_concept(self, concept_data):
+        concept_payload = dict(concept_data)
+
+        try:
+            sketch_task = asyncio.create_task(self._generate_sketch(concept_payload))
+            dishes_task = asyncio.create_task(self._generate_dishes_for_concept(concept_payload))
+            sketch_url, dishes = await asyncio.gather(sketch_task, dishes_task)
+
+            concept_payload["sketch_url"] = sketch_url or self.DEFAULT_CONCEPT_IMAGE_URL
+
+            concept_obj = await self._create_concept_record(concept_payload)
+            saved_dishes = await self._save_dishes(concept_obj, dishes)
+
+            logger.info("Concept '%s' and dishes saved successfully.", concept_payload.get("title", ""))
+            return {
+                "restaurant_id": self.restaurant.id if self.restaurant else None,
+                "name": concept_payload.get("title", ""),
+                "subtitle": concept_payload.get("subtitle", ""),
+                "sketch_url": concept_payload.get("sketch_url", ""),
+                "tags": concept_payload.get("tags", []),
+                "ideal_dishes": concept_payload.get("ideal_dishes", ""),
+                "reasoning": concept_payload.get("reasoning", ""),
+                "dishes": saved_dishes,
+            }
+        except Exception as exc:
+            logger.warning(
+                "Concept processing failed for %s: %s",
+                concept_payload.get("title", "unknown"),
+                exc,
+            )
+            return None
+
+    async def _create_concept_record(self, concept_payload):
+        if not self.restaurant:
+            raise ValueError("Restaurant context is required to save concepts.")
+
+        def create():
+            reasoning = concept_payload.get("reasoning", "")
+            ideal_dishes = concept_payload.get("ideal_dishes", "")
+            meta_reasoning = f"{reasoning}\n\nIdeal dishes: {ideal_dishes}".strip()
+
+            return Concept.objects.create(
+                restaurant=self.restaurant,
+                name=concept_payload.get("title", ""),
+                subtitle=concept_payload.get("subtitle", ""),
+                sketch_url=concept_payload.get("sketch_url", ""),
+                meta_ingredients=concept_payload.get("tags", []),
+                meta_reasoning=meta_reasoning,
+                created_at=timezone.now(),
+            )
+
+        return await asyncio.to_thread(create)
+
+    async def append_dishes_to_concept(self, concept):
+        """Generate and append a new set of dishes for an existing concept."""
+
+        if isinstance(concept, Concept):
+            concept_obj = concept
+        else:
+            concept_obj = await asyncio.to_thread(Concept.objects.get, pk=concept)
 
         concept_payload = self._normalize_concept(concept_obj)
-        dishes = self._generate_dishes_for_concept(concept_payload)
-        saved_dishes = self._save_dishes(concept_obj, dishes)
+        dishes = await self._generate_dishes_for_concept(concept_payload)
+        saved_dishes = await self._save_dishes(concept_obj, dishes)
         logger.info("Appended %s dishes to concept '%s'.", len(saved_dishes), concept_obj.name)
         return saved_dishes
 
@@ -141,25 +147,27 @@ class GetConcepts:
     # -----------------------------
     # 🧩 Helpers
     # -----------------------------
-    def _generate_concepts(self):
-        """Call OpenAI once to generate 3 structured concepts."""
+    async def _generate_concepts(self):
+        """Call OpenAI once to generate three structured concepts."""
 
-        response = self.openai_client.responses.create(
+        if not self.openai_client:
+            logger.info("OpenAI client not configured; returning no concepts.")
+            return []
+
+        response = await self.openai_client.responses.create(
             model="gpt-4.1-mini",
             input=[
                 {
                     "role": "system",
                     "content": self.concept_prompt(),
                 },
-                {"role": "user", "content": self.restaurant.context},
+                {"role": "user", "content": self.restaurant.context if self.restaurant else ""},
             ],
             text={"format": self.concept_schema()},
         )
 
-        # Simulated structured output example
         data = json.loads(response.output[0].content[0].text)
-        logger.info(f"data type: {type(data)}")
-        logger.info(f"concept openai response:  {data}")
+        logger.info("Concept OpenAI response: %s", data)
         return data.get("concepts", [])
 
     def concept_prompt(self):
@@ -291,46 +299,55 @@ class GetConcepts:
 
         raise TypeError(f"Unsupported concept payload: {type(concept)!r}")
 
-    def _save_dishes(self, concept_obj, dishes):
-        """
-        Persist dishes for the provided concept, generating images concurrently.
-        """
-        images = {}
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            futures = {executor.submit(self._generate_image, d): d for d in dishes}
-            for future in as_completed(futures):
-                dish = futures[future]
-                try:
-                    images[dish["title"]] = future.result() or self.DEFAULT_DISH_IMAGE_URL
-                except Exception as exc:
-                    logger.warning(f"Image failed for {dish.get('title','unknown')}: {exc}")
-                    images[dish["title"]] = self.DEFAULT_DISH_IMAGE_URL
+    async def _save_dishes(self, concept_obj, dishes):
+        """Persist dishes for the provided concept, generating images concurrently."""
 
+        if not dishes:
+            return []
+
+        image_results = await asyncio.gather(
+            *(self._generate_image(dish) for dish in dishes),
+            return_exceptions=True,
+        )
+
+        dish_objects = []
         saved_payloads = []
-        for d in dishes:
-            image_url = images.get(d["title"], self.DEFAULT_DISH_IMAGE_URL)
-            Dish.objects.create(
-                concept=concept_obj,
-                name=d["title"],
-                reasoning=d.get("description", ""),
-                ingredients=d.get("ingredient_overlap", []),
-                price=d.get("suggested_price", ""),
-                image_url=image_url,
-            )
-            saved_payloads.append({**d, "image_url": image_url})
+        for dish, image_result in zip(dishes, image_results):
+            if isinstance(image_result, Exception):
+                logger.warning(
+                    "Image failed for %s: %s",
+                    dish.get("title", "unknown"),
+                    image_result,
+                )
+                image_url = self.DEFAULT_DISH_IMAGE_URL
+            else:
+                image_url = image_result or self.DEFAULT_DISH_IMAGE_URL
 
+            dish_objects.append(
+                Dish(
+                    concept=concept_obj,
+                    name=dish["title"],
+                    reasoning=dish.get("description", ""),
+                    ingredients=dish.get("ingredient_overlap", []),
+                    price=dish.get("suggested_price", ""),
+                    image_url=image_url,
+                )
+            )
+            saved_payloads.append({**dish, "image_url": image_url})
+
+        await asyncio.to_thread(Dish.objects.bulk_create, dish_objects)
         return saved_payloads
 
-    def _generate_sketch(self, c) -> str:
-        """
-        Generate a personalized sketch prompt from concept data (OpenAI response),
-        create an image via Replicate, upload it to Cloudinary, and return the Cloudinary URL.
-        """
+    async def _generate_sketch(self, c) -> str:
+        """Generate and upload a sketch image for the given concept."""
+
+        if not self.replicate_client:
+            return ""
 
         sketch_prompt = f"""
             Create a high-definition monochrome pencil sketch that captures the culinary spirit of "{c["title"]}".
 
-            Concept subtitle: "{c.get("subtitle", "")}"
+            Concept subtitle: "{c.get("subtitle", "")}" 
 
             Let the sketch interpret this concept through visual metaphors drawn from food, craft, and preparation.
             Focus on textures, ingredients, and the rhythm of a working kitchen — gestures, utensils, cookware, or produce
@@ -346,7 +363,8 @@ class GetConcepts:
 
         # --- Generate image with Replicate ---
         try:
-            output = self.replicate_client.run(
+            output = await asyncio.to_thread(
+                self.replicate_client.run,
                 self.REPLICATE_MODEL,
                 input={
                     "prompt": sketch_prompt,
@@ -361,7 +379,10 @@ class GetConcepts:
         # --- Upload first image URL from Replicate to Cloudinary ---
         try:
             replicate_url = output[0] if isinstance(output, list) else output
-            upload_result = cloudinary.uploader.upload(
+            if not replicate_url:
+                return ""
+            upload_result = await asyncio.to_thread(
+                cloudinary.uploader.upload,
                 replicate_url,
                 folder="concept_sketches",
                 public_id=str(uuid.uuid4()),
@@ -369,7 +390,7 @@ class GetConcepts:
                 resource_type="image",
             )
             final_url = upload_result.get("secure_url", "")
-            logger.info(f"Sketch uploaded for:{final_url}")
+            logger.info("Sketch uploaded for: %s", final_url)
             return final_url
         except Exception as exc:
             logger.warning("Cloudinary upload failed: %s", exc, exc_info=True)
@@ -440,22 +461,25 @@ class GetConcepts:
                 }
         return schema
 
-    def _generate_dishes_for_concept(self, concept):
+    async def _generate_dishes_for_concept(self, concept):
         concept_payload = self._normalize_concept(concept)
-        response = self.openai_client.responses.create(
+
+        if not self.openai_client:
+            logger.info("OpenAI client not configured; returning no dishes.")
+            return []
+
+        response = await self.openai_client.responses.create(
             model="gpt-4.1-mini",
             input=self.dish_prompt(concept_payload),
             text={"format": self.dish_schema()},
         )
 
-        # Simulated structured output example
         data = json.loads(response.output[0].content[0].text)
-        logger.info(f"data type: {type(data)}")
-        logger.info(f"generate dishes openai response:  {data}")
+        logger.info("Generate dishes OpenAI response: %s", data)
 
         return data.get("dishes", [])
 
-    def _generate_image(self, dish) -> str:
+    async def _generate_image(self, dish) -> str:
         title = dish.get("title", "")
         description = dish.get("description", "")
         overlap = ", ".join(dish.get("ingredient_overlap", []))
@@ -483,9 +507,13 @@ class GetConcepts:
                 Output: single 16:9 HD image suitable for restaurant web and menu use.
         """
 
+        if not self.replicate_client:
+            return ""
+
         # --- Generate image with Replicate ---
         try:
-            output = self.replicate_client.run(
+            output = await asyncio.to_thread(
+                self.replicate_client.run,
                 self.REPLICATE_MODEL,
                 input={
                     "prompt": image_prompt,
@@ -500,7 +528,10 @@ class GetConcepts:
         # --- Upload first image URL from Replicate to Cloudinary ---
         try:
             replicate_url = output[0] if isinstance(output, list) else output
-            upload_result = cloudinary.uploader.upload(
+            if not replicate_url:
+                return ""
+            upload_result = await asyncio.to_thread(
+                cloudinary.uploader.upload,
                 replicate_url,
                 folder="dish_images",
                 public_id=str(uuid.uuid4()),
@@ -508,7 +539,7 @@ class GetConcepts:
                 resource_type="image",
             )
             final_url = upload_result.get("secure_url", "")
-            logger.info(f"Sketch uploaded for:{final_url}")
+            logger.info("Dish image uploaded for: %s", final_url)
             return final_url
         except Exception as exc:
             logger.warning("Cloudinary upload failed: %s", exc, exc_info=True)
