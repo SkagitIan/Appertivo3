@@ -120,6 +120,27 @@
       transition: all 0.3s;
     }
 
+    .new-flag {
+      position: absolute;
+      top: 1rem;
+      left: 1rem;
+      background: rgba(59, 130, 246, 0.95);
+      color: white;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      padding: 0.3rem 0.65rem;
+      border-radius: 9999px;
+      box-shadow: 0 6px 16px -10px rgba(37, 99, 235, 0.8);
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+
+    .new-flag--fading {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+
     .menu-open .hamburger-line:nth-child(1) {
       transform: rotate(45deg) translate(5px, 5px);
     }
@@ -240,7 +261,13 @@
                 <div class="horizontal-track">
                   <!-- Concept Card -->
                   <div class="card w-full h-[70vh] flex flex-col justify-end p-6"
-                       style="background-image: url('{{ concept.sketch_url }}');">
+                       style="background-image: url('{{ concept.sketch_url }}');"
+                       data-item-type="concept"
+                       data-item-id="{{ concept.id }}"
+                       data-is-new="{{ concept.is_new|yesno:'true,false' }}">
+                    {% if concept.is_new %}
+                      <span class="new-flag">New</span>
+                    {% endif %}
                     <div class="card-content">
                       <button class="heart-btn absolute top-5 right-5 rounded-full border border-white/70 bg-white/80 p-3 shadow-lg"
                               onclick="toggleFavorite(this, 'concept', '{{ concept.id }}')"
@@ -267,7 +294,13 @@
                   <!-- Dish Cards -->
                   {% for dish in concept.dishes.all %}
                     <div class="card w-full h-[70vh] flex flex-col justify-end p-6"
-                         style="background-image: url('{{ dish.image_url }}');">
+                         style="background-image: url('{{ dish.image_url }}');"
+                         data-item-type="dish"
+                         data-item-id="{{ dish.id }}"
+                         data-is-new="{{ dish.is_new|yesno:'true,false' }}">
+                      {% if dish.is_new %}
+                        <span class="new-flag">New</span>
+                      {% endif %}
                       <div class="card-content">
                         <button class="heart-btn absolute top-5 right-5 rounded-full border border-white/70 bg-white/80 p-3 shadow-lg"
                                 onclick="toggleFavorite(this, 'dish', '{{ dish.id }}')"
@@ -341,6 +374,7 @@
   {{ block.super }}
   {{ dish_counts|json_script:"dish-counts-data" }}
   <script>
+    const csrfToken = '{{ csrf_token }}';
     const totalConcepts = {{ concepts|length }};
     const dishCountsData = document.getElementById('dish-counts-data');
     const dishCounts = dishCountsData ? JSON.parse(dishCountsData.textContent) : [];
@@ -619,7 +653,7 @@
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-CSRFToken': '{{ csrf_token }}'
+          'X-CSRFToken': csrfToken
         },
         body: JSON.stringify({
           type: type,
@@ -628,5 +662,62 @@
         })
       });
     };
+
+    {% if request.user.is_authenticated %}
+    (function() {
+      const seenEndpoint = "{% url 'swipe:mark_seen' %}";
+      const cards = document.querySelectorAll('.card[data-item-id]');
+      if (!cards.length) {
+        return;
+      }
+
+      const observer = new IntersectionObserver((entries, obs) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) {
+            return;
+          }
+
+          const target = entry.target;
+          if (target.dataset.seenSent === 'true') {
+            obs.unobserve(target);
+            return;
+          }
+
+          target.dataset.seenSent = 'true';
+
+          fetch(seenEndpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': csrfToken,
+              'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({
+              type: target.dataset.itemType,
+              id: target.dataset.itemId
+            })
+          })
+            .then(() => {
+              const flag = target.querySelector('.new-flag');
+              if (flag) {
+                flag.classList.add('new-flag--fading');
+                window.setTimeout(() => flag.remove(), 250);
+              }
+            })
+            .catch(() => {
+              target.dataset.seenSent = 'false';
+            });
+
+          obs.unobserve(target);
+        });
+      }, { threshold: 0.6 });
+
+      cards.forEach((card) => {
+        if (card.dataset.isNew === 'true') {
+          observer.observe(card);
+        }
+      });
+    })();
+    {% endif %}
   </script>
 {% endblock %}
