@@ -136,6 +136,31 @@
       </div>
     </nav>
 
+    {% if restaurant %}
+      <button
+        id="generateConceptsBtn"
+        type="button"
+        class="fixed bottom-24 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-r from-[#FF8300] to-[#FF5C00] text-white shadow-xl transition-transform hover:scale-110 focus:outline-none focus:ring-4 focus:ring-white/40 disabled:cursor-wait disabled:opacity-80"
+        aria-label="Generate more concepts and dishes"
+        data-endpoint="{% url 'swipe:generate_concepts' restaurant.id %}"
+      >
+        <svg data-icon class="h-7 w-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m-7-7h14" />
+        </svg>
+        <span
+          data-spinner
+          class="hidden h-6 w-6 animate-spin rounded-full border-2 border-white/70 border-t-transparent"
+          aria-hidden="true"
+        ></span>
+      </button>
+      <div
+        id="generateConceptsFeedback"
+        class="fixed bottom-40 right-6 z-40 hidden rounded-xl px-4 py-2 text-sm text-white shadow-lg backdrop-blur"
+        role="status"
+        aria-live="polite"
+      ></div>
+    {% endif %}
+
     <!-- Slide-out Menu -->
     <div id="slideMenu" class="fixed top-0 right-0 w-64 h-full bg-gray-900 transform translate-x-full transition-transform duration-300 z-30 shadow-2xl">
       <div class="pt-20 px-6">
@@ -273,6 +298,81 @@
     const totalConcepts = {{ concepts|length }};
     const dishCountsData = document.getElementById('dish-counts-data');
     const dishCounts = dishCountsData ? JSON.parse(dishCountsData.textContent) : [];
+    const generateBtn = document.getElementById('generateConceptsBtn');
+    const generateFeedback = document.getElementById('generateConceptsFeedback');
+
+    if (generateBtn) {
+      const plusIcon = generateBtn.querySelector('[data-icon]');
+      const spinner = generateBtn.querySelector('[data-spinner]');
+      let feedbackTimeoutId = null;
+
+      const setLoadingState = (isLoading) => {
+        generateBtn.disabled = isLoading;
+        generateBtn.setAttribute('aria-busy', String(isLoading));
+
+        if (isLoading) {
+          generateBtn.classList.add('scale-95');
+          if (plusIcon) plusIcon.classList.add('hidden');
+          if (spinner) spinner.classList.remove('hidden');
+        } else {
+          generateBtn.classList.remove('scale-95');
+          if (plusIcon) plusIcon.classList.remove('hidden');
+          if (spinner) spinner.classList.add('hidden');
+        }
+      };
+
+      const showFeedback = (message, isError = false) => {
+        if (!generateFeedback) return;
+
+        generateFeedback.textContent = message;
+        generateFeedback.classList.remove('hidden', 'bg-green-600/90', 'bg-red-600/90', 'bg-black/80');
+        generateFeedback.classList.add(isError ? 'bg-red-600/90' : 'bg-green-600/90');
+
+        if (feedbackTimeoutId) {
+          window.clearTimeout(feedbackTimeoutId);
+        }
+
+        feedbackTimeoutId = window.setTimeout(() => {
+          generateFeedback.classList.add('hidden');
+        }, 4000);
+      };
+
+      generateBtn.addEventListener('click', async () => {
+        if (generateBtn.disabled) return;
+
+        const endpoint = generateBtn.dataset.endpoint;
+        if (!endpoint) {
+          showFeedback('Missing endpoint for concept generation.', true);
+          return;
+        }
+
+        try {
+          setLoadingState(true);
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Accept': 'application/json',
+              'X-Requested-With': 'XMLHttpRequest',
+            },
+          });
+
+          if (!response.ok) {
+            throw new Error(`Request failed with status ${response.status}`);
+          }
+
+          await response.json();
+          showFeedback('Added new concepts – refreshing…');
+
+          window.setTimeout(() => {
+            window.location.reload();
+          }, 1200);
+        } catch (error) {
+          console.error('Failed to generate concepts:', error);
+          setLoadingState(false);
+          showFeedback('Unable to fetch new concepts. Please try again.', true);
+        }
+      });
+    }
 
     const menuToggle = document.getElementById('menuToggle');
     const slideMenu = document.getElementById('slideMenu');
