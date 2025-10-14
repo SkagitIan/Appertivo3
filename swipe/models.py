@@ -22,6 +22,10 @@ class SeenItem(models.Model):
         ]
 
 # Concept and Dish are lightweight; can be generated, cached, or persisted later.
+CONCEPT_PLACEHOLDER_URL = "https://placehold.co/1200x800?text=Concept"
+DISH_PLACEHOLDER_URL = "https://placehold.co/800x600?text=Dish"
+
+
 class Concept(models.Model):
     # NOTE: In production you'll likely want a Restaurant FK. Omitted for skeleton.
     restaurant = models.ForeignKey(Restaurant,on_delete=models.CASCADE,related_name="concepts")
@@ -36,6 +40,13 @@ class Concept(models.Model):
     def __str__(self):
         return self.name
 
+    @property
+    def display_sketch_url(self) -> str:
+        url = (self.sketch_url or "").strip()
+        if not url or url.lower() in {"none", "null"}:
+            return CONCEPT_PLACEHOLDER_URL
+        return url
+
 
 class Dish(models.Model):
     concept = models.ForeignKey(Concept, on_delete=models.CASCADE, related_name="dishes")
@@ -47,6 +58,13 @@ class Dish(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.concept.name})"
+
+    @property
+    def display_image_url(self) -> str:
+        url = (self.image_url or "").strip()
+        if not url or url.lower() in {"none", "null"}:
+            return DISH_PLACEHOLDER_URL
+        return url
 
 
 class Favorite(models.Model):
