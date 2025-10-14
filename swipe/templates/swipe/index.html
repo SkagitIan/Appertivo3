@@ -63,9 +63,15 @@
       border-radius: inherit;
       overflow: hidden;
       backface-visibility: hidden;
-      background-image: var(--card-image);
-      background-size: cover;
-      background-position: center;
+      background-color: #0f172a;
+    }
+
+    .card-media {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
     }
 
     .card-front::after {
@@ -325,11 +331,19 @@
               <div id="horizontalSlider{{ forloop.counter0 }}" class="horizontal-slider slide-container w-full">
                 <div class="horizontal-track">
                   <!-- Concept Card -->
-                  <div class="card w-full h-[70vh]" data-card tabindex="0" role="button" style="--card-image: url('{{ concept.sketch_url }}');">
+                  <div class="card w-full h-[70vh]" data-card tabindex="0" role="button">
                     <div class="card-inner">
-                      <div class="card-face card-front">
+                      {% with concept_image=concept.sketch_url|default:"https://placehold.co/1200x800?text=Concept" %}
+                      <div class="card-face card-front" style="background-image: url('{{ concept_image }}'); background-size: cover; background-position: center;">
+                        <img
+                          src="{{ concept_image }}"
+                          alt="{{ concept.name }} concept sketch"
+                          class="card-media"
+                          decoding="async"
+                        >
                         <div class="card-hint">Tap to view details</div>
                       </div>
+                      {% endwith %}
                       <div class="card-face card-back">
                         <button type="button"
                                 class="heart-btn absolute top-5 right-5 rounded-full border border-white/70 bg-white/80 p-3 shadow-lg"
@@ -358,11 +372,19 @@
 
                   <!-- Dish Cards -->
                   {% for dish in concept.dishes.all %}
-                    <div class="card w-full h-[70vh]" data-card tabindex="0" role="button" style="--card-image: url('{{ dish.image_url }}');">
+                    <div class="card w-full h-[70vh]" data-card tabindex="0" role="button">
                       <div class="card-inner">
-                        <div class="card-face card-front">
+                        {% with dish_image=dish.image_url|default:"https://placehold.co/800x600?text=Dish" %}
+                        <div class="card-face card-front" style="background-image: url('{{ dish_image }}'); background-size: cover; background-position: center;">
+                          <img
+                            src="{{ dish_image }}"
+                            alt="{{ dish.name }} presentation"
+                            class="card-media"
+                            decoding="async"
+                          >
                           <div class="card-hint">Tap to view details</div>
                         </div>
+                        {% endwith %}
                         <div class="card-face card-back">
                           <button type="button"
                                   class="heart-btn absolute top-5 right-5 rounded-full border border-white/70 bg-white/80 p-3 shadow-lg"
