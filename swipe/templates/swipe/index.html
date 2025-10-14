@@ -94,12 +94,16 @@
     }
 
     .horizontal-slider {
-      display: flex;
       overflow: hidden;
       width: 100%;
     }
 
-    .horizontal-slider .card {
+    .horizontal-track {
+      display: flex;
+      width: 100%;
+    }
+
+    .horizontal-track .card {
       flex: 0 0 100%;
     }
 
@@ -193,61 +197,63 @@
           {% for concept in concepts %}
             <div class="concept-slide h-screen flex items-center justify-center px-4" data-concept-index="{{ forloop.counter0 }}">
               <div id="horizontalSlider{{ forloop.counter0 }}" class="horizontal-slider slide-container w-full max-w-md">
-                <!-- Concept Card -->
-                <div class="card w-full h-[70vh] flex flex-col justify-end p-6"
-                     style="background-image: url('{{ concept.sketch_url }}');">
-                  <div class="card-content">
-                    <button class="heart-btn absolute top-4 right-4 bg-white bg-opacity-20 backdrop-blur-sm rounded-full p-3"
-                            onclick="toggleFavorite(this, 'concept', '{{ concept.id }}')"
-                            data-id="{{ concept.id }}">
-                      <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
-                      </svg>
-                    </button>
-                    <div class="bg-black bg-opacity-60 backdrop-blur-md rounded-2xl p-6">
-                      <div class="flex flex-wrap gap-2 mb-3">
-                        {% for tag in concept.meta_ingredients %}
-                          <span class="px-3 py-1 bg-purple-500 bg-opacity-50 text-white text-xs rounded-full">{{ tag }}</span>
-                        {% empty %}
-                          <span class="px-3 py-1 bg-purple-500 bg-opacity-50 text-white text-xs rounded-full">Seasonal</span>
-                        {% endfor %}
-                      </div>
-                      <h2 class="text-2xl font-bold text-white mb-2">{{ concept.name }}</h2>
-                      <p class="text-purple-200 text-sm mb-3">{{ concept.subtitle }}</p>
-                      <p class="text-gray-300 text-xs">{{ concept.meta_reasoning }}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Dish Cards -->
-                {% for dish in concept.dishes.all %}
+                <div class="horizontal-track">
+                  <!-- Concept Card -->
                   <div class="card w-full h-[70vh] flex flex-col justify-end p-6"
-                       style="background-image: url('{{ dish.image_url }}');">
+                       style="background-image: url('{{ concept.sketch_url }}');">
                     <div class="card-content">
                       <button class="heart-btn absolute top-4 right-4 bg-white bg-opacity-20 backdrop-blur-sm rounded-full p-3"
-                              onclick="toggleFavorite(this, 'dish', '{{ dish.id }}')"
-                              data-id="{{ dish.id }}">
+                              onclick="toggleFavorite(this, 'concept', '{{ concept.id }}')"
+                              data-id="{{ concept.id }}">
                         <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
                         </svg>
                       </button>
                       <div class="bg-black bg-opacity-60 backdrop-blur-md rounded-2xl p-6">
                         <div class="flex flex-wrap gap-2 mb-3">
-                          {% for ingredient in dish.ingredients %}
-                            <span class="px-3 py-1 bg-indigo-500 bg-opacity-50 text-white text-xs rounded-full">{{ ingredient }}</span>
+                          {% for tag in concept.meta_ingredients %}
+                            <span class="px-3 py-1 bg-purple-500 bg-opacity-50 text-white text-xs rounded-full">{{ tag }}</span>
+                          {% empty %}
+                            <span class="px-3 py-1 bg-purple-500 bg-opacity-50 text-white text-xs rounded-full">Seasonal</span>
                           {% endfor %}
                         </div>
-                        <h3 class="text-xl font-bold text-white mb-2">{{ dish.name }}</h3>
-                        <p class="text-purple-200 text-sm mb-3">{{ dish.reasoning }}</p>
-                        <p class="text-yellow-400 font-bold">{{ dish.price }}</p>
+                        <h2 class="text-2xl font-bold text-white mb-2">{{ concept.name }}</h2>
+                        <p class="text-purple-200 text-sm mb-3">{{ concept.subtitle }}</p>
+                        <p class="text-gray-300 text-xs">{{ concept.meta_reasoning }}</p>
                       </div>
                     </div>
                   </div>
-                {% empty %}
-                  <div class="card w-full h-[70vh] flex items-center justify-center p-6 bg-black bg-opacity-60">
-                    <p class="text-neutral-200 text-center">No dishes generated yet for this concept.</p>
-                  </div>
-                {% endfor %}
+
+                  <!-- Dish Cards -->
+                  {% for dish in concept.dishes.all %}
+                    <div class="card w-full h-[70vh] flex flex-col justify-end p-6"
+                         style="background-image: url('{{ dish.image_url }}');">
+                      <div class="card-content">
+                        <button class="heart-btn absolute top-4 right-4 bg-white bg-opacity-20 backdrop-blur-sm rounded-full p-3"
+                                onclick="toggleFavorite(this, 'dish', '{{ dish.id }}')"
+                                data-id="{{ dish.id }}">
+                          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                          </svg>
+                        </button>
+                        <div class="bg-black bg-opacity-60 backdrop-blur-md rounded-2xl p-6">
+                          <div class="flex flex-wrap gap-2 mb-3">
+                            {% for ingredient in dish.ingredients %}
+                              <span class="px-3 py-1 bg-indigo-500 bg-opacity-50 text-white text-xs rounded-full">{{ ingredient }}</span>
+                            {% endfor %}
+                          </div>
+                          <h3 class="text-xl font-bold text-white mb-2">{{ dish.name }}</h3>
+                          <p class="text-purple-200 text-sm mb-3">{{ dish.reasoning }}</p>
+                          <p class="text-yellow-400 font-bold">{{ dish.price }}</p>
+                        </div>
+                      </div>
+                    </div>
+                  {% empty %}
+                    <div class="card w-full h-[70vh] flex items-center justify-center p-6 bg-black bg-opacity-60">
+                      <p class="text-neutral-200 text-center">No dishes generated yet for this concept.</p>
+                    </div>
+                  {% endfor %}
+                </div>
               </div>
             </div>
           {% endfor %}
@@ -401,13 +407,19 @@
       let currentConceptIndex = 0;
       let currentDishIndex = 0;
 
+      document.querySelectorAll('.horizontal-slider').forEach((slider) => {
+        slider.style.transform = '';
+      });
+
       window.navigateVertical = function(direction) {
         const newIndex = currentConceptIndex + direction;
         if (newIndex >= 0 && newIndex < totalConcepts) {
+          const previousIndex = currentConceptIndex;
+          resetHorizontalTrack(previousIndex);
           currentConceptIndex = newIndex;
           currentDishIndex = 0;
           updateVerticalPosition();
-          updateHorizontalPosition();
+          updateHorizontalPosition({ instant: true });
           updatePositionIndicator();
         }
       };
@@ -431,12 +443,35 @@
         });
       }
 
-      function updateHorizontalPosition() {
-        const horizontalSlider = document.getElementById(`horizontalSlider${currentConceptIndex}`);
-        if (!horizontalSlider) return;
+      function resetHorizontalTrack(index) {
+        const slider = document.getElementById(`horizontalSlider${index}`);
+        if (!slider) return;
+        slider.style.transform = '';
+        const track = slider.querySelector('.horizontal-track');
+        if (!track) return;
+        anime.remove(track);
+        track.style.transform = 'translateX(0)';
+      }
+
+      function updateHorizontalPosition({ instant = false } = {}) {
+        const slider = document.getElementById(`horizontalSlider${currentConceptIndex}`);
+        if (!slider) return;
+        slider.style.transform = '';
+        const track = slider.querySelector('.horizontal-track');
+        if (!track) return;
+
+        const translateValue = `-${currentDishIndex * 100}%`;
+
+        anime.remove(track);
+
+        if (instant) {
+          track.style.transform = `translateX(${translateValue})`;
+          return;
+        }
+
         anime({
-          targets: horizontalSlider,
-          translateX: `-${currentDishIndex * 100}%`,
+          targets: track,
+          translateX: translateValue,
           easing: 'easeOutCubic',
           duration: 500
         });
@@ -476,6 +511,8 @@
           }
         });
       }
+
+      updateHorizontalPosition({ instant: true });
 
       anime({
         targets: '.card',
