@@ -31,8 +31,15 @@
       backdrop-filter: saturate(140%) blur(8px);
       perspective: 1600px;
       cursor: pointer;
-      overflow: visible;
-      margin-bottom: 2.5rem;
+      overflow: hidden;
+      height: min(64vh, calc(100vh - 15rem));
+      margin-bottom: 1.5rem;
+    }
+
+    @supports (height: 100dvh) {
+      .card {
+        height: min(64vh, calc(100dvh - 15rem));
+      }
     }
 
     .card:focus-visible {
@@ -118,7 +125,9 @@
       gap: 1.5rem;
       overflow-y: auto;
       padding-top: 2.5rem;
+      padding-bottom: 2.5rem;
       min-height: 0;
+      overscroll-behavior: contain;
     }
 
     .card-back-content .info-panel {
@@ -163,12 +172,19 @@
       width: 100%;
       margin-left: auto;
       margin-right: auto;
+      padding-top: 5.5rem;
+      padding-bottom: clamp(7rem, 18vh, 10rem);
     }
 
     @media (min-width: 768px) {
       .touch-area {
         padding-left: 0;
         padding-right: 0;
+        padding-bottom: clamp(8rem, 18vh, 11rem);
+      }
+
+      .card {
+        height: min(58vh, 36rem);
       }
     }
 
@@ -559,11 +575,7 @@
         return window.innerHeight;
       }
 
-      const styles = window.getComputedStyle(touchArea);
-      const paddingTop = parseFloat(styles.paddingTop) || 0;
-      const paddingBottom = parseFloat(styles.paddingBottom) || 0;
-
-      return touchArea.clientHeight - paddingTop - paddingBottom;
+      return touchArea.clientHeight;
     };
 
     if (generateBtn) {
