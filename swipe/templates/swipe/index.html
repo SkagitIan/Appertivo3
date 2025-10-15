@@ -100,7 +100,7 @@
       transform: rotateY(180deg);
       display: flex;
       flex-direction: column;
-      padding: 1.5rem;
+      padding: 0;
       position: relative;
       min-height: 0;
     }
@@ -122,16 +122,18 @@
       display: flex;
       flex: 1;
       flex-direction: column;
-      gap: 1.5rem;
       overflow-y: auto;
-      padding-top: 2.5rem;
-      padding-bottom: 2.5rem;
       min-height: 0;
+      height: 100%;
       overscroll-behavior: contain;
+      padding: 1.5rem;
     }
 
     .card-back-content .info-panel {
-      margin-top: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
     }
 
     .card-back h2,
@@ -193,6 +195,7 @@
       width: 100%;
       max-width: 40rem;
       margin: 30px auto;
+      position: relative;
     }
 
     .horizontal-track {
@@ -204,6 +207,7 @@
 
     .horizontal-track .card {
       flex: 0 0 100%;
+      scroll-snap-align: center;
     }
 
     .heart-btn {
@@ -269,6 +273,9 @@
     .concept-slide {
       flex: 0 0 100%;
       min-height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .floating-controls {
@@ -393,11 +400,11 @@
       <div class="touch-area pt-24 pb-52 h-screen overflow-hidden">
         <div id="verticalSlider" class="slide-container h-full">
           {% for concept in concepts %}
-            <div class="concept-slide flex min-h-full items-center justify-center px-4" data-concept-index="{{ forloop.counter0 }}">
+            <div class="concept-slide px-4" data-concept-index="{{ forloop.counter0 }}">
               <div id="horizontalSlider{{ forloop.counter0 }}" class="horizontal-slider slide-container w-full">
                 <div class="horizontal-track">
                   <!-- Concept Card -->
-                  <div class="card w-full h-[70vh]" data-card tabindex="0" role="button">
+                  <div class="card w-full" data-card tabindex="0" role="button">
                     <div class="card-inner">
                       {% with concept_image=concept.display_sketch_url concept_placeholder="https://placehold.co/1200x800?text=Concept" %}
                       <div class="card-face card-front" style="background-image: url('{{ concept_image }}');">
@@ -413,7 +420,7 @@
                       {% endwith %}
                       <div class="card-face card-back">
                         <button type="button"
-                                class="heart-btn absolute top-5 right-5 rounded-full border border-slate-100/40 bg-slate-900/60 p-3 shadow-lg"
+                                class="heart-btn absolute top-5 right-5 rounded-full border border-slate-100/40 bg-slate-900/60 p-3 shadow-lg z-10"
                                 data-prevent-flip
                                 onclick="toggleFavorite(this, 'concept', '{{ concept.id }}')"
                                 data-id="{{ concept.id }}">
@@ -422,17 +429,19 @@
                           </svg>
                         </button>
                         <div class="card-back-content">
-                          <div class="info-panel p-6 space-y-4">
-                            <div class="flex flex-wrap gap-2">
-                              {% for tag in concept.meta_ingredients %}
-                                <span class="tag-chip">{{ tag }}</span>
-                              {% empty %}
-                                <span class="tag-chip">Seasonal</span>
-                              {% endfor %}
+                          <div class="info-panel p-6">
+                            <div class="space-y-4">
+                              <div class="flex flex-wrap gap-2">
+                                {% for tag in concept.meta_ingredients %}
+                                  <span class="tag-chip">{{ tag }}</span>
+                                {% empty %}
+                                  <span class="tag-chip">Seasonal</span>
+                                {% endfor %}
+                              </div>
+                              <h2 class="text-4xl font-medium tracking-[0.28em] uppercase">{{ concept.name }}</h2>
+                              <p class="text-xs tracking-[0.38em] uppercase text-slate-300/80">{{ concept.subtitle }}</p>
+                              <p class="text-sm leading-relaxed">{{ concept.meta_reasoning }}</p>
                             </div>
-                            <h2 class="text-4xl font-medium tracking-[0.28em] uppercase">{{ concept.name }}</h2>
-                            <p class="text-xs tracking-[0.38em] uppercase text-slate-300/80">{{ concept.subtitle }}</p>
-                            <p class="text-sm leading-relaxed">{{ concept.meta_reasoning }}</p>
                           </div>
                         </div>
                       </div>
@@ -441,7 +450,7 @@
 
                   <!-- Dish Cards -->
                   {% for dish in concept.dishes.all %}
-                    <div class="card w-full h-[70vh]" data-card tabindex="0" role="button">
+                    <div class="card w-full" data-card tabindex="0" role="button">
                       <div class="card-inner">
                         {% with dish_image=dish.display_image_url dish_placeholder="https://placehold.co/800x600?text=Dish" %}
                         <div class="card-face card-front" style="background-image: url('{{ dish_image }}');">
@@ -457,7 +466,7 @@
                         {% endwith %}
                         <div class="card-face card-back">
                           <button type="button"
-                                  class="heart-btn absolute top-5 right-5 rounded-full border border-slate-100/40 bg-slate-900/60 p-3 shadow-lg"
+                                  class="heart-btn absolute top-5 right-5 rounded-full border border-slate-100/40 bg-slate-900/60 p-3 shadow-lg z-10"
                                   data-prevent-flip
                                   onclick="toggleFavorite(this, 'dish', '{{ dish.id }}')"
                                   data-id="{{ dish.id }}">
@@ -466,22 +475,24 @@
                             </svg>
                           </button>
                           <div class="card-back-content">
-                            <div class="info-panel p-6 space-y-4">
-                              <div class="flex flex-wrap gap-2">
-                                {% for ingredient in dish.ingredients %}
-                                  <span class="tag-chip">{{ ingredient }}</span>
-                                {% endfor %}
+                            <div class="info-panel p-6">
+                              <div class="space-y-4">
+                                <div class="flex flex-wrap gap-2">
+                                  {% for ingredient in dish.ingredients %}
+                                    <span class="tag-chip">{{ ingredient }}</span>
+                                  {% endfor %}
+                                </div>
+                                <h3 class="text-3xl font-medium tracking-[0.22em] uppercase">{{ dish.name }}</h3>
+                                <p class="text-sm leading-relaxed">{{ dish.reasoning }}</p>
+                                <p class="text-base font-semibold text-emerald-300/90">{{ dish.price }}</p>
                               </div>
-                              <h3 class="text-3xl font-medium tracking-[0.22em] uppercase">{{ dish.name }}</h3>
-                              <p class="text-sm leading-relaxed">{{ dish.reasoning }}</p>
-                              <p class="text-base font-semibold text-emerald-300/90">{{ dish.price }}</p>
                             </div>
                           </div>
                         </div>
                       </div>
                     </div>
                   {% empty %}
-                    <div class="card w-full h-[70vh] flex items-center justify-center p-6 bg-slate-900/60 border border-slate-100/20">
+                    <div class="card w-full flex items-center justify-center p-6 bg-slate-900/60 border border-slate-100/20">
                       <p class="text-slate-200/80 text-center tracking-[0.25em] uppercase">No dishes generated yet for this concept.</p>
                     </div>
                   {% endfor %}
@@ -755,7 +766,9 @@
         const styles = window.getComputedStyle(track);
         const gapValue = parseFloat(styles.columnGap || styles.gap || '0');
         const gap = Number.isNaN(gapValue) ? 0 : gapValue;
-        const offset = (slider.clientWidth + gap) * currentDishIndex;
+
+        const cardWidth = slider.clientWidth;
+        const offset = (cardWidth + gap) * currentDishIndex;
 
         anime.remove(track);
 
