@@ -7,6 +7,7 @@ tests can run without network access.
 
 import os
 import asyncio
+import threading
 import cloudinary
 from openai import AsyncOpenAI
 from replicate import Client as ReplicateClient
