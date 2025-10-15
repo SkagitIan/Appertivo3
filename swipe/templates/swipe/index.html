@@ -93,9 +93,9 @@
       transform: rotateY(180deg);
       display: flex;
       flex-direction: column;
-      justify-content: flex-end;
       padding: 1.5rem;
-      gap: 1.5rem;
+      position: relative;
+      min-height: 0;
     }
 
     .card-back::before {
@@ -103,11 +103,26 @@
       position: absolute;
       inset: 0;
       background: linear-gradient(180deg, rgba(15,23,42,0.35) 0%, rgba(15,23,42,0.85) 80%, rgba(8,11,19,0.95) 100%);
+      pointer-events: none;
     }
 
     .card-back > * {
       position: relative;
       z-index: 1;
+    }
+
+    .card-back-content {
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+      gap: 1.5rem;
+      overflow-y: auto;
+      padding-top: 2.5rem;
+      min-height: 0;
+    }
+
+    .card-back-content .info-panel {
+      margin-top: auto;
     }
 
     .card-back h2,
@@ -167,6 +182,8 @@
     .horizontal-track {
       display: flex;
       width: 100%;
+      gap: 1.5rem;
+      align-items: stretch;
     }
 
     .horizontal-track .card {
@@ -388,17 +405,19 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
                           </svg>
                         </button>
-                        <div class="info-panel p-6 space-y-4">
-                          <div class="flex flex-wrap gap-2">
-                            {% for tag in concept.meta_ingredients %}
-                              <span class="tag-chip">{{ tag }}</span>
-                            {% empty %}
-                              <span class="tag-chip">Seasonal</span>
-                            {% endfor %}
+                        <div class="card-back-content">
+                          <div class="info-panel p-6 space-y-4">
+                            <div class="flex flex-wrap gap-2">
+                              {% for tag in concept.meta_ingredients %}
+                                <span class="tag-chip">{{ tag }}</span>
+                              {% empty %}
+                                <span class="tag-chip">Seasonal</span>
+                              {% endfor %}
+                            </div>
+                            <h2 class="text-4xl font-medium tracking-[0.28em] uppercase">{{ concept.name }}</h2>
+                            <p class="text-xs tracking-[0.38em] uppercase text-slate-300/80">{{ concept.subtitle }}</p>
+                            <p class="text-sm leading-relaxed">{{ concept.meta_reasoning }}</p>
                           </div>
-                          <h2 class="text-4xl font-medium tracking-[0.28em] uppercase">{{ concept.name }}</h2>
-                          <p class="text-xs tracking-[0.38em] uppercase text-slate-300/80">{{ concept.subtitle }}</p>
-                          <p class="text-sm leading-relaxed">{{ concept.meta_reasoning }}</p>
                         </div>
                       </div>
                     </div>
@@ -430,15 +449,17 @@
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
                             </svg>
                           </button>
-                          <div class="info-panel p-6 space-y-4">
-                            <div class="flex flex-wrap gap-2">
-                              {% for ingredient in dish.ingredients %}
-                                <span class="tag-chip">{{ ingredient }}</span>
-                              {% endfor %}
+                          <div class="card-back-content">
+                            <div class="info-panel p-6 space-y-4">
+                              <div class="flex flex-wrap gap-2">
+                                {% for ingredient in dish.ingredients %}
+                                  <span class="tag-chip">{{ ingredient }}</span>
+                                {% endfor %}
+                              </div>
+                              <h3 class="text-3xl font-medium tracking-[0.22em] uppercase">{{ dish.name }}</h3>
+                              <p class="text-sm leading-relaxed">{{ dish.reasoning }}</p>
+                              <p class="text-base font-semibold text-emerald-300/90">{{ dish.price }}</p>
                             </div>
-                            <h3 class="text-3xl font-medium tracking-[0.22em] uppercase">{{ dish.name }}</h3>
-                            <p class="text-sm leading-relaxed">{{ dish.reasoning }}</p>
-                            <p class="text-base font-semibold text-emerald-300/90">{{ dish.price }}</p>
                           </div>
                         </div>
                       </div>
@@ -719,18 +740,21 @@
         const track = slider.querySelector('.horizontal-track');
         if (!track) return;
 
-        const translateValue = `-${currentDishIndex * 100}%`;
+        const styles = window.getComputedStyle(track);
+        const gapValue = parseFloat(styles.columnGap || styles.gap || '0');
+        const gap = Number.isNaN(gapValue) ? 0 : gapValue;
+        const offset = (slider.clientWidth + gap) * currentDishIndex;
 
         anime.remove(track);
 
         if (instant) {
-          track.style.transform = `translateX(${translateValue})`;
+          track.style.transform = `translateX(-${offset}px)`;
           return;
         }
 
         anime({
           targets: track,
-          translateX: translateValue,
+          translateX: -offset,
           easing: 'easeOutCubic',
           duration: 500
         });
@@ -746,6 +770,7 @@
       if (touchArea && verticalSlider) {
         window.addEventListener('resize', () => {
           updateVerticalPosition({ immediate: true });
+          updateHorizontalPosition({ instant: true });
         });
       }
 
