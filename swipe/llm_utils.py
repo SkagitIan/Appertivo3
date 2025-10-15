@@ -57,6 +57,8 @@ class GetConcepts:
         self.DEFAULT_CONCEPT_IMAGE_URL = "https://placehold.co/1200x800?text=Concept"
 
         self.restaurant = restaurant
+        self.locale_summary = None
+        threading.Thread(target=self._load_locale, daemon=True).start()
 
 
     # -----------------------------
@@ -152,6 +154,27 @@ class GetConcepts:
     # -----------------------------
     # 🧩 Helpers
     # -----------------------------
+    def _load_locale(self):
+        if not self.openai: 
+            return
+        loc, name = self.restaurant["location"], self.restaurant["name"]
+        date = datetime.now().strftime("%A, %B %d, %Y")
+
+        prompt = f"""
+        You are a food writer describing today’s local atmosphere for {name} in {loc} on {date}.
+        Mention current season, weather mood, and local ingredients in under 100 words.
+        """
+
+        try:
+            resp = self.openai.responses.create(
+                model="gpt-5-nano-2025-08-07",
+                reasoning={"effort": "minimal"},
+                input=prompt,
+            )
+            self.locale_summary = resp.output_text.strip()
+        except Exception as e:
+            print("⚠️ Locale error:", e)
+            
     async def _generate_concepts(self):
         """Call OpenAI once to generate three structured concepts."""
 
@@ -166,7 +189,7 @@ class GetConcepts:
                     "role": "system",
                     "content": self.concept_prompt(),
                 },
-                {"role": "user", "content": self.restaurant.context if self.restaurant else ""},
+                {"role": "user", "content": self.restaurant.context+self.locale_summary},
             ],
             text={"format": self.concept_schema()},
         )
@@ -389,7 +412,7 @@ class GetConcepts:
                 self.replicate_client.run,
                 self.REPLICATE_MODEL,
                 input={
-                    "prompt": sketch_prompt,
+                    "prompt": sketch_prompt+self.locale_summary,
                     "output_format": "png",
                     "output_quality": 100,
                 },
@@ -492,7 +515,7 @@ class GetConcepts:
 
         response = await self.openai_client.responses.create(
             model="gpt-4.1-mini",
-            input=self.dish_prompt(concept_payload),
+            input=self.dish_prompt(concept_payload)+self.locale_summary,
             text={"format": self.dish_schema()},
         )
 
