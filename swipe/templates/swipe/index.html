@@ -584,7 +584,15 @@
                   data-concept-index="{{ forloop.counter0 }}"
                 >
                   <!-- Concept Card -->
-                  <div class="card w-full" data-card tabindex="0" role="button">
+                  <div
+                    class="card w-full"
+                    data-card
+                    tabindex="0"
+                    role="button"
+                    data-item-id="{{ concept.id }}"
+                    data-item-type="concept"
+                    data-is-new="{{ concept.is_new|yesno:'true,false' }}"
+                  >
                     <div class="card-inner">
                       {% with concept_image=concept.display_sketch_url concept_placeholder="https://placehold.co/1200x800?text=Concept" %}
                       <div class="card-face card-front" style="background-image: url('{{ concept_image }}');">
@@ -599,6 +607,17 @@
                       </div>
                       {% endwith %}
                       <div class="card-face card-back">
+                        <button type="button"
+                                class="delete-btn absolute top-5 left-5 rounded-full border border-slate-100/40 bg-slate-900/60 p-3 shadow-lg z-10"
+                                data-prevent-flip
+                                data-delete-trigger
+                                data-delete-type="concept"
+                                data-delete-id="{{ concept.id }}"
+                                aria-label="Delete {{ concept.name }} concept">
+                          <svg class="w-6 h-6 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 7h12M10 11v6m4-6v6m-7 4h10a1 1 0 001-1V7H6v13a1 1 0 001 1zm3-17h4l1 2H8l1-2z"></path>
+                          </svg>
+                        </button>
                         <button type="button"
                                 class="heart-btn absolute top-5 right-5 rounded-full border border-slate-100/40 bg-slate-900/60 p-3 shadow-lg z-10 {% if concept.is_favorite %}favorited{% endif %}"
                                 data-prevent-flip
@@ -644,7 +663,15 @@
 
                   <!-- Dish Cards -->
                   {% for dish in concept.dishes.all %}
-                    <div class="card w-full" data-card tabindex="0" role="button">
+                    <div
+                      class="card w-full"
+                      data-card
+                      tabindex="0"
+                      role="button"
+                      data-item-id="{{ dish.id }}"
+                      data-item-type="dish"
+                      data-is-new="{{ dish.is_new|yesno:'true,false' }}"
+                    >
                       <div class="card-inner">
                         {% with dish_image=dish.display_image_url dish_placeholder="https://placehold.co/800x600?text=Dish" %}
                         <div class="card-face card-front" style="background-image: url('{{ dish_image }}');">
@@ -659,6 +686,17 @@
                         </div>
                         {% endwith %}
                         <div class="card-face card-back">
+                          <button type="button"
+                                  class="delete-btn absolute top-5 left-5 rounded-full border border-slate-100/40 bg-slate-900/60 p-3 shadow-lg z-10"
+                                  data-prevent-flip
+                                  data-delete-trigger
+                                  data-delete-type="dish"
+                                  data-delete-id="{{ dish.id }}"
+                                  aria-label="Delete {{ dish.name }} dish">
+                            <svg class="w-6 h-6 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 7h12M10 11v6m4-6v6m-7 4h10a1 1 0 001-1V7H6v13a1 1 0 001 1zm3-17h4l1 2H8l1-2z"></path>
+                            </svg>
+                          </button>
                           <button type="button"
                                   class="heart-btn absolute top-5 right-5 rounded-full border border-slate-100/40 bg-slate-900/60 p-3 shadow-lg z-10 {% if dish.is_favorite %}favorited{% endif %}"
                                   data-prevent-flip
@@ -744,9 +782,10 @@
   {{ dish_counts|json_script:"dish-counts-data" }}
   <script>
     const csrfToken = '{{ csrf_token }}';
-    const totalConcepts = {{ concepts|length }};
+    const deleteEndpoint = '{% url 'swipe:delete_card' %}';
+    let totalConcepts = {{ concepts|length }};
     const dishCountsData = document.getElementById('dish-counts-data');
-    const dishCounts = dishCountsData ? JSON.parse(dishCountsData.textContent) : [];
+    let dishCounts = dishCountsData ? JSON.parse(dishCountsData.textContent) : [];
     const generateBtn = document.getElementById('generateConceptsBtn');
     const generateFeedback = document.getElementById('generateConceptsFeedback');
     const touchArea = document.querySelector('.touch-area');
@@ -801,6 +840,12 @@
       card.setAttribute('data-card', '');
       card.setAttribute('tabindex', '0');
       card.setAttribute('role', 'button');
+      const dishId = dish.id ?? '';
+      if (dishId) {
+        card.dataset.itemId = String(dishId);
+      }
+      card.dataset.itemType = 'dish';
+      card.dataset.isNew = 'false';
 
       const inner = document.createElement('div');
       inner.className = 'card-inner';
@@ -830,11 +875,21 @@
       back.className = 'card-face card-back';
       inner.appendChild(back);
 
+      const deleteButton = document.createElement('button');
+      deleteButton.type = 'button';
+      deleteButton.className = 'delete-btn absolute top-5 left-5 rounded-full border border-slate-100/40 bg-slate-900/60 p-3 shadow-lg z-10';
+      deleteButton.setAttribute('data-prevent-flip', '');
+      deleteButton.setAttribute('data-delete-trigger', '');
+      deleteButton.setAttribute('data-delete-type', 'dish');
+      deleteButton.setAttribute('data-delete-id', String(dishId));
+      deleteButton.setAttribute('aria-label', `Delete ${dish.name || 'dish'}`);
+      deleteButton.innerHTML = '<svg class="w-6 h-6 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 7h12M10 11v6m4-6v6m-7 4h10a1 1 0 001-1V7H6v13a1 1 0 001 1zm3-17h4l1 2H8l1-2z"></path></svg>';
+      back.appendChild(deleteButton);
+
       const heartButton = document.createElement('button');
       heartButton.type = 'button';
       heartButton.className = 'heart-btn absolute top-5 right-5 rounded-full border border-slate-100/40 bg-slate-900/60 p-3 shadow-lg z-10';
       heartButton.setAttribute('data-prevent-flip', '');
-      const dishId = dish.id ?? '';
       heartButton.dataset.id = String(dishId);
       heartButton.innerHTML = '<svg class="w-6 h-6 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>';
       heartButton.addEventListener('click', (event) => {
@@ -1116,7 +1171,7 @@
       });
 
       window.navigateVertical = function(direction) {
-        if (currentDishIndex !== 0) {
+        if (totalConcepts === 0 || currentDishIndex !== 0) {
           return;
         }
 
@@ -1134,6 +1189,9 @@
       };
 
       window.navigateHorizontal = function(direction) {
+        if (totalConcepts === 0) {
+          return;
+        }
         const dishCount = dishCounts[currentConceptIndex] || 0;
         const newIndex = currentDishIndex + direction;
         if (newIndex >= 0 && newIndex <= dishCount) {
@@ -1146,6 +1204,12 @@
 
       function updateVerticalPosition({ immediate = false } = {}) {
         if (!verticalSlider) return;
+
+        if (totalConcepts === 0) {
+          anime.remove(verticalSlider);
+          verticalSlider.style.transform = 'translateY(0)';
+          return;
+        }
 
         const slideHeight = getSlideHeight();
         const offset = -(slideHeight * currentConceptIndex);
@@ -1176,6 +1240,9 @@
       }
 
       function updateHorizontalPosition({ instant = false } = {}) {
+        if (totalConcepts === 0) {
+          return;
+        }
         const slider = document.getElementById(`horizontalSlider${currentConceptIndex}`);
         if (!slider) return;
         slider.style.transform = '';
@@ -1206,33 +1273,48 @@
 
       function updatePositionIndicator() {
         const indicator = document.getElementById('positionIndicator');
-        if (indicator) {
-          const dishCount = dishCounts[currentConceptIndex] || 0;
-          const totalCards = dishCount + 1;
-          const currentCard = currentDishIndex + 1;
+        if (!indicator) {
+          return;
+        }
 
-          if (currentDishIndex === 0) {
-            indicator.textContent = `${currentConceptIndex + 1} / ${totalConcepts}`;
-          } else {
-            indicator.textContent = `${currentConceptIndex + 1}.${currentCard} / ${totalConcepts}`;
-          }
+        if (totalConcepts === 0) {
+          indicator.textContent = '0 / 0';
+          return;
+        }
+
+        const dishCount = dishCounts[currentConceptIndex] || 0;
+        const currentCard = currentDishIndex + 1;
+
+        if (currentDishIndex === 0) {
+          indicator.textContent = `${currentConceptIndex + 1} / ${totalConcepts}`;
+        } else {
+          indicator.textContent = `${currentConceptIndex + 1}.${currentCard} / ${totalConcepts}`;
         }
       }
 
       function updateNavigationButtons() {
-        const dishCount = dishCounts[currentConceptIndex] || 0;
-        const isOnConceptCard = currentDishIndex === 0;
-
         const navVerticalUp = document.getElementById('navVerticalUp');
         const navVerticalDown = document.getElementById('navVerticalDown');
         const navHorizontalLeft = document.getElementById('navHorizontalLeft');
         const navHorizontalRight = document.getElementById('navHorizontalRight');
 
+        if (totalConcepts === 0) {
+          if (navVerticalUp) navVerticalUp.disabled = true;
+          if (navVerticalDown) navVerticalDown.disabled = true;
+          if (navHorizontalLeft) navHorizontalLeft.disabled = true;
+          if (navHorizontalRight) navHorizontalRight.disabled = true;
+          return;
+        }
+
+        const dishCount = dishCounts[currentConceptIndex] || 0;
+        const isOnConceptCard = currentDishIndex === 0;
+
         if (navVerticalUp) {
           navVerticalUp.disabled = !isOnConceptCard || currentConceptIndex === 0;
         }
         if (navVerticalDown) {
-          navVerticalDown.disabled = !isOnConceptCard || currentConceptIndex === totalConcepts - 1;
+          navVerticalDown.disabled =
+            !isOnConceptCard || currentConceptIndex >= totalConcepts - 1;
         }
         if (navHorizontalLeft) {
           navHorizontalLeft.disabled = currentDishIndex === 0;
@@ -1241,6 +1323,146 @@
           navHorizontalRight.disabled = currentDishIndex >= dishCount;
         }
       }
+
+      function reindexConceptSlides() {
+        const slides = Array.from(document.querySelectorAll('.concept-slide'));
+        slides.forEach((slide, index) => {
+          slide.dataset.conceptIndex = String(index);
+          const slider = slide.querySelector('.horizontal-slider');
+          if (slider) {
+            slider.id = `horizontalSlider${index}`;
+          }
+          const track = slide.querySelector('.horizontal-track');
+          if (track) {
+            track.dataset.conceptIndex = String(index);
+          }
+          slide.querySelectorAll('[data-load-dishes]').forEach((btn) => {
+            btn.dataset.conceptIndex = String(index);
+          });
+        });
+
+        totalConcepts = slides.length;
+
+        if (totalConcepts === 0) {
+          currentConceptIndex = 0;
+          currentDishIndex = 0;
+        } else if (currentConceptIndex >= totalConcepts) {
+          currentConceptIndex = totalConcepts - 1;
+          currentDishIndex = 0;
+        }
+      }
+
+      function handleConceptDeletion(button) {
+        const slide = button.closest('.concept-slide');
+        if (!slide) {
+          return;
+        }
+        const index = Number.parseInt(slide.dataset.conceptIndex || '-1', 10);
+
+        slide.remove();
+
+        if (index >= 0 && index < dishCounts.length) {
+          dishCounts.splice(index, 1);
+        }
+
+        if (index < currentConceptIndex) {
+          currentConceptIndex = Math.max(currentConceptIndex - 1, 0);
+        } else if (index === currentConceptIndex) {
+          currentDishIndex = 0;
+        }
+
+        reindexConceptSlides();
+        updateVerticalPosition({ immediate: true });
+        updateHorizontalPosition({ instant: true });
+        updatePositionIndicator();
+        updateNavigationButtons();
+      }
+
+      function handleDishDeletion(button) {
+        const card = button.closest('.card');
+        if (!card) {
+          return;
+        }
+        const track = card.closest('.horizontal-track');
+        const conceptIndex = track
+          ? Number.parseInt(track.dataset.conceptIndex || '-1', 10)
+          : -1;
+
+        card.remove();
+
+        if (conceptIndex >= 0 && conceptIndex < dishCounts.length) {
+          const nextCount = Math.max(0, (dishCounts[conceptIndex] || 0) - 1);
+          dishCounts[conceptIndex] = nextCount;
+          if (conceptIndex === currentConceptIndex) {
+            if (currentDishIndex > nextCount) {
+              currentDishIndex = nextCount;
+            }
+            updateHorizontalPosition({ instant: true });
+          }
+        }
+
+        updatePositionIndicator();
+        updateNavigationButtons();
+      }
+
+      async function submitDelete(button) {
+        if (!deleteEndpoint) {
+          return;
+        }
+        const type = button.dataset.deleteType;
+        const id = button.dataset.deleteId;
+        if (!type || !id) {
+          return;
+        }
+        if (button.dataset.deleting === 'true') {
+          return;
+        }
+
+        button.dataset.deleting = 'true';
+        button.disabled = true;
+
+        try {
+          const response = await fetch(deleteEndpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': csrfToken,
+              'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: JSON.stringify({ type, id }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`Delete failed with status ${response.status}`);
+          }
+
+          const data = await response.json();
+          if (!data?.deleted) {
+            return;
+          }
+
+          if (data.type === 'concept') {
+            handleConceptDeletion(button);
+          } else if (data.type === 'dish') {
+            handleDishDeletion(button);
+          }
+        } catch (error) {
+          console.error('Failed to delete card:', error);
+        } finally {
+          delete button.dataset.deleting;
+          button.disabled = false;
+        }
+      }
+
+      document.addEventListener('click', (event) => {
+        const deleteButton = event.target.closest('[data-delete-trigger]');
+        if (!deleteButton) {
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        submitDelete(deleteButton);
+      });
 
       if (touchArea && verticalSlider) {
         window.addEventListener('resize', () => {
@@ -1259,6 +1481,9 @@
         });
 
         touchArea.addEventListener('touchend', (e) => {
+          if (totalConcepts === 0) {
+            return;
+          }
           const touchEndY = e.changedTouches[0].clientY;
           const touchEndX = e.changedTouches[0].clientX;
           const diffY = touchStartY - touchEndY;
