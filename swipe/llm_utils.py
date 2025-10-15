@@ -190,7 +190,7 @@ class GetConcepts:
                     "role": "system",
                     "content": self.concept_prompt(),
                 },
-                {"role": "user", "content": self.restaurant.context+self.locale_summary},
+                {"role": "user", "content": self.restaurant.context},
             ],
             text={"format": self.concept_schema()},
         )
@@ -516,7 +516,7 @@ class GetConcepts:
 
         response = await self.openai_client.responses.create(
             model="gpt-4.1-mini",
-            input=self.dish_prompt(concept_payload)+self.locale_summary,
+            input=self.dish_prompt(concept_payload),
             text={"format": self.dish_schema()},
         )
 
