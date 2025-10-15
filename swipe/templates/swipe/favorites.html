@@ -13,114 +13,332 @@
     rel="stylesheet"
   >
   <style>
-    :root {
-      color-scheme: dark;
-    }
-
     body {
       background: radial-gradient(circle at 10% 20%, #1f2937 0%, rgba(15, 23, 42, 0.95) 55%, #0b1120 100%);
       min-height: 100vh;
-      font-family: 'Inter', sans-serif;
       color: #e2e8f0;
+      font-family: 'Inter', sans-serif;
       overflow-x: hidden;
     }
 
-    .hidden {
-      display: none !important;
-    }
-
-    .favorites-shell {
-      position: relative;
-      padding: 5rem 1.5rem 10rem;
-      max-width: 1100px;
-      margin: 0 auto;
-    }
-
-    .favorites-intro {
-      text-transform: uppercase;
-      letter-spacing: 0.45em;
-      font-size: 0.68rem;
-      color: rgba(226, 232, 240, 0.75);
-      margin-bottom: 2.5rem;
-    }
-
-    .favorites-intro span {
-      display: inline-block;
-      padding: 0.65rem 1.2rem;
-      border-radius: 9999px;
-      border: 1px solid rgba(148, 163, 184, 0.2);
-      background: rgba(15, 23, 42, 0.6);
-      backdrop-filter: blur(10px);
-    }
-
-    .favorites-section {
-      margin-bottom: 3.25rem;
-    }
-
-    .section-heading {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+    .concept-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 1rem;
-      margin-bottom: 1.5rem;
     }
 
-    .section-heading h2 {
+    @media (min-width: 640px) {
+      .concept-grid {
+        gap: 1.2rem;
+      }
+    }
+
+    @media (min-width: 768px) {
+      .concept-grid {
+        gap: 1.4rem;
+      }
+    }
+
+    .concept-card {
+      position: relative;
+      border-radius: 1.25rem;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: rgba(15, 23, 42, 0.55);
+      padding: 0.45rem;
+      cursor: pointer;
+      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+      outline: none;
+    }
+
+    .concept-card:focus-visible {
+      box-shadow: 0 0 0 3px rgba(244, 114, 182, 0.25);
+    }
+
+    .concept-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(244, 114, 182, 0.6);
+    }
+
+    .concept-card.is-open {
+      border-color: rgba(244, 114, 182, 0.8);
+      box-shadow: 0 18px 40px -30px rgba(244, 114, 182, 0.8);
+    }
+
+    .concept-thumb,
+    .dish-thumb__media {
+      position: relative;
+      border-radius: 1rem;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      background: rgba(15, 23, 42, 0.35);
+      overflow: hidden;
+      aspect-ratio: 1 / 1;
+    }
+
+    .concept-thumb img,
+    .dish-thumb__media img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .concept-meta {
+      margin-top: 0.55rem;
+      text-align: center;
+    }
+
+    .concept-meta h3 {
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.38em;
+      color: rgba(248, 250, 252, 0.85);
+      margin-bottom: 0.25rem;
+    }
+
+    .concept-meta p {
+      font-size: 0.55rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: rgba(148, 163, 184, 0.75);
+    }
+
+    .concept-dishes {
+      border-top: 1px solid rgba(148, 163, 184, 0.25);
+      padding-top: 1.5rem;
+    }
+
+    .concept-dishes__header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .concept-dishes__header h4 {
       font-family: 'Playfair Display', serif;
-      font-size: 1.05rem;
-      letter-spacing: 0.28em;
+      font-size: 1rem;
+      letter-spacing: 0.25em;
       text-transform: uppercase;
       color: #f8fafc;
     }
 
-    .section-meta {
-      font-size: 0.7rem;
+    .concept-dishes__header span {
+      font-size: 0.6rem;
       letter-spacing: 0.32em;
       text-transform: uppercase;
-      color: rgba(226, 232, 240, 0.55);
-      white-space: nowrap;
+      color: rgba(148, 163, 184, 0.75);
     }
 
-    .favorites-grid {
+    .concept-dishes__grid {
       display: grid;
-      gap: 1.5rem;
-      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+    }
+
+    @media (min-width: 640px) {
+      .concept-dishes__grid {
+        gap: 1.25rem;
+      }
     }
 
     @media (min-width: 768px) {
-      .favorites-grid {
-        gap: 1.8rem;
-        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      .concept-dishes__grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
       }
     }
 
-    .card {
+    .dish-thumb {
       position: relative;
-      border-radius: 26px;
-      border: 1px solid rgba(148, 163, 184, 0.25);
-      box-shadow: 0 32px 60px -40px rgba(8, 11, 19, 0.75);
-      backdrop-filter: saturate(140%) blur(8px);
+      border-radius: 1.15rem;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      background: rgba(15, 23, 42, 0.55);
+      padding: 0.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      transition: transform 0.2s ease, border-color 0.2s ease;
       cursor: pointer;
+      outline: none;
+    }
+
+    .dish-thumb:hover {
+      transform: translateY(-2px);
+      border-color: rgba(94, 234, 212, 0.5);
+    }
+
+    .dish-thumb:focus-visible {
+      box-shadow: 0 0 0 3px rgba(94, 234, 212, 0.35);
+    }
+
+    .dish-thumb__meta {
+      text-align: center;
+      font-size: 0.58rem;
+      letter-spacing: 0.32em;
+      text-transform: uppercase;
+      color: rgba(226, 232, 240, 0.85);
+    }
+
+    .dish-thumb__meta span {
+      display: block;
+      margin-top: 0.25rem;
+      font-size: 0.55rem;
+      color: rgba(94, 234, 212, 0.85);
+      letter-spacing: 0.28em;
+    }
+
+    .concept-dishes__empty {
+      grid-column: 1 / -1;
+      text-align: center;
+      font-size: 0.58rem;
+      text-transform: uppercase;
+      letter-spacing: 0.32em;
+      color: rgba(148, 163, 184, 0.7);
+    }
+
+    .heart-btn {
+      position: absolute;
+      top: 0.6rem;
+      right: 0.6rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.3rem;
+      height: 2.3rem;
+      border-radius: 9999px;
+      border: 1px solid rgba(248, 250, 252, 0.35);
+      background: rgba(15, 23, 42, 0.65);
+      color: #f87171;
+      transition: transform 0.2s ease;
+    }
+
+    .heart-btn:hover {
+      transform: scale(1.05);
+    }
+
+    .heart-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .heart-btn svg {
+      width: 1.05rem;
+      height: 1.05rem;
+      stroke-width: 1.8;
+    }
+
+    .favorited svg {
+      fill: currentColor;
+    }
+
+    .floating-controls {
+      position: fixed;
+      bottom: 2.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 60;
+    }
+
+    .floating-controls__inner {
+      display: inline-flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.85rem 1.6rem;
+      border-radius: 9999px;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 24px 60px -35px rgba(8, 11, 19, 0.8);
+    }
+
+    .floating-controls__inner button {
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: 9999px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: rgba(15, 23, 42, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #f8fafc;
+      transition: transform 0.2s ease, background 0.2s ease;
+    }
+
+    .floating-controls__inner button:hover:enabled {
+      transform: translateY(-2px);
+      background: rgba(148, 163, 184, 0.25);
+    }
+
+    .floating-controls__inner button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .floating-controls__indicator {
+      font-family: 'Playfair Display', serif;
+      font-size: 0.82rem;
+      letter-spacing: 0.32em;
+      text-transform: uppercase;
+      color: rgba(248, 250, 252, 0.85);
+      white-space: nowrap;
+    }
+
+    .dish-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 70;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1.25rem;
+    }
+
+    .dish-modal.hidden {
+      display: none;
+    }
+
+    .dish-modal__backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(8, 11, 19, 0.75);
+      backdrop-filter: blur(12px);
+    }
+
+    .dish-modal__panel {
+      position: relative;
+      width: min(100%, 520px);
+      border-radius: 1.75rem;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      background: rgba(15, 23, 42, 0.9);
+      padding: 2rem 1.75rem 1.75rem;
+      box-shadow: 0 40px 80px -50px rgba(8, 11, 19, 0.9);
       overflow: hidden;
+    }
+
+    .dish-modal__close {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.25rem;
+      height: 2.25rem;
+      border-radius: 9999px;
+      border: 1px solid rgba(248, 250, 252, 0.35);
+      background: rgba(15, 23, 42, 0.6);
+      color: rgba(248, 250, 252, 0.85);
+    }
+
+    .flip-card {
+      position: relative;
+      border-radius: 1.5rem;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      background: rgba(15, 23, 42, 0.6);
+      overflow: hidden;
+      cursor: pointer;
       perspective: 1600px;
       min-height: 0;
-    }
-
-    .card-concept {
-      height: min(48vh, 23rem);
-    }
-
-    .card-dish {
-      height: min(44vh, 21.5rem);
-    }
-
-    @supports (height: 100dvh) {
-      .card-concept {
-        height: min(48vh, 23rem);
-      }
-      .card-dish {
-        height: min(44vh, 21.5rem);
-      }
     }
 
     .card-inner {
@@ -132,7 +350,7 @@
       transition: transform 0.7s ease;
     }
 
-    .card.is-flipped .card-inner {
+    .flip-card.is-flipped .card-inner {
       transform: rotateY(180deg);
     }
 
@@ -140,16 +358,9 @@
       position: absolute;
       inset: 0;
       border-radius: inherit;
-      overflow: hidden;
       backface-visibility: hidden;
-      background-color: #0f172a;
-      background-size: cover;
-      background-position: center;
-      background-repeat: no-repeat;
-    }
-
-    .card-front {
-      z-index: 2;
+      overflow: hidden;
+      background: #0f172a;
     }
 
     .card-front::after {
@@ -172,7 +383,6 @@
       transform: rotateY(180deg);
       display: flex;
       flex-direction: column;
-      padding: 0;
       position: relative;
     }
 
@@ -180,7 +390,7 @@
       content: '';
       position: absolute;
       inset: 0;
-      background: linear-gradient(180deg, rgba(15, 23, 42, 0.35) 0%, rgba(15, 23, 42, 0.82) 80%, rgba(8, 11, 19, 0.95) 100%);
+      background: linear-gradient(180deg, rgba(15, 23, 42, 0.35) 0%, rgba(15, 23, 42, 0.85) 80%, rgba(8, 11, 19, 0.95) 100%);
       pointer-events: none;
     }
 
@@ -190,391 +400,176 @@
     }
 
     .card-back-content {
+      padding: 2.25rem 1.8rem 1.8rem;
       display: flex;
-      flex: 1;
       flex-direction: column;
-      padding: 1.4rem;
+      gap: 1rem;
+      min-height: 0;
     }
 
-    .info-panel {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      border-radius: 22px;
-      background: rgba(15, 23, 42, 0.7);
-      border: 1px solid rgba(148, 163, 184, 0.25);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-      padding: 1.25rem;
+    .card-back-heading {
+      font-family: 'Playfair Display', serif;
+      text-transform: uppercase;
+      letter-spacing: 0.24em;
+      font-size: 1.4rem;
       color: #f8fafc;
     }
 
-    .info-panel h3,
-    .info-panel h2 {
-      font-family: 'Playfair Display', serif;
-      letter-spacing: 0.18em;
+    .card-back-description {
+      font-size: 0.95rem;
+      line-height: 1.6;
+      color: rgba(226, 232, 240, 0.9);
+    }
+
+    .card-back-price {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: rgba(110, 231, 183, 0.9);
+      letter-spacing: 0.22em;
       text-transform: uppercase;
     }
 
-    .info-panel h2 {
-      font-size: 1.2rem;
-    }
-
-    .info-panel h3 {
-      font-size: 1.05rem;
-    }
-
-    .info-panel p {
-      color: rgba(226, 232, 240, 0.88);
-      font-size: 0.85rem;
-      line-height: 1.45;
+    .card-back-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
     }
 
     .tag-chip {
       display: inline-flex;
       align-items: center;
-      padding: 0.25rem 0.75rem;
+      padding: 0.2rem 0.6rem;
       border-radius: 9999px;
-      font-size: 0.72rem;
+      font-size: 0.65rem;
       font-weight: 600;
-      color: #f1f5f9;
-      background: rgba(148, 163, 184, 0.18);
-      border: 1px solid rgba(148, 163, 184, 0.25);
-      margin: 0.15rem;
-    }
-
-    .heart-btn {
-      position: absolute;
-      top: 1.1rem;
-      right: 1.1rem;
-      border-radius: 9999px;
-      padding: 0.65rem;
-      background: rgba(15, 23, 42, 0.6);
-      border: 1px solid rgba(248, 250, 252, 0.25);
-      box-shadow: 0 12px 26px -18px rgba(8, 11, 19, 0.9);
-      transition: transform 0.2s ease;
-      color: #f87171;
-    }
-
-    .heart-btn:hover {
-      transform: scale(1.05);
-    }
-
-    .heart-btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    .heart-btn.favorited svg {
-      fill: currentColor;
-      stroke: currentColor;
-    }
-
-    .favorites-empty {
-      border-radius: 26px;
-      border: 1px solid rgba(148, 163, 184, 0.22);
-      background: rgba(15, 23, 42, 0.65);
-      padding: 3.5rem 2rem;
-      text-align: center;
-      color: rgba(226, 232, 240, 0.82);
-      backdrop-filter: blur(12px);
-    }
-
-    .favorites-empty h3 {
-      font-family: 'Playfair Display', serif;
-      font-size: 1.5rem;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      margin-bottom: 1rem;
-    }
-
-    .favorites-empty p {
-      font-size: 0.9rem;
-      color: rgba(148, 163, 184, 0.85);
-    }
-
-    .floating-controls {
-      position: fixed;
-      bottom: 2.75rem;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 50;
-    }
-
-    .floating-controls-inner {
-      display: inline-flex;
-      align-items: center;
-      gap: 1.75rem;
-      padding: 0.9rem 1.75rem;
-      border-radius: 9999px;
-      background: rgba(15, 23, 42, 0.85);
-      box-shadow: 0 24px 60px -35px rgba(8, 11, 19, 0.8);
-      backdrop-filter: blur(12px);
-    }
-
-    .floating-controls button {
-      width: 2.5rem;
-      height: 2.5rem;
-      border-radius: 9999px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #f8fafc;
-      border: 1px solid rgba(148, 163, 184, 0.25);
-      background: rgba(15, 23, 42, 0.5);
-      transition: transform 0.2s ease, background 0.2s ease;
-    }
-
-    .floating-controls button:hover:enabled {
-      transform: translateY(-2px);
+      letter-spacing: 0.12em;
+      color: rgba(226, 232, 240, 0.9);
       background: rgba(148, 163, 184, 0.2);
-    }
-
-    .floating-controls button:disabled {
-      opacity: 0.35;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    .floating-controls button:focus-visible {
-      outline: 2px solid rgba(248, 250, 252, 0.65);
-      outline-offset: 2px;
-    }
-
-    .floating-controls-indicator {
-      font-family: 'Playfair Display', serif;
-      font-size: 0.82rem;
-      letter-spacing: 0.32em;
-      text-transform: uppercase;
-      color: rgba(248, 250, 252, 0.82);
-      white-space: nowrap;
-    }
-
-    .favorites-gallery {
-      position: fixed;
-      inset: 0;
-      z-index: 60;
-      display: grid;
-      place-items: end center;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    }
-
-    .favorites-gallery.visible {
-      pointer-events: auto;
-      opacity: 1;
-    }
-
-    .favorites-gallery__backdrop {
-      position: absolute;
-      inset: 0;
-      background: rgba(15, 23, 42, 0.7);
-      backdrop-filter: blur(10px);
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    }
-
-    .favorites-gallery.visible .favorites-gallery__backdrop {
-      opacity: 1;
-    }
-
-    .favorites-gallery__panel {
-      position: relative;
-      width: min(960px, 94vw);
-      max-height: min(80vh, 720px);
-      background: rgba(15, 23, 42, 0.92);
       border: 1px solid rgba(148, 163, 184, 0.25);
-      border-radius: 32px 32px 0 0;
-      transform: translateY(40px);
-      transition: transform 0.35s ease;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    .favorites-gallery.visible .favorites-gallery__panel {
-      transform: translateY(0);
-    }
-
-    .favorites-gallery__header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 1.3rem 1.8rem;
-      border-bottom: 1px solid rgba(148, 163, 184, 0.18);
-    }
-
-    .favorites-gallery__title {
-      font-family: 'Playfair Display', serif;
-      font-size: 0.85rem;
-      letter-spacing: 0.32em;
-      text-transform: uppercase;
-      color: rgba(248, 250, 252, 0.85);
-    }
-
-    .favorites-gallery__tabs {
-      display: inline-flex;
-      gap: 0.4rem;
-      align-self: center;
-      margin: 1.15rem 0 0.6rem;
-      padding: 0.35rem;
-      border-radius: 9999px;
-      background: rgba(15, 23, 42, 0.6);
-      border: 1px solid rgba(148, 163, 184, 0.22);
-    }
-
-    .favorites-gallery__tab {
-      border: none;
-      background: transparent;
-      color: rgba(148, 163, 184, 0.75);
-      font-size: 0.7rem;
-      letter-spacing: 0.32em;
-      text-transform: uppercase;
-      padding: 0.4rem 1rem;
-      border-radius: 9999px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.2s ease, color 0.2s ease;
-    }
-
-    .favorites-gallery__tab.is-active {
-      background: rgba(244, 114, 182, 0.18);
-      color: #fce7f3;
-    }
-
-    .favorites-gallery__content {
-      padding: 1.6rem;
-      overflow-y: auto;
-    }
-
-    .favorites-gallery__grid {
-      display: grid;
-      gap: 1.4rem;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    }
-
-    .overlay-empty {
-      margin-top: 2.5rem;
-      text-align: center;
-      color: rgba(148, 163, 184, 0.85);
-      font-size: 0.85rem;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-    }
-
-    .favorites-gallery__close {
-      border: 1px solid rgba(248, 250, 252, 0.25);
-    }
-
-    body.no-scroll {
-      overflow: hidden;
     }
   </style>
 {% endblock %}
 
 {% block content %}
-  {% with concepts_count=favorite_concepts|length %}
-    {% with dishes_count=all_favorite_dishes|length %}
-      {% with total_count=concepts_count|add:dishes_count %}
-        <div class="favorites-shell">
-          <div class="favorites-intro">
-            <span>{% if restaurant %}{{ restaurant.name }}{% else %}Appertivo{% endif %} · Favorites</span>
-          </div>
+  <div class="relative min-h-screen pb-32">
+    <div class="fixed top-6 left-6 z-40 text-[0.7rem] tracking-[0.55em] uppercase text-slate-200/80">
+      {% if restaurant %}{{ restaurant.name }}{% else %}Appertivo{% endif %}
+    </div>
 
-          {% if total_count > 0 %}
-            {% if favorite_concepts %}
-              <section class="favorites-section">
-                <div class="section-heading">
-                  <h2>Concept Favorites</h2>
-                  <span class="section-meta">{{ concepts_count }} concept{% if concepts_count != 1 %}s{% endif %}</span>
+    <div class="mx-auto max-w-5xl px-4 pt-24">
+      <div class="mb-10 text-center text-[0.65rem] uppercase tracking-[0.45em] text-slate-300/80">
+        Favorites Archive
+      </div>
+
+      {% if favorite_concept_groups %}
+        <div class="concept-grid" id="conceptGrid">
+          {% for group in favorite_concept_groups %}
+            <article
+              class="concept-card"
+              data-concept-card
+              data-concept-id="{{ group.concept.id }}"
+              data-target="concept-{{ group.concept.id }}-dishes"
+              role="button"
+              tabindex="0"
+              aria-controls="concept-{{ group.concept.id }}-dishes"
+              aria-expanded="false"
+            >
+              {% with concept_image=group.concept.display_sketch_url concept_placeholder="https://placehold.co/600x600?text=Concept" %}
+                <div class="concept-thumb">
+                  <img
+                    src="{{ concept_image }}"
+                    alt="{{ group.concept.name }} concept sketch"
+                    loading="lazy"
+                    decoding="async"
+                    onerror="this.onerror=null;this.src='{{ concept_placeholder }}';"
+                  >
                 </div>
-                <div id="conceptFavorites" class="favorites-grid">
-                  {% for concept in favorite_concepts %}
-                    <article
-                      class="card card-concept"
-                      data-card
-                      data-favorite-key="concept-{{ concept.id }}"
-                      role="button"
-                      tabindex="0"
-                      aria-label="View {{ concept.name }} concept details"
-                    >
-                      <div class="card-inner">
-                        {% with concept_image=concept.display_sketch_url concept_placeholder="https://placehold.co/1200x800?text=Concept" %}
-                          <div class="card-face card-front" style="background-image: url('{{ concept_image }}');">
-                            <img
-                              src="{{ concept_image }}"
-                              alt="{{ concept.name }} concept sketch"
-                              class="card-media"
-                              loading="lazy"
-                              decoding="async"
-                              onerror="this.onerror=null;this.src='{{ concept_placeholder }}';"
-                            >
-                          </div>
-                        {% endwith %}
-                        <div class="card-face card-back">
-                          <button
-                            type="button"
-                            class="heart-btn favorited"
-                            data-prevent-flip
-                            data-favorite-toggle
-                            data-favorite-type="concept"
-                            data-favorite-id="{{ concept.id }}"
-                            aria-label="Remove {{ concept.name }} from favorites"
-                          >
-                            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2">
-                              <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
-                            </svg>
-                          </button>
-                          <div class="card-back-content">
-                            <div class="info-panel">
-                              <div class="flex flex-wrap mb-3">
-                                {% for tag in concept.meta_ingredients %}
-                                  <span class="tag-chip">{{ tag }}</span>
-                                {% empty %}
-                                  <span class="tag-chip">Seasonal</span>
-                                {% endfor %}
-                              </div>
-                              <h2 class="mb-2">{{ concept.name }}</h2>
-                              {% if concept.subtitle %}
-                                <p class="text-xs uppercase tracking-[0.35em] text-slate-300/80 mb-3">{{ concept.subtitle }}</p>
-                              {% endif %}
-                              {% if concept.meta_reasoning %}
-                                <p>{{ concept.meta_reasoning }}</p>
-                              {% endif %}
-                            </div>
-                          </div>
-                        </div>
+              {% endwith %}
+              <div class="concept-meta">
+                <h3>{{ group.concept.name }}</h3>
+                {% if group.concept.subtitle %}
+                  <p>{{ group.concept.subtitle }}</p>
+                {% endif %}
+              </div>
+              <button
+                type="button"
+                class="heart-btn{% if group.concept.is_favorite %} favorited{% endif %}"
+                data-favorite-toggle
+                data-favorite-type="concept"
+                data-favorite-id="{{ group.concept.id }}"
+                aria-label="Toggle favorite for {{ group.concept.name }}"
+                data-prevent-toggle
+              >
+                <svg viewBox="0 0 24 24" fill="{% if group.concept.is_favorite %}currentColor{% else %}none{% endif %}" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+              </button>
+            </article>
+          {% endfor %}
+        </div>
+
+        <div class="mt-12 space-y-12" id="conceptDetails">
+          {% for group in favorite_concept_groups %}
+            <section
+              id="concept-{{ group.concept.id }}-dishes"
+              class="concept-dishes hidden"
+              data-concept-dishes="{{ group.concept.id }}"
+            >
+              <div class="concept-dishes__header">
+                <h4>{{ group.concept.name }}</h4>
+                <span data-dish-count>
+                  {% with dish_total=group.dishes|length %}
+                    {{ dish_total }} dish{% if dish_total != 1 %}es{% endif %}
+                  {% endwith %}
+                </span>
+              </div>
+              <div class="concept-dishes__grid">
+                {% for dish in group.dishes %}
+                  <div
+                    class="dish-thumb"
+                    data-dish-thumbnail
+                    data-dish-id="{{ dish.id }}"
+                    role="button"
+                    tabindex="0"
+                    aria-label="View {{ dish.name }}"
+                  >
+                    {% with dish_image=dish.display_image_url dish_placeholder="https://placehold.co/600x600?text=Dish" %}
+                      <div class="dish-thumb__media">
+                        <img
+                          src="{{ dish_image }}"
+                          alt="{{ dish.name }} presentation"
+                          loading="lazy"
+                          decoding="async"
+                          onerror="this.onerror=null;this.src='{{ dish_placeholder }}';"
+                        >
                       </div>
-                    </article>
-                  {% endfor %}
-                </div>
-                <div id="conceptEmptyState" class="favorites-empty hidden">
-                  <h3>No Concept Favorites</h3>
-                  <p>Save a concept to surface it here instantly.</p>
-                </div>
-              </section>
-            {% endif %}
-
-            {% if all_favorite_dishes %}
-              <section class="favorites-section">
-                <div class="section-heading">
-                  <h2>Dish Favorites</h2>
-                  <span class="section-meta">{{ dishes_count }} dish{% if dishes_count != 1 %}es{% endif %}</span>
-                </div>
-                <div id="dishFavorites" class="favorites-grid">
-                  {% for dish in all_favorite_dishes %}
-                    <article
-                      class="card card-dish"
-                      data-card
-                      data-favorite-key="dish-{{ dish.id }}"
-                      role="button"
-                      tabindex="0"
-                      aria-label="View {{ dish.name }} dish details"
+                    {% endwith %}
+                    <div class="dish-thumb__meta">
+                      <h5>{{ dish.name }}</h5>
+                      {% if dish.price %}
+                        <span>{{ dish.price }}</span>
+                      {% endif %}
+                    </div>
+                    <button
+                      type="button"
+                      class="heart-btn{% if dish.is_favorite %} favorited{% endif %}"
+                      data-favorite-toggle
+                      data-favorite-type="dish"
+                      data-favorite-id="{{ dish.id }}"
+                      aria-label="Toggle favorite for {{ dish.name }}"
+                      data-prevent-toggle
                     >
+                      <svg viewBox="0 0 24 24" fill="{% if dish.is_favorite %}currentColor{% else %}none{% endif %}" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  <template id="dish-modal-{{ dish.id }}">
+                    <div class="flip-card" data-card role="button" tabindex="0" aria-label="Flip {{ dish.name }} card">
                       <div class="card-inner">
                         {% with dish_image=dish.display_image_url dish_placeholder="https://placehold.co/800x600?text=Dish" %}
-                          <div class="card-face card-front" style="background-image: url('{{ dish_image }}');">
+                          <div class="card-face card-front">
                             <img
                               src="{{ dish_image }}"
                               alt="{{ dish.name }} presentation"
@@ -588,250 +583,94 @@
                         <div class="card-face card-back">
                           <button
                             type="button"
-                            class="heart-btn favorited"
+                            class="heart-btn{% if dish.is_favorite %} favorited{% endif %}"
                             data-prevent-flip
                             data-favorite-toggle
                             data-favorite-type="dish"
                             data-favorite-id="{{ dish.id }}"
-                            aria-label="Remove {{ dish.name }} from favorites"
+                            aria-label="Toggle favorite for {{ dish.name }}"
                           >
-                            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2">
-                              <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                            <svg viewBox="0 0 24 24" fill="{% if dish.is_favorite %}currentColor{% else %}none{% endif %}" stroke="currentColor">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                             </svg>
                           </button>
                           <div class="card-back-content">
-                            <div class="info-panel">
-                              <div class="flex flex-wrap mb-3">
+                            <div>
+                              <h3 class="card-back-heading">{{ dish.name }}</h3>
+                              {% if dish.reasoning %}
+                                <p class="card-back-description">{{ dish.reasoning }}</p>
+                              {% endif %}
+                            </div>
+                            <div class="flex items-center justify-between text-xs uppercase tracking-[0.3em] text-slate-300/80">
+                              <span>{{ dish.concept.name }}</span>
+                              {% if dish.price %}
+                                <span class="card-back-price">{{ dish.price }}</span>
+                              {% endif %}
+                            </div>
+                            {% if dish.ingredients %}
+                              <div class="card-back-tags">
                                 {% for ingredient in dish.ingredients %}
                                   <span class="tag-chip">{{ ingredient }}</span>
                                 {% endfor %}
                               </div>
-                              <h3 class="mb-2">{{ dish.name }}</h3>
-                              {% if dish.reasoning %}
-                                <p class="mb-3">{{ dish.reasoning }}</p>
-                              {% endif %}
-                              <div class="mt-auto flex items-center justify-between text-sm">
-                                {% if dish.price %}
-                                  <span class="font-semibold text-emerald-300/90 tracking-[0.28em] uppercase">{{ dish.price }}</span>
-                                {% endif %}
-                                <span class="text-xs uppercase tracking-[0.3em] text-slate-300/80">{{ dish.concept.name }}</span>
-                              </div>
-                            </div>
+                            {% endif %}
                           </div>
                         </div>
                       </div>
-                    </article>
-                  {% endfor %}
-                </div>
-                <div id="dishEmptyState" class="favorites-empty hidden">
-                  <h3>No Dish Favorites</h3>
-                  <p>Tap the heart on a dish to revisit it later.</p>
-                </div>
-              </section>
+                    </div>
+                  </template>
+                {% endfor %}
+                <p class="concept-dishes__empty{% if group.dishes %} hidden{% endif %}" data-empty-message>
+                  No favorite dishes yet.
+                </p>
+              </div>
+            </section>
+          {% endfor %}
+        </div>
+        <div id="favoritesEmptyMessage" class="mt-16 hidden text-center text-slate-200">
+          <h2 class="text-lg uppercase tracking-[0.35em]">No favorites yet</h2>
+          <p class="mt-3 text-sm text-slate-400">Save a concept or dish from the swipe view to revisit it here.</p>
+        </div>
+      {% else %}
+        <div class="mx-auto max-w-md rounded-3xl border border-slate-700/60 bg-slate-900/70 p-10 text-center text-slate-200">
+          <h2 class="text-lg uppercase tracking-[0.35em]">No favorites yet</h2>
+          <p class="mt-3 text-sm text-slate-400">Save a concept or dish from the swipe view to revisit it here.</p>
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="floating-controls" id="favoritesControls">
+      <div class="floating-controls__inner">
+        <button type="button" id="toggleAllDishes" aria-label="Show all favorite dishes">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+        </button>
+        <span class="floating-controls__indicator" id="favoritesIndicator">
+          {% with concept_total=favorite_concept_groups|length dish_total=all_favorite_dishes|length %}
+            {% if concept_total or dish_total %}
+              {{ concept_total }} concept{% if concept_total != 1 %}s{% endif %} · {{ dish_total }} dish{% if dish_total != 1 %}es{% endif %}
+            {% else %}
+              No favorites
             {% endif %}
+          {% endwith %}
+        </span>
+      </div>
+    </div>
 
-            <div id="globalEmptyState" class="favorites-empty hidden">
-              <h3>No Favorites Saved</h3>
-              <p>Add a concept or dish to favorites to see it appear here.</p>
-            </div>
-          {% else %}
-            <div class="favorites-empty">
-              <h3>No Favorites Yet</h3>
-              <p>Heart a concept or dish to curate your favorites gallery.</p>
-            </div>
-          {% endif %}
-        </div>
-
-        <div class="floating-controls">
-          <div class="floating-controls-inner">
-            <button
-              type="button"
-              id="favoritesBackButton"
-              aria-label="Go back"
-              data-fallback-href="{% url 'swipe:home' %}"
-            >
-              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <span class="floating-controls-indicator" id="favoritesIndicator">
-              {% if total_count > 0 %}
-                {{ total_count }} Favorite{% if total_count != 1 %}s{% endif %}
-              {% else %}
-                No Favorites
-              {% endif %}
-            </span>
-            <button
-              type="button"
-              id="favoritesGalleryButton"
-              aria-label="Show all favorites"
-              {% if total_count == 0 %}disabled{% endif %}
-            >
-              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        <div id="favoritesGallery" class="favorites-gallery" aria-hidden="true">
-          <div class="favorites-gallery__backdrop" data-close-gallery></div>
-          <div class="favorites-gallery__panel">
-            <div class="favorites-gallery__header">
-              <span class="favorites-gallery__title">{% if restaurant %}{{ restaurant.name }}{% else %}Appertivo{% endif %} Favorites</span>
-              <button type="button" class="favorites-gallery__close" data-close-gallery aria-label="Close favorites gallery">
-                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div class="favorites-gallery__tabs">
-              <button type="button" class="favorites-gallery__tab" data-gallery-tab="concepts">Concepts</button>
-              <button type="button" class="favorites-gallery__tab" data-gallery-tab="dishes">All Dishes</button>
-            </div>
-            <div class="favorites-gallery__content">
-              <div data-gallery-content="concepts">
-                {% if favorite_concepts %}
-                  <div class="favorites-gallery__grid">
-                    {% for concept in favorite_concepts %}
-                      <article
-                        class="card card-concept"
-                        data-card
-                        data-favorite-key="concept-{{ concept.id }}"
-                        role="button"
-                        tabindex="0"
-                        aria-label="View {{ concept.name }} concept details"
-                      >
-                        <div class="card-inner">
-                          {% with concept_image=concept.display_sketch_url concept_placeholder="https://placehold.co/1200x800?text=Concept" %}
-                            <div class="card-face card-front" style="background-image: url('{{ concept_image }}');">
-                              <img
-                                src="{{ concept_image }}"
-                                alt="{{ concept.name }} concept sketch"
-                                class="card-media"
-                                loading="lazy"
-                                decoding="async"
-                                onerror="this.onerror=null;this.src='{{ concept_placeholder }}';"
-                              >
-                            </div>
-                          {% endwith %}
-                          <div class="card-face card-back">
-                            <button
-                              type="button"
-                              class="heart-btn favorited"
-                              data-prevent-flip
-                              data-favorite-toggle
-                              data-favorite-type="concept"
-                              data-favorite-id="{{ concept.id }}"
-                              aria-label="Remove {{ concept.name }} from favorites"
-                            >
-                              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
-                              </svg>
-                            </button>
-                            <div class="card-back-content">
-                              <div class="info-panel">
-                                <div class="flex flex-wrap mb-3">
-                                  {% for tag in concept.meta_ingredients %}
-                                    <span class="tag-chip">{{ tag }}</span>
-                                  {% empty %}
-                                    <span class="tag-chip">Seasonal</span>
-                                  {% endfor %}
-                                </div>
-                                <h2 class="mb-2">{{ concept.name }}</h2>
-                                {% if concept.subtitle %}
-                                  <p class="text-xs uppercase tracking-[0.35em] text-slate-300/80 mb-3">{{ concept.subtitle }}</p>
-                                {% endif %}
-                                {% if concept.meta_reasoning %}
-                                  <p>{{ concept.meta_reasoning }}</p>
-                                {% endif %}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </article>
-                    {% endfor %}
-                  </div>
-                {% endif %}
-                <div class="overlay-empty{% if favorite_concepts %} hidden{% endif %}" data-gallery-empty="concepts">
-                  No concept favorites yet.
-                </div>
-              </div>
-              <div class="hidden" data-gallery-content="dishes">
-                {% if all_favorite_dishes %}
-                  <div class="favorites-gallery__grid">
-                    {% for dish in all_favorite_dishes %}
-                      <article
-                        class="card card-dish"
-                        data-card
-                        data-favorite-key="dish-{{ dish.id }}"
-                        role="button"
-                        tabindex="0"
-                        aria-label="View {{ dish.name }} dish details"
-                      >
-                        <div class="card-inner">
-                          {% with dish_image=dish.display_image_url dish_placeholder="https://placehold.co/800x600?text=Dish" %}
-                            <div class="card-face card-front" style="background-image: url('{{ dish_image }}');">
-                              <img
-                                src="{{ dish_image }}"
-                                alt="{{ dish.name }} presentation"
-                                class="card-media"
-                                loading="lazy"
-                                decoding="async"
-                                onerror="this.onerror=null;this.src='{{ dish_placeholder }}';"
-                              >
-                            </div>
-                          {% endwith %}
-                          <div class="card-face card-back">
-                            <button
-                              type="button"
-                              class="heart-btn favorited"
-                              data-prevent-flip
-                              data-favorite-toggle
-                              data-favorite-type="dish"
-                              data-favorite-id="{{ dish.id }}"
-                              aria-label="Remove {{ dish.name }} from favorites"
-                            >
-                              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
-                              </svg>
-                            </button>
-                            <div class="card-back-content">
-                              <div class="info-panel">
-                                <div class="flex flex-wrap mb-3">
-                                  {% for ingredient in dish.ingredients %}
-                                    <span class="tag-chip">{{ ingredient }}</span>
-                                  {% endfor %}
-                                </div>
-                                <h3 class="mb-2">{{ dish.name }}</h3>
-                                {% if dish.reasoning %}
-                                  <p class="mb-3">{{ dish.reasoning }}</p>
-                                {% endif %}
-                                <div class="mt-auto flex items-center justify-between text-sm">
-                                  {% if dish.price %}
-                                    <span class="font-semibold text-emerald-300/90 tracking-[0.28em] uppercase">{{ dish.price }}</span>
-                                  {% endif %}
-                                  <span class="text-xs uppercase tracking-[0.3em] text-slate-300/80">{{ dish.concept.name }}</span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </article>
-                    {% endfor %}
-                  </div>
-                {% endif %}
-                <div class="overlay-empty{% if all_favorite_dishes %} hidden{% endif %}" data-gallery-empty="dishes">
-                  No dish favorites yet.
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      {% endwith %}
-    {% endwith %}
-  {% endwith %}
+    <div id="dishModal" class="dish-modal hidden" aria-hidden="true">
+      <div class="dish-modal__backdrop" data-modal-dismiss></div>
+      <div class="dish-modal__panel" role="dialog" aria-modal="true">
+        <button type="button" class="dish-modal__close" data-modal-dismiss aria-label="Close dish detail">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+        <div class="dish-modal__content" data-modal-content></div>
+      </div>
+    </div>
+  </div>
 {% endblock %}
 
 {% block scripts %}
@@ -840,8 +679,77 @@
     const csrfToken = '{{ csrf_token }}';
 
     document.addEventListener('DOMContentLoaded', () => {
-      const cards = document.querySelectorAll('[data-card]');
-      cards.forEach((card) => {
+      const conceptCards = document.querySelectorAll('[data-concept-card]');
+      const toggleAllButton = document.getElementById('toggleAllDishes');
+      const indicator = document.getElementById('favoritesIndicator');
+      const dishModal = document.getElementById('dishModal');
+      const modalContent = dishModal ? dishModal.querySelector('[data-modal-content]') : null;
+      const conceptGrid = document.getElementById('conceptGrid');
+      const conceptDetails = document.getElementById('conceptDetails');
+      const emptyMessage = document.getElementById('favoritesEmptyMessage');
+
+      if (toggleAllButton && !toggleAllButton.hasAttribute('aria-pressed')) {
+        toggleAllButton.setAttribute('aria-pressed', 'false');
+      }
+
+      const getConceptSections = () => Array.from(document.querySelectorAll('[data-concept-dishes]'));
+      const getDishThumbnails = () => Array.from(document.querySelectorAll('[data-dish-thumbnail]'));
+
+      const setBodyScroll = (disable) => {
+        document.body.classList.toggle('overflow-hidden', disable);
+      };
+
+      const updateIndicator = () => {
+        if (!indicator) return;
+        const conceptCount = document.querySelectorAll('[data-concept-card]').length;
+        const dishCount = getDishThumbnails().length;
+        if (conceptCount === 0 && dishCount === 0) {
+          indicator.textContent = 'No favorites';
+          if (conceptGrid) {
+            conceptGrid.classList.add('hidden');
+          }
+          if (conceptDetails) {
+            conceptDetails.classList.add('hidden');
+          }
+          if (emptyMessage) {
+            emptyMessage.classList.remove('hidden');
+          }
+          return;
+        }
+
+        if (conceptGrid) {
+          conceptGrid.classList.remove('hidden');
+        }
+        if (conceptDetails) {
+          conceptDetails.classList.remove('hidden');
+        }
+        if (emptyMessage) {
+          emptyMessage.classList.add('hidden');
+        }
+        const conceptLabel = `${conceptCount} concept${conceptCount === 1 ? '' : 's'}`;
+        const dishLabel = `${dishCount} dish${dishCount === 1 ? '' : 'es'}`;
+        indicator.textContent = `${conceptLabel} · ${dishLabel}`;
+      };
+
+      const updateEmptyMessage = (container) => {
+        if (!container) return;
+        const message = container.querySelector('[data-empty-message]');
+        if (!message) return;
+        const hasDishes = container.querySelectorAll('[data-dish-thumbnail]').length > 0;
+        message.classList.toggle('hidden', hasDishes);
+      };
+
+      const refreshToggleAllState = () => {
+        if (!toggleAllButton) return;
+        const sections = getConceptSections();
+        toggleAllButton.disabled = sections.length === 0;
+        if (sections.length === 0) {
+          toggleAllButton.setAttribute('aria-pressed', 'false');
+        }
+      };
+
+      const attachCardFlip = (card) => {
+        if (!card) return;
         const toggleFlip = () => {
           card.classList.toggle('is-flipped');
         };
@@ -859,233 +767,222 @@
             toggleFlip();
           }
         });
-      });
-
-      const favoritesIndicator = document.getElementById('favoritesIndicator');
-      const galleryButton = document.getElementById('favoritesGalleryButton');
-      const gallery = document.getElementById('favoritesGallery');
-      const galleryBackdrop = gallery ? gallery.querySelector('.favorites-gallery__backdrop') : null;
-      const galleryTabs = gallery ? gallery.querySelectorAll('[data-gallery-tab]') : [];
-      const galleryPanels = gallery ? gallery.querySelectorAll('[data-gallery-content]') : [];
-      const galleryEmptyStates = gallery ? gallery.querySelectorAll('[data-gallery-empty]') : [];
-
-      const setBodyScroll = (disable) => {
-        document.body.classList.toggle('no-scroll', disable);
       };
 
-      const openGallery = () => {
-        if (!gallery) return;
-        gallery.classList.add('visible');
-        gallery.setAttribute('aria-hidden', 'false');
-        setBodyScroll(true);
-      };
-
-      const closeGallery = () => {
-        if (!gallery) return;
-        gallery.classList.remove('visible');
-        gallery.setAttribute('aria-hidden', 'true');
+      const closeModal = () => {
+        if (!dishModal) return;
+        dishModal.classList.add('hidden');
+        dishModal.setAttribute('aria-hidden', 'true');
+        if (modalContent) {
+          modalContent.innerHTML = '';
+        }
         setBodyScroll(false);
       };
 
-      if (galleryButton && gallery) {
-        galleryButton.addEventListener('click', () => {
-          if (gallery.classList.contains('visible')) {
-            closeGallery();
-          } else {
-            openGallery();
-          }
-        });
-      }
-
-      document.querySelectorAll('[data-close-gallery]').forEach((btn) => {
-        btn.addEventListener('click', closeGallery);
-      });
-
-      if (galleryBackdrop) {
-        galleryBackdrop.addEventListener('click', closeGallery);
-      }
-
-      document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && gallery?.classList.contains('visible')) {
-          closeGallery();
+      const openDishModal = (dishId) => {
+        if (!dishModal || !modalContent) return;
+        const template = document.getElementById(`dish-modal-${dishId}`);
+        if (!template) return;
+        modalContent.innerHTML = '';
+        modalContent.appendChild(template.content.cloneNode(true));
+        const card = modalContent.querySelector('[data-card]');
+        if (card) {
+          attachCardFlip(card);
+          card.focus({ preventScroll: true });
         }
-      });
+        dishModal.classList.remove('hidden');
+        dishModal.setAttribute('aria-hidden', 'false');
+        setBodyScroll(true);
+      };
 
-      if (galleryTabs.length > 0) {
-        const showPanel = (target) => {
-          galleryPanels.forEach((panel) => {
-            if (panel.getAttribute('data-gallery-content') === target) {
-              panel.classList.remove('hidden');
-            } else {
-              panel.classList.add('hidden');
-            }
-          });
+      conceptCards.forEach((card) => {
+        const conceptId = card.getAttribute('data-concept-id');
+        const targetId = card.getAttribute('data-target');
+        const section = targetId ? document.getElementById(targetId) : null;
 
-          galleryTabs.forEach((tab) => {
-            tab.classList.toggle('is-active', tab.getAttribute('data-gallery-tab') === target);
-          });
+        const toggleSection = () => {
+          if (!section) return;
+          const willExpand = section.classList.contains('hidden');
+          section.classList.toggle('hidden', !willExpand);
+          card.classList.toggle('is-open', willExpand);
+          card.setAttribute('aria-expanded', String(willExpand));
         };
 
-        galleryTabs.forEach((tab) => {
-          tab.addEventListener('click', () => {
-            const target = tab.getAttribute('data-gallery-tab');
-            if (target) {
-              showPanel(target);
-            }
-          });
-        });
-
-        const defaultTab = galleryTabs[0];
-        if (defaultTab) {
-          const target = defaultTab.getAttribute('data-gallery-tab');
-          if (target) {
-            showPanel(target);
-          }
-        }
-      }
-
-      const backButton = document.getElementById('favoritesBackButton');
-      if (backButton) {
-        backButton.addEventListener('click', (event) => {
-          event.preventDefault();
-          if (window.history.length > 1) {
-            window.history.back();
-          } else {
-            const fallback = backButton.getAttribute('data-fallback-href');
-            if (fallback) {
-              window.location.href = fallback;
-            }
-          }
-        });
-      }
-
-      const removeCardCopies = (key, origin) => {
-        if (!key) return;
-        const matchingCards = document.querySelectorAll(`[data-favorite-key="${key}"]`);
-        matchingCards.forEach((card) => {
-          if (card === origin) return;
-          card.remove();
-        });
-      };
-
-      const updateEmptyStates = () => {
-        const conceptGrid = document.getElementById('conceptFavorites');
-        const dishGrid = document.getElementById('dishFavorites');
-        const globalEmpty = document.getElementById('globalEmptyState');
-
-        const conceptCount = conceptGrid ? conceptGrid.querySelectorAll('[data-card]').length : 0;
-        const dishCount = dishGrid ? dishGrid.querySelectorAll('[data-card]').length : 0;
-        const total = conceptCount + dishCount;
-
-        if (conceptGrid) {
-          const conceptEmpty = document.getElementById('conceptEmptyState');
-          if (conceptEmpty) {
-            conceptEmpty.classList.toggle('hidden', conceptCount !== 0);
-          }
-          conceptGrid.classList.toggle('hidden', conceptCount === 0);
-        }
-
-        if (dishGrid) {
-          const dishEmpty = document.getElementById('dishEmptyState');
-          if (dishEmpty) {
-            dishEmpty.classList.toggle('hidden', dishCount !== 0);
-          }
-          dishGrid.classList.toggle('hidden', dishCount === 0);
-        }
-
-        if (globalEmpty) {
-          globalEmpty.classList.toggle('hidden', total !== 0);
-        }
-
-        if (favoritesIndicator) {
-          favoritesIndicator.textContent = total > 0 ? `${total} Favorite${total === 1 ? '' : 's'}` : 'No Favorites';
-        }
-
-        if (galleryButton) {
-          galleryButton.disabled = total === 0;
-          if (total === 0) {
-            closeGallery();
-          }
-        }
-
-        galleryEmptyStates.forEach((emptyState) => {
-          const target = emptyState.getAttribute('data-gallery-empty');
-          if (!target) return;
-          const panel = gallery ? gallery.querySelector(`[data-gallery-content="${target}"]`) : null;
-          if (!panel) return;
-          const hasCards = panel.querySelectorAll('[data-card]').length > 0;
-          emptyState.classList.toggle('hidden', hasCards);
-        });
-      };
-
-      const favoriteButtons = document.querySelectorAll('[data-favorite-toggle]');
-      favoriteButtons.forEach((btn) => {
-        btn.addEventListener('click', async (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-
-          const type = btn.getAttribute('data-favorite-type');
-          const id = btn.getAttribute('data-favorite-id');
-          if (!type || !id) {
+        card.addEventListener('click', (event) => {
+          if (event.target.closest('[data-prevent-toggle]')) {
             return;
           }
+          toggleSection();
+        });
 
-          btn.disabled = true;
-
-          try {
-            const response = await fetch('/swipe/api/favorite/', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken,
-              },
-              body: JSON.stringify({ type, id }),
-            });
-
-            if (!response.ok) {
-              throw new Error('Favorite toggle failed');
-            }
-
-            const data = await response.json();
-            const isFavorited = Boolean(data?.favorited);
-            btn.classList.toggle('favorited', isFavorited);
-
-            const heartIcon = btn.querySelector('svg');
-            if (heartIcon) {
-              heartIcon.setAttribute('fill', isFavorited ? 'currentColor' : 'none');
-            }
-
-            if (!isFavorited) {
-              const card = btn.closest('[data-card]');
-              const key = card ? card.getAttribute('data-favorite-key') : null;
-
-              if (card) {
-                anime({
-                  targets: card,
-                  opacity: [1, 0],
-                  scale: [1, 0.94],
-                  duration: 220,
-                  easing: 'easeInOutQuad',
-                  complete: () => {
-                    card.remove();
-                    removeCardCopies(key, card);
-                    updateEmptyStates();
-                  },
-                });
-              } else {
-                removeCardCopies(key, card);
-                updateEmptyStates();
-              }
-            }
-          } catch (error) {
-            console.error(error);
-          } finally {
-            btn.disabled = false;
+        card.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            toggleSection();
           }
         });
       });
 
-      updateEmptyStates();
+      document.querySelectorAll('[data-dish-thumbnail]').forEach((thumb) => {
+        const dishId = thumb.getAttribute('data-dish-id');
+        if (!dishId) return;
+        const triggerModal = () => openDishModal(dishId);
+
+        thumb.addEventListener('click', (event) => {
+          if (event.target.closest('[data-prevent-toggle]')) {
+            return;
+          }
+          triggerModal();
+        });
+
+        thumb.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            triggerModal();
+          }
+        });
+      });
+
+      if (toggleAllButton) {
+        toggleAllButton.addEventListener('click', () => {
+          const sections = getConceptSections();
+          if (!sections.length) return;
+          const shouldExpand = sections.some((section) => section.classList.contains('hidden'));
+          sections.forEach((section) => {
+            section.classList.toggle('hidden', !shouldExpand);
+            const conceptId = section.getAttribute('data-concept-dishes');
+            const card = conceptId ? document.querySelector(`[data-concept-card][data-concept-id="${conceptId}"]`) : null;
+            if (card) {
+              card.classList.toggle('is-open', shouldExpand);
+              card.setAttribute('aria-expanded', String(shouldExpand));
+            }
+          });
+          toggleAllButton.setAttribute('aria-pressed', shouldExpand ? 'true' : 'false');
+        });
+      }
+
+      document.querySelectorAll('[data-modal-dismiss]').forEach((element) => {
+        element.addEventListener('click', closeModal);
+      });
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && dishModal && !dishModal.classList.contains('hidden')) {
+          closeModal();
+        }
+      });
+
+      const handleRemoval = (type, id) => {
+        if (type === 'concept') {
+          const dishes = document.querySelector(`[data-concept-dishes="${id}"]`);
+          const card = document.querySelector(`[data-concept-card][data-concept-id="${id}"]`);
+          if (dishes) dishes.remove();
+          if (card) card.remove();
+        } else if (type === 'dish') {
+          const thumbnails = document.querySelectorAll(`[data-dish-thumbnail][data-dish-id="${id}"]`);
+          const containers = new Set();
+
+          thumbnails.forEach((thumb) => {
+            const container = thumb.closest('[data-concept-dishes]');
+            if (container) {
+              containers.add(container);
+            }
+            thumb.remove();
+          });
+
+          containers.forEach((container) => {
+            const remaining = container.querySelectorAll('[data-dish-thumbnail]').length;
+            const countDisplay = container.querySelector('[data-dish-count]');
+            if (countDisplay) {
+              countDisplay.textContent = `${remaining} dish${remaining === 1 ? '' : 'es'}`;
+            }
+
+            if (remaining === 0) {
+              const conceptId = container.getAttribute('data-concept-dishes');
+              const card = conceptId ? document.querySelector(`[data-concept-card][data-concept-id="${conceptId}"]`) : null;
+              let conceptHeart = null;
+              if (card) {
+                conceptHeart = card.querySelector('[data-favorite-toggle][data-favorite-type="concept"]');
+              }
+              const conceptFavorited = conceptHeart ? conceptHeart.classList.contains('favorited') : false;
+
+              if (!conceptFavorited) {
+                container.remove();
+                if (card) {
+                  card.remove();
+                }
+                return;
+              }
+            }
+
+            updateEmptyMessage(container);
+          });
+
+          const template = document.getElementById(`dish-modal-${id}`);
+          if (template) {
+            template.remove();
+          }
+          if (dishModal && !dishModal.classList.contains('hidden')) {
+            closeModal();
+          }
+        }
+        updateIndicator();
+        refreshToggleAllState();
+      };
+
+      document.addEventListener('click', async (event) => {
+        const button = event.target.closest('[data-favorite-toggle]');
+        if (!button) {
+          return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        const type = button.getAttribute('data-favorite-type');
+        const id = button.getAttribute('data-favorite-id');
+        if (!type || !id) {
+          return;
+        }
+
+        button.disabled = true;
+
+        try {
+          const response = await fetch('/swipe/api/favorite/', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': csrfToken,
+            },
+            body: JSON.stringify({ type, id }),
+          });
+
+          if (!response.ok) {
+            throw new Error('Favorite toggle failed');
+          }
+
+          const data = await response.json();
+          const isFavorited = Boolean(data?.favorited);
+          button.classList.toggle('favorited', isFavorited);
+          const icon = button.querySelector('svg');
+          if (icon) {
+            icon.setAttribute('fill', isFavorited ? 'currentColor' : 'none');
+          }
+
+          if (!isFavorited) {
+            handleRemoval(type, id);
+          } else {
+            updateIndicator();
+          }
+        } catch (error) {
+          console.error(error);
+        } finally {
+          button.disabled = false;
+        }
+      });
+
+      getConceptSections().forEach((section) => updateEmptyMessage(section));
+      refreshToggleAllState();
+      updateIndicator();
     });
   </script>
 {% endblock %}

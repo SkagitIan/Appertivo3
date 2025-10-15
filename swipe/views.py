@@ -245,6 +245,7 @@ class FavoritesView(TemplateView):
 
         favorite_concepts = []
         all_favorite_dishes = []
+        concept_groups = []
 
         if restaurant:
             favorite_concepts = list(
@@ -259,10 +260,27 @@ class FavoritesView(TemplateView):
                 .order_by("-id")
             )
 
+            concept_groups = []
+            concept_lookup = {}
+
+            for concept in favorite_concepts:
+                group = {"concept": concept, "dishes": []}
+                concept_groups.append(group)
+                concept_lookup[concept.id] = group
+
+            for dish in all_favorite_dishes:
+                group = concept_lookup.get(dish.concept_id)
+                if group is None:
+                    group = {"concept": dish.concept, "dishes": []}
+                    concept_groups.append(group)
+                    concept_lookup[dish.concept_id] = group
+                group["dishes"].append(dish)
+
         context.update({
             "restaurant": restaurant,
             "favorite_concepts": favorite_concepts,
             "all_favorite_dishes": all_favorite_dishes,
+            "favorite_concept_groups": concept_groups,
         })
         return context
 
