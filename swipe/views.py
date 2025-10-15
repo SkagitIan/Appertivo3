@@ -423,6 +423,25 @@ class FavoritesView(TemplateView):
         return context
 
 
+class SettingsView(TemplateView):
+    template_name = "swipe/settings.html"
+
+    def get_restaurant(self):
+        restaurant_id = self.kwargs.get("restaurant_id") or self.request.GET.get("restaurant_id")
+        if restaurant_id:
+            try:
+                return get_object_or_404(Restaurant, id=restaurant_id)
+            except (TypeError, ValueError):
+                logger.warning("Invalid restaurant_id supplied: %s", restaurant_id)
+        return Restaurant.objects.order_by("-created_at").first()
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        restaurant = self.get_restaurant()
+        context.update({"restaurant": restaurant})
+        return context
+
+
 class MarkSeenAPI(LoginRequiredMixin, View):
     def post(self, request):
         import json
