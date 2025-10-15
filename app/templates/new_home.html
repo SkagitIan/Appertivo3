@@ -1,852 +1,968 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Appertivo - Where Concepts Become Signature Dishes</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: #0f172a;
-            color: #e2e8f0;
-            overflow-x: hidden;
-        }
-
-        /* Hero Section */
-        .hero {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            overflow: hidden;
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
-        }
-
-        .hero::before {
-            content: '';
-            position: absolute;
-            width: 150%;
-            height: 150%;
-            background: radial-gradient(circle at 50% 50%, rgba(139, 92, 246, 0.1) 0%, transparent 50%);
-            animation: pulse 8s ease-in-out infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); opacity: 0.3; }
-            50% { transform: scale(1.1); opacity: 0.6; }
-        }
-
-        .hero-content {
-            position: relative;
-            z-index: 2;
-            text-align: center;
-            padding: 2rem;
-            max-width: 1200px;
-        }
-
-        .logo {
-            font-size: 0.75rem;
-            letter-spacing: 0.3em;
-            color: #94a3b8;
-            margin-bottom: 3rem;
-            font-weight: 300;
-        }
-
-        .hero h1 {
-            font-size: clamp(2.5rem, 8vw, 5rem);
-            font-weight: 300;
-            letter-spacing: 0.02em;
-            margin-bottom: 1.5rem;
-            line-height: 1.2;
-        }
-
-        .hero h1 .highlight {
-            background: linear-gradient(135deg, #a78bfa 0%, #ec4899 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            font-weight: 400;
-        }
-
-        .hero p {
-            font-size: clamp(1rem, 2vw, 1.25rem);
-            color: #cbd5e1;
-            max-width: 700px;
-            margin: 0 auto 3rem;
-            line-height: 1.8;
-        }
-
-        .cta-group {
-            display: flex;
-            gap: 1.5rem;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-
-        .btn {
-            padding: 1rem 2.5rem;
-            border-radius: 9999px;
-            font-size: 1rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-decoration: none;
-            display: inline-block;
-            letter-spacing: 0.05em;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #a78bfa 0%, #ec4899 100%);
-            color: white;
-            border: none;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 20px 40px rgba(167, 139, 250, 0.3);
-        }
-
-        .btn-secondary {
-            background: transparent;
-            color: #e2e8f0;
-            border: 1px solid #475569;
-        }
-
-        .btn-secondary:hover {
-            border-color: #a78bfa;
-            background: rgba(167, 139, 250, 0.1);
-        }
-
-        /* Floating Cards Preview */
-        .floating-cards {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-        }
-
-        .floating-card {
-            position: absolute;
-            width: 300px;
-            height: 200px;
-            border-radius: 1.5rem;
-            background: rgba(30, 41, 59, 0.6);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(148, 163, 184, 0.2);
-            overflow: hidden;
-            opacity: 0.4;
-        }
-
-        .floating-card::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(135deg, rgba(167, 139, 250, 0.3) 0%, rgba(236, 72, 153, 0.3) 100%);
-        }
-
-        .card-1 { top: 10%; left: 5%; animation: float 6s ease-in-out infinite; }
-        .card-2 { top: 60%; right: 10%; animation: float 8s ease-in-out infinite 1s; }
-        .card-3 { bottom: 15%; left: 15%; animation: float 7s ease-in-out infinite 0.5s; }
-
-        @keyframes float {
-            0%, 100% { transform: translateY(0) rotate(2deg); }
-            50% { transform: translateY(-20px) rotate(-2deg); }
-        }
-
-        /* Features Section */
-        .features {
-            padding: 8rem 2rem;
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-
-        .section-header {
-            text-align: center;
-            margin-bottom: 5rem;
-        }
-
-        .section-header h2 {
-            font-size: clamp(2rem, 5vw, 3.5rem);
-            font-weight: 300;
-            margin-bottom: 1rem;
-            letter-spacing: 0.02em;
-        }
-
-        .section-header p {
-            color: #94a3b8;
-            font-size: 1.125rem;
-            max-width: 600px;
-            margin: 0 auto;
-        }
-
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 2rem;
-            margin-top: 4rem;
-        }
-
-        .feature-card {
-            background: rgba(30, 41, 59, 0.4);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(148, 163, 184, 0.2);
-            border-radius: 1.5rem;
-            padding: 2.5rem;
-            transition: all 0.4s ease;
-            cursor: pointer;
-        }
-
-        .feature-card:hover {
-            transform: translateY(-8px);
-            border-color: rgba(167, 139, 250, 0.5);
-            box-shadow: 0 20px 60px rgba(167, 139, 250, 0.2);
-        }
-
-        .feature-icon {
-            width: 60px;
-            height: 60px;
-            border-radius: 1rem;
-            background: linear-gradient(135deg, rgba(167, 139, 250, 0.2) 0%, rgba(236, 72, 153, 0.2) 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.75rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .feature-card h3 {
-            font-size: 1.5rem;
-            font-weight: 400;
-            margin-bottom: 1rem;
-            letter-spacing: 0.02em;
-        }
-
-        .feature-card p {
-            color: #94a3b8;
-            line-height: 1.7;
-        }
-
-        /* Interactive Demo Section */
-        .demo-section {
-            padding: 8rem 2rem;
-            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .demo-container {
-            max-width: 1400px;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 4rem;
-            align-items: center;
-        }
-
-        .demo-content h2 {
-            font-size: clamp(2rem, 5vw, 3rem);
-            font-weight: 300;
-            margin-bottom: 1.5rem;
-            letter-spacing: 0.02em;
-        }
-
-        .demo-content p {
-            color: #94a3b8;
-            font-size: 1.125rem;
-            line-height: 1.8;
-            margin-bottom: 2rem;
-        }
-
-        .demo-visual {
-            position: relative;
-            height: 600px;
-        }
-
-        .concept-card {
-            position: absolute;
-            width: 400px;
-            background: rgba(30, 41, 59, 0.8);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(148, 163, 184, 0.3);
-            border-radius: 1.5rem;
-            padding: 2rem;
-            transition: all 0.5s ease;
-        }
-
-        .concept-card.active {
-            transform: scale(1.05);
-            z-index: 10;
-            border-color: rgba(167, 139, 250, 0.6);
-            box-shadow: 0 30px 80px rgba(167, 139, 250, 0.3);
-        }
-
-        .concept-card:nth-child(1) { top: 0; left: 0; }
-        .concept-card:nth-child(2) { top: 100px; left: 50px; opacity: 0.7; }
-        .concept-card:nth-child(3) { top: 200px; left: 100px; opacity: 0.4; }
-
-        .card-image {
-            width: 100%;
-            height: 200px;
-            border-radius: 1rem;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            margin-bottom: 1.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 1.25rem;
-            font-weight: 500;
-        }
-
-        .card-title {
-            font-size: 1.25rem;
-            font-weight: 500;
-            margin-bottom: 0.75rem;
-            letter-spacing: 0.05em;
-        }
-
-        .card-tags {
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-        }
-
-        .tag {
-            padding: 0.375rem 1rem;
-            background: rgba(148, 163, 184, 0.2);
-            border: 1px solid rgba(148, 163, 184, 0.3);
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            color: #cbd5e1;
-        }
-
-        /* How It Works */
-        .how-it-works {
-            padding: 8rem 2rem;
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-
-        .steps {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 3rem;
-            margin-top: 4rem;
-        }
-
-        .step {
-            text-align: center;
-            position: relative;
-        }
-
-        .step-number {
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, rgba(167, 139, 250, 0.2) 0%, rgba(236, 72, 153, 0.2) 100%);
-            border: 2px solid rgba(167, 139, 250, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 2rem;
-            font-weight: 300;
-            margin: 0 auto 2rem;
-            transition: all 0.3s ease;
-        }
-
-        .step:hover .step-number {
-            transform: scale(1.1);
-            background: linear-gradient(135deg, rgba(167, 139, 250, 0.4) 0%, rgba(236, 72, 153, 0.4) 100%);
-        }
-
-        .step h3 {
-            font-size: 1.5rem;
-            font-weight: 400;
-            margin-bottom: 1rem;
-        }
-
-        .step p {
-            color: #94a3b8;
-            line-height: 1.7;
-        }
-
-        /* Social Proof */
-        .social-proof {
-            padding: 8rem 2rem;
-            background: rgba(30, 41, 59, 0.3);
-        }
-
-        .testimonials {
-            max-width: 1400px;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-            gap: 2rem;
-            margin-top: 4rem;
-        }
-
-        .testimonial {
-            background: rgba(30, 41, 59, 0.5);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(148, 163, 184, 0.2);
-            border-radius: 1.5rem;
-            padding: 2.5rem;
-        }
-
-        .testimonial-quote {
-            font-size: 1.125rem;
-            line-height: 1.8;
-            margin-bottom: 1.5rem;
-            font-style: italic;
-            color: #cbd5e1;
-        }
-
-        .testimonial-author {
-            color: #94a3b8;
-            font-size: 0.875rem;
-        }
-
-        /* Pricing */
-        .pricing {
-            padding: 8rem 2rem;
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-
-        .pricing-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 2rem;
-            margin-top: 4rem;
-        }
-
-        .pricing-card {
-            background: rgba(30, 41, 59, 0.4);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(148, 163, 184, 0.2);
-            border-radius: 1.5rem;
-            padding: 3rem;
-            transition: all 0.4s ease;
-            text-align: center;
-        }
-
-        .pricing-card.featured {
-            border-color: rgba(167, 139, 250, 0.6);
-            background: rgba(167, 139, 250, 0.1);
-            transform: scale(1.05);
-        }
-
-        .pricing-card:hover {
-            transform: translateY(-8px) scale(1.02);
-            border-color: rgba(167, 139, 250, 0.5);
-        }
-
-        .pricing-card.featured:hover {
-            transform: translateY(-8px) scale(1.07);
-        }
-
-        .plan-name {
-            font-size: 0.875rem;
-            letter-spacing: 0.1em;
-            color: #94a3b8;
-            margin-bottom: 1rem;
-            text-transform: uppercase;
-        }
-
-        .plan-price {
-            font-size: 3.5rem;
-            font-weight: 300;
-            margin-bottom: 0.5rem;
-        }
-
-        .plan-price span {
-            font-size: 1.25rem;
-            color: #94a3b8;
-        }
-
-        .plan-description {
-            color: #94a3b8;
-            margin-bottom: 2rem;
-        }
-
-        .plan-features {
-            list-style: none;
-            margin-bottom: 2rem;
-            text-align: left;
-        }
-
-        .plan-features li {
-            padding: 0.75rem 0;
-            color: #cbd5e1;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .plan-features li::before {
-            content: '✓';
-            color: #a78bfa;
-            font-weight: bold;
-        }
-
-        /* CTA Section */
-        .final-cta {
-            padding: 8rem 2rem;
-            text-align: center;
-            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-        }
-
-        .final-cta h2 {
-            font-size: clamp(2rem, 5vw, 3.5rem);
-            font-weight: 300;
-            margin-bottom: 1.5rem;
-            letter-spacing: 0.02em;
-        }
-
-        .final-cta p {
-            color: #94a3b8;
-            font-size: 1.25rem;
-            max-width: 600px;
-            margin: 0 auto 3rem;
-        }
-
-        /* Footer */
-        footer {
-            padding: 4rem 2rem 2rem;
-            max-width: 1400px;
-            margin: 0 auto;
-            border-top: 1px solid rgba(148, 163, 184, 0.2);
-        }
-
-        .footer-content {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 3rem;
-            margin-bottom: 3rem;
-        }
-
-        .footer-section h4 {
-            font-size: 0.875rem;
-            letter-spacing: 0.1em;
-            color: #94a3b8;
-            margin-bottom: 1.5rem;
-            text-transform: uppercase;
-        }
-
-        .footer-section ul {
-            list-style: none;
-        }
-
-        .footer-section ul li {
-            margin-bottom: 0.75rem;
-        }
-
-        .footer-section a {
-            color: #cbd5e1;
-            text-decoration: none;
-            transition: color 0.3s ease;
-        }
-
-        .footer-section a:hover {
-            color: #a78bfa;
-        }
-
-        .footer-bottom {
-            text-align: center;
-            padding-top: 2rem;
-            color: #64748b;
-            font-size: 0.875rem;
-        }
-
-        @media (max-width: 768px) {
-            .demo-container {
-                grid-template-columns: 1fr;
-            }
-
-            .demo-visual {
-                height: 400px;
-            }
-
-            .concept-card {
-                width: 100%;
-                max-width: 350px;
-            }
-
-            .floating-card {
-                display: none;
-            }
-        }
-    </style>
-</head>
-<body>
-    <!-- Hero Section -->
-    <section class="hero">
-        <div class="floating-cards">
-            <div class="floating-card card-1"></div>
-            <div class="floating-card card-2"></div>
-            <div class="floating-card card-3"></div>
+{% extends "base.html" %}
+
+{% block title %}Appertivo - Where Concepts Become Signature Dishes{% endblock %}
+
+{% block head_scripts %}
+  {{ block.super }}
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+{% endblock %}
+
+{% block extra_head %}
+  {{ block.super }}
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      overflow-x: hidden;
+    }
+
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(15, 23, 42, 0.9);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+    }
+
+    .site-header__inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.5rem;
+      padding: 1.25rem 2rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .site-brand {
+      font-size: 1rem;
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      color: #94a3b8;
+      text-decoration: none;
+    }
+
+    .site-nav {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      font-size: 0.95rem;
+    }
+
+    .site-nav a {
+      color: #cbd5e1;
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+
+    .site-nav a:hover,
+    .site-nav a:focus-visible {
+      color: #f8fafc;
+    }
+
+    .site-actions {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .link-button {
+      padding: 0.6rem 1.5rem;
+      border-radius: 9999px;
+      font-size: 0.95rem;
+      font-weight: 500;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      letter-spacing: 0.05em;
+      transition: all 0.3s ease;
+    }
+
+    .link-button--ghost {
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      color: #cbd5e1;
+    }
+
+    .link-button--ghost:hover,
+    .link-button--ghost:focus-visible {
+      border-color: rgba(167, 139, 250, 0.9);
+      color: #f8fafc;
+    }
+
+    .link-button--primary {
+      background: linear-gradient(135deg, #a78bfa 0%, #ec4899 100%);
+      color: white;
+    }
+
+    .link-button--primary:hover,
+    .link-button--primary:focus-visible {
+      transform: translateY(-2px);
+      box-shadow: 0 15px 35px rgba(167, 139, 250, 0.25);
+    }
+
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      width: 150%;
+      height: 150%;
+      background: radial-gradient(circle at 50% 50%, rgba(139, 92, 246, 0.1) 0%, transparent 50%);
+      animation: pulse 8s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 0.3; }
+      50% { transform: scale(1.1); opacity: 0.6; }
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      text-align: center;
+      padding: 2rem;
+      max-width: 1200px;
+    }
+
+    .logo {
+      font-size: 0.75rem;
+      letter-spacing: 0.3em;
+      color: #94a3b8;
+      margin-bottom: 3rem;
+      font-weight: 300;
+    }
+
+    .hero h1 {
+      font-size: clamp(2.5rem, 8vw, 5rem);
+      font-weight: 300;
+      letter-spacing: 0.02em;
+      margin-bottom: 1.5rem;
+      line-height: 1.2;
+    }
+
+    .hero h1 .highlight {
+      background: linear-gradient(135deg, #a78bfa 0%, #ec4899 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      font-weight: 400;
+    }
+
+    .hero p {
+      font-size: clamp(1rem, 2vw, 1.25rem);
+      color: #cbd5e1;
+      max-width: 700px;
+      margin: 0 auto 3rem;
+      line-height: 1.8;
+    }
+
+    .cta-group {
+      display: flex;
+      gap: 1.5rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      padding: 1rem 2.5rem;
+      border-radius: 9999px;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-decoration: none;
+      display: inline-block;
+      letter-spacing: 0.05em;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #a78bfa 0%, #ec4899 100%);
+      color: white;
+      border: none;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 20px 40px rgba(167, 139, 250, 0.3);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: #e2e8f0;
+      border: 1px solid #475569;
+    }
+
+    .btn-secondary:hover {
+      border-color: #a78bfa;
+      background: rgba(167, 139, 250, 0.1);
+    }
+
+    .floating-cards {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .floating-card {
+      position: absolute;
+      width: 300px;
+      height: 200px;
+      border-radius: 1.5rem;
+      background: rgba(30, 41, 59, 0.6);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      overflow: hidden;
+      opacity: 0.4;
+    }
+
+    .floating-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(167, 139, 250, 0.3) 0%, rgba(236, 72, 153, 0.3) 100%);
+    }
+
+    .card-1 { top: 10%; left: 5%; animation: float 6s ease-in-out infinite; }
+    .card-2 { top: 60%; right: 10%; animation: float 8s ease-in-out infinite 1s; }
+    .card-3 { bottom: 15%; left: 15%; animation: float 7s ease-in-out infinite 0.5s; }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0) rotate(2deg); }
+      50% { transform: translateY(-20px) rotate(-2deg); }
+    }
+
+    .features {
+      padding: 8rem 2rem;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .section-header {
+      text-align: center;
+      margin-bottom: 5rem;
+    }
+
+    .section-header h2 {
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      font-weight: 300;
+      margin-bottom: 1rem;
+      letter-spacing: 0.02em;
+    }
+
+    .section-header p {
+      color: #94a3b8;
+      font-size: 1.125rem;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 2rem;
+      margin-top: 4rem;
+    }
+
+    .feature-card {
+      background: rgba(30, 41, 59, 0.4);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 1.5rem;
+      padding: 2.5rem;
+      transition: all 0.4s ease;
+      cursor: pointer;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-8px);
+      border-color: rgba(167, 139, 250, 0.5);
+      box-shadow: 0 20px 60px rgba(167, 139, 250, 0.2);
+    }
+
+    .feature-icon {
+      width: 60px;
+      height: 60px;
+      border-radius: 1rem;
+      background: linear-gradient(135deg, rgba(167, 139, 250, 0.2) 0%, rgba(236, 72, 153, 0.2) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .feature-card h3 {
+      font-size: 1.5rem;
+      font-weight: 400;
+      margin-bottom: 1rem;
+      letter-spacing: 0.02em;
+    }
+
+    .feature-card p {
+      color: #94a3b8;
+      line-height: 1.7;
+    }
+
+    .demo-section {
+      padding: 8rem 2rem;
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .demo-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4rem;
+      align-items: center;
+    }
+
+    .demo-content h2 {
+      font-size: clamp(2rem, 5vw, 3rem);
+      font-weight: 300;
+      margin-bottom: 1.5rem;
+      letter-spacing: 0.02em;
+    }
+
+    .demo-content p {
+      color: #94a3b8;
+      font-size: 1.125rem;
+      line-height: 1.8;
+      margin-bottom: 2rem;
+    }
+
+    .demo-visual {
+      position: relative;
+      height: 600px;
+    }
+
+    .concept-card {
+      position: absolute;
+      width: 400px;
+      background: rgba(30, 41, 59, 0.8);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      border-radius: 1.5rem;
+      padding: 2rem;
+      transition: all 0.5s ease;
+    }
+
+    .concept-card.active {
+      transform: scale(1.05);
+      z-index: 10;
+      border-color: rgba(167, 139, 250, 0.6);
+      box-shadow: 0 30px 80px rgba(167, 139, 250, 0.3);
+    }
+
+    .concept-card:nth-child(1) { top: 0; left: 0; }
+    .concept-card:nth-child(2) { top: 100px; left: 50px; opacity: 0.7; }
+    .concept-card:nth-child(3) { top: 200px; left: 100px; opacity: 0.4; }
+
+    .card-image {
+      width: 100%;
+      height: 200px;
+      border-radius: 1rem;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 1.25rem;
+      font-weight: 500;
+    }
+
+    .card-title {
+      font-size: 1.25rem;
+      font-weight: 500;
+      margin-bottom: 0.75rem;
+      letter-spacing: 0.05em;
+    }
+
+    .card-tags {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .tag {
+      padding: 0.375rem 1rem;
+      background: rgba(148, 163, 184, 0.2);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      color: #cbd5e1;
+    }
+
+    .how-it-works {
+      padding: 8rem 2rem;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 3rem;
+      margin-top: 4rem;
+    }
+
+    .step {
+      text-align: center;
+      position: relative;
+    }
+
+    .step-number {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, rgba(167, 139, 250, 0.2) 0%, rgba(236, 72, 153, 0.2) 100%);
+      border: 2px solid rgba(167, 139, 250, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      font-weight: 300;
+      margin: 0 auto 2rem;
+      transition: all 0.3s ease;
+    }
+
+    .step:hover .step-number {
+      transform: scale(1.1);
+      background: linear-gradient(135deg, rgba(167, 139, 250, 0.4) 0%, rgba(236, 72, 153, 0.4) 100%);
+    }
+
+    .step h3 {
+      font-size: 1.5rem;
+      font-weight: 400;
+      margin-bottom: 1rem;
+    }
+
+    .step p {
+      color: #94a3b8;
+      line-height: 1.7;
+    }
+
+    .social-proof {
+      padding: 8rem 2rem;
+      background: rgba(30, 41, 59, 0.3);
+    }
+
+    .testimonials {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 2rem;
+      margin-top: 4rem;
+    }
+
+    .testimonial {
+      background: rgba(30, 41, 59, 0.5);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 1.5rem;
+      padding: 2.5rem;
+    }
+
+    .testimonial-quote {
+      font-size: 1.125rem;
+      line-height: 1.8;
+      margin-bottom: 1.5rem;
+      font-style: italic;
+      color: #cbd5e1;
+    }
+
+    .testimonial-author {
+      color: #94a3b8;
+      font-size: 0.875rem;
+    }
+
+    .pricing {
+      padding: 8rem 2rem;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 2rem;
+      margin-top: 4rem;
+    }
+
+    .pricing-card {
+      background: rgba(30, 41, 59, 0.4);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 1.5rem;
+      padding: 3rem;
+      transition: all 0.4s ease;
+      text-align: center;
+    }
+
+    .pricing-card.featured {
+      border-color: rgba(167, 139, 250, 0.5);
+      box-shadow: 0 25px 60px rgba(167, 139, 250, 0.25);
+      transform: translateY(-10px);
+    }
+
+    .plan-name {
+      font-size: 1rem;
+      letter-spacing: 0.2em;
+      color: #a78bfa;
+      margin-bottom: 1rem;
+      text-transform: uppercase;
+    }
+
+    .plan-price {
+      font-size: 3rem;
+      font-weight: 300;
+      margin-bottom: 1rem;
+    }
+
+    .plan-price span {
+      font-size: 1rem;
+      color: #94a3b8;
+      margin-left: 0.25rem;
+    }
+
+    .plan-description {
+      color: #94a3b8;
+      font-size: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .plan-features {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 2.5rem;
+      display: grid;
+      gap: 0.75rem;
+      color: #cbd5e1;
+    }
+
+    .final-cta {
+      padding: 8rem 2rem;
+      text-align: center;
+    }
+
+    .final-cta h2 {
+      font-size: clamp(2rem, 5vw, 3rem);
+      font-weight: 300;
+      margin-bottom: 1rem;
+    }
+
+    .final-cta p {
+      color: #94a3b8;
+      font-size: 1.125rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .page-footer {
+      padding: 4rem 2rem 2rem;
+      max-width: 1200px;
+      margin: 0 auto;
+      border-top: 1px solid rgba(148, 163, 184, 0.2);
+    }
+
+    .footer-content {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 3rem;
+      margin-bottom: 3rem;
+    }
+
+    .footer-section h4 {
+      font-size: 0.875rem;
+      letter-spacing: 0.1em;
+      color: #94a3b8;
+      margin-bottom: 1.5rem;
+      text-transform: uppercase;
+    }
+
+    .footer-section ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .footer-section a {
+      color: #cbd5e1;
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+
+    .footer-section a:hover,
+    .footer-section a:focus-visible {
+      color: #a78bfa;
+    }
+
+    .footer-bottom {
+      text-align: center;
+      padding-top: 2rem;
+      color: #64748b;
+      font-size: 0.875rem;
+    }
+
+    @media (max-width: 900px) {
+      .site-header__inner {
+        flex-direction: column;
+      }
+
+      .site-nav {
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      .site-actions {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .demo-container {
+        grid-template-columns: 1fr;
+      }
+
+      .demo-visual {
+        height: 400px;
+      }
+
+      .concept-card {
+        width: 100%;
+        max-width: 350px;
+        position: relative;
+        margin: 0 auto;
+        left: 0 !important;
+        top: auto !important;
+        opacity: 1 !important;
+        transform: none !important;
+      }
+
+      .floating-card {
+        display: none;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .floating-card,
+      .feature-card,
+      .step-number,
+      .link-button--primary,
+      .btn-primary {
+        transition: none;
+        animation: none;
+      }
+    }
+  </style>
+{% endblock %}
+
+{% block header %}
+  <header class="site-header">
+    <div class="site-header__inner">
+      <a href="{% url 'home' %}" class="site-brand">Appertivo</a>
+      <nav class="site-nav" aria-label="Primary">
+        <a href="#features">Features</a>
+        <a href="#demo">Demo</a>
+        <a href="#how-it-works">How it works</a>
+        <a href="#pricing">Pricing</a>
+      </nav>
+      <div class="site-actions">
+        <a href="{% url 'login' %}" class="link-button link-button--ghost">Log in</a>
+        <a href="{% url 'signup' %}" class="link-button link-button--primary">Start free trial</a>
+      </div>
+    </div>
+  </header>
+{% endblock %}
+
+{% block content %}
+  <section class="hero" id="top">
+    <div class="floating-cards">
+      <div class="floating-card card-1"></div>
+      <div class="floating-card card-2"></div>
+      <div class="floating-card card-3"></div>
+    </div>
+
+    <div class="hero-content">
+      <div class="logo">APPERTIVO</div>
+      <h1>
+        Where Concepts Become<br/>
+        <span class="highlight">Signature Dishes</span>
+      </h1>
+      <p>
+        Transform fleeting inspiration into menu-ready masterpieces. AI-powered creative tools designed for restaurants that never stop innovating.
+      </p>
+      <div class="cta-group">
+        <a href="{% url 'signup' %}" class="btn btn-primary">Start Free Trial</a>
+        <a href="#demo" class="btn btn-secondary">See It In Action</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="features" id="features">
+    <div class="section-header">
+      <h2>From Napkin Sketch to Plated Perfection</h2>
+      <p>Every tool you need to capture, refine, and launch your next signature dish.</p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">✨</div>
+        <h3>AI Concept Sketches</h3>
+        <p>Describe your idea in plain language. Watch as AI generates stunning dish visualizations that bring your vision to life instantly.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🎨</div>
+        <h3>Infinite Variations</h3>
+        <p>Tweak plating, swap ingredients, adjust styles. Generate unlimited variations until you find the perfect expression of your concept.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">⭐</div>
+        <h3>Organized by Favorites</h3>
+        <p>Heart the concepts that resonate. Build collections of ideas worth developing. Your best work, always at your fingertips.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">📝</div>
+        <h3>Menu Copy That Sells</h3>
+        <p>AI trained on your restaurant's voice writes compelling descriptions. Every word captures your style, automatically.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🤝</div>
+        <h3>Seamless Collaboration</h3>
+        <p>Share concepts with your team. Gather feedback. Build menus together. Keep everyone aligned from idea to execution.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🔒</div>
+        <h3>Your Data, Your Model</h3>
+        <p>Fine-tuned on your workspace alone. Your creative direction, plating style, and flavor profiles stay completely private.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="demo-section" id="demo">
+    <div class="demo-container">
+      <div class="demo-content">
+        <h2>Watch Ideas Transform in Real-Time</h2>
+        <p>
+          Type a concept. See it visualized. Refine with variations. Save your favorites. Build menus. It's the creative process, accelerated.
+        </p>
+        <p>
+          Every interaction teaches the AI more about your restaurant's style. The more you create, the better it gets at capturing your voice.
+        </p>
+        <a href="{% url 'contact' %}" class="btn btn-primary">Request Demo</a>
+      </div>
+
+      <div class="demo-visual">
+        <div class="concept-card active">
+          <div class="card-image">Cedar-Smoked Ribeye</div>
+          <div class="card-title">RIVERSIDE CEDAR-SMOKED RIBEYE</div>
+          <div class="card-tags">
+            <span class="tag">ribeye</span>
+            <span class="tag">horseradish</span>
+            <span class="tag">seasonal</span>
+          </div>
         </div>
-        
-        <div class="hero-content">
-            <div class="logo">APPERTIVO</div>
-            <h1>
-                Where Concepts Become<br/>
-                <span class="highlight">Signature Dishes</span>
-            </h1>
-            <p>
-                Transform fleeting inspiration into menu-ready masterpieces. AI-powered creative tools designed for restaurants that never stop innovating.
-            </p>
-            <div class="cta-group">
-                <a href="#" class="btn btn-primary">Start Free Trial</a>
-                <a href="#demo" class="btn btn-secondary">See It In Action</a>
-            </div>
+        <div class="concept-card">
+          <div class="card-image" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">Prime Rib Tradition</div>
+          <div class="card-title">PRIME RIB TRADITION</div>
+          <div class="card-tags">
+            <span class="tag">prime rib</span>
+            <span class="tag">classic</span>
+          </div>
         </div>
-    </section>
-
-    <!-- Features Section -->
-    <section class="features">
-        <div class="section-header">
-            <h2>From Napkin Sketch to Plated Perfection</h2>
-            <p>Every tool you need to capture, refine, and launch your next signature dish.</p>
+        <div class="concept-card">
+          <div class="card-image" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">Pacific Salmon</div>
+          <div class="card-title">CEDAR PLANK SALMON</div>
+          <div class="card-tags">
+            <span class="tag">salmon</span>
+            <span class="tag">local</span>
+          </div>
         </div>
+      </div>
+    </div>
+  </section>
 
-        <div class="features-grid">
-            <div class="feature-card">
-                <div class="feature-icon">✨</div>
-                <h3>AI Concept Sketches</h3>
-                <p>Describe your idea in plain language. Watch as AI generates stunning dish visualizations that bring your vision to life instantly.</p>
-            </div>
+  <section class="how-it-works" id="how-it-works">
+    <div class="section-header">
+      <h2>How It Works</h2>
+      <p>Four steps from inspiration to menu-ready dish.</p>
+    </div>
 
-            <div class="feature-card">
-                <div class="feature-icon">🎨</div>
-                <h3>Infinite Variations</h3>
-                <p>Tweak plating, swap ingredients, adjust styles. Generate unlimited variations until you find the perfect expression of your concept.</p>
-            </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-number">1</div>
+        <h3>Capture Inspiration</h3>
+        <p>Describe your concept in natural language. No prompting expertise required—just write like you'd tell your sous chef.</p>
+      </div>
 
-            <div class="feature-card">
-                <div class="feature-icon">⭐</div>
-                <h3>Organized by Favorites</h3>
-                <p>Heart the concepts that resonate. Build collections of ideas worth developing. Your best work, always at your fingertips.</p>
-            </div>
+      <div class="step">
+        <div class="step-number">2</div>
+        <h3>Visualize &amp; Refine</h3>
+        <p>Generate dish imagery instantly. Create variations, adjust plating, swap ingredients. Explore possibilities without kitchen waste.</p>
+      </div>
 
-            <div class="feature-card">
-                <div class="feature-icon">📝</div>
-                <h3>Menu Copy That Sells</h3>
-                <p>AI trained on your restaurant's voice writes compelling descriptions. Every word captures your style, automatically.</p>
-            </div>
+      <div class="step">
+        <div class="step-number">3</div>
+        <h3>Favorite &amp; Organize</h3>
+        <p>Heart the winners. Tag by season, occasion, or margin. Build collections that make sense for your operation.</p>
+      </div>
 
-            <div class="feature-card">
-                <div class="feature-icon">🤝</div>
-                <h3>Seamless Collaboration</h3>
-                <p>Share concepts with your team. Gather feedback. Build menus together. Keep everyone aligned from idea to execution.</p>
-            </div>
+      <div class="step">
+        <div class="step-number">4</div>
+        <h3>Build Menus</h3>
+        <p>Drag favorites into menu lineups. Generate descriptions that match your voice. Share with your team for feedback.</p>
+      </div>
+    </div>
+  </section>
 
-            <div class="feature-card">
-                <div class="feature-icon">🔒</div>
-                <h3>Your Data, Your Model</h3>
-                <p>Fine-tuned on your workspace alone. Your creative direction, plating style, and flavor profiles stay completely private.</p>
-            </div>
+  <section class="social-proof" id="social-proof">
+    <div class="section-header">
+      <h2>Restaurants Creating with Appertivo</h2>
+    </div>
+
+    <div class="testimonials">
+      <div class="testimonial">
+        <div class="testimonial-quote">
+          "We spotted this combo after favoriting just two sketches. The AI copy matched our voice out of the gate."
         </div>
-    </section>
+        <div class="testimonial-author">— Chef, Pacific Northwest Bistro</div>
+      </div>
 
-    <!-- Demo Section -->
-    <section class="demo-section" id="demo">
-        <div class="demo-container">
-            <div class="demo-content">
-                <h2>Watch Ideas Transform in Real-Time</h2>
-                <p>
-                    Type a concept. See it visualized. Refine with variations. Save your favorites. Build menus. It's the creative process, accelerated.
-                </p>
-                <p>
-                    Every interaction teaches the AI more about your restaurant's style. The more you create, the better it gets at capturing your voice.
-                </p>
-                <a href="#" class="btn btn-primary">Request Demo</a>
-            </div>
-
-            <div class="demo-visual">
-                <div class="concept-card active">
-                    <div class="card-image">Cedar-Smoked Ribeye</div>
-                    <div class="card-title">RIVERSIDE CEDAR-SMOKED RIBEYE</div>
-                    <div class="card-tags">
-                        <span class="tag">ribeye</span>
-                        <span class="tag">horseradish</span>
-                        <span class="tag">seasonal</span>
-                    </div>
-                </div>
-                <div class="concept-card">
-                    <div class="card-image" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">Prime Rib Tradition</div>
-                    <div class="card-title">PRIME RIB TRADITION</div>
-                    <div class="card-tags">
-                        <span class="tag">prime rib</span>
-                        <span class="tag">classic</span>
-                    </div>
-                </div>
-                <div class="concept-card">
-                    <div class="card-image" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">Pacific Salmon</div>
-                    <div class="card-title">CEDAR PLANK SALMON</div>
-                    <div class="card-tags">
-                        <span class="tag">salmon</span>
-                        <span class="tag">local</span>
-                    </div>
-                </div>
-            </div>
+      <div class="testimonial">
+        <div class="testimonial-quote">
+          "Tagging a dish as 'patio launch' let the team build an entire seafood flight from the same concept."
         </div>
-    </section>
+        <div class="testimonial-author">— Owner, Coastal Seafood House</div>
+      </div>
 
-    <!-- How It Works -->
-    <section class="how-it-works">
-        <div class="section-header">
-            <h2>How It Works</h2>
-            <p>Four steps from inspiration to menu-ready dish.</p>
+      <div class="testimonial">
+        <div class="testimonial-quote">
+          "Favorites plus notes gave us a menu-ready description and shot list for socials in one click."
         </div>
+        <div class="testimonial-author">— Marketing Director, Restaurant Group</div>
+      </div>
+    </div>
+  </section>
 
-        <div class="steps">
-            <div class="step">
-                <div class="step-number">1</div>
-                <h3>Capture Inspiration</h3>
-                <p>Describe your concept in natural language. No prompting expertise required—just write like you'd tell your sous chef.</p>
-            </div>
+  <section class="pricing" id="pricing">
+    <div class="section-header">
+      <h2>Simple Pricing for Every Kitchen</h2>
+      <p>Start free. Scale when you're ready.</p>
+    </div>
 
-            <div class="step">
-                <div class="step-number">2</div>
-                <h3>Visualize & Refine</h3>
-                <p>Generate dish imagery instantly. Create variations, adjust plating, swap ingredients. Explore possibilities without kitchen waste.</p>
-            </div>
+    <div class="pricing-grid">
+      <div class="pricing-card">
+        <div class="plan-name">Free Trial</div>
+        <div class="plan-price">$0<span></span></div>
+        <div class="plan-description">14 days to explore concepts, dishes, and favorites.</div>
+        <ul class="plan-features">
+          <li>Unlimited concept sketches</li>
+          <li>Basic AI generations</li>
+          <li>Up to 50 favorites</li>
+          <li>1 user</li>
+        </ul>
+        <a href="{% url 'signup' %}" class="btn btn-secondary">Start Free Trial</a>
+      </div>
 
-            <div class="step">
-                <div class="step-number">3</div>
-                <h3>Favorite & Organize</h3>
-                <p>Heart the winners. Tag by season, occasion, or margin. Build collections that make sense for your operation.</p>
-            </div>
+      <div class="pricing-card featured">
+        <div class="plan-name">Pro</div>
+        <div class="plan-price">$59<span>/mo</span></div>
+        <div class="plan-description">Unlock enhancements, menu building, and AI-powered features.</div>
+        <ul class="plan-features">
+          <li>Everything in Free Trial</li>
+          <li>Unlimited favorites</li>
+          <li>Advanced variations</li>
+          <li>Menu builder</li>
+          <li>Team collaboration</li>
+          <li>Custom AI training</li>
+          <li>Priority support</li>
+        </ul>
+        <a href="{% url 'signup' %}" class="btn btn-primary">Start Pro Trial</a>
+      </div>
 
-            <div class="step">
-                <div class="step-number">4</div>
-                <h3>Build Menus</h3>
-                <p>Drag favorites into menu lineups. Generate descriptions that match your voice. Share with your team for feedback.</p>
-            </div>
-        </div>
-    </section>
+      <div class="pricing-card">
+        <div class="plan-name">Enterprise</div>
+        <div class="plan-price">Custom</div>
+        <div class="plan-description">For groups and multi-location operators.</div>
+        <ul class="plan-features">
+          <li>Everything in Pro</li>
+          <li>Multiple locations</li>
+          <li>Brand consistency tools</li>
+          <li>Advanced analytics</li>
+          <li>Dedicated support</li>
+          <li>Custom integrations</li>
+        </ul>
+        <a href="{% url 'contact' %}" class="btn btn-secondary">Contact Sales</a>
+      </div>
+    </div>
+  </section>
 
-    <!-- Social Proof -->
-    <section class="social-proof">
-        <div class="section-header">
-            <h2>Restaurants Creating with Appertivo</h2>
-        </div>
+  <section class="final-cta" id="get-started">
+    <h2>Ready to Transform Your Menu Development?</h2>
+    <p>Join restaurants already using Appertivo to turn inspiration into signature dishes.</p>
+    <div class="cta-group">
+      <a href="{% url 'signup' %}" class="btn btn-primary">Start Free Trial</a>
+      <a href="{% url 'contact' %}" class="btn btn-secondary">Book a Demo</a>
+    </div>
+  </section>
 
-        <div class="testimonials">
-            <div class="testimonial">
-                <div class="testimonial-quote">
-                    "We spotted this combo after favoriting just two sketches. The AI copy matched our voice out of the gate."
-                </div>
-                <div class="testimonial-author">— Chef, Pacific Northwest Bistro</div>
-            </div>
+  <footer class="page-footer">
+    <div class="footer-content">
+      <div class="footer-section">
+        <h4>Product</h4>
+        <ul>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#pricing">Pricing</a></li>
+          <li><a href="#demo">Demo</a></li>
+          <li><a href="#get-started">Get Started</a></li>
+        </ul>
+      </div>
 
-            <div class="testimonial">
-                <div class="testimonial-quote">
-                    "Tagging a dish as 'patio launch' let the team build an entire seafood flight from the same concept."
-                </div>
-                <div class="testimonial-author">— Owner, Coastal Seafood House</div>
-            </div>
+      <div class="footer-section">
+        <h4>Company</h4>
+        <ul>
+          <li><a href="{% url 'home' %}">About</a></li>
+          <li><a href="{% url 'articles:article_index' %}">Blog</a></li>
+          <li><a href="{% url 'contact' %}">Contact</a></li>
+        </ul>
+      </div>
 
-            <div class="testimonial">
-                <div class="testimonial-quote">
-                    "Favorites plus notes gave us a menu-ready description and shot list for socials in one click."
-                </div>
-                <div class="testimonial-author">— Marketing Director, Restaurant Group</div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Pricing -->
-    <section class="pricing">
-        <div class="section-header">
-            <h2>Simple Pricing for Every Kitchen</h2>
-            <p>Start free. Scale when you're ready.</p>
-        </div>
-
-        <div class="pricing-grid">
-            <div class="pricing-card">
-                <div class="plan-name">Free Trial</div>
-                <div class="plan-price">$0<span></span></div>
-                <div class="plan-description">14 days to explore concepts, dishes, and favorites.</div>
-                <ul class="plan-features">
-                    <li>Unlimited concept sketches</li>
-                    <li>Basic AI generations</li>
-                    <li>Up to 50 favorites</li>
-                    <li>1 user</li>
-                </ul>
-                <a href="#" class="btn btn-secondary">Start Free Trial</a>
-            </div>
-
-            <div class="pricing-card featured">
-                <div class="plan-name">Pro</div>
-                <div class="plan-price">$59<span>/mo</span></div>
-                <div class="plan-description">Unlock enhancements, menu building, and AI-powered features.</div>
-                <ul class="plan-features">
-                    <li>Everything in Free Trial</li>
-                    <li>Unlimited favorites</li>
-                    <li>Advanced variations</li>
-                    <li>Menu builder</li>
-                    <li>Team collaboration</li>
-                    <li>Custom AI training</li>
-                    <li>Priority support</li>
-                </ul>
-                <a href="#" class="btn btn-primary">Start Pro Trial</a>
-            </div>
-
-            <div class="pricing-card">
-                <div class="plan-name">Enterprise</div>
-                <div class="plan-price">Custom</div>
-                <div class="plan-description">For groups and multi-location operators.</div>
-                <ul class="plan-features">
-                    <li>Everything in Pro</li>
-                    <li>Multiple locations</li>
-                    <li>Brand consistency tools</li>
-                    <li>Advanced analytics</li>
-                    <li>Dedicated support</li>
-                    <li>Custom integrations</li>
-                </ul>
-                <a href="#" class="btn btn-secondary">Contact Sales</a>
-            </div>
-        </div>
-    </section>
-
-    <!-- Final CTA -->
-    <section class="final-cta">
-        <h2>Ready to Transform Your Menu Development?</h2>
-        <p>Join restaurants already using Appertivo to turn inspiration into signature dishes.</p>
-        <div class="cta-group">
-            <a href="#" class="btn btn-primary">Start Free Trial</a>
-            <a href="#" class="btn btn-secondary">Book a Demo</a>
-        </div>
-    </section>
-
-    <!-- Footer -->
-    <footer>
-        <div class="footer-content">
-            <div class="footer-section">
-                <h4>Product</h4>
-                <ul>
-                    <li><a href="#">Features</a></li>
-                    <li><a href="#">Pricing</a></li>
-                    <li><a href="#">Demo</a></li>
-                    <li><a href="#">Updates</a></li>
-                </ul>
-            </div>
-
-            <div class="footer-section">
-                <h4>Company</h4>
-                <ul>
-                    <li><a href="#">About</a></li>
-                    <li><a href="#">Blog</a></li>
-                    <li><a href="#">Careers</a></li>
-                    <li><a href="#">Contact</a></li
+      <div class="footer-section">
+        <h4>Resources</h4>
+        <ul>
+          <li><a href="{% url 'login' %}">Log in</a></li>
+          <li><a href="{% url 'signup' %}">Create account</a></li>
+          <li><a href="{% url 'privacy' %}">Privacy</a></li>
+          <li><a href="{% url 'terms' %}">Terms</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      &copy; {{ now|date:"Y" }} Appertivo. All rights reserved.
+    </div>
+  </footer>
+{% endblock %}
