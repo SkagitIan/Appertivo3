@@ -115,7 +115,8 @@
       display: flex;
       flex: 1;
       flex-direction: column;
-      overflow-y: auto;
+      position: relative;
+      overflow: hidden;
       min-height: 0;
       height: 100%;
       width: 100%;
@@ -125,6 +126,62 @@
       justify-content: center;
       align-items: center;
       text-align: center;
+    }
+
+    .scroll-gradient {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: clamp(2.5rem, 7vh, 4rem);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.35s ease;
+      z-index: 3;
+    }
+
+    .scroll-gradient.is-visible {
+      opacity: 1;
+    }
+
+    .scroll-gradient--top {
+      top: 0;
+      background: linear-gradient(to bottom, rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0));
+    }
+
+    .scroll-gradient--bottom {
+      bottom: 0;
+      background: linear-gradient(to top, rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0));
+    }
+
+    .scroll-gradient__icon {
+      width: 1.8rem;
+      height: 1.8rem;
+      color: rgba(248, 250, 252, 0.85);
+      opacity: 0;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    .scroll-gradient--top .scroll-gradient__icon {
+      transform: translateY(-8px);
+    }
+
+    .scroll-gradient--bottom .scroll-gradient__icon {
+      transform: translateY(8px);
+    }
+
+    .scroll-gradient.show-arrow .scroll-gradient__icon {
+      opacity: 1;
+    }
+
+    .scroll-gradient.show-arrow.scroll-gradient--top .scroll-gradient__icon {
+      transform: translateY(0);
+    }
+
+    .scroll-gradient.show-arrow.scroll-gradient--bottom .scroll-gradient__icon {
+      transform: translateY(0);
     }
 
     .card-back-body {
@@ -793,6 +850,151 @@
     const introOverlay = document.getElementById('introOverlay');
     const dismissIntro = document.getElementById('dismissIntro');
     const DISH_PLACEHOLDER = 'https://placehold.co/800x600?text=Dish';
+    const scrollIndicatorStates = new WeakMap();
+    const scrollIndicatorContainers = new Set();
+
+    function hideScrollIndicatorArrows(state) {
+      state.top.classList.remove('show-arrow');
+      state.bottom.classList.remove('show-arrow');
+    }
+
+    function showScrollIndicatorArrows(state) {
+      if (state.top.classList.contains('is-visible')) {
+        state.top.classList.add('show-arrow');
+      }
+      if (state.bottom.classList.contains('is-visible')) {
+        state.bottom.classList.add('show-arrow');
+      }
+    }
+
+    function scheduleArrowHide(state, delay) {
+      if (state.hideTimeoutId) {
+        window.clearTimeout(state.hideTimeoutId);
+      }
+      state.hideTimeoutId = window.setTimeout(() => {
+        hideScrollIndicatorArrows(state);
+        state.hideTimeoutId = null;
+      }, delay);
+    }
+
+    function refreshScrollIndicator(container) {
+      const state = scrollIndicatorStates.get(container);
+      if (!state) {
+        return;
+      }
+
+      const totalScrollable = container.scrollHeight - container.clientHeight;
+      const hasScrollable = totalScrollable > 1;
+      const atTop = container.scrollTop <= 1;
+      const atBottom = container.scrollTop >= totalScrollable - 1;
+
+      state.hasScrollable = hasScrollable;
+
+      state.top.classList.toggle('is-visible', hasScrollable && !atTop);
+      state.bottom.classList.toggle('is-visible', hasScrollable && !atBottom);
+
+      if (!hasScrollable) {
+        hideScrollIndicatorArrows(state);
+      } else {
+        if (!state.top.classList.contains('is-visible')) {
+          state.top.classList.remove('show-arrow');
+        }
+        if (!state.bottom.classList.contains('is-visible')) {
+          state.bottom.classList.remove('show-arrow');
+        }
+      }
+    }
+
+    function setupScrollIndicators(container) {
+      if (!container || scrollIndicatorStates.has(container)) {
+        return;
+      }
+
+      const parent = container.closest('.card-back-content');
+      if (!parent) {
+        return;
+      }
+
+      const topGradient = document.createElement('div');
+      topGradient.className = 'scroll-gradient scroll-gradient--top';
+      topGradient.innerHTML = `
+        <span class="scroll-gradient__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m8 14 4-4 4 4" />
+          </svg>
+        </span>
+      `;
+
+      const bottomGradient = document.createElement('div');
+      bottomGradient.className = 'scroll-gradient scroll-gradient--bottom';
+      bottomGradient.innerHTML = `
+        <span class="scroll-gradient__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m16 10-4 4-4-4" />
+          </svg>
+        </span>
+      `;
+
+      parent.appendChild(topGradient);
+      parent.appendChild(bottomGradient);
+
+      const state = {
+        top: topGradient,
+        bottom: bottomGradient,
+        pauseTimeoutId: null,
+        hideTimeoutId: null,
+        initialTimeoutId: null,
+        hasScrollable: false
+      };
+
+      scrollIndicatorStates.set(container, state);
+      scrollIndicatorContainers.add(container);
+
+      const handleScroll = () => {
+        refreshScrollIndicator(container);
+        hideScrollIndicatorArrows(state);
+
+        if (state.initialTimeoutId) {
+          window.clearTimeout(state.initialTimeoutId);
+          state.initialTimeoutId = null;
+        }
+
+        if (!state.hasScrollable) {
+          return;
+        }
+
+        if (state.pauseTimeoutId) {
+          window.clearTimeout(state.pauseTimeoutId);
+        }
+        if (state.hideTimeoutId) {
+          window.clearTimeout(state.hideTimeoutId);
+        }
+
+        state.pauseTimeoutId = window.setTimeout(() => {
+          showScrollIndicatorArrows(state);
+          scheduleArrowHide(state, 2000);
+          state.pauseTimeoutId = null;
+        }, 180);
+      };
+
+      container.addEventListener('scroll', handleScroll, { passive: true });
+
+      refreshScrollIndicator(container);
+
+      if (state.hasScrollable) {
+        state.initialTimeoutId = window.setTimeout(() => {
+          showScrollIndicatorArrows(state);
+          scheduleArrowHide(state, 500);
+          state.initialTimeoutId = null;
+        }, 300);
+      }
+    }
+
+    function refreshAllScrollIndicators() {
+      scrollIndicatorContainers.forEach((container) => {
+        refreshScrollIndicator(container);
+      });
+    }
 
     function initializeCard(card) {
       if (!card || card.dataset.cardReady === 'true') {
@@ -802,8 +1004,16 @@
       const inner = card.querySelector('.card-inner');
       if (!inner) return;
 
+      const scrollContainer = card.querySelector('.card-back-body');
+      if (scrollContainer) {
+        setupScrollIndicators(scrollContainer);
+      }
+
       const toggleFlip = () => {
         card.classList.toggle('is-flipped');
+        window.requestAnimationFrame(() => {
+          refreshAllScrollIndicators();
+        });
       };
 
       card.addEventListener('click', (event) => {
@@ -982,6 +1192,12 @@
       initializeCard(card);
     });
 
+    refreshAllScrollIndicators();
+
+    window.addEventListener('resize', () => {
+      refreshAllScrollIndicators();
+    });
+
     const getSlideHeight = () => {
       return window.innerHeight;
     };
@@ -1147,6 +1363,10 @@
               track.insertBefore(card, referenceNode);
             });
 
+            window.requestAnimationFrame(() => {
+              refreshAllScrollIndicators();
+            });
+
             const currentCount = Number.isInteger(dishCounts[conceptIndex])
               ? dishCounts[conceptIndex]
               : 0;
@@ -1208,6 +1428,7 @@
         if (totalConcepts === 0) {
           anime.remove(verticalSlider);
           verticalSlider.style.transform = 'translateY(0)';
+          refreshAllScrollIndicators();
           return;
         }
 
@@ -1218,6 +1439,7 @@
 
         if (immediate) {
           verticalSlider.style.transform = `translateY(${offset}px)`;
+          refreshAllScrollIndicators();
           return;
         }
 
@@ -1225,7 +1447,8 @@
           targets: verticalSlider,
           translateY: offset,
           easing: 'easeOutCubic',
-          duration: 600
+          duration: 600,
+          complete: refreshAllScrollIndicators
         });
       }
 
@@ -1260,6 +1483,7 @@
 
         if (instant) {
           track.style.transform = `translateX(-${offset}px)`;
+          refreshAllScrollIndicators();
           return;
         }
 
@@ -1267,7 +1491,8 @@
           targets: track,
           translateX: -offset,
           easing: 'easeOutCubic',
-          duration: 500
+          duration: 500,
+          complete: refreshAllScrollIndicators
         });
       }
 
