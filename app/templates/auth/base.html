@@ -1,21 +1,38 @@
 {% extends "layouts/auth.html" %}
 
 {% block content %}
-  <div class="w-full max-w-md bg-white rounded-2xl shadow-lg p-8 space-y-4">
-    <h1 class="text-3xl font-bold text-center text-[#2E005D]">{% block auth_title %}{% endblock %}</h1>
-    {% if error %}
-      <div class="rounded-xl bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">
-        {{ error }}
+  <div class="relative isolate w-full max-w-3xl px-4">
+    <div class="absolute -top-40 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-gradient-to-r from-[#a78bfa]/40 to-[#ec4899]/40 blur-[120px]"></div>
+    <div class="absolute -bottom-24 right-0 h-64 w-64 rounded-full bg-[#ec4899]/20 blur-[120px]"></div>
+    <div class="absolute -bottom-32 left-0 h-52 w-52 rounded-full bg-[#38bdf8]/10 blur-[100px]"></div>
+
+    <div class="relative overflow-hidden rounded-[2rem] border border-white/10 bg-white/5 backdrop-blur-2xl shadow-2xl p-10 md:p-12 space-y-8">
+      <div class="space-y-4 text-center">
+        <span class="text-xs uppercase tracking-[0.6em] text-slate-400">Appertivo</span>
+        <h1 class="text-3xl md:text-4xl font-light text-slate-100">{% block auth_title %}{% endblock %}</h1>
+        <p class="text-sm text-slate-400 max-w-md mx-auto">Curate signature menus, coordinate your team, and elevate every service.</p>
       </div>
-    {% endif %}
-    <form method="post" class="space-y-4">
-      {% csrf_token %}
-      {% block form_fields %}{% endblock %}
-      <button type="submit"
-              class="w-full bg-gradient-to-r from-[#FF8300] to-[#FF5C00] text-white font-semibold py-3 rounded-xl shadow-md hover:scale-105 transition">
-        {% block submit_label %}Continue{% endblock %}
-      </button>
-    </form>
-    {% block auth_footer %}{% endblock %}
+
+      {% if error %}
+        <div class="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          {{ error }}
+        </div>
+      {% endif %}
+
+      <form method="post" class="space-y-5">
+        {% csrf_token %}
+        <div class="space-y-5">
+          {% block form_fields %}{% endblock %}
+        </div>
+        <button type="submit"
+                class="w-full rounded-full bg-gradient-to-r from-[#a78bfa] via-[#8b5cf6] to-[#ec4899] px-6 py-3 text-base font-medium text-white shadow-[0_20px_45px_rgba(59,130,246,0.25)] transition hover:translate-y-[-2px] hover:shadow-[0_24px_55px_rgba(147,51,234,0.35)] focus:outline-none focus:ring-2 focus:ring-[#a78bfa]/70">
+          {% block submit_label %}Continue{% endblock %}
+        </button>
+      </form>
+
+      <div class="text-center text-sm text-slate-400">
+        {% block auth_footer %}{% endblock %}
+      </div>
+    </div>
   </div>
 {% endblock %}
