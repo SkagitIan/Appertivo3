@@ -451,193 +451,191 @@
 {% endblock %}
 
 {% block content %}
-  <div class="relative min-h-screen pb-32">
+  <div class="relative min-h-screen pb-32 px-4 pt-24">
     <div class="fixed top-6 left-6 z-40 text-[0.7rem] tracking-[0.55em] uppercase text-slate-200/80">
       {% if restaurant %}{{ restaurant.name }}{% else %}Appertivo{% endif %}
     </div>
 
-    <div class="mx-auto max-w-5xl px-4 pt-24">
-      <div class="mb-10 text-center text-[0.65rem] uppercase tracking-[0.45em] text-slate-300/80">
-        Favorites Archive
+    <div class="mb-10 text-center text-[0.65rem] uppercase tracking-[0.45em] text-slate-300/80">
+      Favorites Archive
+    </div>
+
+    {% if favorite_concept_groups %}
+      <div class="concept-grid" id="conceptGrid">
+        {% for group in favorite_concept_groups %}
+          <article
+            class="concept-card"
+            data-concept-card
+            data-concept-id="{{ group.concept.id }}"
+            data-target="concept-{{ group.concept.id }}-dishes"
+            role="button"
+            tabindex="0"
+            aria-controls="concept-{{ group.concept.id }}-dishes"
+            aria-expanded="false"
+          >
+            {% with concept_image=group.concept.display_sketch_url concept_placeholder="https://placehold.co/600x600?text=Concept" %}
+              <div class="concept-thumb">
+                <img
+                  src="{{ concept_image }}"
+                  alt="{{ group.concept.name }} concept sketch"
+                  loading="lazy"
+                  decoding="async"
+                  onerror="this.onerror=null;this.src='{{ concept_placeholder }}';"
+                >
+              </div>
+            {% endwith %}
+            <div class="concept-meta">
+              <h3>{{ group.concept.name }}</h3>
+              {% if group.concept.subtitle %}
+                <p>{{ group.concept.subtitle }}</p>
+              {% endif %}
+            </div>
+            <button
+              type="button"
+              class="heart-btn{% if group.concept.is_favorite %} favorited{% endif %}"
+              data-favorite-toggle
+              data-favorite-type="concept"
+              data-favorite-id="{{ group.concept.id }}"
+              aria-label="Toggle favorite for {{ group.concept.name }}"
+              data-prevent-toggle
+            >
+              <svg viewBox="0 0 24 24" fill="{% if group.concept.is_favorite %}currentColor{% else %}none{% endif %}" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
+            </button>
+          </article>
+        {% endfor %}
       </div>
 
-      {% if favorite_concept_groups %}
-        <div class="concept-grid" id="conceptGrid">
-          {% for group in favorite_concept_groups %}
-            <article
-              class="concept-card"
-              data-concept-card
-              data-concept-id="{{ group.concept.id }}"
-              data-target="concept-{{ group.concept.id }}-dishes"
-              role="button"
-              tabindex="0"
-              aria-controls="concept-{{ group.concept.id }}-dishes"
-              aria-expanded="false"
-            >
-              {% with concept_image=group.concept.display_sketch_url concept_placeholder="https://placehold.co/600x600?text=Concept" %}
-                <div class="concept-thumb">
-                  <img
-                    src="{{ concept_image }}"
-                    alt="{{ group.concept.name }} concept sketch"
-                    loading="lazy"
-                    decoding="async"
-                    onerror="this.onerror=null;this.src='{{ concept_placeholder }}';"
-                  >
-                </div>
-              {% endwith %}
-              <div class="concept-meta">
-                <h3>{{ group.concept.name }}</h3>
-                {% if group.concept.subtitle %}
-                  <p>{{ group.concept.subtitle }}</p>
-                {% endif %}
-              </div>
-              <button
-                type="button"
-                class="heart-btn{% if group.concept.is_favorite %} favorited{% endif %}"
-                data-favorite-toggle
-                data-favorite-type="concept"
-                data-favorite-id="{{ group.concept.id }}"
-                aria-label="Toggle favorite for {{ group.concept.name }}"
-                data-prevent-toggle
-              >
-                <svg viewBox="0 0 24 24" fill="{% if group.concept.is_favorite %}currentColor{% else %}none{% endif %}" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                </svg>
-              </button>
-            </article>
-          {% endfor %}
-        </div>
-
-        <div class="mt-12 space-y-12" id="conceptDetails">
-          {% for group in favorite_concept_groups %}
-            <section
-              id="concept-{{ group.concept.id }}-dishes"
-              class="concept-dishes hidden"
-              data-concept-dishes="{{ group.concept.id }}"
-            >
-              <div class="concept-dishes__header">
-                <h4>{{ group.concept.name }}</h4>
-                <span data-dish-count>
-                  {% with dish_total=group.dishes|length %}
-                    {{ dish_total }} dish{% if dish_total != 1 %}es{% endif %}
-                  {% endwith %}
-                </span>
-              </div>
-              <div class="concept-dishes__grid">
-                {% for dish in group.dishes %}
-                  <div
-                    class="dish-thumb"
-                    data-dish-thumbnail
-                    data-dish-id="{{ dish.id }}"
-                    role="button"
-                    tabindex="0"
-                    aria-label="View {{ dish.name }}"
-                  >
-                    {% with dish_image=dish.display_image_url dish_placeholder="https://placehold.co/600x600?text=Dish" %}
-                      <div class="dish-thumb__media">
-                        <img
-                          src="{{ dish_image }}"
-                          alt="{{ dish.name }} presentation"
-                          loading="lazy"
-                          decoding="async"
-                          onerror="this.onerror=null;this.src='{{ dish_placeholder }}';"
-                        >
-                      </div>
-                    {% endwith %}
-                    <div class="dish-thumb__meta">
-                      <h5>{{ dish.name }}</h5>
-                      {% if dish.price %}
-                        <span>{{ dish.price }}</span>
-                      {% endif %}
+      <div class="mt-12 space-y-12" id="conceptDetails">
+        {% for group in favorite_concept_groups %}
+          <section
+            id="concept-{{ group.concept.id }}-dishes"
+            class="concept-dishes hidden"
+            data-concept-dishes="{{ group.concept.id }}"
+          >
+            <div class="concept-dishes__header">
+              <h4>{{ group.concept.name }}</h4>
+              <span data-dish-count>
+                {% with dish_total=group.dishes|length %}
+                  {{ dish_total }} dish{% if dish_total != 1 %}es{% endif %}
+                {% endwith %}
+              </span>
+            </div>
+            <div class="concept-dishes__grid">
+              {% for dish in group.dishes %}
+                <div
+                  class="dish-thumb"
+                  data-dish-thumbnail
+                  data-dish-id="{{ dish.id }}"
+                  role="button"
+                  tabindex="0"
+                  aria-label="View {{ dish.name }}"
+                >
+                  {% with dish_image=dish.display_image_url dish_placeholder="https://placehold.co/600x600?text=Dish" %}
+                    <div class="dish-thumb__media">
+                      <img
+                        src="{{ dish_image }}"
+                        alt="{{ dish.name }} presentation"
+                        loading="lazy"
+                        decoding="async"
+                        onerror="this.onerror=null;this.src='{{ dish_placeholder }}';"
+                      >
                     </div>
-                    <button
-                      type="button"
-                      class="heart-btn{% if dish.is_favorite %} favorited{% endif %}"
-                      data-favorite-toggle
-                      data-favorite-type="dish"
-                      data-favorite-id="{{ dish.id }}"
-                      aria-label="Toggle favorite for {{ dish.name }}"
-                      data-prevent-toggle
-                    >
-                      <svg viewBox="0 0 24 24" fill="{% if dish.is_favorite %}currentColor{% else %}none{% endif %}" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                      </svg>
-                    </button>
+                  {% endwith %}
+                  <div class="dish-thumb__meta">
+                    <h5>{{ dish.name }}</h5>
+                    {% if dish.price %}
+                      <span>{{ dish.price }}</span>
+                    {% endif %}
                   </div>
+                  <button
+                    type="button"
+                    class="heart-btn{% if dish.is_favorite %} favorited{% endif %}"
+                    data-favorite-toggle
+                    data-favorite-type="dish"
+                    data-favorite-id="{{ dish.id }}"
+                    aria-label="Toggle favorite for {{ dish.name }}"
+                    data-prevent-toggle
+                  >
+                    <svg viewBox="0 0 24 24" fill="{% if dish.is_favorite %}currentColor{% else %}none{% endif %}" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                    </svg>
+                  </button>
+                </div>
 
-                  <template id="dish-modal-{{ dish.id }}">
-                    <div class="flip-card" data-card role="button" tabindex="0" aria-label="Flip {{ dish.name }} card">
-                      <div class="card-inner">
-                        {% with dish_image=dish.display_image_url dish_placeholder="https://placehold.co/800x600?text=Dish" %}
-                          <div class="card-face card-front">
-                            <img
-                              src="{{ dish_image }}"
-                              alt="{{ dish.name }} presentation"
-                              class="card-media"
-                              loading="lazy"
-                              decoding="async"
-                              onerror="this.onerror=null;this.src='{{ dish_placeholder }}';"
-                            >
-                          </div>
-                        {% endwith %}
-                        <div class="card-face card-back">
-                          <button
-                            type="button"
-                            class="heart-btn{% if dish.is_favorite %} favorited{% endif %}"
-                            data-prevent-flip
-                            data-favorite-toggle
-                            data-favorite-type="dish"
-                            data-favorite-id="{{ dish.id }}"
-                            aria-label="Toggle favorite for {{ dish.name }}"
+                <template id="dish-modal-{{ dish.id }}">
+                  <div class="flip-card" data-card role="button" tabindex="0" aria-label="Flip {{ dish.name }} card">
+                    <div class="card-inner">
+                      {% with dish_image=dish.display_image_url dish_placeholder="https://placehold.co/800x600?text=Dish" %}
+                        <div class="card-face card-front">
+                          <img
+                            src="{{ dish_image }}"
+                            alt="{{ dish.name }} presentation"
+                            class="card-media"
+                            loading="lazy"
+                            decoding="async"
+                            onerror="this.onerror=null;this.src='{{ dish_placeholder }}';"
                           >
-                            <svg viewBox="0 0 24 24" fill="{% if dish.is_favorite %}currentColor{% else %}none{% endif %}" stroke="currentColor">
-                              <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                            </svg>
-                          </button>
-                          <div class="card-back-content">
-                            <div>
-                              <h3 class="card-back-heading">{{ dish.name }}</h3>
-                              {% if dish.reasoning %}
-                                <p class="card-back-description">{{ dish.reasoning }}</p>
-                              {% endif %}
-                            </div>
-                            <div class="flex items-center justify-between text-xs uppercase tracking-[0.3em] text-slate-300/80">
-                              <span>{{ dish.concept.name }}</span>
-                              {% if dish.price %}
-                                <span class="card-back-price">{{ dish.price }}</span>
-                              {% endif %}
-                            </div>
-                            {% if dish.ingredients %}
-                              <div class="card-back-tags">
-                                {% for ingredient in dish.ingredients %}
-                                  <span class="tag-chip">{{ ingredient }}</span>
-                                {% endfor %}
-                              </div>
+                        </div>
+                      {% endwith %}
+                      <div class="card-face card-back">
+                        <button
+                          type="button"
+                          class="heart-btn{% if dish.is_favorite %} favorited{% endif %}"
+                          data-prevent-flip
+                          data-favorite-toggle
+                          data-favorite-type="dish"
+                          data-favorite-id="{{ dish.id }}"
+                          aria-label="Toggle favorite for {{ dish.name }}"
+                        >
+                          <svg viewBox="0 0 24 24" fill="{% if dish.is_favorite %}currentColor{% else %}none{% endif %}" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                          </svg>
+                        </button>
+                        <div class="card-back-content">
+                          <div>
+                            <h3 class="card-back-heading">{{ dish.name }}</h3>
+                            {% if dish.reasoning %}
+                              <p class="card-back-description">{{ dish.reasoning }}</p>
                             {% endif %}
                           </div>
+                          <div class="flex items-center justify-between text-xs uppercase tracking-[0.3em] text-slate-300/80">
+                            <span>{{ dish.concept.name }}</span>
+                            {% if dish.price %}
+                              <span class="card-back-price">{{ dish.price }}</span>
+                            {% endif %}
+                          </div>
+                          {% if dish.ingredients %}
+                            <div class="card-back-tags">
+                              {% for ingredient in dish.ingredients %}
+                                <span class="tag-chip">{{ ingredient }}</span>
+                              {% endfor %}
+                            </div>
+                          {% endif %}
                         </div>
                       </div>
                     </div>
-                  </template>
-                {% endfor %}
-                <p class="concept-dishes__empty{% if group.dishes %} hidden{% endif %}" data-empty-message>
-                  No favorite dishes yet.
-                </p>
-              </div>
-            </section>
-          {% endfor %}
-        </div>
-        <div id="favoritesEmptyMessage" class="mt-16 hidden text-center text-slate-200">
-          <h2 class="text-lg uppercase tracking-[0.35em]">No favorites yet</h2>
-          <p class="mt-3 text-sm text-slate-400">Save a concept or dish from the swipe view to revisit it here.</p>
-        </div>
-      {% else %}
-        <div class="mx-auto max-w-md rounded-3xl border border-slate-700/60 bg-slate-900/70 p-10 text-center text-slate-200">
-          <h2 class="text-lg uppercase tracking-[0.35em]">No favorites yet</h2>
-          <p class="mt-3 text-sm text-slate-400">Save a concept or dish from the swipe view to revisit it here.</p>
-        </div>
-      {% endif %}
-    </div>
+                  </div>
+                </template>
+              {% endfor %}
+              <p class="concept-dishes__empty{% if group.dishes %} hidden{% endif %}" data-empty-message>
+                No favorite dishes yet.
+              </p>
+            </div>
+          </section>
+        {% endfor %}
+      </div>
+      <div id="favoritesEmptyMessage" class="mt-16 hidden text-center text-slate-200">
+        <h2 class="text-lg uppercase tracking-[0.35em]">No favorites yet</h2>
+        <p class="mt-3 text-sm text-slate-400">Save a concept or dish from the swipe view to revisit it here.</p>
+      </div>
+    {% else %}
+      <div class="mx-auto max-w-md rounded-3xl border border-slate-700/60 bg-slate-900/70 p-10 text-center text-slate-200">
+        <h2 class="text-lg uppercase tracking-[0.35em]">No favorites yet</h2>
+        <p class="mt-3 text-sm text-slate-400">Save a concept or dish from the swipe view to revisit it here.</p>
+      </div>
+    {% endif %}
 
     <div class="floating-controls" id="favoritesControls">
       <div class="floating-controls__inner">
