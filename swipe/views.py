@@ -189,6 +189,48 @@ class SwipeConceptBatchView(View):
         return JsonResponse({"results": results, "limit": limit, "offset": offset})
 
 
+class ConceptDishAppendView(View):
+    """Append freshly generated dishes to an existing concept."""
+
+    def post(self, request, concept_id):
+        concept = get_object_or_404(
+            Concept.objects.select_related("restaurant"), pk=concept_id
+        )
+
+        generator = GetConcepts(restaurant=concept.restaurant)
+
+        try:
+            saved_dishes = asyncio.run(generator.append_dishes_to_concept(concept))
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.exception(
+                "Failed to append dishes for concept %s: %s", concept_id, exc
+            )
+            return JsonResponse(
+                {"error": "Unable to fetch additional dishes."}, status=500
+            )
+
+        response_payload = []
+        for dish in saved_dishes:
+            ingredients = dish.get("ingredient_overlap") or dish.get("ingredients") or []
+            if isinstance(ingredients, str):
+                ingredients = [ingredients]
+
+            response_payload.append(
+                {
+                    "id": dish.get("id"),
+                    "name": dish.get("title") or dish.get("name") or "",
+                    "reasoning": dish.get("description")
+                    or dish.get("reasoning")
+                    or "",
+                    "ingredients": ingredients,
+                    "price": dish.get("suggested_price") or dish.get("price") or "",
+                    "image_url": dish.get("image_url") or "",
+                }
+            )
+
+        return JsonResponse({"dishes": response_payload})
+
+
 @method_decorator(csrf_exempt, name="dispatch")
 class ToggleFavoriteAPI(View):
     """

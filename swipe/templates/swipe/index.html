@@ -581,7 +581,11 @@
           {% for concept in concepts %}
             <div class="concept-slide" data-concept-index="{{ forloop.counter0 }}">
               <div id="horizontalSlider{{ forloop.counter0 }}" class="horizontal-slider slide-container w-full">
-                <div class="horizontal-track">
+                <div
+                  class="horizontal-track"
+                  data-concept-track="{{ concept.id }}"
+                  data-concept-index="{{ forloop.counter0 }}"
+                >
                   <!-- Concept Card -->
                   <div class="card w-full" data-card tabindex="0" role="button">
                     <div class="card-inner">
@@ -620,6 +624,22 @@
                               <span class="tag-chip">Seasonal</span>
                             {% endfor %}
                           </div>
+                          <button
+                            type="button"
+                            class="mt-4 inline-flex items-center gap-3 self-start rounded-full border border-slate-100/40 bg-slate-900/70 px-5 py-2 text-[0.55rem] font-semibold uppercase tracking-[0.3em] text-slate-100 transition hover:bg-slate-800/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-100/70"
+                            data-prevent-flip
+                            data-load-dishes
+                            data-concept-id="{{ concept.id }}"
+                            data-concept-index="{{ forloop.counter0 }}"
+                            data-endpoint="{% url 'swipe:concept_append_dishes' concept.id %}"
+                          >
+                            <span data-label>Get more dishes</span>
+                            <span
+                              class="ml-2 hidden h-4 w-4 animate-spin rounded-full border-2 border-white/60 border-t-transparent"
+                              data-spinner
+                              aria-hidden="true"
+                            ></span>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -736,6 +756,137 @@
     const verticalSlider = document.getElementById('verticalSlider');
     const introOverlay = document.getElementById('introOverlay');
     const dismissIntro = document.getElementById('dismissIntro');
+    const DISH_PLACEHOLDER = 'https://placehold.co/800x600?text=Dish';
+
+    function initializeCard(card) {
+      if (!card || card.dataset.cardReady === 'true') {
+        return;
+      }
+
+      const inner = card.querySelector('.card-inner');
+      if (!inner) return;
+
+      const toggleFlip = () => {
+        card.classList.toggle('is-flipped');
+      };
+
+      card.addEventListener('click', (event) => {
+        if (event.target.closest('[data-prevent-flip]')) {
+          return;
+        }
+        toggleFlip();
+      });
+
+      card.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          toggleFlip();
+        }
+      });
+
+      card.dataset.cardReady = 'true';
+    }
+
+    function setButtonLoading(button, isLoading) {
+      if (!button) return;
+      button.disabled = isLoading;
+      button.setAttribute('aria-busy', String(isLoading));
+
+      const spinner = button.querySelector('[data-spinner]');
+      if (spinner) {
+        spinner.classList.toggle('hidden', !isLoading);
+      }
+    }
+
+    function createDishCard(dish) {
+      const card = document.createElement('div');
+      card.className = 'card w-full';
+      card.setAttribute('data-card', '');
+      card.setAttribute('tabindex', '0');
+      card.setAttribute('role', 'button');
+
+      const inner = document.createElement('div');
+      inner.className = 'card-inner';
+      card.appendChild(inner);
+
+      const imageUrl = dish.image_url || DISH_PLACEHOLDER;
+      const front = document.createElement('div');
+      front.className = 'card-face card-front';
+      front.style.backgroundImage = `url('${imageUrl}')`;
+
+      const img = document.createElement('img');
+      img.src = imageUrl;
+      img.alt = `${dish.name || 'Dish'} presentation`;
+      img.className = 'card-media';
+      img.decoding = 'async';
+      img.loading = 'lazy';
+      img.addEventListener('error', () => {
+        img.onerror = null;
+        img.src = DISH_PLACEHOLDER;
+        front.style.backgroundImage = `url('${DISH_PLACEHOLDER}')`;
+      });
+
+      front.appendChild(img);
+      inner.appendChild(front);
+
+      const back = document.createElement('div');
+      back.className = 'card-face card-back';
+      inner.appendChild(back);
+
+      const heartButton = document.createElement('button');
+      heartButton.type = 'button';
+      heartButton.className = 'heart-btn absolute top-5 right-5 rounded-full border border-slate-100/40 bg-slate-900/60 p-3 shadow-lg z-10';
+      heartButton.setAttribute('data-prevent-flip', '');
+      const dishId = dish.id ?? '';
+      heartButton.dataset.id = String(dishId);
+      heartButton.innerHTML = '<svg class="w-6 h-6 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>';
+      heartButton.addEventListener('click', (event) => {
+        event.stopPropagation();
+        if (typeof window.toggleFavorite === 'function') {
+          window.toggleFavorite(heartButton, 'dish', String(dishId));
+        }
+      });
+      back.appendChild(heartButton);
+
+      const content = document.createElement('div');
+      content.className = 'card-back-content';
+      back.appendChild(content);
+
+      const body = document.createElement('div');
+      body.className = 'card-back-body';
+      content.appendChild(body);
+
+      const heading = document.createElement('h3');
+      heading.className = 'card-back-heading';
+      heading.textContent = dish.name || 'Dish';
+      body.appendChild(heading);
+
+      const description = document.createElement('p');
+      description.className = 'card-back-description';
+      description.textContent = dish.reasoning || '';
+      body.appendChild(description);
+
+      if (dish.price) {
+        const price = document.createElement('p');
+        price.className = 'card-back-price';
+        price.textContent = dish.price;
+        body.appendChild(price);
+      }
+
+      const tags = document.createElement('div');
+      tags.className = 'card-back-tags';
+      content.appendChild(tags);
+
+      const ingredients = Array.isArray(dish.ingredients) ? dish.ingredients : [];
+      ingredients.forEach((ingredient) => {
+        const chip = document.createElement('span');
+        chip.className = 'tag-chip';
+        chip.textContent = ingredient;
+        tags.appendChild(chip);
+      });
+
+      return card;
+    }
 
     if (introOverlay && dismissIntro) {
       const cleanupIntroListeners = () => {
@@ -776,26 +927,7 @@
     }
 
     document.querySelectorAll('[data-card]').forEach((card) => {
-      const inner = card.querySelector('.card-inner');
-      if (!inner) return;
-
-      const toggleFlip = () => {
-        card.classList.toggle('is-flipped');
-      };
-
-      card.addEventListener('click', (event) => {
-        if (event.target.closest('[data-prevent-flip]')) {
-          return;
-        }
-        toggleFlip();
-      });
-
-      card.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          toggleFlip();
-        }
-      });
+      initializeCard(card);
     });
 
     const getSlideHeight = () => {
@@ -904,6 +1036,83 @@
     } else {
       let currentConceptIndex = 0;
       let currentDishIndex = 0;
+
+      const loadButtons = document.querySelectorAll('[data-load-dishes]');
+      loadButtons.forEach((button) => {
+        button.addEventListener('click', async () => {
+          if (button.dataset.loading === 'true') {
+            return;
+          }
+
+          const endpoint = button.dataset.endpoint;
+          const conceptId = button.dataset.conceptId;
+          const conceptIndex = Number.parseInt(button.dataset.conceptIndex || '0', 10);
+
+          if (!endpoint || !conceptId) {
+            return;
+          }
+
+          button.dataset.loading = 'true';
+          setButtonLoading(button, true);
+
+          try {
+            const response = await fetch(endpoint, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+              },
+              body: JSON.stringify({}),
+            });
+
+            if (!response.ok) {
+              throw new Error(`Request failed with status ${response.status}`);
+            }
+
+            const payload = await response.json();
+            const dishes = Array.isArray(payload.dishes) ? payload.dishes : [];
+            if (dishes.length === 0) {
+              return;
+            }
+
+            const track = document.querySelector(
+              `.horizontal-track[data-concept-track="${conceptId}"]`
+            );
+            if (!track) {
+              return;
+            }
+
+            const conceptCard = track.querySelector('.card');
+            const referenceNode = conceptCard ? conceptCard.nextElementSibling : null;
+
+            const newCards = dishes.map((dish) => {
+              const card = createDishCard(dish);
+              initializeCard(card);
+              return card;
+            });
+
+            newCards.forEach((card) => {
+              track.insertBefore(card, referenceNode);
+            });
+
+            const currentCount = Number.isInteger(dishCounts[conceptIndex])
+              ? dishCounts[conceptIndex]
+              : 0;
+            dishCounts[conceptIndex] = currentCount + newCards.length;
+
+            if (conceptIndex === currentConceptIndex) {
+              updateHorizontalPosition({ instant: true });
+              updatePositionIndicator();
+              updateNavigationButtons();
+            }
+          } catch (error) {
+            console.error('Failed to load dishes:', error);
+          } finally {
+            delete button.dataset.loading;
+            setButtonLoading(button, false);
+          }
+        });
+      });
 
       document.querySelectorAll('.horizontal-slider').forEach((slider) => {
         slider.style.transform = '';
