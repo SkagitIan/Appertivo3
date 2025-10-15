@@ -11,7 +11,7 @@ from app.models import Restaurant
 # Stub imports for future service integration
 # from .services import generate_concepts_batch  # to be implemented
 from swipe.llm_utils import GetConcepts
-from swipe.models import Concept, SeenItem
+from swipe.models import Concept, SeenItem, Dish
 from django.shortcuts import get_object_or_404
 logger = logging.getLogger(__name__)
 
