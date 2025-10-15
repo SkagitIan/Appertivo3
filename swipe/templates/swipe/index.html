@@ -70,7 +70,7 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
-      z-index:110;
+      z-index:0;
     }
 
     .card-front::after {
@@ -78,10 +78,12 @@
       position: absolute;
       inset: 0;
       background: linear-gradient(200deg, rgba(15,23,42,0.05) 10%, rgba(15,23,42,0.55) 100%);
+      z-index: 1;
+      pointer-events: none;
     }
 
     .card-front {
-      position: relative;
+      position: absolute;
       transform: rotateY(0deg);
       z-index: 2;
     }
