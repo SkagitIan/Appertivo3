@@ -103,14 +103,7 @@
       padding: 0;
       position: relative;
       min-height: 0;
-    }
-
-    .card-back::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(180deg, rgba(15,23,42,0.35) 0%, rgba(15,23,42,0.85) 80%, rgba(8,11,19,0.95) 100%);
-      pointer-events: none;
+      background: linear-gradient(180deg, rgba(15, 23, 42, 0.35) 0%, rgba(15, 23, 42, 0.85) 80%, rgba(8, 11, 19, 0.95) 100%);
     }
 
     .card-back > * {
@@ -125,9 +118,13 @@
       overflow-y: auto;
       min-height: 0;
       height: 100%;
+      width: 100%;
       overscroll-behavior: contain;
       padding: 2.75rem 2rem 2rem;
       gap: 1.5rem;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
     }
 
     .card-back-body {
