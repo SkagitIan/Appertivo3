@@ -168,25 +168,18 @@
 
     .touch-area {
       display: block;
-      padding-left: 1rem;
-      padding-right: 1rem;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
       touch-action: pan-y pan-x;
       width: 100%;
-      margin-left: auto;
-      margin-right: auto;
-      padding-top: 5.5rem;
-      padding-bottom: clamp(7rem, 18vh, 10rem);
+      overflow: hidden;
       scroll-snap-type: y mandatory;
-      overflow-y: auto;
     }
 
     @media (min-width: 768px) {
-      .touch-area {
-        padding-left: 0;
-        padding-right: 0;
-        padding-bottom: clamp(8rem, 18vh, 11rem);
-      }
-
       .card {
         height: min(58vh, 36rem);
       }
@@ -196,9 +189,7 @@
       overflow: hidden;
       width: 100%;
       max-width: 40rem;
-      margin: 30px auto;
       position: relative;
-      scroll-snap-type: x mandatory;
     }
 
     .horizontal-track {
@@ -210,8 +201,7 @@
 
     .horizontal-track .card {
       flex: 0 0 100%;
-      scroll-snap-align: start;
-      scroll-snap-stop: always;
+      margin-bottom: 0;
     }
 
     .heart-btn {
@@ -255,18 +245,30 @@
     #verticalSlider {
       display: flex;
       flex-direction: column;
-      height: 100%;
-      scroll-snap-type: y mandatory;
+      height: 100vh;
+      width: 100%;
+    }
+
+    @supports (height: 100dvh) {
+      #verticalSlider {
+        height: 100dvh;
+      }
     }
 
     .concept-slide {
-      flex: 0 0 100%;
-      min-height: 100%;
+      flex: 0 0 100vh;
+      height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
-      scroll-snap-align: start;
-      scroll-snap-stop: always;
+      padding: 0 1rem;
+    }
+
+    @supports (height: 100dvh) {
+      .concept-slide {
+        flex: 0 0 100dvh;
+        height: 100dvh;
+      }
     }
 
     .floating-controls {
@@ -388,10 +390,10 @@
 
     {% if concepts %}
       <!-- Main Content Area -->
-      <div class="touch-area pt-24 pb-52 h-screen overflow-hidden">
-        <div id="verticalSlider" class="slide-container h-full">
+      <div class="touch-area">
+        <div id="verticalSlider" class="slide-container">
           {% for concept in concepts %}
-            <div class="concept-slide px-4" data-concept-index="{{ forloop.counter0 }}">
+            <div class="concept-slide" data-concept-index="{{ forloop.counter0 }}">
               <div id="horizontalSlider{{ forloop.counter0 }}" class="horizontal-slider slide-container w-full">
                 <div class="horizontal-track">
                   <!-- Concept Card -->
@@ -573,11 +575,7 @@
     });
 
     const getSlideHeight = () => {
-      if (!touchArea) {
-        return window.innerHeight;
-      }
-
-      return touchArea.clientHeight;
+      return window.innerHeight;
     };
 
     if (generateBtn) {
@@ -719,7 +717,8 @@
       function updateVerticalPosition({ immediate = false } = {}) {
         if (!verticalSlider) return;
 
-        const offset = -getSlideHeight() * currentConceptIndex;
+        const slideHeight = getSlideHeight();
+        const offset = -(slideHeight * currentConceptIndex);
 
         anime.remove(verticalSlider);
 
