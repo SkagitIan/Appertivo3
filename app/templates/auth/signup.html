@@ -12,40 +12,41 @@
 
 {% block form_fields %}
   <div>
-    <label class="block text-sm font-medium text-slate-700">Email</label>
+    <label class="block text-sm font-medium text-slate-200">Email</label>
     <input type="email" name="email" value="{{ form_data.email }}" required
-           class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2 focus:ring-2 focus:ring-[#FF8300] focus:border-[#FF8300] outline-none">
+           class="mt-2 w-full rounded-2xl border border-white/10 bg-slate-900/50 px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:border-transparent focus:ring-2 focus:ring-[#a78bfa]/60 focus:outline-none">
   </div>
   <div>
-    <label class="block text-sm font-medium text-slate-700">Password</label>
+    <label class="block text-sm font-medium text-slate-200">Password</label>
     <input type="password" name="password1" required
-           class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2 focus:ring-2 focus:ring-[#FF8300] focus:border-[#FF8300] outline-none">
+           class="mt-2 w-full rounded-2xl border border-white/10 bg-slate-900/50 px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:border-transparent focus:ring-2 focus:ring-[#a78bfa]/60 focus:outline-none">
   </div>
   <div>
-    <label class="block text-sm font-medium text-slate-700">Confirm Password</label>
+    <label class="block text-sm font-medium text-slate-200">Confirm Password</label>
     <input type="password" name="password2" required
-           class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2 focus:ring-2 focus:ring-[#FF8300] focus:border-[#FF8300] outline-none">
+           class="mt-2 w-full rounded-2xl border border-white/10 bg-slate-900/50 px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:border-transparent focus:ring-2 focus:ring-[#a78bfa]/60 focus:outline-none">
   </div>
   <div>
-    <label class="block text-sm font-medium text-slate-700">Restaurant Name</label>
+    <label class="block text-sm font-medium text-slate-200">Restaurant Name</label>
     <input type="text" name="restaurant_name" value="{{ form_data.restaurant_name }}" required
-           class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2 focus:ring-2 focus:ring-[#FF8300] focus:border-[#FF8300] outline-none">
+           class="mt-2 w-full rounded-2xl border border-white/10 bg-slate-900/50 px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:border-transparent focus:ring-2 focus:ring-[#a78bfa]/60 focus:outline-none">
   </div>
   <div>
-    <label class="block text-sm font-medium text-slate-700">Location</label>
+    <label class="block text-sm font-medium text-slate-200">Location</label>
     <input type="text" name="location" value="{{ form_data.location }}" required
-           class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2 focus:ring-2 focus:ring-[#FF8300] focus:border-[#FF8300] outline-none">
+           class="mt-2 w-full rounded-2xl border border-white/10 bg-slate-900/50 px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:border-transparent focus:ring-2 focus:ring-[#a78bfa]/60 focus:outline-none">
   </div>
-  <p class="text-xs text-slate-500">We'll grab the public details for your restaurant automatically after signup.</p>
+  <p class="text-xs text-slate-400">We'll grab the public details for your restaurant automatically after signup.</p>
   <input type="hidden" name="recaptcha_token" id="recaptcha_token">
 {% endblock %}
 
 {% block submit_label %}Sign Up{% endblock %}
 
 {% block auth_footer %}
-  <p class="text-center text-sm text-slate-600">
-    Already have an account? <a href="{% url 'login' %}" class="text-[#5C008B] font-semibold hover:underline">Log in</a>
-  </p>
+  Already have an account?
+  <a href="{% url 'login' %}" class="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-[#a78bfa] to-[#ec4899] hover:opacity-80">
+    Log in
+  </a>
 {% endblock %}
 
 {% block extra_scripts %}
