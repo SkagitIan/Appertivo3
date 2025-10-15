@@ -7,6 +7,7 @@ app_name = "swipe"
 urlpatterns = [
     path("", SwipeHomeView.as_view(), name="home"),
     path("favorites/", FavoritesView.as_view(), name="favorites"),
+    path("settings/", SettingsView.as_view(), name="settings"),
     path("generate-concepts/<uuid:restaurant_id>/", generate_concepts_view, name="generate_concepts"),
     path(
         "api/concepts/<int:concept_id>/dishes/",
