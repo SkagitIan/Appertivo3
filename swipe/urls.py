@@ -15,6 +15,7 @@ urlpatterns = [
     ),
     path("api/seen/", MarkSeenAPI.as_view(), name="mark_seen"),
     path("api/favorite/", ToggleFavoriteAPI.as_view(), name="api_favorite"),
+    path("api/delete/", DeleteCardAPI.as_view(), name="delete_card"),
     path("health/", HealthView.as_view(), name="health"),
 ]
 

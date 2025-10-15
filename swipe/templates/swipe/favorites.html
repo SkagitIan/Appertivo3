@@ -231,6 +231,37 @@
       fill: currentColor;
     }
 
+    .delete-btn {
+      position: absolute;
+      top: 0.6rem;
+      left: 0.6rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.3rem;
+      height: 2.3rem;
+      border-radius: 9999px;
+      border: 1px solid rgba(248, 250, 252, 0.35);
+      background: rgba(15, 23, 42, 0.65);
+      color: rgba(226, 232, 240, 0.9);
+      transition: transform 0.2s ease;
+    }
+
+    .delete-btn:hover {
+      transform: scale(1.05);
+    }
+
+    .delete-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .delete-btn svg {
+      width: 1.05rem;
+      height: 1.05rem;
+      stroke-width: 1.8;
+    }
+
     .floating-controls {
       position: fixed;
       bottom: 2.5rem;
@@ -492,6 +523,19 @@
             </div>
             <button
               type="button"
+              class="delete-btn"
+              data-delete-trigger
+              data-delete-type="concept"
+              data-delete-id="{{ group.concept.id }}"
+              aria-label="Delete {{ group.concept.name }}"
+              data-prevent-toggle
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 7h12M10 11v6m4-6v6m-7 4h10a1 1 0 001-1V7H6v13a1 1 0 001 1zm3-17h4l1 2H8l1-2z" />
+              </svg>
+            </button>
+            <button
+              type="button"
               class="heart-btn{% if group.concept.is_favorite %} favorited{% endif %}"
               data-favorite-toggle
               data-favorite-type="concept"
@@ -551,6 +595,19 @@
                   </div>
                   <button
                     type="button"
+                    class="delete-btn"
+                    data-delete-trigger
+                    data-delete-type="dish"
+                    data-delete-id="{{ dish.id }}"
+                    aria-label="Delete {{ dish.name }}"
+                    data-prevent-toggle
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 7h12M10 11v6m4-6v6m-7 4h10a1 1 0 001-1V7H6v13a1 1 0 001 1zm3-17h4l1 2H8l1-2z" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
                     class="heart-btn{% if dish.is_favorite %} favorited{% endif %}"
                     data-favorite-toggle
                     data-favorite-type="dish"
@@ -580,6 +637,19 @@
                         </div>
                       {% endwith %}
                       <div class="card-face card-back">
+                        <button
+                          type="button"
+                          class="delete-btn"
+                          data-delete-trigger
+                          data-delete-type="dish"
+                          data-delete-id="{{ dish.id }}"
+                          aria-label="Delete {{ dish.name }}"
+                          data-prevent-flip
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 7h12M10 11v6m4-6v6m-7 4h10a1 1 0 001-1V7H6v13a1 1 0 001 1zm3-17h4l1 2H8l1-2z" />
+                          </svg>
+                        </button>
                         <button
                           type="button"
                           class="heart-btn{% if dish.is_favorite %} favorited{% endif %}"
@@ -675,6 +745,7 @@
   {{ block.super }}
   <script>
     const csrfToken = '{{ csrf_token }}';
+    const deleteEndpoint = '{% url 'swipe:delete_card' %}';
 
     document.addEventListener('DOMContentLoaded', () => {
       const conceptCards = document.querySelectorAll('[data-concept-card]');
@@ -875,6 +946,9 @@
           const card = document.querySelector(`[data-concept-card][data-concept-id="${id}"]`);
           if (dishes) dishes.remove();
           if (card) card.remove();
+          if (dishModal && !dishModal.classList.contains('hidden')) {
+            closeModal();
+          }
         } else if (type === 'dish') {
           const thumbnails = document.querySelectorAll(`[data-dish-thumbnail][data-dish-id="${id}"]`);
           const containers = new Set();
@@ -926,6 +1000,57 @@
         updateIndicator();
         refreshToggleAllState();
       };
+
+      document.addEventListener('click', async (event) => {
+        const deleteButton = event.target.closest('[data-delete-trigger]');
+        if (!deleteButton) {
+          return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (!deleteEndpoint) {
+          return;
+        }
+
+        const type = deleteButton.getAttribute('data-delete-type');
+        const id = deleteButton.getAttribute('data-delete-id');
+        if (!type || !id) {
+          return;
+        }
+
+        if (deleteButton.disabled) {
+          return;
+        }
+
+        deleteButton.disabled = true;
+
+        try {
+          const response = await fetch(deleteEndpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': csrfToken,
+              'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: JSON.stringify({ type, id }),
+          });
+
+          if (!response.ok) {
+            throw new Error('Delete failed');
+          }
+
+          const data = await response.json();
+          if (data?.deleted) {
+            handleRemoval(type, id);
+          }
+        } catch (error) {
+          console.error('Failed to delete item:', error);
+        } finally {
+          deleteButton.disabled = false;
+        }
+      });
 
       document.addEventListener('click', async (event) => {
         const button = event.target.closest('[data-favorite-toggle]');

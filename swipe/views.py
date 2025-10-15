@@ -3,6 +3,7 @@ import logging
 
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponseBadRequest, JsonResponse
+from django.db.models import Prefetch
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import TemplateView, View
@@ -58,9 +59,14 @@ class SwipeHomeView(TemplateView):
 
         if restaurant:
             concept_qs = (
-                Concept.objects.filter(restaurant=restaurant)
+                Concept.objects.filter(restaurant=restaurant, is_deleted=False)
                 .order_by("-created_at")
-                .prefetch_related("dishes")
+                .prefetch_related(
+                    Prefetch(
+                        "dishes",
+                        queryset=Dish.objects.filter(is_deleted=False).order_by("id"),
+                    )
+                )
             )
             concepts = list(concept_qs)
 
@@ -96,7 +102,7 @@ class SwipeHomeView(TemplateView):
             for dish in concept.dishes.all():
                 dish.is_new = user.is_authenticated and dish.id not in seen_dish_ids
 
-        dish_counts = [len(c.dishes.all()) for c in concepts]
+        dish_counts = [len(list(c.dishes.all())) for c in concepts]
 
         context.update(
             {
@@ -194,7 +200,8 @@ class ConceptDishAppendView(View):
 
     def post(self, request, concept_id):
         concept = get_object_or_404(
-            Concept.objects.select_related("restaurant"), pk=concept_id
+            Concept.objects.select_related("restaurant").filter(is_deleted=False),
+            pk=concept_id,
         )
 
         generator = GetConcepts(restaurant=concept.restaurant)
@@ -251,7 +258,7 @@ class ToggleFavoriteAPI(View):
 
         if type_ == "concept":
             try:
-                concept = Concept.objects.get(id=id_)
+                concept = Concept.objects.get(id=id_, is_deleted=False)
                 concept.is_favorite = not concept.is_favorite
                 concept.save()
                 return JsonResponse({"favorited": concept.is_favorite})
@@ -259,7 +266,7 @@ class ToggleFavoriteAPI(View):
                 return HttpResponseBadRequest("Concept not found")
         elif type_ == "dish":
             try:
-                dish = Dish.objects.get(id=id_)
+                dish = Dish.objects.get(id=id_, is_deleted=False, concept__is_deleted=False)
                 dish.is_favorite = not dish.is_favorite
                 dish.save()
                 return JsonResponse({"favorited": dish.is_favorite})
@@ -267,6 +274,81 @@ class ToggleFavoriteAPI(View):
                 return HttpResponseBadRequest("Dish not found")
         else:
             return HttpResponseBadRequest("Unknown type")
+
+
+class DeleteCardAPI(LoginRequiredMixin, View):
+    def post(self, request):
+        import json
+
+        try:
+            payload = json.loads(request.body.decode("utf-8"))
+        except json.JSONDecodeError:
+            return HttpResponseBadRequest("Invalid JSON payload")
+
+        type_ = payload.get("type")
+        item_id = payload.get("id")
+
+        try:
+            item_id = int(item_id)
+        except (TypeError, ValueError):
+            return HttpResponseBadRequest("Invalid item id")
+
+        if type_ == "concept":
+            concept = (
+                Concept.objects.filter(id=item_id, is_deleted=False)
+                .prefetch_related(
+                    Prefetch(
+                        "dishes",
+                        queryset=Dish.objects.filter(is_deleted=False),
+                    )
+                )
+                .first()
+            )
+            if concept is None:
+                return HttpResponseBadRequest("Concept not found")
+
+            dish_ids = list(dish.id for dish in concept.dishes.all())
+            concept.is_deleted = True
+            concept.is_favorite = False
+            concept.save(update_fields=["is_deleted", "is_favorite"])
+            concept.dishes.update(is_deleted=True, is_favorite=False)
+
+            return JsonResponse(
+                {
+                    "deleted": True,
+                    "type": "concept",
+                    "id": concept.id,
+                    "removed_dish_ids": dish_ids,
+                }
+            )
+
+        if type_ == "dish":
+            dish = (
+                Dish.objects.select_related("concept")
+                .filter(
+                    id=item_id,
+                    is_deleted=False,
+                    concept__is_deleted=False,
+                )
+                .first()
+            )
+            if dish is None:
+                return HttpResponseBadRequest("Dish not found")
+
+            dish.is_deleted = True
+            dish.is_favorite = False
+            dish.save(update_fields=["is_deleted", "is_favorite"])
+
+            return JsonResponse(
+                {
+                    "deleted": True,
+                    "type": "dish",
+                    "id": dish.id,
+                    "concept_id": dish.concept_id,
+                }
+            )
+
+        return HttpResponseBadRequest("Unknown type")
 
 
 class FavoritesView(TemplateView):
@@ -291,13 +373,27 @@ class FavoritesView(TemplateView):
 
         if restaurant:
             favorite_concepts = list(
-                Concept.objects.filter(restaurant=restaurant, is_favorite=True)
+                Concept.objects.filter(
+                    restaurant=restaurant,
+                    is_favorite=True,
+                    is_deleted=False,
+                )
                 .order_by("-created_at")
-                .prefetch_related("dishes")
+                .prefetch_related(
+                    Prefetch(
+                        "dishes",
+                        queryset=Dish.objects.filter(is_deleted=False),
+                    )
+                )
             )
 
             all_favorite_dishes = list(
-                Dish.objects.filter(concept__restaurant=restaurant, is_favorite=True)
+                Dish.objects.filter(
+                    concept__restaurant=restaurant,
+                    is_favorite=True,
+                    is_deleted=False,
+                    concept__is_deleted=False,
+                )
                 .select_related("concept")
                 .order_by("-id")
             )
@@ -345,7 +441,7 @@ class MarkSeenAPI(LoginRequiredMixin, View):
             return HttpResponseBadRequest("Invalid item id")
 
         if type_ == SeenItem.ItemType.CONCEPT:
-            if not Concept.objects.filter(id=item_id).exists():
+            if not Concept.objects.filter(id=item_id, is_deleted=False).exists():
                 return HttpResponseBadRequest("Unknown concept")
             SeenItem.objects.get_or_create(
                 user=request.user,
@@ -355,7 +451,9 @@ class MarkSeenAPI(LoginRequiredMixin, View):
         elif type_ == SeenItem.ItemType.DISH:
             from swipe.models import Dish
 
-            if not Dish.objects.filter(id=item_id).exists():
+            if not Dish.objects.filter(
+                id=item_id, is_deleted=False, concept__is_deleted=False
+            ).exists():
                 return HttpResponseBadRequest("Unknown dish")
             SeenItem.objects.get_or_create(
                 user=request.user,
