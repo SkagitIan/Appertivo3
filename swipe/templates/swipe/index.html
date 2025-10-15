@@ -374,14 +374,14 @@
       class="fixed top-0 right-0 z-40 h-full w-64 transform translate-x-full border-l border-slate-700/60 bg-slate-900/95 text-slate-100 shadow-[0_45px_90px_-40px_rgba(8,11,19,0.9)] transition-transform duration-300"
     >
       <div class="pt-24 px-6 space-y-4">
+        <a href="{% url 'swipe:favorites' %}" class="block border-b border-slate-700/40 pb-4 text-sm tracking-[0.3em] uppercase text-slate-300 hover:text-white">
+          Favorites Archive
+        </a>
         <a href="#" class="block border-b border-slate-700/40 pb-4 text-sm tracking-[0.3em] uppercase text-slate-300 hover:text-white">
           Atelier Settings
         </a>
-        <a href="#" class="block border-b border-slate-700/40 pb-4 text-sm tracking-[0.3em] uppercase text-slate-300 hover:text-white">
-          Billing Suite
-        </a>
         <a href="#" class="block text-sm tracking-[0.3em] uppercase text-slate-300 hover:text-white">
-          Favorites Archive
+          Billing Suite
         </a>
       </div>
     </div>
@@ -411,11 +411,11 @@
                       {% endwith %}
                       <div class="card-face card-back">
                         <button type="button"
-                                class="heart-btn absolute top-5 right-5 rounded-full border border-slate-100/40 bg-slate-900/60 p-3 shadow-lg z-10"
+                                class="heart-btn absolute top-5 right-5 rounded-full border border-slate-100/40 bg-slate-900/60 p-3 shadow-lg z-10 {% if concept.is_favorite %}favorited{% endif %}"
                                 data-prevent-flip
                                 onclick="toggleFavorite(this, 'concept', '{{ concept.id }}')"
                                 data-id="{{ concept.id }}">
-                          <svg class="w-6 h-6 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg class="w-6 h-6 text-rose-500" fill="{% if concept.is_favorite %}currentColor{% else %}none{% endif %}" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
                           </svg>
                         </button>
@@ -457,11 +457,11 @@
                         {% endwith %}
                         <div class="card-face card-back">
                           <button type="button"
-                                  class="heart-btn absolute top-5 right-5 rounded-full border border-slate-100/40 bg-slate-900/60 p-3 shadow-lg z-10"
+                                  class="heart-btn absolute top-5 right-5 rounded-full border border-slate-100/40 bg-slate-900/60 p-3 shadow-lg z-10 {% if dish.is_favorite %}favorited{% endif %}"
                                   data-prevent-flip
                                   onclick="toggleFavorite(this, 'dish', '{{ dish.id }}')"
                                   data-id="{{ dish.id }}">
-                            <svg class="w-6 h-6 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-6 h-6 text-rose-500" fill="{% if dish.is_favorite %}currentColor{% else %}none{% endif %}" stroke="currentColor" viewBox="0 0 24 24">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
                             </svg>
                           </button>
@@ -872,38 +872,63 @@
       });
     }
 
-    window.toggleFavorite = function(btn, type, id) {
-      btn.classList.toggle('favorited');
-
-      const rect = btn.getBoundingClientRect();
-      const heart = document.createElement('div');
-      heart.innerHTML = '❤️';
-      heart.className = 'floating-heart fixed text-4xl pointer-events-none z-50';
-      heart.style.left = rect.left + 'px';
-      heart.style.top = rect.top + 'px';
-      document.body.appendChild(heart);
-
-      setTimeout(() => heart.remove(), 1000);
+    window.toggleFavorite = async function(btn, type, id) {
+      const svg = btn.querySelector('svg');
+      const wasFavorited = btn.classList.contains('favorited');
 
       anime({
         targets: btn,
-        scale: [1, 1.3, 1],
-        duration: 400,
-        easing: 'easeInOutQuad'
+        scale: [1, 1.4, 1],
+        duration: 500,
+        easing: 'easeOutElastic(1, .6)'
       });
 
-      fetch('/api/favorites/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': csrfToken
-        },
-        body: JSON.stringify({
-          type: type,
-          id: id,
-          action: btn.classList.contains('favorited') ? 'add' : 'remove'
-        })
-      });
+      if (!wasFavorited) {
+        const rect = btn.getBoundingClientRect();
+        const heart = document.createElement('div');
+        heart.innerHTML = '❤️';
+        heart.className = 'floating-heart fixed text-3xl pointer-events-none z-50';
+        heart.style.left = rect.left + rect.width / 2 + 'px';
+        heart.style.top = rect.top + 'px';
+        heart.style.transform = 'translate(-50%, 0)';
+        document.body.appendChild(heart);
+
+        anime({
+          targets: heart,
+          translateY: -60,
+          opacity: [1, 0],
+          scale: [1, 1.5],
+          duration: 800,
+          easing: 'easeOutCubic',
+          complete: () => heart.remove()
+        });
+      }
+
+      try {
+        const response = await fetch('/swipe/api/favorite/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+          },
+          body: JSON.stringify({
+            type: type,
+            id: id
+          })
+        });
+
+        const data = await response.json();
+
+        if (data.favorited) {
+          btn.classList.add('favorited');
+          svg.setAttribute('fill', 'currentColor');
+        } else {
+          btn.classList.remove('favorited');
+          svg.setAttribute('fill', 'none');
+        }
+      } catch (error) {
+        console.error('Failed to toggle favorite:', error);
+      }
     };
 
     {% if request.user.is_authenticated %}

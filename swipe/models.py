@@ -35,6 +35,7 @@ class Concept(models.Model):
     sketch_prompt = models.CharField(max_length=1240, blank=True)
     meta_ingredients = models.JSONField(default=list)  # list[str]
     meta_reasoning = models.TextField(blank=True)
+    is_favorite = models.BooleanField(default=False)
     created_at = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
@@ -55,6 +56,7 @@ class Dish(models.Model):
     price = models.CharField(max_length=32, blank=True)  # keep string for "$18" format
     ingredients = models.JSONField(default=list)  # list[str]
     reasoning = models.TextField(blank=True)
+    is_favorite = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.name} ({self.concept.name})"

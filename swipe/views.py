@@ -190,7 +190,7 @@ class SwipeConceptBatchView(View):
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-class ToggleFavoriteAPI(LoginRequiredMixin, View):
+class ToggleFavoriteAPI(View):
     """
     POST: { type: 'concept'|'dish', id: <int> }
     """
@@ -198,7 +198,7 @@ class ToggleFavoriteAPI(LoginRequiredMixin, View):
     def post(self, request):
         import json
 
-        from .models import Concept, Dish, Favorite
+        from .models import Concept, Dish
 
         try:
             payload = json.loads(request.body.decode("utf-8"))
@@ -207,19 +207,64 @@ class ToggleFavoriteAPI(LoginRequiredMixin, View):
         except Exception:
             return HttpResponseBadRequest("Invalid payload")
 
-        fav_kwargs = {"user": request.user}
         if type_ == "concept":
-            fav_kwargs["concept_id"] = id_
+            try:
+                concept = Concept.objects.get(id=id_)
+                concept.is_favorite = not concept.is_favorite
+                concept.save()
+                return JsonResponse({"favorited": concept.is_favorite})
+            except Concept.DoesNotExist:
+                return HttpResponseBadRequest("Concept not found")
         elif type_ == "dish":
-            fav_kwargs["dish_id"] = id_
+            try:
+                dish = Dish.objects.get(id=id_)
+                dish.is_favorite = not dish.is_favorite
+                dish.save()
+                return JsonResponse({"favorited": dish.is_favorite})
+            except Dish.DoesNotExist:
+                return HttpResponseBadRequest("Dish not found")
         else:
             return HttpResponseBadRequest("Unknown type")
 
-        fav, created = Favorite.objects.get_or_create(**fav_kwargs)
-        if not created:
-            fav.delete()
-            return JsonResponse({"favorited": False})
-        return JsonResponse({"favorited": True})
+
+class FavoritesView(TemplateView):
+    template_name = "swipe/favorites.html"
+
+    def get_restaurant(self):
+        restaurant_id = self.kwargs.get("restaurant_id") or self.request.GET.get("restaurant_id")
+        if restaurant_id:
+            try:
+                return get_object_or_404(Restaurant, id=restaurant_id)
+            except (TypeError, ValueError):
+                logger.warning("Invalid restaurant_id supplied: %s", restaurant_id)
+        return Restaurant.objects.order_by("-created_at").first()
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        restaurant = self.get_restaurant()
+
+        favorite_concepts = []
+        all_favorite_dishes = []
+
+        if restaurant:
+            favorite_concepts = list(
+                Concept.objects.filter(restaurant=restaurant, is_favorite=True)
+                .order_by("-created_at")
+                .prefetch_related("dishes")
+            )
+
+            all_favorite_dishes = list(
+                Dish.objects.filter(concept__restaurant=restaurant, is_favorite=True)
+                .select_related("concept")
+                .order_by("-id")
+            )
+
+        context.update({
+            "restaurant": restaurant,
+            "favorite_concepts": favorite_concepts,
+            "all_favorite_dishes": all_favorite_dishes,
+        })
+        return context
 
 
 class MarkSeenAPI(LoginRequiredMixin, View):

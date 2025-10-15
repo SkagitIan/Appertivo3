@@ -1,0 +1,307 @@
+{% extends "swipe/base.html" %}
+{% load static %}
+
+{% block title %}
+  {% if restaurant %}{{ restaurant.name }} · Favorites{% else %}Appertivo · Favorites{% endif %}
+{% endblock %}
+
+{% block head %}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@500;600;700&display=swap"
+    rel="stylesheet"
+  >
+  <style>
+    body {
+      background: radial-gradient(circle at 10% 20%, #1f2937 0%, rgba(15, 23, 42, 0.95) 55%, #0b1120 100%);
+      min-height: 100vh;
+      font-family: 'Inter', sans-serif;
+      color: #e2e8f0;
+    }
+
+    .concept-card {
+      position: relative;
+      border-radius: 20px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      background: #0f172a;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      box-shadow: 0 20px 40px -20px rgba(8, 11, 19, 0.6);
+    }
+
+    .concept-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 25px 50px -12px rgba(8, 11, 19, 0.8);
+    }
+
+    .concept-card.selected {
+      border-color: rgba(244, 114, 182, 0.6);
+      box-shadow: 0 0 0 2px rgba(244, 114, 182, 0.3);
+    }
+
+    .concept-img {
+      width: 100%;
+      aspect-ratio: 4/3;
+      object-fit: cover;
+    }
+
+    .dish-card {
+      border-radius: 16px;
+      overflow: hidden;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      transition: transform 0.2s ease;
+    }
+
+    .dish-card:hover {
+      transform: scale(1.02);
+    }
+
+    .dish-img {
+      width: 100%;
+      aspect-ratio: 3/2;
+      object-fit: cover;
+    }
+
+    .tag-chip {
+      display: inline-flex;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: rgba(148, 163, 184, 0.15);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      color: #f1f5f9;
+    }
+
+    .section-header {
+      font-family: 'Playfair Display', serif;
+      letter-spacing: 0.05em;
+    }
+
+    .filter-btn {
+      padding: 0.5rem 1.25rem;
+      border-radius: 9999px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      background: rgba(15, 23, 42, 0.6);
+      color: #e2e8f0;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .filter-btn:hover {
+      background: rgba(148, 163, 184, 0.2);
+    }
+
+    .filter-btn.active {
+      background: rgba(244, 114, 182, 0.2);
+      border-color: rgba(244, 114, 182, 0.5);
+      color: #fce7f3;
+    }
+
+    .empty-state {
+      border-radius: 24px;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      padding: 3rem 2rem;
+      text-align: center;
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <div class="min-h-screen pb-24">
+    <div class="fixed top-0 left-0 right-0 z-40 bg-slate-900/80 backdrop-blur-lg border-b border-slate-700/40">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <a href="{% url 'swipe:home' %}" class="text-slate-200 hover:text-white transition-colors">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+          </a>
+          <h1 class="section-header text-2xl font-semibold text-slate-100">
+            {% if restaurant %}{{ restaurant.name }} · {% endif %}Favorites
+          </h1>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="showView('concepts')" id="btnConcepts" class="filter-btn active">Concepts</button>
+          <button onclick="showView('dishes')" id="btnDishes" class="filter-btn">All Dishes</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 pt-24">
+      <div id="conceptsView">
+        {% if favorite_concepts %}
+          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
+            {% for concept in favorite_concepts %}
+              <div class="concept-card" onclick="selectConcept('{{ concept.id }}')" data-concept-id="{{ concept.id }}">
+                <img src="{{ concept.display_sketch_url }}" alt="{{ concept.name }}" class="concept-img">
+                <div class="p-4">
+                  <h3 class="section-header text-lg font-semibold mb-1">{{ concept.name }}</h3>
+                  <p class="text-xs text-slate-400 uppercase tracking-wider">{{ concept.subtitle }}</p>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+
+          <div id="conceptDishes" class="hidden">
+            <div class="flex items-center justify-between mb-6">
+              <h2 class="section-header text-2xl font-semibold text-slate-100">Dishes from <span id="selectedConceptName"></span></h2>
+              <button onclick="clearSelection()" class="text-sm text-slate-400 hover:text-slate-200 transition-colors">Clear Selection</button>
+            </div>
+            <div id="dishesGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <svg class="w-16 h-16 mx-auto mb-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+            </svg>
+            <h3 class="section-header text-xl font-medium text-slate-300 mb-2">No Favorite Concepts</h3>
+            <p class="text-slate-400">Start favoriting concepts to see them here</p>
+            <a href="{% url 'swipe:home' %}" class="inline-block mt-4 px-6 py-2 bg-gradient-to-br from-rose-500 to-fuchsia-500 text-white rounded-full font-medium hover:shadow-lg transition-all">
+              Browse Concepts
+            </a>
+          </div>
+        {% endif %}
+      </div>
+
+      <div id="dishesView" class="hidden">
+        {% if all_favorite_dishes %}
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for dish in all_favorite_dishes %}
+              <div class="dish-card">
+                <img src="{{ dish.display_image_url }}" alt="{{ dish.name }}" class="dish-img">
+                <div class="p-5">
+                  <div class="flex flex-wrap gap-2 mb-3">
+                    {% for ingredient in dish.ingredients %}
+                      <span class="tag-chip">{{ ingredient }}</span>
+                    {% endfor %}
+                  </div>
+                  <h3 class="section-header text-xl font-semibold mb-2">{{ dish.name }}</h3>
+                  <p class="text-sm text-slate-400 mb-3">{{ dish.reasoning|truncatewords:20 }}</p>
+                  <div class="flex items-center justify-between">
+                    <span class="text-lg font-bold text-emerald-400">{{ dish.price }}</span>
+                    <span class="text-xs text-slate-500">from {{ dish.concept.name }}</span>
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <svg class="w-16 h-16 mx-auto mb-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+            </svg>
+            <h3 class="section-header text-xl font-medium text-slate-300 mb-2">No Favorite Dishes</h3>
+            <p class="text-slate-400">Start favoriting dishes to see them here</p>
+            <a href="{% url 'swipe:home' %}" class="inline-block mt-4 px-6 py-2 bg-gradient-to-br from-rose-500 to-fuchsia-500 text-white rounded-full font-medium hover:shadow-lg transition-all">
+              Browse Dishes
+            </a>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    const conceptsData = {{ favorite_concepts|safe|default:"[]" }};
+    const dishesData = [
+      {% for concept in favorite_concepts %}
+        {% for dish in concept.dishes.all %}
+          {
+            conceptId: '{{ concept.id }}',
+            conceptName: '{{ concept.name|escapejs }}',
+            name: '{{ dish.name|escapejs }}',
+            image: '{{ dish.display_image_url }}',
+            price: '{{ dish.price }}',
+            reasoning: '{{ dish.reasoning|escapejs }}',
+            ingredients: {{ dish.ingredients|safe }}
+          },
+        {% endfor %}
+      {% endfor %}
+    ];
+
+    function showView(view) {
+      const conceptsView = document.getElementById('conceptsView');
+      const dishesView = document.getElementById('dishesView');
+      const btnConcepts = document.getElementById('btnConcepts');
+      const btnDishes = document.getElementById('btnDishes');
+
+      if (view === 'concepts') {
+        conceptsView.classList.remove('hidden');
+        dishesView.classList.add('hidden');
+        btnConcepts.classList.add('active');
+        btnDishes.classList.remove('active');
+      } else {
+        conceptsView.classList.add('hidden');
+        dishesView.classList.remove('hidden');
+        btnConcepts.classList.remove('active');
+        btnDishes.classList.add('active');
+      }
+    }
+
+    function selectConcept(conceptId) {
+      document.querySelectorAll('.concept-card').forEach(card => {
+        card.classList.remove('selected');
+      });
+
+      const selectedCard = document.querySelector(`[data-concept-id="${conceptId}"]`);
+      if (selectedCard) {
+        selectedCard.classList.add('selected');
+      }
+
+      const conceptDishes = dishesData.filter(d => d.conceptId === conceptId);
+      const conceptName = conceptDishes.length > 0 ? conceptDishes[0].conceptName : '';
+
+      document.getElementById('selectedConceptName').textContent = conceptName;
+
+      const dishesGrid = document.getElementById('dishesGrid');
+      dishesGrid.innerHTML = '';
+
+      if (conceptDishes.length === 0) {
+        dishesGrid.innerHTML = `
+          <div class="col-span-full empty-state">
+            <p class="text-slate-400">No favorite dishes from this concept yet</p>
+          </div>
+        `;
+      } else {
+        conceptDishes.forEach(dish => {
+          const ingredientTags = dish.ingredients.map(ing =>
+            `<span class="tag-chip">${ing}</span>`
+          ).join('');
+
+          dishesGrid.innerHTML += `
+            <div class="dish-card">
+              <img src="${dish.image}" alt="${dish.name}" class="dish-img">
+              <div class="p-5">
+                <div class="flex flex-wrap gap-2 mb-3">${ingredientTags}</div>
+                <h3 class="section-header text-xl font-semibold mb-2">${dish.name}</h3>
+                <p class="text-sm text-slate-400 mb-3">${dish.reasoning.split(' ').slice(0, 20).join(' ')}...</p>
+                <div class="flex items-center justify-between">
+                  <span class="text-lg font-bold text-emerald-400">${dish.price}</span>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+      }
+
+      document.getElementById('conceptDishes').classList.remove('hidden');
+      document.getElementById('conceptDishes').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function clearSelection() {
+      document.querySelectorAll('.concept-card').forEach(card => {
+        card.classList.remove('selected');
+      });
+      document.getElementById('conceptDishes').classList.add('hidden');
+    }
+  </script>
+{% endblock %}
