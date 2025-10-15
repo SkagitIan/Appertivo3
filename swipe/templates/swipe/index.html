@@ -249,6 +249,122 @@
       stroke: #ef4444;
     }
 
+    .intro-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      background: radial-gradient(circle at 10% 20%, rgba(15, 23, 42, 0.92) 0%, rgba(8, 11, 19, 0.94) 65%, rgba(6, 8, 15, 0.96) 100%);
+      transition: opacity 0.35s ease, visibility 0.35s ease;
+    }
+
+    .intro-overlay.is-hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .intro-card {
+      width: min(28rem, 100%);
+      border-radius: 30px;
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      padding: clamp(2.5rem, 8vw, 3.25rem) clamp(2rem, 6vw, 3rem);
+      background: linear-gradient(180deg, rgba(30, 41, 59, 0.82) 0%, rgba(15, 23, 42, 0.9) 100%);
+      box-shadow: 0 40px 90px -45px rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(16px) saturate(140%);
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+      color: #f8fafc;
+    }
+
+    .intro-card h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.8rem, 4.5vw, 2.4rem);
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      margin: 0;
+    }
+
+    .intro-card p {
+      margin: 0;
+      font-size: clamp(0.95rem, 2.8vw, 1.05rem);
+      line-height: 1.6;
+      color: rgba(226, 232, 240, 0.85);
+    }
+
+    .intro-actions {
+      display: grid;
+      gap: 1.25rem;
+    }
+
+    .intro-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      font-size: 0.95rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(226, 232, 240, 0.9);
+    }
+
+    .intro-icon {
+      width: 2.6rem;
+      height: 2.6rem;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      background: rgba(15, 23, 42, 0.6);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    }
+
+    .intro-icon svg {
+      width: 1.4rem;
+      height: 1.4rem;
+      color: rgba(248, 250, 252, 0.9);
+    }
+
+    .intro-footer {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      color: rgba(226, 232, 240, 0.75);
+      font-size: 0.85rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .intro-button {
+      align-self: center;
+      padding: 0.9rem 2.75rem;
+      border-radius: 9999px;
+      background: linear-gradient(135deg, rgba(244, 114, 182, 0.95), rgba(59, 130, 246, 0.9));
+      color: #0f172a;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      border: none;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .intro-button:hover,
+    .intro-button:focus-visible {
+      transform: translateY(-2px);
+      box-shadow: 0 20px 40px -30px rgba(244, 114, 182, 0.9);
+      outline: none;
+    }
+
+    .intro-button:active {
+      transform: translateY(0);
+    }
+
     .new-flag {
       position: absolute;
       top: 1.25rem;
@@ -373,6 +489,44 @@
 
 {% block content %}
   <div class="relative min-h-screen">
+    <div id="introOverlay" class="intro-overlay">
+      <div class="intro-card" role="dialog" aria-modal="true" aria-labelledby="introTitle">
+        <div>
+          <h1 id="introTitle">Welcome to Appertivo</h1>
+          <p>Glide through each concept and dish. Follow the chevrons for a quick tour.</p>
+        </div>
+        <div class="intro-actions">
+          <div class="intro-row">
+            <span class="intro-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 5l-4 4h8l-4-4Zm0 14 4-4H8l4 4Z" />
+              </svg>
+            </span>
+            <span>Swipe Up / Down for Concepts</span>
+          </div>
+          <div class="intro-row">
+            <span class="intro-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m7 12 4-4v3h6V8l4 4-4 4v-3h-6v3l-4-4Z" />
+              </svg>
+            </span>
+            <span>Swipe Left / Right for Dishes</span>
+          </div>
+          <div class="intro-row">
+            <span class="intro-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12.76 3.64a4.5 4.5 0 0 1 6.36 6.36L12 17.12l-7.12-7.12a4.5 4.5 0 1 1 6.36-6.36L12 4.24l.76-.6Z" />
+              </svg>
+            </span>
+            <span>Tap the Heart to Favorite</span>
+          </div>
+        </div>
+        <div class="intro-footer">
+          <span>Flip each card for more details</span>
+          <button id="dismissIntro" type="button" class="intro-button">Start Exploring</button>
+        </div>
+      </div>
+    </div>
     <div class="fixed top-6 left-6 z-40 text-[0.7rem] tracking-[0.55em] uppercase text-slate-200/80">
       {% if restaurant %}{{ restaurant.name }}{% else %}Appertivo{% endif %}
     </div>
@@ -580,6 +734,46 @@
     const generateFeedback = document.getElementById('generateConceptsFeedback');
     const touchArea = document.querySelector('.touch-area');
     const verticalSlider = document.getElementById('verticalSlider');
+    const introOverlay = document.getElementById('introOverlay');
+    const dismissIntro = document.getElementById('dismissIntro');
+
+    if (introOverlay && dismissIntro) {
+      const cleanupIntroListeners = () => {
+        touchArea?.removeEventListener('touchstart', hideOnFirstInteraction);
+        touchArea?.removeEventListener('wheel', hideOnFirstInteraction);
+        window.removeEventListener('keydown', hideOnKeyInteraction);
+      };
+
+      const hideIntro = () => {
+        if (introOverlay.classList.contains('is-hidden')) {
+          return;
+        }
+        introOverlay.classList.add('is-hidden');
+        cleanupIntroListeners();
+      };
+
+      dismissIntro.addEventListener('click', hideIntro);
+
+      introOverlay.addEventListener('click', (event) => {
+        if (event.target === introOverlay) {
+          hideIntro();
+        }
+      });
+
+      const hideOnFirstInteraction = () => {
+        hideIntro();
+      };
+
+      const hideOnKeyInteraction = (event) => {
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Escape'].includes(event.key)) {
+          hideIntro();
+        }
+      };
+
+      touchArea?.addEventListener('touchstart', hideOnFirstInteraction, { once: false });
+      touchArea?.addEventListener('wheel', hideOnFirstInteraction, { once: false });
+      window.addEventListener('keydown', hideOnKeyInteraction);
+    }
 
     document.querySelectorAll('[data-card]').forEach((card) => {
       const inner = card.querySelector('.card-inner');
