@@ -227,22 +227,6 @@
       stroke: #ef4444;
     }
 
-    .hamburger-line {
-      transition: all 0.3s;
-    }
-
-    .menu-open .hamburger-line:nth-child(1) {
-      transform: rotate(45deg) translate(5px, 5px);
-    }
-
-    .menu-open .hamburger-line:nth-child(2) {
-      opacity: 0;
-    }
-
-    .menu-open .hamburger-line:nth-child(3) {
-      transform: rotate(-45deg) translate(6px, -6px);
-    }
-
     .new-flag {
       position: absolute;
       top: 1.25rem;
@@ -358,16 +342,6 @@
     <div class="fixed top-6 left-6 z-40 text-[0.7rem] tracking-[0.55em] uppercase text-slate-200/80">
       {% if restaurant %}{{ restaurant.name }}{% else %}Appertivo{% endif %}
     </div>
-    <button
-      id="menuToggle"
-      type="button"
-      class="fixed top-6 right-6 z-50 flex h-12 w-12 flex-col items-center justify-center space-y-1.5 rounded-full border border-slate-500/60 bg-slate-900/80 shadow-2xl backdrop-blur"
-      aria-label="Open navigation menu"
-    >
-      <span class="hamburger-line w-6 h-0.5 bg-slate-200 block"></span>
-      <span class="hamburger-line w-6 h-0.5 bg-slate-200 block"></span>
-      <span class="hamburger-line w-6 h-0.5 bg-slate-200 block"></span>
-    </button>
 
     {% if restaurant %}
       <button
@@ -679,30 +653,22 @@
       });
     }
 
-    const menuToggle = document.getElementById('menuToggle');
     const slideMenu = document.getElementById('slideMenu');
     const floatingMenuButton = document.getElementById('floatingMenuButton');
-    if (menuToggle && slideMenu) {
-      menuToggle.addEventListener('click', () => {
-        menuToggle.classList.toggle('menu-open');
+
+    if (floatingMenuButton && slideMenu) {
+      floatingMenuButton.addEventListener('click', () => {
         slideMenu.classList.toggle('translate-x-0');
         slideMenu.classList.toggle('translate-x-full');
       });
 
-      if (floatingMenuButton) {
-        floatingMenuButton.addEventListener('click', () => {
-          menuToggle.click();
-        });
-      }
-
       document.addEventListener('click', (e) => {
-        if (floatingMenuButton && floatingMenuButton.contains(e.target)) {
+        if (floatingMenuButton.contains(e.target)) {
           return;
         }
 
-        if (!slideMenu.contains(e.target) && !menuToggle.contains(e.target)) {
+        if (!slideMenu.contains(e.target)) {
           if (!slideMenu.classList.contains('translate-x-full')) {
-            menuToggle.classList.remove('menu-open');
             slideMenu.classList.add('translate-x-full');
             slideMenu.classList.remove('translate-x-0');
           }
