@@ -1,11 +1,12 @@
 import json
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import RequestFactory, TestCase
 from django.urls import reverse
 
 from app.models import Account, Restaurant
-from swipe.models import Concept, Dish, SeenItem
+from swipe.models import Concept, Dish
+from swipe.views import FavoritesView, SwipeHomeView
 
 
 class SwipeSoftDeleteTests(TestCase):
@@ -39,6 +40,21 @@ class SwipeSoftDeleteTests(TestCase):
         self.user = get_user_model().objects.create_user(
             username="tester", email="tester@example.com", password="pass"
         )
+        self.factory = RequestFactory()
+
+    def _home_context(self):
+        request = self.factory.get(reverse("swipe:home"))
+        request.user = self.user
+        response = SwipeHomeView.as_view()(request)
+        response.render()
+        return response.context_data
+
+    def _favorites_context(self):
+        request = self.factory.get(reverse("swipe:favorites"))
+        request.user = self.user
+        response = FavoritesView.as_view()(request)
+        response.render()
+        return response.context_data
 
     def test_defaults_not_deleted(self):
         fresh_concept = Concept.objects.create(
@@ -55,13 +71,13 @@ class SwipeSoftDeleteTests(TestCase):
             name="Concept Hidden",
             is_deleted=True,
         )
-        response = self.client.get(reverse("swipe:home"))
-        concepts = response.context["concepts"]
+        context = self._home_context()
+        concepts = context["concepts"]
         self.assertEqual(len(concepts), 1)
         concept = concepts[0]
         self.assertEqual(concept.id, self.concept.id)
         self.assertTrue(all(not dish.is_deleted for dish in concept.dishes.all()))
-        dish_counts = response.context["dish_counts"]
+        dish_counts = context["dish_counts"]
         self.assertEqual(dish_counts, [1])
 
     def test_favorites_view_excludes_deleted_items(self):
@@ -76,9 +92,9 @@ class SwipeSoftDeleteTests(TestCase):
             is_deleted=True,
         )
 
-        response = self.client.get(reverse("swipe:favorites"))
-        favorite_concepts = response.context["favorite_concepts"]
-        all_favorite_dishes = response.context["all_favorite_dishes"]
+        context = self._favorites_context()
+        favorite_concepts = context["favorite_concepts"]
+        all_favorite_dishes = context["all_favorite_dishes"]
         self.assertEqual([c.id for c in favorite_concepts], [self.concept.id])
         self.assertEqual([d.id for d in all_favorite_dishes], [self.dish_active.id])
 
@@ -164,7 +180,7 @@ class SwipeSoftDeleteTests(TestCase):
         self.concept.save()
         response = self.client.post(
             mark_seen_url,
-            data=json.dumps({"type": SeenItem.ItemType.CONCEPT, "id": self.concept.id}),
+            data=json.dumps({"type": "concept", "id": self.concept.id}),
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 400)
@@ -175,7 +191,7 @@ class SwipeSoftDeleteTests(TestCase):
         self.dish_active.save()
         response = self.client.post(
             mark_seen_url,
-            data=json.dumps({"type": SeenItem.ItemType.DISH, "id": self.dish_active.id}),
+            data=json.dumps({"type": "dish", "id": self.dish_active.id}),
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 400)

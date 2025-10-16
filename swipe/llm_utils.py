@@ -106,6 +106,7 @@ class GetConcepts:
                 "tags": concept_payload.get("tags", []),
                 "ideal_dishes": concept_payload.get("ideal_dishes", ""),
                 "reasoning": concept_payload.get("reasoning", ""),
+                "is_seen": concept_obj.is_seen,
                 "dishes": saved_dishes,
             }
         except Exception as exc:
@@ -132,6 +133,7 @@ class GetConcepts:
                 sketch_url=concept_payload.get("sketch_url", ""),
                 meta_ingredients=concept_payload.get("tags", []),
                 meta_reasoning=meta_reasoning,
+                is_seen=False,
                 created_at=timezone.now(),
             )
 
@@ -360,9 +362,10 @@ class GetConcepts:
                     ingredients=dish.get("ingredient_overlap", []),
                     price=dish.get("suggested_price", ""),
                     image_url=image_url,
+                    is_seen=False,
                 )
             )
-            saved_payloads.append({**dish, "image_url": image_url})
+            saved_payloads.append({**dish, "image_url": image_url, "is_seen": False})
 
         concept_id = concept_obj.pk
         if isinstance(concept_id, uuid.UUID):

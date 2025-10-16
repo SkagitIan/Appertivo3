@@ -90,6 +90,8 @@ class GenerateConceptsViewTests(TransactionTestCase):
             else concept_obj.id
         )
         self.assertEqual(concept_response["id"], expected_concept_id)
+        self.assertIn("is_seen", concept_response)
+        self.assertFalse(concept_response["is_seen"])
 
         dishes = concept_response["dishes"]
         stored_dishes = list(Dish.objects.filter(concept=concept_obj).order_by("id"))
@@ -108,4 +110,6 @@ class GenerateConceptsViewTests(TransactionTestCase):
             )
             self.assertEqual(response_dish["id"], expected_dish_id)
             self.assertEqual(response_dish["concept_id"], expected_concept_fk)
+            self.assertIn("is_seen", response_dish)
+            self.assertFalse(response_dish["is_seen"])
 

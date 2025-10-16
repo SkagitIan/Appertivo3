@@ -1,11 +1,12 @@
 import json
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import RequestFactory, TestCase
 from django.urls import reverse
 
 from app.models import Account, Restaurant
-from swipe.models import Concept, Dish, SeenItem
+from swipe.models import Concept, Dish
+from swipe.views import SwipeHomeView
 
 
 class SwipeSeenTests(TestCase):
@@ -32,35 +33,34 @@ class SwipeSeenTests(TestCase):
             reasoning="Bright and refreshing.",
             price="$12",
         )
+        self.factory = RequestFactory()
 
-    def test_context_marks_unseen_items_as_new(self):
-        self.client.force_login(self.user)
-        response = self.client.get(reverse("swipe:home"))
+    def _home_context(self):
+        request = self.factory.get(reverse("swipe:home"))
+        request.user = self.user
+        response = SwipeHomeView.as_view()(request)
+        response.render()
+        return response.context_data
 
-        concepts = response.context["concepts"]
+    def test_context_reflects_seen_state(self):
+        context = self._home_context()
+
+        concepts = context["concepts"]
         self.assertEqual(len(concepts), 1)
 
         concept = concepts[0]
-        self.assertTrue(concept.is_new)
+        self.assertFalse(concept.is_seen)
         dish = list(concept.dishes.all())[0]
-        self.assertTrue(dish.is_new)
+        self.assertFalse(dish.is_seen)
 
-        SeenItem.objects.create(
-            user=self.user,
-            item_type=SeenItem.ItemType.CONCEPT,
-            item_id=self.concept.id,
-        )
-        SeenItem.objects.create(
-            user=self.user,
-            item_type=SeenItem.ItemType.DISH,
-            item_id=self.dish.id,
-        )
+        Concept.objects.filter(id=self.concept.id).update(is_seen=True)
+        Dish.objects.filter(id=self.dish.id).update(is_seen=True)
 
-        response = self.client.get(reverse("swipe:home"))
-        concept = response.context["concepts"][0]
-        self.assertFalse(concept.is_new)
+        context = self._home_context()
+        concept = context["concepts"][0]
+        self.assertTrue(concept.is_seen)
         dish = list(concept.dishes.all())[0]
-        self.assertFalse(dish.is_new)
+        self.assertTrue(dish.is_seen)
 
     def test_mark_seen_api_creates_records(self):
         self.client.force_login(self.user)
@@ -72,13 +72,9 @@ class SwipeSeenTests(TestCase):
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(
-            SeenItem.objects.filter(
-                user=self.user,
-                item_type=SeenItem.ItemType.CONCEPT,
-                item_id=self.concept.id,
-            ).exists()
-        )
+        self.assertEqual(response.content, b"")
+        self.concept.refresh_from_db()
+        self.assertTrue(self.concept.is_seen)
 
         response = self.client.post(
             url,
@@ -86,10 +82,6 @@ class SwipeSeenTests(TestCase):
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(
-            SeenItem.objects.filter(
-                user=self.user,
-                item_type=SeenItem.ItemType.DISH,
-                item_id=self.dish.id,
-            ).exists()
-        )
+        self.assertEqual(response.content, b"")
+        self.dish.refresh_from_db()
+        self.assertTrue(self.dish.is_seen)
