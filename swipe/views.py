@@ -2,7 +2,7 @@ import asyncio
 import logging
 
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import HttpResponseBadRequest, JsonResponse
+from django.http import HttpResponse, HttpResponseBadRequest, JsonResponse
 from django.db.models import Prefetch
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -12,7 +12,7 @@ from app.models import Restaurant
 # Stub imports for future service integration
 # from .services import generate_concepts_batch  # to be implemented
 from swipe.llm_utils import GetConcepts
-from swipe.models import Concept, SeenItem, Dish
+from swipe.models import Concept, Dish
 from django.shortcuts import get_object_or_404
 logger = logging.getLogger(__name__)
 
@@ -72,38 +72,6 @@ class SwipeHomeView(TemplateView):
                 )
             )
             concepts = list(concept_qs)
-
-        user = self.request.user
-        seen_concept_ids = set()
-        seen_dish_ids = set()
-
-        if user.is_authenticated and concepts:
-            concept_ids = [concept.id for concept in concepts]
-            seen_concept_ids = set(
-                SeenItem.objects.filter(
-                    user=user,
-                    item_type=SeenItem.ItemType.CONCEPT,
-                    item_id__in=concept_ids,
-                ).values_list("item_id", flat=True)
-            )
-
-            dish_ids = []
-            for concept in concepts:
-                dish_ids.extend(dish.id for dish in concept.dishes.all())
-
-            if dish_ids:
-                seen_dish_ids = set(
-                    SeenItem.objects.filter(
-                        user=user,
-                        item_type=SeenItem.ItemType.DISH,
-                        item_id__in=dish_ids,
-                    ).values_list("item_id", flat=True)
-                )
-
-        for concept in concepts:
-            concept.is_new = user.is_authenticated and concept.id not in seen_concept_ids
-            for dish in concept.dishes.all():
-                dish.is_new = user.is_authenticated and dish.id not in seen_dish_ids
 
         dish_counts = [len(list(c.dishes.all())) for c in concepts]
 
@@ -235,6 +203,7 @@ class ConceptDishAppendView(View):
                     "ingredients": ingredients,
                     "price": dish.get("suggested_price") or dish.get("price") or "",
                     "image_url": dish.get("image_url") or "",
+                    "is_seen": dish.get("is_seen", False),
                 }
             )
 
@@ -445,7 +414,7 @@ class SettingsView(TemplateView):
         return context
 
 
-class MarkSeenAPI(LoginRequiredMixin, View):
+class MarkSeenAPI(View):
     def post(self, request):
         import json
 
@@ -462,27 +431,29 @@ class MarkSeenAPI(LoginRequiredMixin, View):
         except (TypeError, ValueError):
             return HttpResponseBadRequest("Invalid item id")
 
-        if type_ == SeenItem.ItemType.CONCEPT:
-            if not Concept.objects.filter(id=item_id, is_deleted=False).exists():
+        if type_ == "concept":
+            concept = (
+                Concept.objects.filter(id=item_id, is_deleted=False)
+                .first()
+            )
+            if concept is None:
                 return HttpResponseBadRequest("Unknown concept")
-            SeenItem.objects.get_or_create(
-                user=request.user,
-                item_type=SeenItem.ItemType.CONCEPT,
-                item_id=item_id,
-            )
-        elif type_ == SeenItem.ItemType.DISH:
-            from swipe.models import Dish
+            if not concept.is_seen:
+                concept.is_seen = True
+                concept.save(update_fields=["is_seen"])
+            return HttpResponse("")
 
-            if not Dish.objects.filter(
-                id=item_id, is_deleted=False, concept__is_deleted=False
-            ).exists():
+        if type_ == "dish":
+            dish = (
+                Dish.objects.select_related("concept")
+                .filter(id=item_id, is_deleted=False, concept__is_deleted=False)
+                .first()
+            )
+            if dish is None:
                 return HttpResponseBadRequest("Unknown dish")
-            SeenItem.objects.get_or_create(
-                user=request.user,
-                item_type=SeenItem.ItemType.DISH,
-                item_id=item_id,
-            )
-        else:
-            return HttpResponseBadRequest("Unknown type")
+            if not dish.is_seen:
+                dish.is_seen = True
+                dish.save(update_fields=["is_seen"])
+            return HttpResponse("")
 
-        return JsonResponse({"seen": True})
+        return HttpResponseBadRequest("Unknown type")

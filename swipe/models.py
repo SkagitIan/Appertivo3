@@ -36,6 +36,7 @@ class Concept(models.Model):
     meta_ingredients = models.JSONField(default=list)  # list[str]
     meta_reasoning = models.TextField(blank=True)
     is_favorite = models.BooleanField(default=False)
+    is_seen = models.BooleanField(default=False)
     is_deleted = models.BooleanField(default=False)
     created_at = models.DateTimeField(default=timezone.now)
 
@@ -58,6 +59,7 @@ class Dish(models.Model):
     ingredients = models.JSONField(default=list)  # list[str]
     reasoning = models.TextField(blank=True)
     is_favorite = models.BooleanField(default=False)
+    is_seen = models.BooleanField(default=False)
     is_deleted = models.BooleanField(default=False)
 
     def __str__(self):
