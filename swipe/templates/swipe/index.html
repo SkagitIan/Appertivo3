@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@500;600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@500;600;700&family=Shadows+Into+Light&display=swap"
     rel="stylesheet"
   >
   <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
@@ -45,6 +45,26 @@
     .card:focus-visible {
       outline: 2px solid rgba(248, 250, 252, 0.65);
       outline-offset: 4px;
+    }
+
+    .card-note {
+      position: absolute;
+      top: 1.1rem;
+      left: 1.1rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 0.65rem;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: rgba(15, 23, 42, 0.55);
+      font-family: 'Shadows Into Light', cursive;
+      font-size: clamp(0.95rem, 2.2vw, 1.15rem);
+      color: rgba(248, 250, 252, 0.92);
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+      max-width: 75%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      z-index: 2;
+      pointer-events: none;
     }
 
     .card-inner {
@@ -609,6 +629,7 @@
                     <div class="card-inner">
                       {% with concept_image=concept.display_sketch_url concept_placeholder="https://placehold.co/1200x800?text=Concept" %}
                       <div class="card-face card-front" style="background-image: url('{{ concept_image }}');">
+                        <span class="card-note">{{ concept.name }}</span>
                         <img
                           src="{{ concept_image }}"
                           alt="{{ concept.name }} concept sketch"
