@@ -2,7 +2,7 @@ import asyncio
 import logging
 
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import HttpResponse, HttpResponseBadRequest, JsonResponse
+from django.http import HttpResponse, HttpResponseBadRequest, JsonResponse, QueryDict
 from django.db.models import Prefetch
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -252,10 +252,20 @@ class DeleteCardAPI(LoginRequiredMixin, View):
     def post(self, request):
         import json
 
-        try:
-            payload = json.loads(request.body.decode("utf-8"))
-        except json.JSONDecodeError:
-            return HttpResponseBadRequest("Invalid JSON payload")
+        body = request.body.decode("utf-8").strip()
+        payload = {}
+
+        if body:
+            try:
+                payload = json.loads(body)
+            except json.JSONDecodeError:
+                payload = QueryDict(body).dict()
+
+        if not payload:
+            payload = request.POST.dict()
+
+        if not payload:
+            return HttpResponseBadRequest("Invalid payload")
 
         type_ = payload.get("type")
         item_id = payload.get("id")
@@ -418,10 +428,20 @@ class MarkSeenAPI(View):
     def post(self, request):
         import json
 
-        try:
-            payload = json.loads(request.body.decode("utf-8"))
-        except json.JSONDecodeError:
-            return HttpResponseBadRequest("Invalid JSON payload")
+        body = request.body.decode("utf-8").strip()
+        payload = {}
+
+        if body:
+            try:
+                payload = json.loads(body)
+            except json.JSONDecodeError:
+                payload = QueryDict(body).dict()
+
+        if not payload:
+            payload = request.POST.dict()
+
+        if not payload:
+            return HttpResponseBadRequest("Invalid payload")
 
         type_ = payload.get("type")
         item_id = payload.get("id")
