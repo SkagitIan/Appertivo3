@@ -31,7 +31,7 @@
       backdrop-filter: saturate(140%) blur(8px);
       perspective: 1600px;
       cursor: pointer;
-      overflow: hidden;
+      overflow: visible;
       height: min(64vh, calc(100vh - 15rem));
       margin-bottom: 1.5rem;
     }
@@ -651,7 +651,7 @@
                         hx-encoding="json"
                         hx-swap="outerHTML"
                       >
-                        New Arrival
+                        New
                       </div>
                     {% endif %}
                     <div class="card-inner">
@@ -667,7 +667,7 @@
                             hx-encoding="json"
                             hx-swap="outerHTML"
                           >
-                            New Arrival
+                            New
                           </span>
                         {% endif %}
                         <span class="card-note">{{ concept.name }}</span>
@@ -744,35 +744,35 @@
                       tabindex="0"
                       role="button"
                     >
-                      {% if not dish.is_seen %}
-                        <div
-                          class="new-badge"
-                          hx-post="{% url 'swipe:mark_seen' %}"
-                          hx-trigger="revealed delay:3s"
-                          hx-vals='{"type":"dish","id":"{{ dish.id }}"}'
-                          hx-headers='{"X-CSRFToken": "{{ csrf_token|escapejs }}", "Content-Type": "application/json"}'
-                          hx-encoding="json"
-                          hx-swap="outerHTML"
-                        >
-                          New Arrival
-                        </div>
-                      {% endif %}
+                    {% if not dish.is_seen %}
+                      <div
+                        class="new-badge"
+                        hx-post="{% url 'swipe:mark_seen' %}"
+                        hx-trigger="revealed delay:3s"
+                        hx-vals='{"type":"dish","id":"{{ dish.id }}"}'
+                        hx-headers='{"X-CSRFToken": "{{ csrf_token|escapejs }}", "Content-Type": "application/json"}'
+                        hx-encoding="json"
+                        hx-swap="outerHTML"
+                      >
+                        New
+                      </div>
+                    {% endif %}
                       <div class="card-inner">
                         {% with dish_image=dish.display_image_url dish_placeholder="https://placehold.co/800x600?text=Dish" %}
                         <div class="card-face card-front" style="background-image: url('{{ dish_image }}');">
-                          {% if not dish.is_seen %}
-                            <span
-                              class="new-badge"
-                              hx-post="{% url 'swipe:mark_seen' %}"
-                              hx-trigger="revealed delay:3s"
-                              hx-vals='{"type":"dish","id":"{{ dish.id }}"}'
-                              hx-headers='{"X-CSRFToken": "{{ csrf_token|escapejs }}", "Content-Type": "application/json"}'
-                              hx-encoding="json"
-                              hx-swap="outerHTML"
-                            >
-                              New Arrival
-                            </span>
-                          {% endif %}
+                        {% if not dish.is_seen %}
+                          <span
+                            class="new-badge"
+                            hx-post="{% url 'swipe:mark_seen' %}"
+                            hx-trigger="revealed delay:3s"
+                            hx-vals='{"type":"dish","id":"{{ dish.id }}"}'
+                            hx-headers='{"X-CSRFToken": "{{ csrf_token|escapejs }}", "Content-Type": "application/json"}'
+                            hx-encoding="json"
+                            hx-swap="outerHTML"
+                          >
+                            New
+                          </span>
+                        {% endif %}
                           <img
                             src="{{ dish_image }}"
                             alt="{{ dish.name }} presentation"
@@ -901,7 +901,7 @@
 
       const badge = document.createElement('span');
       badge.className = 'new-badge';
-      badge.textContent = 'New Arrival';
+      badge.textContent = 'New';
       badge.setAttribute('hx-post', markSeenEndpoint);
       badge.setAttribute('hx-trigger', 'revealed delay:3s');
       badge.setAttribute('hx-swap', 'outerHTML');
