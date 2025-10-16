@@ -1,21 +1,87 @@
-# AGENTS
+## AGENTS
 
-These instructions apply to the entire repository.
+These instructions apply to all autonomous or semi-autonomous scripts, tasks, or LLM-driven agents in this repository.
 
-## Development Guidelines
+### Core Principles
 
-- Add tests for any new functionality or to prevent regressions.
-- Keep commits focused and use clear, descriptive commit messages.
-- Follow PEP 8 style guidelines and include docstrings for new modules, classes, and functions.
-- Use `rg` (ripgrep) for searching the codebase rather than `grep` or `ls -R`.
-- Keep pull requests small and focused; include a summary of changes and testing results.
+1. **Reproducibility over autonomy** – every action must be traceable, reversible, and logged.
+2. **Human in the loop** – no write, delete, or deploy operation runs without explicit confirmation from an authorized account.
+3. **Fail closed** – if an environment variable, API key, or required dependency is missing, the agent exits gracefully.
 
------------
- I use this techique to get secrets.
+---
 
+### Development Guidelines
+
+* Add or update **tests** for all new logic or API integrations.
+* Keep commits focused; use descriptive, imperative messages.
+* Follow **PEP 8**, include docstrings and type hints.
+* Prefer `rg` for code searches.
+* Small pull requests, clear change summaries, and evidence of testing.
+
+---
+
+### Secret Management
+
+```python
 import os
 from dotenv import load_dotenv
-load_dotenv()
+from pathlib import Path
 
-os.getenv("STRIPE_API_KEY").
--------------------
+# Load environment variables safely
+load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
+
+STRIPE_API_KEY = os.getenv("STRIPE_API_KEY")
+if not STRIPE_API_KEY:
+    raise EnvironmentError("STRIPE_API_KEY not found. Check your .env file.")
+```
+
+**Rules**
+
+* Never hard-code secrets or tokens.
+* `.env` must never be committed.
+* Agents must **read only**; they cannot write `.env` or export secrets dynamically.
+* All secrets should be scoped per environment (`dev`, `staging`, `prod`) via OS vars.
+
+---
+
+### Agent Control & Safety
+
+1. **Bounded Scope**
+
+   * Agents operate only within their registered Django apps or service modules.
+   * Use explicit allow-lists for filesystem and network access.
+
+2. **Execution Contracts**
+
+   * All agent entrypoints require:
+
+     * a clear task name (`task_name`),
+     * a human readable `summary`,
+     * and an optional `dry_run` flag defaulting to `True`.
+   * Agents must log all output and decisions to `/logs/agents/<date>.log`.
+
+3. **Rate & Cost Controls**
+
+   * Respect `MAX_TOKENS_PER_MINUTE`, `MAX_CALLS_PER_HOUR`, etc. via environment vars.
+   * Long-running jobs use Celery queues with back-pressure enabled.
+
+4. **Mutation Guard**
+
+   * No agent can write to the database or push to git without a checksum diff and explicit approval signal.
+   * All destructive actions (`delete`, `drop`, `overwrite`) must require a `--force` flag or `confirm=True`.
+
+5. **Observability**
+
+   * Standardize structured logs (JSON or line-delimited text).
+   * Include: timestamp, agent name, task, duration, and status.
+
+---
+
+### Agent Design Style 
+
+* Keep them **functional**, not over-abstracted.
+* Avoid “smart” error handling; fail loudly.
+* Use plain classes or scripts — no heavy orchestration frameworks.
+* Build modular pipelines: `ingest → enrich → output`, each callable in isolation.
+* Each agent should have a **README** describing purpose, scope, and example runs.
+
