@@ -59,12 +59,12 @@ class SwipeHomeView(TemplateView):
 
         if restaurant:
             concept_qs = (
-                Concept.objects.filter(restaurant=restaurant, is_deleted=False)
+                Concept.objects.filter(restaurant=restaurant)
                 .order_by("-created_at")
                 .prefetch_related(
                     Prefetch(
                         "dishes",
-                        queryset=Dish.objects.filter(is_deleted=False).order_by("id"),
+                        queryset=Dish.objects.filter().order_by("id"),
                     )
                 )
             )

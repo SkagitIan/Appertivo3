@@ -7,7 +7,6 @@ from datetime import timedelta
 from django.db import transaction
 from django.utils import timezone
 from . import llm, models
-from onboarding.services import menu, outscraper, web_profile
 from dotenv import load_dotenv
 import os
 logger = logging.getLogger(__name__)

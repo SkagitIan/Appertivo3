@@ -5,16 +5,16 @@ from .models import Concept, Dish, Favorite
 
 @admin.register(Concept)
 class ConceptAdmin(admin.ModelAdmin):
-    list_display = ("id", "name", "subtitle", "is_deleted", "created_at")
+    list_display = ("id", "name", "subtitle","created_at")
     search_fields = ("name", "subtitle")
-    list_filter = ("is_deleted",)
+
 
 
 @admin.register(Dish)
 class DishAdmin(admin.ModelAdmin):
-    list_display = ("id", "name", "concept", "is_deleted")
+    list_display = ("id", "name", "concept")
     search_fields = ("name", "concept__name")
-    list_filter = ("is_deleted",)
+
 
 
 @admin.register(Favorite)
