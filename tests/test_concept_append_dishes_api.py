@@ -101,13 +101,22 @@ class ConceptAppendDishesAPITests(TransactionTestCase):
         for dish_payload, source in zip(dishes, new_dish_payloads):
             self.assertEqual(
                 set(dish_payload.keys()),
-                {"id", "name", "reasoning", "ingredients", "price", "image_url"},
+                {
+                    "id",
+                    "name",
+                    "reasoning",
+                    "ingredients",
+                    "price",
+                    "image_url",
+                    "is_seen",
+                },
             )
             self.assertEqual(dish_payload["name"], source["title"])
             self.assertEqual(dish_payload["reasoning"], source["description"])
             self.assertEqual(dish_payload["ingredients"], source["ingredient_overlap"])
             self.assertEqual(dish_payload["price"], source["suggested_price"])
             self.assertEqual(dish_payload["image_url"], source["image_url"])
+            self.assertFalse(dish_payload["is_seen"])
 
         total_dishes = Dish.objects.filter(concept=concept).count()
         self.assertEqual(total_dishes, 1 + len(new_dish_payloads))
