@@ -23,6 +23,10 @@
       font-family: 'Inter', sans-serif;
     }
 
+    .hidden {
+      display: none !important;
+    }
+
     .card {
       position: relative;
       border-radius: 28px;
@@ -569,6 +573,40 @@
       transition: transform 0.2s ease, background 0.2s ease;
     }
 
+    .generate-btn,
+    .floating-controls button.generate-btn {
+      width: 3rem;
+      height: 3rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      background: linear-gradient(135deg, #f43f5e, #d946ef);
+      box-shadow: 0 20px 45px -20px rgba(244, 114, 182, 0.8);
+    }
+
+    .generate-btn svg,
+    .generate-btn [data-spinner] {
+      width: 1.5rem;
+      height: 1.5rem;
+    }
+
+    .generate-btn [data-spinner] {
+      border: 2px solid rgba(255, 255, 255, 0.7);
+      border-top-color: transparent;
+      border-radius: 9999px;
+      animation: spin 0.9s linear infinite;
+      display: none;
+    }
+
+    .generate-btn [data-spinner]:not(.hidden) {
+      display: inline-block;
+    }
+
+    .generate-btn svg.hidden {
+      display: none;
+    }
+
     .floating-controls button[data-tool] {
       width: 2.25rem;
       height: 2.25rem;
@@ -577,6 +615,11 @@
     .floating-controls button:hover {
       transform: translateY(-2px);
       background: rgba(148, 163, 184, 0.2);
+    }
+
+    .generate-btn:hover {
+      background: linear-gradient(135deg, #fb7185, #e879f9);
+      transform: translateY(-2px) scale(1.03);
     }
 
     .floating-controls button:focus-visible {
@@ -589,9 +632,17 @@
       cursor: not-allowed;
     }
 
+    .generate-btn:disabled {
+      opacity: 0.6;
+    }
+
     .floating-controls button:disabled:hover {
       transform: none;
       background: rgba(15, 23, 42, 0.5);
+    }
+
+    .generate-btn:disabled:hover {
+      background: linear-gradient(135deg, #f43f5e, #d946ef);
     }
 
     .floating-controls-indicator {
@@ -601,6 +652,45 @@
       text-transform: uppercase;
       color: rgba(248, 250, 252, 0.85);
       white-space: nowrap;
+    }
+
+    .floating-generate-feedback {
+      position: fixed;
+      bottom: calc(2.5rem + 4.5rem);
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 0.75rem 1.25rem;
+      border-radius: 0.75rem;
+      background: rgba(15, 23, 42, 0.9);
+      color: #f8fafc;
+      font-size: 0.9rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      box-shadow: 0 20px 50px -30px rgba(8, 11, 19, 0.85);
+      backdrop-filter: blur(12px);
+      text-align: center;
+    }
+
+    .floating-generate-feedback.bg-green-600\/90 {
+      background: rgba(34, 197, 94, 0.9);
+    }
+
+    .floating-generate-feedback.bg-red-600\/90 {
+      background: rgba(225, 29, 72, 0.9);
+    }
+
+    .floating-generate-feedback.bg-black\/80 {
+      background: rgba(15, 23, 42, 0.8);
+    }
+
+    @keyframes spin {
+      from {
+        transform: rotate(0deg);
+      }
+
+      to {
+        transform: rotate(360deg);
+      }
     }
   </style>
 {% endblock %}
@@ -648,31 +738,6 @@
     <div class="fixed top-6 left-6 z-40 text-[0.7rem] tracking-[0.55em] uppercase text-slate-200/80">
       {% if restaurant %}{{ restaurant.name }}{% else %}Appertivo{% endif %}
     </div>
-
-    {% if restaurant %}
-      <button
-        id="generateConceptsBtn"
-        type="button"
-        class="fixed bottom-28 right-8 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-fuchsia-500 text-white shadow-[0_20px_45px_-20px_rgba(244,114,182,0.8)] transition-transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-rose-200/40 disabled:cursor-wait disabled:opacity-80"
-        aria-label="Generate more concepts and dishes"
-        data-endpoint="{% url 'swipe:generate_concepts' restaurant.id %}"
-      >
-        <svg data-icon class="h-7 w-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m-7-7h14" />
-        </svg>
-        <span
-          data-spinner
-          class="hidden h-6 w-6 animate-spin rounded-full border-2 border-white/70 border-t-transparent"
-          aria-hidden="true"
-        ></span>
-      </button>
-      <div
-        id="generateConceptsFeedback"
-        class="fixed bottom-44 right-8 z-40 hidden rounded-xl px-4 py-2 text-sm text-white shadow-lg backdrop-blur"
-        role="status"
-        aria-live="polite"
-      ></div>
-    {% endif %}
 
     <!-- Slide-out Menu -->
     <div
@@ -912,8 +977,34 @@
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l4-4m-4 4l-4-4m4 4V5" />
             </svg>
           </button>
+          {% if restaurant %}
+            <button
+              id="generateConceptsBtn"
+              type="button"
+              class="generate-btn"
+              aria-label="Generate more concepts and dishes"
+              data-endpoint="{% url 'swipe:generate_concepts' restaurant.id %}"
+            >
+              <svg data-icon fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m-7-7h14" />
+              </svg>
+              <span
+                data-spinner
+                class="hidden"
+                aria-hidden="true"
+              ></span>
+            </button>
+          {% endif %}
         </div>
       </div>
+      {% if restaurant %}
+        <div
+          id="generateConceptsFeedback"
+          class="floating-generate-feedback hidden"
+          role="status"
+          aria-live="polite"
+        ></div>
+      {% endif %}
     {% else %}
       <div class="flex items-center justify-center pt-32 pb-12">
         <div class="max-w-md rounded-3xl border border-slate-700/60 bg-slate-900/70 p-10 text-center text-slate-200 shadow-[0_35px_70px_-40px_rgba(8,11,19,0.8)]">
