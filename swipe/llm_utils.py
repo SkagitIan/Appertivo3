@@ -58,7 +58,7 @@ class GetConcepts:
         self.DEFAULT_CONCEPT_IMAGE_URL = "https://placehold.co/1200x800?text=Concept"
 
         self.restaurant = restaurant
-        self.locale_summary = None
+        self.locale_summary = ""
         threading.Thread(target=self._load_locale, daemon=True).start()
 
 
@@ -158,10 +158,12 @@ class GetConcepts:
     # 🧩 Helpers
     # -----------------------------
     def _load_locale(self):
-        if not self.openai: 
+        if not self.openai_client or not self.restaurant:
             return
-        loc, name = self.restaurant["location"], self.restaurant["name"]
-        date = datetime.now().strftime("%A, %B %d, %Y")
+
+        loc = getattr(self.restaurant, "location_text", "") or ""
+        name = getattr(self.restaurant, "name", "") or ""
+        date = datetime.datetime.now().strftime("%A, %B %d, %Y")
 
         prompt = f"""
         You are a food writer describing today’s local atmosphere for {name} in {loc} on {date}.
@@ -169,12 +171,12 @@ class GetConcepts:
         """
 
         try:
-            resp = self.openai.responses.create(
+            resp = self.openai_client.responses.create(
                 model="gpt-5-nano-2025-08-07",
                 reasoning={"effort": "minimal"},
                 input=prompt,
             )
-            self.locale_summary = resp.output_text.strip()
+            self.locale_summary = resp.output_text.strip() if resp.output_text else ""
         except Exception as e:
             print("⚠️ Locale error:", e)
             
@@ -412,11 +414,12 @@ class GetConcepts:
 
         # --- Generate image with Replicate ---
         try:
+            locale_suffix = f"\n\nLocale inspiration: {self.locale_summary}" if self.locale_summary else ""
             output = await asyncio.to_thread(
                 self.replicate_client.run,
                 self.REPLICATE_MODEL,
                 input={
-                    "prompt": sketch_prompt+self.locale_summary,
+                    "prompt": f"{sketch_prompt}{locale_suffix}",
                     "output_format": "png",
                     "output_quality": 100,
                 },
