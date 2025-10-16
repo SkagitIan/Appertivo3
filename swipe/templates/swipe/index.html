@@ -401,40 +401,6 @@
       transform: translateY(0);
     }
 
-    .new-badge {
-      position: absolute;
-      top: -0.65rem;
-      right: 2rem;
-      background: linear-gradient(135deg, rgba(244, 114, 182, 0.92), rgba(236, 72, 153, 0.95));
-      color: #0b1120;
-      font-size: 0.6rem;
-      font-weight: 600;
-      letter-spacing: 0.32em;
-      text-transform: uppercase;
-      padding: 0.45rem 1.1rem 0.35rem;
-      border-radius: 9999px 9999px 0 0;
-      box-shadow: 0 24px 40px -32px rgba(244, 114, 182, 0.7);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.35rem;
-      z-index: 5;
-      pointer-events: none;
-      border: 1px solid rgba(248, 187, 208, 0.5);
-      transition: opacity 0.25s ease;
-    }
-
-    .new-badge::after {
-      content: '';
-      position: absolute;
-      inset: auto 1.15rem -0.4rem;
-      height: 0.5rem;
-      border-radius: 0 0 0.65rem 0.65rem;
-      background: linear-gradient(135deg, rgba(248, 187, 208, 0.75), rgba(244, 114, 182, 0.7));
-      opacity: 0.7;
-      pointer-events: none;
-    }
-
     .slide-container {
       transition: transform 0.3s ease-out;
     }
@@ -641,36 +607,18 @@
                     data-card
                     tabindex="0"
                     role="button"
-                  >
                     {% if not concept.is_seen %}
-                      <div
-                        class="new-badge"
-                        hx-post="{% url 'swipe:mark_seen' %}"
-                        hx-trigger="revealed delay:3s"
-                        hx-vals='{"type":"concept","id":"{{ concept.id }}"}'
-                        hx-headers='{"X-CSRFToken": "{{ csrf_token|escapejs }}", "Content-Type": "application/json"}'
-                        hx-encoding="json"
-                        hx-swap="outerHTML"
-                      >
-                        New
-                      </div>
+                      hx-post="{% url 'swipe:mark_seen' %}"
+                      hx-trigger="revealed delay:3s once"
+                      hx-vals='{"type":"concept","id":"{{ concept.id }}"}'
+                      hx-headers='{"X-CSRFToken": "{{ csrf_token|escapejs }}", "Content-Type": "application/json"}'
+                      hx-encoding="json"
+                      hx-swap="none"
                     {% endif %}
+                  >
                     <div class="card-inner">
                       {% with concept_image=concept.display_sketch_url concept_placeholder="https://placehold.co/1200x800?text=Concept" %}
                       <div class="card-face card-front" style="background-image: url('{{ concept_image }}');">
-                        {% if not concept.is_seen %}
-                          <span
-                            class="new-badge"
-                            hx-post="{% url 'swipe:mark_seen' %}"
-                            hx-trigger="revealed delay:3s"
-                            hx-vals='{"type":"concept","id":"{{ concept.id }}"}'
-                            hx-headers='{"X-CSRFToken": "{{ csrf_token|escapejs }}", "Content-Type": "application/json"}'
-                            hx-encoding="json"
-                            hx-swap="outerHTML"
-                          >
-                            New
-                          </span>
-                        {% endif %}
                         <span class="card-note">{{ concept.name }}</span>
                         <img
                           src="{{ concept_image }}"
@@ -744,36 +692,18 @@
                       data-card
                       tabindex="0"
                       role="button"
-                    >
-                    {% if not dish.is_seen %}
-                      <div
-                        class="new-badge"
+                      {% if not dish.is_seen %}
                         hx-post="{% url 'swipe:mark_seen' %}"
-                        hx-trigger="revealed delay:3s"
+                        hx-trigger="revealed delay:3s once"
                         hx-vals='{"type":"dish","id":"{{ dish.id }}"}'
                         hx-headers='{"X-CSRFToken": "{{ csrf_token|escapejs }}", "Content-Type": "application/json"}'
                         hx-encoding="json"
-                        hx-swap="outerHTML"
-                      >
-                        New
-                      </div>
-                    {% endif %}
+                        hx-swap="none"
+                      {% endif %}
+                    >
                       <div class="card-inner">
                         {% with dish_image=dish.display_image_url dish_placeholder="https://placehold.co/800x600?text=Dish" %}
                         <div class="card-face card-front" style="background-image: url('{{ dish_image }}');">
-                        {% if not dish.is_seen %}
-                          <span
-                            class="new-badge"
-                            hx-post="{% url 'swipe:mark_seen' %}"
-                            hx-trigger="revealed delay:3s"
-                            hx-vals='{"type":"dish","id":"{{ dish.id }}"}'
-                            hx-headers='{"X-CSRFToken": "{{ csrf_token|escapejs }}", "Content-Type": "application/json"}'
-                            hx-encoding="json"
-                            hx-swap="outerHTML"
-                          >
-                            New
-                          </span>
-                        {% endif %}
                           <img
                             src="{{ dish_image }}"
                             alt="{{ dish.name }} presentation"
@@ -895,24 +825,20 @@
     const dismissIntro = document.getElementById('dismissIntro');
     const DISH_PLACEHOLDER = 'https://placehold.co/800x600?text=Dish';
 
-    function createNewBadge(type, id) {
-      if (!id) {
-        return null;
+    function applyRevealedTrigger(element, type, id) {
+      if (!element || !id) {
+        return;
       }
 
-      const badge = document.createElement('span');
-      badge.className = 'new-badge';
-      badge.textContent = 'New';
-      badge.setAttribute('hx-post', markSeenEndpoint);
-      badge.setAttribute('hx-trigger', 'revealed delay:3s');
-      badge.setAttribute('hx-swap', 'outerHTML');
-      badge.setAttribute('hx-encoding', 'json');
-      badge.setAttribute('hx-vals', JSON.stringify({ type, id: String(id) }));
-      badge.setAttribute(
+      element.setAttribute('hx-post', markSeenEndpoint);
+      element.setAttribute('hx-trigger', 'revealed delay:3s once');
+      element.setAttribute('hx-swap', 'none');
+      element.setAttribute('hx-encoding', 'json');
+      element.setAttribute('hx-vals', JSON.stringify({ type, id: String(id) }));
+      element.setAttribute(
         'hx-headers',
         JSON.stringify({ 'X-CSRFToken': csrfToken, 'Content-Type': 'application/json' }),
       );
-      return badge;
     }
 
     function initializeCard(card) {
@@ -963,8 +889,10 @@
       card.setAttribute('role', 'button');
       const dishId = dish.id ?? '';
 
-      const shouldShowBadge = dishId && (dish.is_seen === false || typeof dish.is_seen === 'undefined');
-      const dishBadge = shouldShowBadge ? createNewBadge('dish', dishId) : null;
+      const shouldMarkSeen = dishId && (dish.is_seen === false || typeof dish.is_seen === 'undefined');
+      if (shouldMarkSeen) {
+        applyRevealedTrigger(card, 'dish', dishId);
+      }
 
       const inner = document.createElement('div');
       inner.className = 'card-inner';
@@ -986,10 +914,6 @@
         img.src = DISH_PLACEHOLDER;
         front.style.backgroundImage = `url('${DISH_PLACEHOLDER}')`;
       });
-
-      if (dishBadge) {
-        front.appendChild(dishBadge);
-      }
 
       front.appendChild(img);
       inner.appendChild(front);
