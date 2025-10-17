@@ -314,6 +314,7 @@
       align-items: center;
       justify-content: center;
       color: #f8fafc;
+      flex-shrink: 0;
       transition: transform 0.2s ease, background 0.2s ease;
     }
 
@@ -327,27 +328,6 @@
       cursor: not-allowed;
     }
 
-    .floating-controls__cta {
-      padding: 0.35rem 1.15rem;
-      border-radius: 9999px;
-      border: 1px solid rgba(148, 163, 184, 0.28);
-      background: rgba(148, 163, 184, 0.18);
-      color: rgba(248, 250, 252, 0.9);
-      text-transform: uppercase;
-      letter-spacing: 0.32em;
-      font-size: 0.58rem;
-      transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.35rem;
-    }
-
-    .floating-controls__cta:hover {
-      transform: translateY(-2px);
-      background: rgba(148, 163, 184, 0.3);
-      border-color: rgba(226, 232, 240, 0.45);
-    }
-
     .floating-controls__indicator {
       font-family: 'Playfair Display', serif;
       font-size: 0.82rem;
@@ -355,6 +335,71 @@
       text-transform: uppercase;
       color: rgba(248, 250, 252, 0.85);
       white-space: nowrap;
+    }
+
+    #favoritesMenuButtonMobile {
+      display: none;
+    }
+
+    @media (max-width: 600px) {
+      .floating-controls {
+        left: 1rem;
+        right: 1rem;
+        width: auto;
+        bottom: 1.5rem;
+        transform: none;
+        display: flex;
+        justify-content: center;
+      }
+
+      .floating-controls__inner {
+        width: 100%;
+        gap: 0.5rem;
+        padding: 0.75rem 1rem;
+        justify-content: center;
+        flex-wrap: nowrap;
+      }
+
+      .floating-controls__icon {
+        width: 2.3rem;
+        height: 2.3rem;
+      }
+
+      .floating-controls__indicator {
+        font-size: 0.72rem;
+        letter-spacing: 0.22em;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: 1 1 auto;
+      }
+
+      #favoritesMenuButton {
+        display: none;
+      }
+
+      #favoritesMenuButtonMobile {
+        position: fixed;
+        top: 1rem;
+        right: 1rem;
+        z-index: 65;
+        width: 2.75rem;
+        height: 2.75rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 9999px;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        background: rgba(15, 23, 42, 0.78);
+        color: #f8fafc;
+        box-shadow: 0 18px 35px -20px rgba(15, 23, 42, 0.9);
+        backdrop-filter: blur(10px);
+      }
+
+      #favoritesMenuButtonMobile svg {
+        width: 1.35rem;
+        height: 1.35rem;
+      }
     }
 
     .dish-modal {
@@ -760,14 +805,12 @@
             <circle cx="12" cy="12" r="3" />
           </svg>
         </button>
-        <button type="button" class="floating-controls__cta" data-return-main aria-label="Return to main work area">
-          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4 12l4-4m0 0l4 4m-4-4v10" />
-            <path stroke-linecap="round" stroke-linejoin="round" d="M20 19V5a2 2 0 00-2-2H9" />
+        <button type="button" class="floating-controls__icon" data-return-main aria-label="Return to main work area">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
           </svg>
-          Flavor Lab
         </button>
-        <button type="button" class="floating-controls__icon" id="favoritesMenuButton" aria-label="Open menu">
+        <button type="button" class="floating-controls__icon" id="favoritesMenuButton" aria-label="Open menu" data-menu-trigger>
           <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M5 7h14M5 12h10M5 17h6" />
           </svg>
@@ -783,6 +826,17 @@
         </span>
       </div>
     </div>
+    <button
+      id="favoritesMenuButtonMobile"
+      type="button"
+      aria-label="Open menu"
+      data-tool
+      data-menu-trigger
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M5 7h14M5 12h10M5 17h6" />
+      </svg>
+    </button>
 
     <div id="dishModal" class="dish-modal hidden" aria-hidden="true">
       <div class="dish-modal__backdrop" data-modal-dismiss></div>
@@ -815,17 +869,19 @@
       const conceptDetails = document.getElementById('conceptDetails');
       const emptyMessage = document.getElementById('favoritesEmptyMessage');
       const slideMenu = document.getElementById('slideMenu');
-      const favoritesMenuButton = document.getElementById('favoritesMenuButton');
+      const menuButtons = Array.from(document.querySelectorAll('[data-menu-trigger]'));
 
-      if (favoritesMenuButton && slideMenu) {
-        favoritesMenuButton.addEventListener('click', (event) => {
-          event.preventDefault();
-          slideMenu.classList.toggle('translate-x-0');
-          slideMenu.classList.toggle('translate-x-full');
+      if (menuButtons.length && slideMenu) {
+        menuButtons.forEach((button) => {
+          button.addEventListener('click', (event) => {
+            event.preventDefault();
+            slideMenu.classList.toggle('translate-x-0');
+            slideMenu.classList.toggle('translate-x-full');
+          });
         });
 
         document.addEventListener('click', (event) => {
-          if (favoritesMenuButton.contains(event.target)) {
+          if (menuButtons.some((button) => button.contains(event.target))) {
             return;
           }
 
