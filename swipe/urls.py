@@ -14,6 +14,11 @@ urlpatterns = [
         ConceptDishAppendView.as_view(),
         name="concept_append_dishes",
     ),
+    path(
+        "api/dishes/<int:dish_id>/variation/",
+        DishVariationView.as_view(),
+        name="dish_variation",
+    ),
     path("api/seen/", MarkSeenAPI.as_view(), name="mark_seen"),
     path("api/favorite/", ToggleFavoriteAPI.as_view(), name="api_favorite"),
     path("api/delete/", DeleteCardAPI.as_view(), name="delete_card"),

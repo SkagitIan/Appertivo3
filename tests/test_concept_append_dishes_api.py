@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from asgiref.sync import sync_to_async
 from django.test import TransactionTestCase
@@ -88,7 +88,7 @@ class ConceptAppendDishesAPITests(TransactionTestCase):
 
         url = reverse("swipe:concept_append_dishes", args=[concept.id])
 
-        with patch.object(GetConcepts, "_load_locale", lambda *_: None):
+        with patch.object(GetConcepts, "_load_locale", AsyncMock(return_value=None)):
             with patch.object(GetConcepts, "append_dishes_to_concept", fake_append):
                 response = self.client.post(url)
 
@@ -103,12 +103,14 @@ class ConceptAppendDishesAPITests(TransactionTestCase):
                 set(dish_payload.keys()),
                 {
                     "id",
+                    "concept_id",
                     "name",
                     "reasoning",
                     "ingredients",
                     "price",
                     "image_url",
                     "is_seen",
+                    "variation_endpoint",
                 },
             )
             self.assertEqual(dish_payload["name"], source["title"])
@@ -117,6 +119,11 @@ class ConceptAppendDishesAPITests(TransactionTestCase):
             self.assertEqual(dish_payload["price"], source["suggested_price"])
             self.assertEqual(dish_payload["image_url"], source["image_url"])
             self.assertFalse(dish_payload["is_seen"])
+            self.assertEqual(dish_payload["concept_id"], concept.id)
+            self.assertEqual(
+                dish_payload["variation_endpoint"],
+                reverse("swipe:dish_variation", args=[dish_payload["id"]]),
+            )
 
         total_dishes = Dish.objects.filter(concept=concept).count()
         self.assertEqual(total_dishes, 1 + len(new_dish_payloads))
