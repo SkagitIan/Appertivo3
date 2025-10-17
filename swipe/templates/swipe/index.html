@@ -1746,6 +1746,394 @@
     } else {
       let currentConceptIndex = 0;
       let currentDishIndex = 0;
+      const viewToggleGroup = document.querySelector('[data-view-toggle]');
+      let swipeViewContainer = document.querySelector('[data-view-container="swipe"]');
+      let towerViewContainer =
+        document.querySelector('[data-view-container="tower"]') ||
+        document.getElementById('towerView');
+      let viewButtons = viewToggleGroup
+        ? Array.from(viewToggleGroup.querySelectorAll('[data-view-option]'))
+        : [];
+      let viewContainers = new Map();
+
+      function refreshViewRegistry() {
+        swipeViewContainer = document.querySelector('[data-view-container="swipe"]');
+        towerViewContainer =
+          document.querySelector('[data-view-container="tower"]') ||
+          document.getElementById('towerView');
+        viewButtons = viewToggleGroup
+          ? Array.from(viewToggleGroup.querySelectorAll('[data-view-option]'))
+          : [];
+        viewContainers = new Map();
+
+        document.querySelectorAll('[data-view-container]').forEach((container) => {
+          const option = container.dataset.viewContainer;
+          if (option) {
+            viewContainers.set(option, container);
+          }
+        });
+
+        if (swipeViewContainer && !viewContainers.has('swipe')) {
+          viewContainers.set('swipe', swipeViewContainer);
+        }
+
+        if (towerViewContainer && !viewContainers.has('tower')) {
+          viewContainers.set('tower', towerViewContainer);
+        }
+
+        viewButtons.forEach((button) => {
+          const option = button.dataset.viewOption;
+          const targetSelector = button.dataset.viewTarget;
+          if (!option || viewContainers.has(option) || !targetSelector) {
+            return;
+          }
+          const container = document.querySelector(targetSelector);
+          if (container) {
+            viewContainers.set(option, container);
+          }
+        });
+      }
+
+      let activeView = null;
+      let towerActiveConceptId = null;
+      let swipeGesturesEnabled = false;
+      let touchStartY = 0;
+      let touchStartX = 0;
+
+      function handleTouchStart(event) {
+        if (!event.touches || event.touches.length === 0) {
+          return;
+        }
+        touchStartY = event.touches[0].clientY;
+        touchStartX = event.touches[0].clientX;
+      }
+
+      function handleTouchEnd(event) {
+        if (!touchArea || totalConcepts === 0) {
+          return;
+        }
+        if (!event.changedTouches || event.changedTouches.length === 0) {
+          return;
+        }
+
+        const touchEndY = event.changedTouches[0].clientY;
+        const touchEndX = event.changedTouches[0].clientX;
+        const diffY = touchStartY - touchEndY;
+        const diffX = touchStartX - touchEndX;
+
+        const dishCount = dishCounts[currentConceptIndex] || 0;
+        const maxIndex = getMaxDishIndex(currentConceptIndex);
+        const isOnConceptCard = currentDishIndex === 0;
+        const canGoRight = currentDishIndex < maxIndex || currentDishIndex === dishCount;
+        const canGoLeft = currentDishIndex > 0;
+
+        if (Math.abs(diffX) > Math.abs(diffY)) {
+          if (Math.abs(diffX) > 50) {
+            const direction = diffX > 0 ? 1 : -1;
+            if (direction === 1 && canGoRight) {
+              window.navigateHorizontal(1);
+            } else if (direction === -1 && canGoLeft) {
+              window.navigateHorizontal(-1);
+            }
+          }
+          return;
+        }
+
+        if (Math.abs(diffY) > 50 && isOnConceptCard) {
+          window.navigateVertical(diffY > 0 ? 1 : -1);
+        }
+      }
+
+      function enableSwipeGestures() {
+        if (!touchArea || swipeGesturesEnabled) {
+          return;
+        }
+        touchArea.addEventListener('touchstart', handleTouchStart);
+        touchArea.addEventListener('touchend', handleTouchEnd);
+        swipeGesturesEnabled = true;
+      }
+
+      function disableSwipeGestures() {
+        if (!touchArea || !swipeGesturesEnabled) {
+          return;
+        }
+        touchArea.removeEventListener('touchstart', handleTouchStart);
+        touchArea.removeEventListener('touchend', handleTouchEnd);
+        swipeGesturesEnabled = false;
+      }
+
+      function refreshTowerCollections() {
+        if (!towerViewContainer) {
+          return { buttons: [], panels: [] };
+        }
+        const buttons = Array.from(
+          towerViewContainer.querySelectorAll('[data-tower-concept]'),
+        );
+        const panelCandidates = towerViewContainer.querySelectorAll(
+          '[data-tower-panel],[data-tower-dish-row]',
+        );
+        const panels = Array.from(panelCandidates).filter((panel) => {
+          return panel.dataset && typeof panel.dataset.conceptId !== 'undefined';
+        });
+        return { buttons, panels };
+      }
+
+      function setTowerActiveConcept(conceptId, { conceptIndex = null, focus = false } = {}) {
+        if (!towerViewContainer || !conceptId) {
+          return;
+        }
+
+        const { buttons, panels } = refreshTowerCollections();
+        let resolvedIndex = Number.isInteger(conceptIndex) ? conceptIndex : null;
+
+        if (resolvedIndex === null) {
+          const matchingButton = buttons.find((button) => {
+            return button.dataset.conceptId === conceptId;
+          });
+          if (matchingButton && matchingButton.dataset.conceptIndex) {
+            const parsedIndex = Number.parseInt(matchingButton.dataset.conceptIndex, 10);
+            if (Number.isInteger(parsedIndex)) {
+              resolvedIndex = parsedIndex;
+            }
+          }
+        }
+
+        if (resolvedIndex === null) {
+          const track = getTrackByConceptId(conceptId);
+          if (track && track.dataset.conceptIndex) {
+            const parsedIndex = Number.parseInt(track.dataset.conceptIndex, 10);
+            if (Number.isInteger(parsedIndex)) {
+              resolvedIndex = parsedIndex;
+            }
+          }
+        }
+
+        if (
+          resolvedIndex !== null &&
+          resolvedIndex >= 0 &&
+          resolvedIndex < totalConcepts &&
+          resolvedIndex !== currentConceptIndex
+        ) {
+          resetHorizontalTrack(currentConceptIndex);
+          currentConceptIndex = resolvedIndex;
+          currentDishIndex = 0;
+          updateVerticalPosition({ immediate: true });
+          updateHorizontalPosition({ instant: true });
+        }
+
+        updatePositionIndicator();
+        updateNavigationButtons();
+        prepareBufferForConcept(currentConceptIndex);
+
+        towerActiveConceptId = conceptId;
+
+        buttons.forEach((button) => {
+          const isActive = button.dataset.conceptId === conceptId;
+          button.classList.toggle('is-active', isActive);
+          button.setAttribute('aria-current', isActive ? 'true' : 'false');
+          if (isActive && focus) {
+            button.focus();
+          }
+        });
+
+        panels.forEach((panel) => {
+          const matches = panel.dataset.conceptId === conceptId;
+          panel.classList.toggle('hidden', !matches);
+          panel.setAttribute('aria-hidden', matches ? 'false' : 'true');
+        });
+
+        towerViewContainer
+          .querySelectorAll(`[data-load-dishes][data-concept-id="${conceptId}"]`)
+          .forEach((button) => {
+            button.dataset.conceptIndex = String(currentConceptIndex);
+          });
+
+        const state = getConceptState(conceptId);
+        if (state && state.buffer.length > 0) {
+          maybeSwapPlaceholder(conceptId);
+        } else if (state) {
+          ensureBuffer(conceptId);
+        }
+
+        document.dispatchEvent(
+          new CustomEvent('swipe:concept-activated', {
+            detail: {
+              conceptId,
+              conceptIndex: resolvedIndex ?? currentConceptIndex,
+              view: 'tower',
+            },
+          }),
+        );
+      }
+
+      function clearTowerSelection() {
+        if (!towerViewContainer) {
+          return;
+        }
+        const { buttons, panels } = refreshTowerCollections();
+        buttons.forEach((button) => {
+          button.classList.remove('is-active');
+          button.setAttribute('aria-current', 'false');
+        });
+        panels.forEach((panel) => {
+          panel.classList.add('hidden');
+          panel.setAttribute('aria-hidden', 'true');
+        });
+        towerActiveConceptId = null;
+      }
+
+      function syncTowerView({ focus = false } = {}) {
+        if (!towerViewContainer) {
+          return;
+        }
+        const conceptId = getConceptIdByIndex(currentConceptIndex);
+        if (conceptId) {
+          setTowerActiveConcept(conceptId, {
+            conceptIndex: currentConceptIndex,
+            focus,
+          });
+          return;
+        }
+        clearTowerSelection();
+      }
+
+      function setActiveView(nextView, { focusTower = false } = {}) {
+        if (viewContainers.size === 0) {
+          activeView = null;
+          return;
+        }
+
+        let targetView = nextView;
+        if (!viewContainers.has(targetView)) {
+          targetView = viewContainers.has('swipe')
+            ? 'swipe'
+            : Array.from(viewContainers.keys())[0];
+        }
+
+        const previousView = activeView;
+        activeView = targetView;
+
+        viewContainers.forEach((container, key) => {
+          if (!container) {
+            return;
+          }
+          const isActive = key === activeView;
+          container.classList.toggle('hidden', !isActive);
+          container.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+        });
+
+        viewButtons.forEach((button) => {
+          const isPressed = button.dataset.viewOption === activeView;
+          button.setAttribute('aria-pressed', isPressed ? 'true' : 'false');
+          button.classList.toggle('is-active', isPressed);
+        });
+
+        if (activeView === 'swipe') {
+          enableSwipeGestures();
+        } else {
+          disableSwipeGestures();
+        }
+
+        if (activeView === 'tower') {
+          syncTowerView({ focus: focusTower });
+        } else if (previousView === 'tower' && !towerActiveConceptId) {
+          clearTowerSelection();
+        }
+
+        document.dispatchEvent(
+          new CustomEvent('swipe:view-changed', {
+            detail: { activeView },
+          }),
+        );
+      }
+
+      function initializeViewToggle({ keepCurrentView = false } = {}) {
+        refreshViewRegistry();
+        viewButtons.forEach((button) => {
+          if (button.dataset.viewReady === 'true') {
+            return;
+          }
+          button.dataset.viewReady = 'true';
+          button.addEventListener('click', (event) => {
+            event.preventDefault();
+            const option = button.dataset.viewOption;
+            if (!option) {
+              return;
+            }
+            setActiveView(option, { focusTower: option === 'tower' });
+          });
+        });
+
+        const defaultView = viewToggleGroup?.dataset.viewDefault || 'swipe';
+        const targetView = keepCurrentView && activeView ? activeView : defaultView;
+        setActiveView(targetView, {
+          focusTower: targetView === 'tower' && !keepCurrentView,
+        });
+      }
+
+      initializeViewToggle();
+
+      document.addEventListener('click', (event) => {
+        const trigger = event.target.closest('[data-tower-concept]');
+        if (!trigger) {
+          return;
+        }
+
+        const container =
+          towerViewContainer && towerViewContainer.contains(trigger)
+            ? towerViewContainer
+            : trigger.closest('[data-view-container="tower"], #towerView');
+
+        if (!container) {
+          return;
+        }
+
+        if (!towerViewContainer || towerViewContainer !== container) {
+          towerViewContainer = container;
+          viewContainers.set('tower', towerViewContainer);
+        }
+
+        const conceptId = trigger.dataset.conceptId;
+        if (!conceptId) {
+          return;
+        }
+        const conceptIndexValue = trigger.dataset.conceptIndex;
+        const parsedIndex = conceptIndexValue
+          ? Number.parseInt(conceptIndexValue, 10)
+          : null;
+        setTowerActiveConcept(conceptId, {
+          conceptIndex: Number.isInteger(parsedIndex) ? parsedIndex : null,
+        });
+      });
+
+      document.addEventListener('htmx:afterSwap', (event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) {
+          return;
+        }
+
+        const includesViewElements =
+          target.matches('[data-view-container]') ||
+          target.querySelector('[data-view-container]') ||
+          target.matches('[data-view-option]') ||
+          target.querySelector('[data-view-option]');
+
+        if (includesViewElements) {
+          initializeViewToggle({ keepCurrentView: true });
+        }
+
+        const cards = target.matches('[data-card]')
+          ? [target]
+          : Array.from(target.querySelectorAll('[data-card]'));
+        cards.forEach((card) => {
+          initializeCard(card);
+          observeCard(card);
+        });
+
+        if (towerViewContainer && towerViewContainer.contains(target)) {
+          syncTowerView();
+        }
+      });
 
       function attachVariationHandler(button) {
         if (!button || button.dataset.variationReady === 'true') {
@@ -2114,6 +2502,9 @@
           updatePositionIndicator();
           updateNavigationButtons();
           prepareBufferForConcept(currentConceptIndex);
+          if (activeView === 'tower') {
+            syncTowerView();
+          }
         }
       };
 
@@ -2132,6 +2523,9 @@
           updateHorizontalPosition();
           updatePositionIndicator();
           updateNavigationButtons();
+          if (activeView === 'tower') {
+            syncTowerView();
+          }
         }
       };
 
@@ -2335,6 +2729,9 @@
         updateHorizontalPosition({ instant: true });
         updatePositionIndicator();
         updateNavigationButtons();
+        if (activeView === 'tower') {
+          syncTowerView();
+        }
       }
 
       function handleDishDeletion(button) {
@@ -2362,6 +2759,9 @@
 
         updatePositionIndicator();
         updateNavigationButtons();
+        if (activeView === 'tower') {
+          syncTowerView();
+        }
       }
 
       async function submitDelete(button) {
@@ -2423,51 +2823,62 @@
         submitDelete(deleteButton);
       });
 
+      window.appertivoSwipe = Object.assign(window.appertivoSwipe || {}, {
+        conceptStates,
+        dishCounts,
+        getConceptState,
+        ensureBuffer,
+        maybeSwapPlaceholder,
+        prepareNextDishCard,
+        prepareBufferForConcept,
+        getTrackByConceptIndex,
+        getTrackByConceptId,
+        getConceptIdByIndex,
+        createDishCard,
+        initializeCard,
+        observeCard,
+        updatePositionIndicator,
+        updateNavigationButtons,
+        enableSwipeGestures,
+        disableSwipeGestures,
+        setActiveView,
+        setTowerActiveConcept,
+        syncTowerView,
+        refreshViews(options = {}) {
+          const keepCurrentView = options.keepCurrentView !== false;
+          initializeViewToggle({ keepCurrentView });
+        },
+        getCurrentConceptIndex: () => currentConceptIndex,
+        getCurrentDishIndex: () => currentDishIndex,
+        setActiveConceptIndex(index, { dishIndex = 0, instant = true } = {}) {
+          if (!Number.isInteger(index) || index < 0 || index >= totalConcepts) {
+            return false;
+          }
+
+          resetHorizontalTrack(currentConceptIndex);
+          currentConceptIndex = index;
+          const maxIndex = getMaxDishIndex(currentConceptIndex);
+          const nextDishIndex = Number.isInteger(dishIndex) ? dishIndex : 0;
+          currentDishIndex = Math.max(0, Math.min(nextDishIndex, maxIndex));
+
+          updateVerticalPosition({ immediate: instant });
+          updateHorizontalPosition({ instant });
+          updatePositionIndicator();
+          updateNavigationButtons();
+          prepareBufferForConcept(currentConceptIndex);
+
+          if (activeView === 'tower') {
+            syncTowerView();
+          }
+
+          return true;
+        },
+      });
+
       if (touchArea && verticalSlider) {
         window.addEventListener('resize', () => {
           updateVerticalPosition({ immediate: true });
           updateHorizontalPosition({ instant: true });
-        });
-      }
-
-      let touchStartY = 0;
-      let touchStartX = 0;
-
-      if (touchArea) {
-        touchArea.addEventListener('touchstart', (e) => {
-          touchStartY = e.touches[0].clientY;
-          touchStartX = e.touches[0].clientX;
-        });
-
-        touchArea.addEventListener('touchend', (e) => {
-          if (totalConcepts === 0) {
-            return;
-          }
-          const touchEndY = e.changedTouches[0].clientY;
-          const touchEndX = e.changedTouches[0].clientX;
-          const diffY = touchStartY - touchEndY;
-          const diffX = touchStartX - touchEndX;
-
-          const dishCount = dishCounts[currentConceptIndex] || 0;
-          const maxIndex = getMaxDishIndex(currentConceptIndex);
-          const isOnConceptCard = currentDishIndex === 0;
-          const canGoRight = currentDishIndex < maxIndex || currentDishIndex === dishCount;
-          const canGoLeft = currentDishIndex > 0;
-
-          if (Math.abs(diffX) > Math.abs(diffY)) {
-            if (Math.abs(diffX) > 50) {
-              const direction = diffX > 0 ? 1 : -1;
-              if (direction === 1 && canGoRight) {
-                window.navigateHorizontal(1);
-              } else if (direction === -1 && canGoLeft) {
-                window.navigateHorizontal(-1);
-              }
-            }
-          } else {
-            if (Math.abs(diffY) > 50 && isOnConceptCard) {
-              window.navigateVertical(diffY > 0 ? 1 : -1);
-            }
-          }
         });
       }
 
