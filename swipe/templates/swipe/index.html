@@ -66,7 +66,7 @@
       max-width: 75%;
       overflow: hidden;
       text-overflow: ellipsis;
-      z-index: 2;
+      z-index: 4;
       pointer-events: none;
     }
 
@@ -101,7 +101,38 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
-      z-index:0;
+      z-index: 0;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+
+    .card-media.is-loaded {
+      opacity: 1;
+    }
+
+    .card-media-loader {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 3;
+      background: rgba(15, 23, 42, 0.45);
+      pointer-events: none;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+
+    .card-face[data-media-state="loaded"] .card-media-loader {
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    .card-face[data-media-state="loaded"] .card-media {
+      opacity: 1;
+    }
+
+    .card-face[data-media-state="loaded"] .card-media-spinner {
+      animation-play-state: paused;
     }
 
     .card-front::after {
@@ -794,18 +825,22 @@
                         style="background-image: none;"
                         data-background-placeholder="{{ concept_placeholder }}"
                         data-background-image="{{ concept_image }}"
+                        data-media-state="idle"
                       >
                         <span class="card-note">{{ concept.name }}</span>
                         <img
-                          src="{{ concept_placeholder }}"
+                          src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
                           data-src="{{ concept_image }}"
                           data-placeholder="{{ concept_placeholder }}"
                           alt="{{ concept.name }} concept sketch"
                           class="card-media"
                           decoding="async"
                           loading="lazy"
-                          onerror="this.onerror=null;const p=this.dataset.placeholder||'';if(p){this.src=p;const f=this.closest('.card-face');if(f){f.style.backgroundImage='url(' + p + ')';}}"
+                          onerror="this.onerror=null;const p=this.dataset.placeholder||'';if(p){this.src=p;}const f=this.closest('.card-face');if(f){if(p){f.style.backgroundImage='url(' + p + ')';}f.setAttribute('data-media-state','loaded');}this.classList.add('is-loaded');delete this.dataset.src;"
                         >
+                        <div class="card-media-loader" data-media-loader aria-hidden="true">
+                          <div class="card-media-spinner h-8 w-8 animate-spin rounded-full border-2 border-white/40 border-t-transparent"></div>
+                        </div>
                       </div>
                       {% endwith %}
                       <div class="card-face card-back">
@@ -886,17 +921,21 @@
                           style="background-image: none;"
                           data-background-placeholder="{{ dish_placeholder }}"
                           data-background-image="{{ dish_image }}"
+                          data-media-state="idle"
                         >
                           <img
-                            src="{{ dish_placeholder }}"
+                            src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
                             data-src="{{ dish_image }}"
                             data-placeholder="{{ dish_placeholder }}"
                             alt="{{ dish.name }} presentation"
                             class="card-media"
                             decoding="async"
                             loading="lazy"
-                            onerror="this.onerror=null;const p=this.dataset.placeholder||'';if(p){this.src=p;const f=this.closest('.card-face');if(f){f.style.backgroundImage='url(' + p + ')';}}"
+                            onerror="this.onerror=null;const p=this.dataset.placeholder||'';if(p){this.src=p;}const f=this.closest('.card-face');if(f){if(p){f.style.backgroundImage='url(' + p + ')';}f.setAttribute('data-media-state','loaded');}this.classList.add('is-loaded');delete this.dataset.src;"
                           >
+                          <div class="card-media-loader" data-media-loader aria-hidden="true">
+                            <div class="card-media-spinner h-8 w-8 animate-spin rounded-full border-2 border-white/40 border-t-transparent"></div>
+                          </div>
                         </div>
                         {% endwith %}
                         <div class="card-face card-back">
@@ -1058,37 +1097,98 @@
     const introOverlay = document.getElementById('introOverlay');
     const dismissIntro = document.getElementById('dismissIntro');
     const DISH_PLACEHOLDER = 'https://placehold.co/800x600?text=Dish';
+    const TRANSPARENT_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
     const conceptStates = {};
 
     function loadCardMedia(card) {
-      if (!card || card.dataset.mediaLoaded === 'true') {
+      if (
+        !card ||
+        card.dataset.mediaLoaded === 'true' ||
+        card.dataset.mediaLoaded === 'loading'
+      ) {
         return;
       }
 
       const front = card.querySelector('.card-face.card-front');
-      const backgroundUrl = front ? front.dataset.backgroundImage : undefined;
-      const backgroundPlaceholder = front ? front.dataset.backgroundPlaceholder : undefined;
-
-      if (front) {
-        if (backgroundUrl) {
-          front.style.backgroundImage = `url('${backgroundUrl}')`;
-        } else if (backgroundPlaceholder) {
-          front.style.backgroundImage = `url('${backgroundPlaceholder}')`;
-        }
+      if (!front) {
+        card.dataset.mediaLoaded = 'true';
+        return;
       }
 
-      const img = front ? front.querySelector('.card-media') : null;
+      const setMediaState = (state) => {
+        front.setAttribute('data-media-state', state);
+      };
+
+      const backgroundUrl = front.dataset.backgroundImage;
+      const backgroundPlaceholder = front.dataset.backgroundPlaceholder;
+
+      if (backgroundUrl) {
+        front.style.backgroundImage = `url('${backgroundUrl}')`;
+      } else if (backgroundPlaceholder) {
+        front.style.backgroundImage = `url('${backgroundPlaceholder}')`;
+      }
+
+      const img = front.querySelector('.card-media');
+      const finalize = () => {
+        setMediaState('loaded');
+        if (img) {
+          img.classList.add('is-loaded');
+        }
+        card.dataset.mediaLoaded = 'true';
+      };
+
+      card.dataset.mediaLoaded = 'loading';
+      setMediaState('loading');
+
       if (img) {
         const actualSrc = img.dataset.src;
+        if (!actualSrc) {
+          const placeholder = img.dataset.placeholder || backgroundPlaceholder || DISH_PLACEHOLDER;
+          if (placeholder) {
+            img.src = placeholder;
+            front.style.backgroundImage = `url('${placeholder}')`;
+          }
+          finalize();
+          return;
+        }
+
+        const cleanup = () => {
+          img.removeEventListener('load', onLoad);
+          img.removeEventListener('error', onError);
+        };
+
+        const onLoad = () => {
+          cleanup();
+          finalize();
+        };
+
+        const onError = () => {
+          cleanup();
+          const placeholder =
+            img.dataset.placeholder || backgroundPlaceholder || DISH_PLACEHOLDER;
+          if (placeholder) {
+            img.src = placeholder;
+            front.style.backgroundImage = `url('${placeholder}')`;
+          }
+          delete img.dataset.src;
+          finalize();
+        };
+
+        img.classList.remove('is-loaded');
+        img.addEventListener('load', onLoad);
+        img.addEventListener('error', onError);
         if (actualSrc) {
           img.src = actualSrc;
           delete img.dataset.src;
-        } else if (backgroundPlaceholder && front) {
-          front.style.backgroundImage = `url('${backgroundPlaceholder}')`;
         }
+
+        if (img.complete && img.naturalWidth > 0) {
+          onLoad();
+        }
+        return;
       }
 
-      card.dataset.mediaLoaded = 'true';
+      finalize();
     }
 
     let cardObserver = null;
@@ -1110,7 +1210,11 @@
     }
 
     function observeCard(card) {
-      if (!card || card.dataset.mediaLoaded === 'true') {
+      if (
+        !card ||
+        card.dataset.mediaLoaded === 'true' ||
+        card.dataset.mediaLoaded === 'loading'
+      ) {
         return;
       }
 
@@ -1294,9 +1398,10 @@
       if (imageUrl) {
         front.dataset.backgroundImage = imageUrl;
       }
+      front.dataset.mediaState = 'idle';
 
       const img = document.createElement('img');
-      img.src = DISH_PLACEHOLDER;
+      img.src = TRANSPARENT_PIXEL;
       img.dataset.placeholder = DISH_PLACEHOLDER;
       if (imageUrl) {
         img.dataset.src = imageUrl;
@@ -1310,9 +1415,20 @@
         img.src = placeholder;
         front.style.backgroundImage = `url('${placeholder}')`;
         delete img.dataset.src;
+        front.dataset.mediaState = 'loaded';
+        img.classList.add('is-loaded');
       });
 
       front.appendChild(img);
+      const loader = document.createElement('div');
+      loader.className = 'card-media-loader';
+      loader.dataset.mediaLoader = 'true';
+      loader.setAttribute('aria-hidden', 'true');
+      const spinner = document.createElement('div');
+      spinner.className = 'card-media-spinner h-8 w-8 animate-spin rounded-full border-2 border-white/40 border-t-transparent';
+      spinner.setAttribute('aria-hidden', 'true');
+      loader.appendChild(spinner);
+      front.appendChild(loader);
       inner.appendChild(front);
 
       const back = document.createElement('div');
