@@ -2,7 +2,13 @@
 {% load static %}
 
 {% block title %}
-  {% if restaurant %}{{ restaurant.name }} · Concepts{% else %}Appertivo · Swipe{% endif %}
+  {% if demo_mode %}
+    Appertivo Demo · Swipe
+  {% elif restaurant %}
+    {{ restaurant.name }} · Concepts
+  {% else %}
+    Appertivo · Swipe
+  {% endif %}
 {% endblock %}
 
 {% block head %}
@@ -966,11 +972,149 @@
         transform: rotate(360deg);
       }
     }
+
+    .demo-splash {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at 20% 20%, rgba(15, 23, 42, 0.95) 0%, rgba(8, 11, 19, 0.98) 60%, rgba(2, 6, 23, 1) 100%);
+      backdrop-filter: blur(6px);
+      transition: opacity 0.4s ease, visibility 0.4s ease;
+    }
+
+    .demo-splash.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .demo-splash-card {
+      width: min(420px, 92%);
+      border-radius: 1.75rem;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      padding: 2.5rem;
+      background: rgba(15, 23, 42, 0.85);
+      box-shadow: 0 48px 110px -45px rgba(8, 11, 19, 0.95);
+      color: #f8fafc;
+      text-align: left;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .demo-splash-card::after {
+      content: "";
+      position: absolute;
+      inset: -40% -35% auto;
+      height: 70%;
+      background: conic-gradient(from 180deg, rgba(244, 114, 182, 0.6), rgba(56, 189, 248, 0.55), rgba(244, 114, 182, 0.6));
+      opacity: 0.15;
+      filter: blur(45px);
+      pointer-events: none;
+    }
+
+    .demo-splash-title {
+      font-size: clamp(1.4rem, 4vw, 2rem);
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      margin-bottom: 1.5rem;
+    }
+
+    .demo-steps {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .demo-step {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      padding: 0.65rem 0.85rem;
+      border-radius: 1rem;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      background: rgba(15, 23, 42, 0.65);
+      font-size: 0.8rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(226, 232, 240, 0.85);
+      opacity: 0.3;
+      transform: translateY(6px);
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+
+    .demo-step.is-active {
+      opacity: 1;
+      transform: translateY(0);
+      border-color: rgba(59, 130, 246, 0.55);
+      box-shadow: 0 18px 35px -28px rgba(59, 130, 246, 0.75);
+    }
+
+    .demo-step-icon {
+      width: 1.9rem;
+      height: 1.9rem;
+      border-radius: 9999px;
+      border: 1px solid rgba(148, 163, 184, 0.45);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: rgba(148, 163, 184, 0.9);
+      background: rgba(15, 23, 42, 0.6);
+    }
+
+    .demo-progress {
+      margin-top: 1.75rem;
+      height: 0.35rem;
+      width: 100%;
+      background: rgba(148, 163, 184, 0.25);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .demo-progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.9), rgba(244, 114, 182, 0.95));
+      transition: width 0.45s ease;
+    }
   </style>
 {% endblock %}
 
 {% block content %}
   <div class="relative min-h-screen">
+    {% if demo_mode %}
+      <div id="demoSplash" class="demo-splash" role="status" aria-live="polite">
+        <div class="demo-splash-card">
+          <div class="demo-splash-title">Training your personal tastemaker…</div>
+          <div class="demo-steps">
+            <div class="demo-step" data-demo-step>
+              <span class="demo-step-icon">📝</span>
+              <span>Collecting menu language</span>
+            </div>
+            <div class="demo-step" data-demo-step>
+              <span class="demo-step-icon">⭐</span>
+              <span>Studying guest sentiment</span>
+            </div>
+            <div class="demo-step" data-demo-step>
+              <span class="demo-step-icon">🔍</span>
+              <span>Scanning local trends</span>
+            </div>
+            <div class="demo-step" data-demo-step>
+              <span class="demo-step-icon">🧠</span>
+              <span>Designing personas</span>
+            </div>
+            <div class="demo-step" data-demo-step>
+              <span class="demo-step-icon">🍽️</span>
+              <span>Curating nightly specials</span>
+            </div>
+          </div>
+          <div class="demo-progress" aria-hidden="true">
+            <div class="demo-progress-bar" data-demo-progress></div>
+          </div>
+        </div>
+      </div>
+    {% endif %}
     <div id="introOverlay" class="intro-overlay">
       <div class="intro-card" role="dialog" aria-modal="true" aria-labelledby="introTitle">
         <div>
@@ -1019,7 +1163,13 @@
     </div>
     <div class="fixed top-6 left-6 z-40 flex flex-col items-start gap-3">
       <div class="text-[0.7rem] tracking-[0.55em] uppercase text-slate-200/80">
-        {% if restaurant %}{{ restaurant.name }}{% else %}Appertivo{% endif %}
+        {% if restaurant %}
+          {{ restaurant.name }}
+        {% elif demo_mode %}
+          Appertivo Demo
+        {% else %}
+          Appertivo
+        {% endif %}
       </div>
       <div
         class="view-toggle"
@@ -1070,7 +1220,7 @@
                     data-card
                     tabindex="0"
                     role="button"
-                    {% if not concept.is_seen %}
+                    {% if not demo_mode and not concept.is_seen %}
                       hx-post="{% url 'swipe:mark_seen' %}"
                       hx-trigger="revealed delay:3s once"
                       hx-vals='{"type":"concept","id":"{{ concept.id }}"}'
@@ -1145,7 +1295,11 @@
                             data-load-dishes
                             data-concept-id="{{ concept.id }}"
                             data-concept-index="{{ forloop.counter0 }}"
-                            data-endpoint="{% url 'swipe:concept_append_dishes' concept.id %}"
+                            {% if demo_mode %}
+                              data-endpoint="#"
+                            {% else %}
+                              data-endpoint="{% url 'swipe:concept_append_dishes' concept.id %}"
+                            {% endif %}
                           >
                             <span data-label>Get more dishes</span>
                             <span
@@ -1262,13 +1416,17 @@
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l4-4m-4 4l-4-4m4 4V5" />
             </svg>
           </button>
-          {% if restaurant %}
+          {% if restaurant or demo_mode %}
             <button
               id="generateConceptsBtn"
               type="button"
               class="generate-btn"
               aria-label="Generate more concepts and dishes"
-              data-endpoint="{% url 'swipe:generate_concepts' restaurant.id %}"
+              {% if demo_mode %}
+                data-endpoint="#"
+              {% else %}
+                data-endpoint="{% url 'swipe:generate_concepts' restaurant.id %}"
+              {% endif %}
             >
               <svg data-icon fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m-7-7h14" />
@@ -1294,7 +1452,7 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M5 7h14M5 12h10M5 17h6" />
         </svg>
       </button>
-      {% if restaurant %}
+      {% if restaurant or demo_mode %}
         <div
           id="generateConceptsFeedback"
           class="floating-generate-feedback hidden"
@@ -1318,13 +1476,27 @@
   {{ block.super }}
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
   {{ dish_counts|json_script:"dish-counts-data" }}
+  {% if demo_mode %}
+    {{ demo_payload|json_script:"demo-payload" }}
+  {% endif %}
   <script>
     const csrfToken = '{{ csrf_token }}';
     const markSeenEndpoint = '{% url 'swipe:mark_seen' %}';
     const deleteEndpoint = '{% url 'swipe:delete_card' %}';
     let totalConcepts = {{ concepts|length }};
+    const isDemo = {% if demo_mode %}true{% else %}false{% endif %};
     const dishCountsData = document.getElementById('dish-counts-data');
     let dishCounts = dishCountsData ? JSON.parse(dishCountsData.textContent) : [];
+    const demoPayloadScript = document.getElementById('demo-payload');
+    const demoData = demoPayloadScript ? JSON.parse(demoPayloadScript.textContent) : null;
+    const demoBuffers = new Map();
+    const demoFavoriteDishes = new Set(demoData?.favorites?.dish_ids || []);
+    const demoFavoriteConcepts = new Set(demoData?.favorites?.concept_ids || []);
+    if (demoData?.buffers) {
+      Object.entries(demoData.buffers).forEach(([conceptId, dishes]) => {
+        demoBuffers.set(conceptId, Array.isArray(dishes) ? dishes.slice() : []);
+      });
+    }
     const generateBtn = document.getElementById('generateConceptsBtn');
     const generateFeedback = document.getElementById('generateConceptsFeedback');
     const touchArea = document.querySelector('.touch-area');
@@ -1342,6 +1514,53 @@
     let towerInitialized = false;
     let towerButtons = [];
     let towerTracks = [];
+
+    if (isDemo) {
+      const splash = document.getElementById('demoSplash');
+      if (splash) {
+        const steps = Array.from(splash.querySelectorAll('[data-demo-step]'));
+        const progressBar = splash.querySelector('[data-demo-progress]');
+        steps.forEach((step) => step.classList.remove('is-active'));
+        if (progressBar) {
+          progressBar.style.width = '0%';
+        }
+
+        steps.forEach((step, index) => {
+          window.setTimeout(() => {
+            step.classList.add('is-active');
+            if (progressBar) {
+              const ratio = ((index + 1) / steps.length) * 100;
+              progressBar.style.width = `${ratio}%`;
+            }
+          }, 650 * (index + 1));
+        });
+
+        const totalSplashDuration = Math.max(5000, 650 * (steps.length + 1));
+        window.setTimeout(() => {
+          splash.classList.add('hidden');
+          if (introOverlay) {
+            introOverlay.classList.remove('hidden');
+          }
+        }, totalSplashDuration);
+
+        if (introOverlay) {
+          introOverlay.classList.add('hidden');
+        }
+      }
+    }
+
+    function demoPopDish(conceptId) {
+      if (!demoBuffers.has(conceptId)) {
+        return null;
+      }
+      const pool = demoBuffers.get(conceptId);
+      if (!pool || pool.length === 0) {
+        return null;
+      }
+      const dish = pool.shift();
+      demoBuffers.set(conceptId, pool);
+      return dish;
+    }
     let towerActiveConceptId = null;
 
     function escapeSelector(value) {
@@ -1657,6 +1876,9 @@
     }
 
     function applyRevealedTrigger(element, type, id) {
+      if (isDemo) {
+        return;
+      }
       if (!element || !id) {
         return;
       }
@@ -1994,6 +2216,20 @@
         const endpoint = generateBtn.dataset.endpoint;
         if (!endpoint) {
           showFeedback('Missing endpoint for concept generation.', true);
+          return;
+        }
+
+        if (isDemo) {
+          setLoadingState(true);
+          showFeedback('Synthesizing fresh dishes…');
+
+          window.setTimeout(() => {
+            const activeIndex = window.appertivoSwipe?.getCurrentConceptIndex?.();
+            const conceptIndex = Number.isInteger(activeIndex) ? activeIndex : 0;
+            prepareNextDishCard(conceptIndex);
+            setLoadingState(false);
+            showFeedback('Demo refresh complete!');
+          }, 1400);
           return;
         }
 
@@ -2499,6 +2735,44 @@
           button.disabled = true;
           button.setAttribute('aria-busy', 'true');
 
+          if (isDemo) {
+            window.setTimeout(() => {
+              const dish = demoPopDish(conceptId);
+              if (dish) {
+                const card = createDishCard(dish, conceptId);
+                initializeCard(card);
+                track.appendChild(card);
+                observeCard(card);
+                if (window.htmx) {
+                  window.htmx.process(card);
+                }
+
+                const conceptIndex = Number.parseInt(track.dataset.conceptIndex || '-1', 10);
+                if (conceptIndex >= 0) {
+                  const currentCount = Number.isInteger(dishCounts[conceptIndex]) ? dishCounts[conceptIndex] : 0;
+                  dishCounts[conceptIndex] = currentCount + 1;
+
+                  if (conceptIndex === currentConceptIndex) {
+                    currentDishIndex = dishCounts[conceptIndex];
+                    updateHorizontalPosition();
+                    updatePositionIndicator();
+                    updateNavigationButtons();
+                  }
+                }
+
+                if (conceptIndex === currentConceptIndex && typeof card.focus === 'function') {
+                  card.focus({ preventScroll: false });
+                }
+              }
+
+              button.removeAttribute('aria-busy');
+              delete button.dataset.loading;
+              button.removeAttribute('data-loading');
+              button.disabled = false;
+            }, 800);
+            return;
+          }
+
           try {
             const response = await fetch(endpoint, {
               method: 'POST',
@@ -2679,6 +2953,20 @@
 
         if (state.placeholder && state.placeholder.isConnected) {
           setPlaceholderMessage(state.placeholder, 'Fetching next dish…', false);
+        }
+
+        if (isDemo) {
+          const dish = demoPopDish(conceptId);
+          if (dish) {
+            state.buffer.push(dish);
+            maybeSwapPlaceholder(conceptId);
+            return true;
+          }
+          const placeholder = state.placeholder;
+          if (placeholder && placeholder.isConnected) {
+            setPlaceholderMessage(placeholder, 'All demo dishes served.', false);
+          }
+          return false;
         }
 
         const fetchPromise = (async () => {
@@ -3149,19 +3437,27 @@
         }
         const type = button.dataset.deleteType;
         const id = button.dataset.deleteId;
-        if (!type || !id) {
-          return;
-        }
-        if (button.dataset.deleting === 'true') {
-          return;
-        }
+      if (!type || !id) {
+        return;
+      }
+      if (button.dataset.deleting === 'true') {
+        return;
+      }
 
-        button.dataset.deleting = 'true';
-        button.disabled = true;
+      button.dataset.deleting = 'true';
+      button.disabled = true;
 
-        try {
-          const response = await fetch(deleteEndpoint, {
-            method: 'POST',
+      if (isDemo) {
+        window.setTimeout(() => {
+          delete button.dataset.deleting;
+          button.disabled = false;
+        }, 600);
+        return;
+      }
+
+      try {
+        const response = await fetch(deleteEndpoint, {
+          method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'X-CSRFToken': csrfToken,
@@ -3307,6 +3603,24 @@
           easing: 'easeOutCubic',
           complete: () => heart.remove()
         });
+      }
+
+      if (isDemo) {
+        const targetSet = type === 'concept' ? demoFavoriteConcepts : demoFavoriteDishes;
+        if (targetSet.has(id)) {
+          targetSet.delete(id);
+          btn.classList.remove('favorited');
+          if (svg) {
+            svg.setAttribute('fill', 'none');
+          }
+        } else {
+          targetSet.add(id);
+          btn.classList.add('favorited');
+          if (svg) {
+            svg.setAttribute('fill', 'currentColor');
+          }
+        }
+        return;
       }
 
       try {

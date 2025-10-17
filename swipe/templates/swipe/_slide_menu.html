@@ -5,13 +5,13 @@
 >
   <div class="pt-24 px-6 space-y-4">
     <a
-      href="{% url 'swipe:favorites' %}"
+      href="{% if demo_mode %}{% url 'swipe:demo_favorites' %}{% else %}{% url 'swipe:favorites' %}{% endif %}"
       class="block border-b border-slate-700/40 pb-4 text-sm tracking-[0.3em] uppercase text-slate-300 hover:text-white"
     >
       Favorites Archive
     </a>
     <a
-      href="#"
+      href="{% if demo_mode %}{% url 'swipe:demo_settings' %}{% else %}#{% endif %}"
       class="block border-b border-slate-700/40 pb-4 text-sm tracking-[0.3em] uppercase text-slate-300 hover:text-white"
     >
       Atelier Settings
