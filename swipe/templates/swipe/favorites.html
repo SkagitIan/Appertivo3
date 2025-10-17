@@ -2,7 +2,13 @@
 {% load static %}
 
 {% block title %}
-  {% if restaurant %}{{ restaurant.name }} · Favorites{% else %}Appertivo · Favorites{% endif %}
+  {% if demo_mode %}
+    Appertivo Demo · Favorites
+  {% elif restaurant %}
+    {{ restaurant.name }} · Favorites
+  {% else %}
+    Appertivo · Favorites
+  {% endif %}
 {% endblock %}
 
 {% block head %}
@@ -858,8 +864,9 @@
   {{ block.super }}
   <script>
     const csrfToken = '{{ csrf_token }}';
-    const deleteEndpoint = '{% url 'swipe:delete_card' %}';
-    const homeUrl = '{% url 'swipe:home' %}';
+    const isDemo = {% if demo_mode %}true{% else %}false{% endif %};
+    const deleteEndpoint = {% if demo_mode %}null{% else %}'{% url 'swipe:delete_card' %}'{% endif %};
+    const homeUrl = '{% if demo_mode %}{% url 'swipe:demo_home' %}{% else %}{% url 'swipe:home' %}{% endif %}';
 
     document.addEventListener('DOMContentLoaded', () => {
       const conceptCards = document.querySelectorAll('[data-concept-card]');
@@ -1217,7 +1224,7 @@
         event.preventDefault();
         event.stopPropagation();
 
-        if (!deleteEndpoint) {
+        if (!deleteEndpoint && !isDemo) {
           return;
         }
 
@@ -1232,6 +1239,13 @@
         }
 
         deleteButton.disabled = true;
+
+        if (isDemo) {
+          window.setTimeout(() => {
+            deleteButton.disabled = false;
+          }, 500);
+          return;
+        }
 
         try {
           const response = await fetch(deleteEndpoint, {
