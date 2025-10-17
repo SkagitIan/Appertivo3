@@ -21,6 +21,7 @@ import logging
 import uuid
 logger = logging.getLogger(__name__)
 import json
+from typing import Any, Dict, Optional, Union
 
 class GetConcepts:
     """
@@ -524,6 +525,140 @@ class GetConcepts:
             },
                 }
         return schema
+
+    def single_dish_schema(self) -> Dict[str, Any]:
+        """Schema for a single structured dish variation."""
+
+        return {
+            "name": "dish_variation",
+            "type": "json_schema",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "dish": {
+                        "type": "object",
+                        "properties": {
+                            "title": {"type": "string"},
+                            "description": {"type": "string"},
+                            "suggested_price": {"type": "string"},
+                            "ingredient_overlap": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "minItems": 1,
+                            },
+                            "category_tags": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "minItems": 1,
+                            },
+                        },
+                        "required": [
+                            "title",
+                            "description",
+                            "ingredient_overlap",
+                            "category_tags",
+                            "suggested_price",
+                        ],
+                        "additionalProperties": False,
+                    }
+                },
+                "required": ["dish"],
+                "additionalProperties": False,
+            },
+        }
+
+    async def generate_dish_variation(self, dish: Union[Dish, int]) -> Dict[str, Any]:
+        """Generate and persist a single variation for the given dish."""
+
+        if isinstance(dish, Dish):
+            dish_obj = dish
+        else:
+            dish_obj = await asyncio.to_thread(
+                Dish.objects.select_related("concept__restaurant").get,
+                pk=dish,
+            )
+
+        concept_obj = dish_obj.concept
+        concept_payload = self._normalize_concept(concept_obj)
+
+        raw_ingredients = dish_obj.ingredients or []
+        if isinstance(raw_ingredients, str):
+            raw_ingredients = [raw_ingredients]
+        base_ingredients = [str(item) for item in raw_ingredients][:5]
+
+        dish_details = {
+            "title": dish_obj.name,
+            "description": dish_obj.reasoning or "",
+            "suggested_price": dish_obj.price or "",
+            "ingredient_overlap": base_ingredients,
+        }
+
+        restaurant_context = await self._get_restaurant_context()
+        restaurant_name = getattr(concept_obj.restaurant, "name", "") if concept_obj.restaurant_id else ""
+
+        prompt = (
+            "You are a culinary R&D assistant creating one menu-ready dish variation.\n"
+            f"Restaurant: {restaurant_name or 'Unknown restaurant'}\n"
+            f"Concept: {concept_payload.get('title', '')} — {concept_payload.get('subtitle', '')}\n"
+            f"Concept reasoning: {concept_payload.get('reasoning', '')}\n"
+            f"Restaurant context: {restaurant_context or 'No additional context.'}\n\n"
+            "Original dish details:\n"
+            f"- Name: {dish_details['title']}\n"
+            f"- Description: {dish_details['description']}\n"
+            f"- Suggested price: {dish_details['suggested_price'] or 'N/A'}\n"
+            f"- Ingredient overlap: {', '.join(base_ingredients) or 'None'}\n\n"
+            "Create one variation that keeps the spirit of the concept, reuses at least two of the ingredients listed,"
+            " and describes plating, flavor, or preparation changes in 40-60 words."
+        )
+
+        variation_payload: Optional[Dict[str, Any]] = None
+
+        if self.openai_client:
+            try:
+                response = await self.openai_client.responses.create(
+                    model="gpt-4.1-mini",
+                    input=prompt,
+                    text={"format": self.single_dish_schema()},
+                )
+                content = response.output[0].content[0].text if response.output else ""
+                data = json.loads(content) if content else {}
+                variation_payload = data.get("dish")
+            except Exception as exc:  # pragma: no cover - network guard
+                logger.warning("Dish variation generation failed: %s", exc)
+                variation_payload = None
+
+        if not variation_payload:
+            fallback_ingredients = base_ingredients or [concept_payload.get("title", "concept").lower()]
+            fallback_description = (
+                f"A refreshed take on {dish_details['title']} that keeps "
+                f"{', '.join(fallback_ingredients[:2])} at the center while aligning with "
+                f"{concept_payload.get('subtitle') or concept_payload.get('title', 'the concept')}"
+            )
+            variation_payload = {
+                "title": f"{dish_details['title']} Remix",
+                "description": fallback_description,
+                "suggested_price": dish_details["suggested_price"] or dish_obj.price or "$24",
+                "ingredient_overlap": fallback_ingredients,
+                "category_tags": [
+                    "variation",
+                    concept_payload.get("title", "concept"),
+                    "menu",
+                ],
+            }
+
+        ingredients_value = variation_payload.get("ingredient_overlap", [])
+        if isinstance(ingredients_value, str):
+            ingredients_value = [ingredients_value]
+        variation_payload["ingredient_overlap"] = [str(item) for item in ingredients_value][:5]
+
+        tags_value = variation_payload.get("category_tags", [])
+        if isinstance(tags_value, str):
+            tags_value = [tags_value]
+        variation_payload["category_tags"] = [str(item) for item in tags_value][:4]
+
+        saved = await self._save_dishes(concept_obj, [variation_payload])
+        return saved[0] if saved else {}
 
     async def _generate_dishes_for_concept(self, concept):
         concept_payload = self._normalize_concept(concept)

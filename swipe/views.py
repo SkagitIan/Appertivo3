@@ -7,6 +7,7 @@ from django.db.models import Prefetch
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import TemplateView, View
+from django.urls import reverse
 from app.llm import *
 from app.models import Restaurant
 # Stub imports for future service integration
@@ -198,9 +199,21 @@ class ConceptDishAppendView(View):
             if isinstance(ingredients, str):
                 ingredients = [ingredients]
 
+            dish_id = dish.get("id")
+            concept_pk = dish.get("concept_id") or concept.id
+            try:
+                concept_pk_int = int(concept_pk)
+            except (TypeError, ValueError):
+                concept_pk_int = concept_pk
+
+            variation_endpoint = ""
+            if dish_id:
+                variation_endpoint = reverse("swipe:dish_variation", args=[dish_id])
+
             response_payload.append(
                 {
-                    "id": dish.get("id"),
+                    "id": dish_id,
+                    "concept_id": concept_pk_int,
                     "name": dish.get("title") or dish.get("name") or "",
                     "reasoning": dish.get("description")
                     or dish.get("reasoning")
@@ -209,10 +222,83 @@ class ConceptDishAppendView(View):
                     "price": dish.get("suggested_price") or dish.get("price") or "",
                     "image_url": dish.get("image_url") or "",
                     "is_seen": dish.get("is_seen", False),
+                    "variation_endpoint": variation_endpoint,
                 }
             )
 
         return JsonResponse({"dishes": response_payload})
+
+
+class DishVariationView(View):
+    """Generate a new variation for an existing dish."""
+
+    def post(self, request, dish_id: int):
+        dish = get_object_or_404(
+            Dish.objects.select_related("concept__restaurant").filter(
+                is_deleted=False,
+                concept__is_deleted=False,
+            ),
+            pk=dish_id,
+        )
+
+        concept = dish.concept
+        restaurant = concept.restaurant
+        generator = GetConcepts(
+            restaurant=restaurant,
+            restaurant_context=restaurant.context,
+        )
+
+        try:
+            saved_payload = asyncio.run(generator.generate_dish_variation(dish))
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.exception("Failed to generate variation for dish %s: %s", dish_id, exc)
+            return JsonResponse(
+                {"error": "Unable to generate dish variation."},
+                status=500,
+            )
+
+        if not saved_payload:
+            return JsonResponse(
+                {"error": "No variation generated."},
+                status=500,
+            )
+
+        ingredients = (
+            saved_payload.get("ingredient_overlap")
+            or saved_payload.get("ingredients")
+            or []
+        )
+        if isinstance(ingredients, str):
+            ingredients = [ingredients]
+
+        dish_id_value = saved_payload.get("id")
+        concept_id_value = saved_payload.get("concept_id") or concept.id
+        try:
+            concept_id_int = int(concept_id_value)
+        except (TypeError, ValueError):
+            concept_id_int = concept_id_value
+
+        variation_endpoint = ""
+        if dish_id_value:
+            variation_endpoint = reverse("swipe:dish_variation", args=[dish_id_value])
+
+        response_payload = {
+            "id": dish_id_value,
+            "concept_id": concept_id_int,
+            "name": saved_payload.get("title") or saved_payload.get("name") or "",
+            "reasoning": saved_payload.get("description")
+            or saved_payload.get("reasoning")
+            or "",
+            "ingredients": ingredients,
+            "price": saved_payload.get("suggested_price")
+            or saved_payload.get("price")
+            or "",
+            "image_url": saved_payload.get("image_url") or "",
+            "is_seen": saved_payload.get("is_seen", False),
+            "variation_endpoint": variation_endpoint,
+        }
+
+        return JsonResponse({"dish": response_payload})
 
 
 @method_decorator(csrf_exempt, name="dispatch")

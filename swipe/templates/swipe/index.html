@@ -299,6 +299,19 @@
       stroke: #ef4444;
     }
 
+    .variation-btn {
+      transition: transform 0.2s;
+    }
+
+    .variation-btn:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+
+    .variation-btn[data-loading="true"] svg {
+      animation: spin 0.9s linear infinite;
+    }
+
     .intro-overlay {
       position: fixed;
       inset: 0;
@@ -802,6 +815,18 @@
                             </svg>
                           </button>
                           <button type="button"
+                                  class="variation-btn absolute top-5 right-20 rounded-full border border-slate-100/40 bg-slate-900/60 p-3 shadow-lg z-10"
+                                  data-prevent-flip
+                                  data-variation-endpoint="{% url 'swipe:dish_variation' dish.id %}"
+                                  data-concept-id="{{ concept.id }}"
+                                  data-dish-id="{{ dish.id }}"
+                                  aria-label="Generate variation for {{ dish.name }}">
+                            <svg class="w-5 h-5 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4.5 9.75A7.5 7.5 0 0119.5 8m0 0v4m0-4h-4" />
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M19.5 14.25a7.5 7.5 0 01-15 1.75m0 0v-4m0 4h4" />
+                            </svg>
+                          </button>
+                          <button type="button"
                                   class="heart-btn absolute top-5 right-5 rounded-full border border-slate-100/40 bg-slate-900/60 p-3 shadow-lg z-10 {% if dish.is_favorite %}favorited{% endif %}"
                                   data-prevent-flip
                                   onclick="toggleFavorite(this, 'dish', '{{ dish.id }}')"
@@ -945,6 +970,10 @@
       return document.querySelector(`.horizontal-track[data-concept-index="${index}"]`);
     }
 
+    function getTrackByConceptId(conceptId) {
+      return document.querySelector(`.horizontal-track[data-concept-track="${conceptId}"]`);
+    }
+
     function getConceptIdByIndex(index) {
       const track = getTrackByConceptIndex(index);
       return track ? track.dataset.conceptTrack : null;
@@ -1070,13 +1099,14 @@
       }
     }
 
-    function createDishCard(dish) {
+    function createDishCard(dish, conceptId) {
       const card = document.createElement('div');
       card.className = 'card w-full';
       card.setAttribute('data-card', '');
       card.setAttribute('tabindex', '0');
       card.setAttribute('role', 'button');
       const dishId = dish.id ?? '';
+      const effectiveConceptId = conceptId ?? dish.concept_id ?? null;
 
       const shouldMarkSeen = dishId && (dish.is_seen === false || typeof dish.is_seen === 'undefined');
       if (shouldMarkSeen) {
@@ -1121,6 +1151,25 @@
       deleteButton.setAttribute('aria-label', `Delete ${dish.name || 'dish'}`);
       deleteButton.innerHTML = '<svg class="w-6 h-6 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 7h12M10 11v6m4-6v6m-7 4h10a1 1 0 001-1V7H6v13a1 1 0 001 1zm3-17h4l1 2H8l1-2z"></path></svg>';
       back.appendChild(deleteButton);
+
+      const variationEndpoint = dish.variation_endpoint;
+      if (variationEndpoint) {
+        const variationButton = document.createElement('button');
+        variationButton.type = 'button';
+        variationButton.className = 'variation-btn absolute top-5 right-20 rounded-full border border-slate-100/40 bg-slate-900/60 p-3 shadow-lg z-10';
+        variationButton.setAttribute('data-prevent-flip', '');
+        variationButton.dataset.variationEndpoint = variationEndpoint;
+        if (effectiveConceptId !== null && effectiveConceptId !== undefined) {
+          variationButton.dataset.conceptId = String(effectiveConceptId);
+        }
+        if (dishId) {
+          variationButton.dataset.dishId = String(dishId);
+        }
+        variationButton.setAttribute('aria-label', `Generate variation for ${dish.name || 'dish'}`);
+        variationButton.innerHTML = '<svg class="w-5 h-5 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4.5 9.75A7.5 7.5 0 0119.5 8m0 0v4m0-4h-4"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M19.5 14.25a7.5 7.5 0 01-15 1.75m0 0v-4m0 4h4"></path></svg>';
+        back.appendChild(variationButton);
+        attachVariationHandler(variationButton);
+      }
 
       const heartButton = document.createElement('button');
       heartButton.type = 'button';
@@ -1326,6 +1375,101 @@
       let currentConceptIndex = 0;
       let currentDishIndex = 0;
 
+      function attachVariationHandler(button) {
+        if (!button || button.dataset.variationReady === 'true') {
+          return;
+        }
+
+        button.dataset.variationReady = 'true';
+
+        button.addEventListener('click', async (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+
+          if (button.dataset.loading === 'true') {
+            return;
+          }
+
+          const endpoint = button.dataset.variationEndpoint;
+          const conceptId = button.dataset.conceptId;
+          if (!endpoint || !conceptId) {
+            return;
+          }
+
+          const track = getTrackByConceptId(conceptId);
+          if (!track) {
+            return;
+          }
+
+          getConceptState(conceptId);
+
+          button.dataset.loading = 'true';
+          button.setAttribute('data-loading', 'true');
+          button.disabled = true;
+          button.setAttribute('aria-busy', 'true');
+
+          try {
+            const response = await fetch(endpoint, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+              },
+              body: JSON.stringify({}),
+            });
+
+            if (!response.ok) {
+              throw new Error(`Request failed with status ${response.status}`);
+            }
+
+            const payload = await response.json();
+            const dish = payload?.dish;
+            if (!dish) {
+              throw new Error('Missing dish payload');
+            }
+
+            const targetConceptId = dish.concept_id ?? conceptId;
+            const card = createDishCard(dish, targetConceptId);
+            initializeCard(card);
+            track.appendChild(card);
+
+            if (window.htmx) {
+              window.htmx.process(card);
+            }
+
+            const conceptIndex = Number.parseInt(track.dataset.conceptIndex || '-1', 10);
+            if (conceptIndex >= 0) {
+              const currentCount = Number.isInteger(dishCounts[conceptIndex])
+                ? dishCounts[conceptIndex]
+                : 0;
+              dishCounts[conceptIndex] = currentCount + 1;
+
+              if (conceptIndex === currentConceptIndex) {
+                currentDishIndex = dishCounts[conceptIndex];
+                updateHorizontalPosition();
+                updatePositionIndicator();
+                updateNavigationButtons();
+              }
+            }
+
+            if (conceptIndex === currentConceptIndex && typeof card.focus === 'function') {
+              card.focus({ preventScroll: false });
+            }
+          } catch (error) {
+            console.error('Failed to fetch variation:', error);
+          } finally {
+            button.removeAttribute('aria-busy');
+            delete button.dataset.loading;
+            button.removeAttribute('data-loading');
+            button.disabled = false;
+          }
+        });
+      }
+
+      document.querySelectorAll('[data-variation-endpoint]').forEach((button) => {
+        attachVariationHandler(button);
+      });
+
       function createLoadingCard() {
         const card = document.createElement('div');
         card.className = 'card w-full flex items-center justify-center';
@@ -1388,7 +1532,7 @@
         }
 
         const dish = state.buffer.shift();
-        const card = createDishCard(dish);
+        const card = createDishCard(dish, conceptId);
         initializeCard(card);
         const track = placeholder.closest('.horizontal-track');
         placeholder.replaceWith(card);
