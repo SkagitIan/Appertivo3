@@ -925,6 +925,49 @@
     const introOverlay = document.getElementById('introOverlay');
     const dismissIntro = document.getElementById('dismissIntro');
     const DISH_PLACEHOLDER = 'https://placehold.co/800x600?text=Dish';
+    const conceptStates = {};
+
+    function getConceptState(conceptId) {
+      if (!conceptId) {
+        return null;
+      }
+      if (!conceptStates[conceptId]) {
+        conceptStates[conceptId] = {
+          buffer: [],
+          fetchPromise: null,
+          placeholder: null,
+        };
+      }
+      return conceptStates[conceptId];
+    }
+
+    function getTrackByConceptIndex(index) {
+      return document.querySelector(`.horizontal-track[data-concept-index="${index}"]`);
+    }
+
+    function getConceptIdByIndex(index) {
+      const track = getTrackByConceptIndex(index);
+      return track ? track.dataset.conceptTrack : null;
+    }
+
+    function getConceptEndpoint(conceptId) {
+      const button = document.querySelector(
+        `[data-load-dishes][data-concept-id="${conceptId}"]`
+      );
+      return button ? button.dataset.endpoint : null;
+    }
+
+    function hasActivePlaceholder(conceptId) {
+      const state = conceptStates[conceptId];
+      return Boolean(state?.placeholder && state.placeholder.isConnected);
+    }
+
+    function getMaxDishIndex(conceptIndex) {
+      const dishCount = dishCounts[conceptIndex] || 0;
+      const conceptId = getConceptIdByIndex(conceptIndex);
+      const extra = conceptId && hasActivePlaceholder(conceptId) ? 1 : 0;
+      return dishCount + extra;
+    }
 
     function applyRevealedTrigger(element, type, id) {
       if (!element || !id) {
@@ -1283,6 +1326,209 @@
       let currentConceptIndex = 0;
       let currentDishIndex = 0;
 
+      function createLoadingCard() {
+        const card = document.createElement('div');
+        card.className = 'card w-full flex items-center justify-center';
+        card.setAttribute('data-placeholder', 'true');
+        card.setAttribute('tabindex', '-1');
+        card.setAttribute('aria-live', 'polite');
+
+        const container = document.createElement('div');
+        container.className = 'flex flex-col items-center gap-4 text-slate-300';
+
+        const spinner = document.createElement('div');
+        spinner.className = 'h-8 w-8 animate-spin rounded-full border-2 border-white/40 border-t-transparent';
+        spinner.dataset.placeholderSpinner = 'true';
+        spinner.setAttribute('aria-hidden', 'true');
+        container.appendChild(spinner);
+
+        const message = document.createElement('span');
+        message.className = 'text-xs uppercase tracking-[0.4em] text-slate-300';
+        message.dataset.placeholderMessage = 'true';
+        message.textContent = 'Fetching next dish…';
+        container.appendChild(message);
+
+        card.appendChild(container);
+        return card;
+      }
+
+      function setPlaceholderMessage(placeholder, text, isError = false) {
+        if (!placeholder) {
+          return;
+        }
+        const message = placeholder.querySelector('[data-placeholder-message]');
+        if (message) {
+          message.textContent = text;
+          if (isError) {
+            message.classList.add('text-rose-300');
+            message.classList.remove('text-slate-300');
+          } else {
+            message.classList.add('text-slate-300');
+            message.classList.remove('text-rose-300');
+          }
+        }
+        const spinner = placeholder.querySelector('[data-placeholder-spinner]');
+        if (spinner) {
+          spinner.classList.toggle('hidden', Boolean(isError));
+        }
+      }
+
+      function maybeSwapPlaceholder(conceptId) {
+        const state = getConceptState(conceptId);
+        if (!state) {
+          return;
+        }
+        const placeholder = state.placeholder;
+        if (!placeholder || !placeholder.isConnected) {
+          state.placeholder = null;
+          return;
+        }
+        if (state.buffer.length === 0) {
+          return;
+        }
+
+        const dish = state.buffer.shift();
+        const card = createDishCard(dish);
+        initializeCard(card);
+        const track = placeholder.closest('.horizontal-track');
+        placeholder.replaceWith(card);
+        state.placeholder = null;
+
+        if (window.htmx) {
+          window.htmx.process(card);
+        }
+
+        if (!track) {
+          return;
+        }
+
+        const conceptIndex = Number.parseInt(track.dataset.conceptIndex || '-1', 10);
+        if (conceptIndex >= 0) {
+          const currentCount = Number.isInteger(dishCounts[conceptIndex])
+            ? dishCounts[conceptIndex]
+            : 0;
+          dishCounts[conceptIndex] = currentCount + 1;
+
+          if (conceptIndex === currentConceptIndex) {
+            updateHorizontalPosition({ instant: true });
+            updatePositionIndicator();
+            updateNavigationButtons();
+          }
+        }
+
+        if (state.buffer.length === 0) {
+          ensureBuffer(conceptId);
+        }
+      }
+
+      async function ensureBuffer(conceptId, { force = false } = {}) {
+        const state = getConceptState(conceptId);
+        if (!state) {
+          return false;
+        }
+
+        if (!force && state.buffer.length > 0) {
+          return true;
+        }
+
+        if (state.fetchPromise) {
+          return state.fetchPromise;
+        }
+
+        const endpoint = getConceptEndpoint(conceptId);
+        if (!endpoint) {
+          return false;
+        }
+
+        if (state.placeholder && state.placeholder.isConnected) {
+          setPlaceholderMessage(state.placeholder, 'Fetching next dish…', false);
+        }
+
+        const fetchPromise = (async () => {
+          try {
+            const response = await fetch(endpoint, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+              },
+              body: JSON.stringify({}),
+            });
+
+            if (!response.ok) {
+              throw new Error(`Request failed with status ${response.status}`);
+            }
+
+            const payload = await response.json();
+            const dishes = Array.isArray(payload.dishes) ? payload.dishes : [];
+
+            dishes.forEach((dish) => {
+              state.buffer.push(dish);
+            });
+
+            maybeSwapPlaceholder(conceptId);
+
+            return dishes.length > 0;
+          } catch (error) {
+            console.error('Failed to load dishes:', error);
+            const placeholder = state.placeholder;
+            if (placeholder && placeholder.isConnected) {
+              setPlaceholderMessage(placeholder, 'Unable to load new dish. Swipe again.', true);
+            }
+            return false;
+          } finally {
+            state.fetchPromise = null;
+          }
+        })();
+
+        state.fetchPromise = fetchPromise;
+        return fetchPromise;
+      }
+
+      function prepareNextDishCard(conceptIndex) {
+        const track = getTrackByConceptIndex(conceptIndex);
+        if (!track) {
+          return;
+        }
+
+        const conceptId = track.dataset.conceptTrack;
+        if (!conceptId) {
+          return;
+        }
+
+        const state = getConceptState(conceptId);
+        if (!state) {
+          return;
+        }
+
+        if (!state.placeholder || !state.placeholder.isConnected) {
+          const placeholder = createLoadingCard();
+          track.appendChild(placeholder);
+          state.placeholder = placeholder;
+        } else {
+          setPlaceholderMessage(state.placeholder, 'Fetching next dish…', false);
+        }
+
+        if (state.buffer.length > 0) {
+          maybeSwapPlaceholder(conceptId);
+          return;
+        }
+
+        ensureBuffer(conceptId);
+      }
+
+      function prepareBufferForConcept(conceptIndex) {
+        const conceptId = getConceptIdByIndex(conceptIndex);
+        if (!conceptId) {
+          return;
+        }
+
+        const state = getConceptState(conceptId);
+        if (state && (state.buffer.length === 0) && !state.fetchPromise) {
+          ensureBuffer(conceptId);
+        }
+      }
+
       const loadButtons = document.querySelectorAll('[data-load-dishes]');
       loadButtons.forEach((button) => {
         button.addEventListener('click', async () => {
@@ -1302,57 +1548,19 @@
           setButtonLoading(button, true);
 
           try {
-            const response = await fetch(endpoint, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken,
-              },
-              body: JSON.stringify({}),
-            });
+            const success = await ensureBuffer(conceptId, { force: true });
 
-            if (!response.ok) {
-              throw new Error(`Request failed with status ${response.status}`);
-            }
-
-            const payload = await response.json();
-            const dishes = Array.isArray(payload.dishes) ? payload.dishes : [];
-            if (dishes.length === 0) {
-              return;
-            }
-
-            const track = document.querySelector(
-              `.horizontal-track[data-concept-track="${conceptId}"]`
-            );
-            if (!track) {
-              return;
-            }
-
-            const conceptCard = track.querySelector('.card');
-            const referenceNode = conceptCard ? conceptCard.nextElementSibling : null;
-
-            const newCards = dishes.map((dish) => {
-              const card = createDishCard(dish);
-              initializeCard(card);
-              return card;
-            });
-
-      newCards.forEach((card) => {
-        track.insertBefore(card, referenceNode);
-        if (window.htmx) {
-          window.htmx.process(card);
-        }
-      });
-
-            const currentCount = Number.isInteger(dishCounts[conceptIndex])
-              ? dishCounts[conceptIndex]
-              : 0;
-            dishCounts[conceptIndex] = currentCount + newCards.length;
-
-            if (conceptIndex === currentConceptIndex) {
-              updateHorizontalPosition({ instant: true });
-              updatePositionIndicator();
-              updateNavigationButtons();
+            if (success) {
+              if (conceptIndex === currentConceptIndex) {
+                const dishCount = dishCounts[conceptIndex] || 0;
+                if (currentDishIndex >= dishCount) {
+                  prepareNextDishCard(conceptIndex);
+                } else {
+                  maybeSwapPlaceholder(conceptId);
+                }
+              } else {
+                maybeSwapPlaceholder(conceptId);
+              }
             }
           } catch (error) {
             console.error('Failed to load dishes:', error);
@@ -1382,6 +1590,7 @@
           updateHorizontalPosition({ instant: true });
           updatePositionIndicator();
           updateNavigationButtons();
+          prepareBufferForConcept(currentConceptIndex);
         }
       };
 
@@ -1390,7 +1599,10 @@
           return;
         }
         const dishCount = dishCounts[currentConceptIndex] || 0;
-        const maxIndex = dishCount;
+        if (direction > 0 && currentDishIndex + direction > dishCount) {
+          prepareNextDishCard(currentConceptIndex);
+        }
+        const maxIndex = getMaxDishIndex(currentConceptIndex);
         const newIndex = currentDishIndex + direction;
         if (newIndex >= 0 && newIndex <= maxIndex) {
           currentDishIndex = newIndex;
@@ -1481,11 +1693,14 @@
         }
 
         const dishCount = dishCounts[currentConceptIndex] || 0;
-        const maxIndex = dishCount;
+        const conceptId = getConceptIdByIndex(currentConceptIndex);
+        const placeholderActive = conceptId ? hasActivePlaceholder(conceptId) : false;
 
         if (currentDishIndex === 0) {
           indicator.textContent = `${currentConceptIndex + 1} / ${totalConcepts}`;
-        } else if (currentDishIndex === maxIndex) {
+        } else if (placeholderActive && currentDishIndex > dishCount) {
+          indicator.textContent = `${currentConceptIndex + 1}… / ${totalConcepts}`;
+        } else if (currentDishIndex === dishCount) {
           indicator.textContent = `${currentConceptIndex + 1}.+ / ${totalConcepts}`;
         } else {
           const currentCard = currentDishIndex + 1;
@@ -1508,7 +1723,9 @@
         }
 
         const dishCount = dishCounts[currentConceptIndex] || 0;
-        const maxIndex = dishCount + 1;
+        const maxIndex = getMaxDishIndex(currentConceptIndex);
+        const conceptId = getConceptIdByIndex(currentConceptIndex);
+        const placeholderActive = conceptId ? hasActivePlaceholder(conceptId) : false;
         const isOnConceptCard = currentDishIndex === 0;
 
         if (navVerticalUp) {
@@ -1522,7 +1739,10 @@
           navHorizontalLeft.disabled = currentDishIndex === 0;
         }
         if (navHorizontalRight) {
-          navHorizontalRight.disabled = currentDishIndex >= maxIndex;
+          const canGoRight = placeholderActive
+            ? currentDishIndex < maxIndex
+            : currentDishIndex <= dishCount;
+          navHorizontalRight.disabled = !canGoRight;
         }
       }
 
@@ -1552,6 +1772,10 @@
           currentConceptIndex = totalConcepts - 1;
           currentDishIndex = 0;
         }
+
+        if (totalConcepts > 0) {
+          prepareBufferForConcept(currentConceptIndex);
+        }
       }
 
       function handleConceptDeletion(button) {
@@ -1560,11 +1784,21 @@
           return;
         }
         const index = Number.parseInt(slide.dataset.conceptIndex || '-1', 10);
+        const track = slide.querySelector('.horizontal-track');
+        const conceptId = track ? track.dataset.conceptTrack : null;
 
         slide.remove();
 
         if (index >= 0 && index < dishCounts.length) {
           dishCounts.splice(index, 1);
+        }
+
+        if (conceptId && conceptStates[conceptId]) {
+          const placeholder = conceptStates[conceptId].placeholder;
+          if (placeholder && placeholder.isConnected) {
+            placeholder.remove();
+          }
+          delete conceptStates[conceptId];
         }
 
         if (index < currentConceptIndex) {
@@ -1692,9 +1926,9 @@
           const diffX = touchStartX - touchEndX;
 
           const dishCount = dishCounts[currentConceptIndex] || 0;
-          const maxIndex = dishCount + 1;
+          const maxIndex = getMaxDishIndex(currentConceptIndex);
           const isOnConceptCard = currentDishIndex === 0;
-          const canGoRight = currentDishIndex < maxIndex;
+          const canGoRight = currentDishIndex < maxIndex || currentDishIndex === dishCount;
           const canGoLeft = currentDishIndex > 0;
 
           if (Math.abs(diffX) > Math.abs(diffY)) {
@@ -1718,6 +1952,7 @@
       updateHorizontalPosition({ instant: true });
       updatePositionIndicator();
       updateNavigationButtons();
+      prepareBufferForConcept(currentConceptIndex);
 
       anime({
         targets: '.card',
