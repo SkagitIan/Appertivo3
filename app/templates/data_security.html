@@ -1,0 +1,84 @@
+{% extends "base_public.html" %}
+{% load navigation_tags %}
+
+{% block title %}Data Security — Appertivo{% endblock %}
+
+{% block content %}
+    <div class="topbar">
+        {% if request.user.is_authenticated %}
+            {% primary_restaurant as current_restaurant %}
+            {% if current_restaurant %}
+                <a href="{% url 'swipe:home' %}" class="topbar-link">
+                    <span>{{ current_restaurant.name }}</span>
+                    <span class="indicator">&nearr;</span>
+                </a>
+            {% else %}
+                <a href="{% url 'swipe:home' %}" class="topbar-link">
+                    <span>Enter App</span>
+                    <span class="indicator">&nearr;</span>
+                </a>
+            {% endif %}
+        {% else %}
+            <a href="{% url 'login' %}" class="topbar-link">
+                <span>Log in</span>
+                <span class="indicator">&rarr;</span>
+            </a>
+        {% endif %}
+    </div>
+
+    <section class="content-hero">
+        <div class="floating-cards">
+            <div class="floating-card card-1"></div>
+            <div class="floating-card card-2"></div>
+            <div class="floating-card card-3"></div>
+        </div>
+
+        <div class="content-hero__inner">
+            <div class="logo">APPERTIVO</div>
+            <h1>Data Security</h1>
+            <p>
+                Your recipes, menus, and concepts stay locked inside your workspace. Appertivo combines infrastructure safeguards with strict access controls to protect your data.
+            </p>
+            <div class="subtext">Built on modern, audited cloud infrastructure</div>
+        </div>
+    </section>
+
+    <div class="content-wrapper">
+        <article class="content-section">
+            <h2>Platform Security</h2>
+            <p>Appertivo runs on hardened cloud environments with automatic patching and monitoring.</p>
+            <ul>
+                <li>Encrypted storage for every asset you upload or generate.</li>
+                <li>TLS 1.2+ enforced for all data in transit between your browser and our APIs.</li>
+                <li>Continuous monitoring with alerting for suspicious activity.</li>
+            </ul>
+        </article>
+
+        <article class="content-section">
+            <h2>Access Controls</h2>
+            <p>Only the right people can reach your workspace and data.</p>
+            <ul>
+                <li>Role-based permissions within Appertivo to limit who can view, edit, or export content.</li>
+                <li>Strict internal policies ensure employee access is granted only for support or maintenance.</li>
+                <li>Audit trails covering key actions inside the product.</li>
+            </ul>
+        </article>
+
+        <article class="content-section">
+            <h2>Data Retention & Backups</h2>
+            <p>We keep your data available while giving you control over removal.</p>
+            <ul>
+                <li>Regular backups with encryption at rest and isolated storage.</li>
+                <li>Workspace owners can delete dishes, menus, or entire accounts at any time.</li>
+                <li>Deleted data is purged from active systems within 30 days unless legally required otherwise.</li>
+            </ul>
+        </article>
+
+        <article class="content-section">
+            <h2>Need a Security Review?</h2>
+            <p>For vendor questionnaires or deeper security reviews, email <a href="mailto:security@appertivo.com">security@appertivo.com</a>. We’re happy to walk through our controls.</p>
+        </article>
+    </div>
+
+    {% include "_partials/minimal_footer.html" %}
+{% endblock %}

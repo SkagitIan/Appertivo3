@@ -774,22 +774,7 @@
     </div>
 
     <!-- Slide-out Menu -->
-    <div
-      id="slideMenu"
-      class="fixed top-0 right-0 z-40 h-full w-64 transform translate-x-full border-l border-slate-700/60 bg-slate-900/95 text-slate-100 shadow-[0_45px_90px_-40px_rgba(8,11,19,0.9)] transition-transform duration-300"
-    >
-      <div class="pt-24 px-6 space-y-4">
-        <a href="{% url 'swipe:favorites' %}" class="block border-b border-slate-700/40 pb-4 text-sm tracking-[0.3em] uppercase text-slate-300 hover:text-white">
-          Favorites Archive
-        </a>
-        <a href="#" class="block border-b border-slate-700/40 pb-4 text-sm tracking-[0.3em] uppercase text-slate-300 hover:text-white">
-          Atelier Settings
-        </a>
-        <a href="#" class="block text-sm tracking-[0.3em] uppercase text-slate-300 hover:text-white">
-          Billing Suite
-        </a>
-      </div>
-    </div>
+    {% include "swipe/_slide_menu.html" %}
 
     {% if concepts %}
       <!-- Main Content Area -->
@@ -1644,23 +1629,44 @@
     const floatingMenuButtons = Array.from(document.querySelectorAll('[data-menu-trigger]'));
 
     if (floatingMenuButtons.length && slideMenu) {
+      const setMenuState = (isOpen) => {
+        if (isOpen) {
+          slideMenu.classList.add('translate-x-0');
+          slideMenu.classList.remove('translate-x-full');
+        } else {
+          slideMenu.classList.add('translate-x-full');
+          slideMenu.classList.remove('translate-x-0');
+        }
+
+        slideMenu.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+        floatingMenuButtons.forEach((button) => {
+          button.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        });
+      };
+
+      setMenuState(false);
+
       floatingMenuButtons.forEach((button) => {
-        button.addEventListener('click', () => {
-          slideMenu.classList.toggle('translate-x-0');
-          slideMenu.classList.toggle('translate-x-full');
+        button.addEventListener('click', (event) => {
+          event.preventDefault();
+          const isOpen = slideMenu.classList.contains('translate-x-0');
+          setMenuState(!isOpen);
         });
       });
 
-      document.addEventListener('click', (e) => {
-        if (floatingMenuButtons.some((button) => button.contains(e.target))) {
+      document.addEventListener('click', (event) => {
+        if (floatingMenuButtons.some((button) => button.contains(event.target))) {
           return;
         }
 
-        if (!slideMenu.contains(e.target)) {
-          if (!slideMenu.classList.contains('translate-x-full')) {
-            slideMenu.classList.add('translate-x-full');
-            slideMenu.classList.remove('translate-x-0');
-          }
+        if (!slideMenu.contains(event.target)) {
+          setMenuState(false);
+        }
+      });
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+          setMenuState(false);
         }
       });
     }

@@ -1,32 +1,68 @@
-{% extends "layouts/marketing.html" %}
+{% extends "base_public.html" %}
+{% load navigation_tags %}
 
 {% block title %}Contact Us — Appertivo{% endblock %}
 
 {% block content %}
-  <section class="py-16">
-    <div class="max-w-3xl mx-auto px-6 space-y-8">
-      <h1 class="text-4xl font-bold">Contact Us</h1>
-      <p class="text-lg text-slate-600 leading-relaxed">
-        We love hearing from chefs, operators, and partners. Choose the path that fits your request and we will reach out quickly.
-      </p>
-      <div class="grid gap-6 md:grid-cols-2 text-slate-700">
-        <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 class="text-xl font-semibold text-[#2E005D]">Customer Support</h2>
-          <p class="mt-2 text-sm leading-relaxed">Need help with your workspace or billing? Email <a class="text-[#5C008B] underline" href="mailto:help@appertivo.com">help@appertivo.com</a>.</p>
-        </div>
-        <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 class="text-xl font-semibold text-[#2E005D]">Partnerships</h2>
-          <p class="mt-2 text-sm leading-relaxed">Want to collaborate or bring Appertivo to your group? Reach the team at <a class="text-[#5C008B] underline" href="mailto:hello@appertivo.com">hello@appertivo.com</a>.</p>
-        </div>
-        <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 class="text-xl font-semibold text-[#2E005D]">Press</h2>
-          <p class="mt-2 text-sm leading-relaxed">Media inquiries go to <a class="text-[#5C008B] underline" href="mailto:press@appertivo.com">press@appertivo.com</a>. We will follow up within one business day.</p>
-        </div>
-        <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 class="text-xl font-semibold text-[#2E005D]">Demo Requests</h2>
-          <p class="mt-2 text-sm leading-relaxed">Curious how Appertivo fits your menu strategy? Book a walkthrough at <a class="text-[#5C008B] underline" href="mailto:demos@appertivo.com">demos@appertivo.com</a>.</p>
-        </div>
-      </div>
+    <div class="topbar">
+        {% if request.user.is_authenticated %}
+            {% primary_restaurant as current_restaurant %}
+            {% if current_restaurant %}
+                <a href="{% url 'swipe:home' %}" class="topbar-link">
+                    <span>{{ current_restaurant.name }}</span>
+                    <span class="indicator">&nearr;</span>
+                </a>
+            {% else %}
+                <a href="{% url 'swipe:home' %}" class="topbar-link">
+                    <span>Enter App</span>
+                    <span class="indicator">&nearr;</span>
+                </a>
+            {% endif %}
+        {% else %}
+            <a href="{% url 'login' %}" class="topbar-link">
+                <span>Log in</span>
+                <span class="indicator">&rarr;</span>
+            </a>
+        {% endif %}
     </div>
-  </section>
+
+    <section class="content-hero">
+        <div class="floating-cards">
+            <div class="floating-card card-1"></div>
+            <div class="floating-card card-2"></div>
+            <div class="floating-card card-3"></div>
+        </div>
+
+        <div class="content-hero__inner">
+            <div class="logo">APPERTIVO</div>
+            <h1>Contact Appertivo</h1>
+            <p>
+                Chefs, operators, and partners reach us directly. Pick the right path and we’ll respond quickly with the help you need.
+            </p>
+            <div class="subtext">Average first response within one business day</div>
+        </div>
+    </section>
+
+    <div class="content-wrapper">
+        <div class="info-grid">
+            <article class="info-card">
+                <h3>Customer Support</h3>
+                <p>Need a hand with your workspace, billing, or onboarding? Email <a href="mailto:help@appertivo.com">help@appertivo.com</a>.</p>
+            </article>
+            <article class="info-card">
+                <h3>Partnerships</h3>
+                <p>Want to collaborate or roll Appertivo out across your group? Contact <a href="mailto:hello@appertivo.com">hello@appertivo.com</a>.</p>
+            </article>
+            <article class="info-card">
+                <h3>Press</h3>
+                <p>Media requests go to <a href="mailto:press@appertivo.com">press@appertivo.com</a>. We’ll follow up with assets and interviews.</p>
+            </article>
+            <article class="info-card">
+                <h3>Product Demos</h3>
+                <p>Ready to see Appertivo in action? Schedule a walkthrough via <a href="mailto:demos@appertivo.com">demos@appertivo.com</a>.</p>
+            </article>
+        </div>
+    </div>
+
+    {% include "_partials/minimal_footer.html" %}
 {% endblock %}

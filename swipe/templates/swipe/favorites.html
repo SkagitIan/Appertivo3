@@ -583,6 +583,8 @@
 {% endblock %}
 
 {% block content %}
+  {% include "swipe/_slide_menu.html" %}
+
   <div class="relative min-h-screen pb-32 px-4 pt-24">
     <div class="fixed top-6 left-6 z-40 text-[0.7rem] tracking-[0.55em] uppercase text-slate-200/80">
       {% if restaurant %}{{ restaurant.name }}{% else %}Appertivo{% endif %}
@@ -872,11 +874,28 @@
       const menuButtons = Array.from(document.querySelectorAll('[data-menu-trigger]'));
 
       if (menuButtons.length && slideMenu) {
+        const setMenuState = (isOpen) => {
+          if (isOpen) {
+            slideMenu.classList.add('translate-x-0');
+            slideMenu.classList.remove('translate-x-full');
+          } else {
+            slideMenu.classList.add('translate-x-full');
+            slideMenu.classList.remove('translate-x-0');
+          }
+
+          slideMenu.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+          menuButtons.forEach((button) => {
+            button.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+          });
+        };
+
+        setMenuState(false);
+
         menuButtons.forEach((button) => {
           button.addEventListener('click', (event) => {
             event.preventDefault();
-            slideMenu.classList.toggle('translate-x-0');
-            slideMenu.classList.toggle('translate-x-full');
+            const isOpen = slideMenu.classList.contains('translate-x-0');
+            setMenuState(!isOpen);
           });
         });
 
@@ -886,10 +905,13 @@
           }
 
           if (!slideMenu.contains(event.target)) {
-            if (!slideMenu.classList.contains('translate-x-full')) {
-              slideMenu.classList.add('translate-x-full');
-              slideMenu.classList.remove('translate-x-0');
-            }
+            setMenuState(false);
+          }
+        });
+
+        document.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape') {
+            setMenuState(false);
           }
         });
       }

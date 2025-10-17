@@ -1,42 +1,85 @@
-{% extends "layouts/marketing.html" %}
+{% extends "base_public.html" %}
+{% load navigation_tags %}
 
 {% block title %}Privacy Policy — Appertivo{% endblock %}
 
 {% block content %}
-  <section class="py-16">
-    <div class="max-w-3xl mx-auto px-6 space-y-8">
-      <h1 class="text-4xl font-bold">Privacy Policy</h1>
-      <p class="text-lg text-slate-600 leading-relaxed">
-        We take the privacy of every restaurant seriously. This policy outlines how Appertivo
-        handles the information created inside the platform and what we never do with your data.
-      </p>
-      <div class="space-y-6 text-slate-700 leading-relaxed">
-        <section>
-          <h2 class="text-2xl font-semibold text-[#2E005D]">What we collect</h2>
-          <ul class="mt-3 space-y-2 list-disc list-inside">
-            <li>Account and team details you provide when signing up.</li>
-            <li>Concepts, dishes, and favorites created by your team in Appertivo.</li>
-            <li>Usage metrics that help us keep the service reliable and secure.</li>
-          </ul>
-        </section>
-        <section>
-          <h2 class="text-2xl font-semibold text-[#2E005D]">How we use it</h2>
-          <p>We use your in-product activity to personalize your workspace and improve our AI suggestions for your restaurant only.</p>
-          <p class="mt-3">We never sell, trade, or share your concepts, dishes, or prompts outside of your account.</p>
-        </section>
-        <section>
-          <h2 class="text-2xl font-semibold text-[#2E005D]">What we do not collect</h2>
-          <p>Appertivo does not ingest point-of-sale records, supplier information, or customer data. We only work with what you create inside our tools.</p>
-        </section>
-        <section>
-          <h2 class="text-2xl font-semibold text-[#2E005D]">Your controls</h2>
-          <ul class="mt-3 space-y-2 list-disc list-inside">
-            <li>Export or delete concepts, dishes, and menus at any time.</li>
-            <li>Request full account removal by emailing <a class="text-[#5C008B] underline" href="mailto:privacy@appertivo.com">privacy@appertivo.com</a>.</li>
-            <li>Contact support for clarification on any data handling question.</li>
-          </ul>
-        </section>
-      </div>
+    <div class="topbar">
+        {% if request.user.is_authenticated %}
+            {% primary_restaurant as current_restaurant %}
+            {% if current_restaurant %}
+                <a href="{% url 'swipe:home' %}" class="topbar-link">
+                    <span>{{ current_restaurant.name }}</span>
+                    <span class="indicator">&nearr;</span>
+                </a>
+            {% else %}
+                <a href="{% url 'swipe:home' %}" class="topbar-link">
+                    <span>Enter App</span>
+                    <span class="indicator">&nearr;</span>
+                </a>
+            {% endif %}
+        {% else %}
+            <a href="{% url 'login' %}" class="topbar-link">
+                <span>Log in</span>
+                <span class="indicator">&rarr;</span>
+            </a>
+        {% endif %}
     </div>
-  </section>
+
+    <section class="content-hero">
+        <div class="floating-cards">
+            <div class="floating-card card-1"></div>
+            <div class="floating-card card-2"></div>
+            <div class="floating-card card-3"></div>
+        </div>
+
+        <div class="content-hero__inner">
+            <div class="logo">APPERTIVO</div>
+            <h1>Privacy Policy</h1>
+            <p>
+                We treat every menu, idea, and review you share with Appertivo as confidential.
+                This policy explains what data we collect, how we use it, and the controls you have.
+            </p>
+            <div class="subtext">Last updated January 2025</div>
+        </div>
+    </section>
+
+    <div class="content-wrapper">
+        <article class="content-section">
+            <h2>Information We Collect</h2>
+            <p>Everything we collect is directly related to helping you generate better dish concepts and run your workspace.</p>
+            <ul>
+                <li>Account and team details you provide when creating or inviting users.</li>
+                <li>Menus, concepts, ratings, and prompts created within Appertivo.</li>
+                <li>Product usage signals that help us keep the platform reliable and secure.</li>
+            </ul>
+        </article>
+
+        <article class="content-section">
+            <h2>How We Use Your Data</h2>
+            <p>Appertivo only uses your data to power experiences in your workspace and to improve functionality for your team.</p>
+            <ul>
+                <li>Training and tuning AI suggestions specifically for your restaurant.</li>
+                <li>Delivering features like favorites, menu collections, and collaboration tools.</li>
+                <li>Monitoring system stability and preventing abuse or unauthorized access.</li>
+            </ul>
+            <p>We never sell, trade, or share your culinary concepts outside of your account. Period.</p>
+        </article>
+
+        <article class="content-section">
+            <h2>What We Do Not Collect</h2>
+            <p>Appertivo never pulls point-of-sale data, customer records, or supplier contracts. We only work with information you intentionally create inside the product.</p>
+        </article>
+
+        <article class="content-section">
+            <h2>Your Controls</h2>
+            <ul>
+                <li>Export or delete dishes, menus, and concepts whenever you choose.</li>
+                <li>Request full account removal by emailing <a href="mailto:privacy@appertivo.com">privacy@appertivo.com</a>.</li>
+                <li>Reach support any time for clarification on how we handle information.</li>
+            </ul>
+        </article>
+    </div>
+
+    {% include "_partials/minimal_footer.html" %}
 {% endblock %}

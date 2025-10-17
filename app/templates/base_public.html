@@ -718,6 +718,165 @@
             font-size: 0.875rem;
         }
 
+        footer.minimal-footer {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 2.5rem 1.5rem 3rem;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+            text-align: center;
+        }
+
+        footer.minimal-footer .minimal-footer__links {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 1rem 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        footer.minimal-footer .minimal-footer__links a {
+            color: #e2e8f0;
+            text-decoration: none;
+            font-size: 0.95rem;
+            letter-spacing: 0.04em;
+            transition: color 0.3s ease;
+        }
+
+        footer.minimal-footer .minimal-footer__links a:hover {
+            color: #a78bfa;
+        }
+
+        footer.minimal-footer .minimal-footer__note {
+            color: #64748b;
+            font-size: 0.85rem;
+            letter-spacing: 0.08em;
+        }
+
+        .content-hero {
+            position: relative;
+            min-height: 60vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 8rem 2rem 6rem;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #0f172a 100%);
+            overflow: hidden;
+        }
+
+        .content-hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 50% 20%, rgba(167, 139, 250, 0.18) 0%, transparent 55%);
+        }
+
+        .content-hero .floating-cards {
+            opacity: 0.35;
+        }
+
+        .content-hero__inner {
+            position: relative;
+            z-index: 2;
+            max-width: 960px;
+        }
+
+        .content-hero__inner .logo {
+            margin-bottom: 2rem;
+        }
+
+        .content-hero__inner h1 {
+            font-size: clamp(2.5rem, 6vw, 4rem);
+            font-weight: 300;
+            margin-bottom: 1.5rem;
+        }
+
+        .content-hero__inner p {
+            color: #cbd5e1;
+            font-size: 1.125rem;
+            max-width: 720px;
+            margin: 0 auto 2rem;
+            line-height: 1.8;
+        }
+
+        .content-wrapper {
+            max-width: 1040px;
+            margin: 0 auto;
+            padding: 0 1.5rem 6rem;
+            display: grid;
+            gap: 2.5rem;
+        }
+
+        .content-section {
+            background: rgba(30, 41, 59, 0.55);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            border-radius: 1.75rem;
+            padding: 2.5rem;
+            backdrop-filter: blur(14px);
+            text-align: left;
+        }
+
+        .content-section h2 {
+            font-size: 1.75rem;
+            font-weight: 400;
+            letter-spacing: 0.02em;
+            margin-bottom: 1.25rem;
+            color: #e2e8f0;
+        }
+
+        .content-section p {
+            color: #94a3b8;
+            line-height: 1.8;
+            margin-bottom: 1.25rem;
+            font-size: 1rem;
+        }
+
+        .content-section ul {
+            margin: 0 0 1rem 1.5rem;
+            color: #94a3b8;
+            line-height: 1.8;
+        }
+
+        .content-section li {
+            margin-bottom: 0.75rem;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.75rem;
+        }
+
+        .info-card {
+            background: rgba(15, 23, 42, 0.65);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 1.75rem;
+            padding: 2rem;
+            box-shadow: 0 30px 60px rgba(15, 23, 42, 0.35);
+            text-align: left;
+        }
+
+        .info-card h3 {
+            font-size: 1.35rem;
+            margin-bottom: 0.75rem;
+            color: #e2e8f0;
+        }
+
+        .info-card p {
+            color: #94a3b8;
+            line-height: 1.7;
+            font-size: 0.98rem;
+        }
+
+        .info-card a {
+            color: #a78bfa;
+            text-decoration: none;
+        }
+
+        .info-card a:hover {
+            color: #f472b6;
+        }
+
         @media (max-width: 768px) {
             .demo-container {
                 grid-template-columns: 1fr;
@@ -738,6 +897,22 @@
 
             .training-sources {
                 grid-template-columns: 1fr;
+            }
+
+            .content-hero {
+                padding: 6rem 1.5rem 4rem;
+            }
+
+            .content-wrapper {
+                padding: 0 1.25rem 4rem;
+            }
+
+            .content-section {
+                padding: 2rem;
+            }
+
+            footer.minimal-footer .minimal-footer__links {
+                gap: 0.75rem 1rem;
             }
         }
     </style>

@@ -1,0 +1,26 @@
+<div
+  id="slideMenu"
+  class="fixed top-0 right-0 z-40 h-full w-64 transform translate-x-full border-l border-slate-700/60 bg-slate-900/95 text-slate-100 shadow-[0_45px_90px_-40px_rgba(8,11,19,0.9)] transition-transform duration-300"
+  aria-hidden="true"
+>
+  <div class="pt-24 px-6 space-y-4">
+    <a
+      href="{% url 'swipe:favorites' %}"
+      class="block border-b border-slate-700/40 pb-4 text-sm tracking-[0.3em] uppercase text-slate-300 hover:text-white"
+    >
+      Favorites Archive
+    </a>
+    <a
+      href="#"
+      class="block border-b border-slate-700/40 pb-4 text-sm tracking-[0.3em] uppercase text-slate-300 hover:text-white"
+    >
+      Atelier Settings
+    </a>
+    <a
+      href="#"
+      class="block text-sm tracking-[0.3em] uppercase text-slate-300 hover:text-white"
+    >
+      Billing Suite
+    </a>
+  </div>
+</div>

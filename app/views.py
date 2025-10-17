@@ -435,6 +435,12 @@ def contact_view(request):
     context = {"footer_articles": _footer_articles()}
     return render(request, "contact.html", context)
 
+def data_security_view(request):
+    """Public data security page."""
+
+    context = {"footer_articles": _footer_articles()}
+    return render(request, "data_security.html", context)
+
 
 
 

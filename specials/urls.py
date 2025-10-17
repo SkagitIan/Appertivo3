@@ -31,6 +31,7 @@ urlpatterns = [
     path("logout/", app_views.logout_view, name="logout"),
     path("activate/<str:token>/", app_views.activate_email_view, name="activate-email"),
     path("privacy/", app_views.privacy_view, name="privacy"),
+    path("data-security/", app_views.data_security_view, name="data-security"),
     path("terms/", app_views.terms_view, name="terms"),
     path("contact/", app_views.contact_view, name="contact"),
     path("getting-started/", getting_started_view, name="getting-started"),
