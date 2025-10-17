@@ -27,6 +27,47 @@
       display: none !important;
     }
 
+    .view-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      border-radius: 9999px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: rgba(15, 23, 42, 0.55);
+      padding: 0.35rem;
+      box-shadow: 0 22px 40px -30px rgba(8, 11, 19, 0.85);
+      font-size: 0.55rem;
+      text-transform: uppercase;
+      letter-spacing: 0.32em;
+      color: rgba(226, 232, 240, 0.85);
+    }
+
+    .view-toggle-btn {
+      appearance: none;
+      border: none;
+      background: transparent;
+      color: inherit;
+      border-radius: 9999px;
+      padding: 0.45rem 1.05rem;
+      cursor: pointer;
+      transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .view-toggle-btn:hover {
+      background: rgba(148, 163, 184, 0.18);
+    }
+
+    .view-toggle-btn:focus-visible {
+      outline: 2px solid rgba(248, 250, 252, 0.65);
+      outline-offset: 2px;
+    }
+
+    .view-toggle-btn[aria-pressed='true'] {
+      background: linear-gradient(135deg, rgba(244, 114, 182, 0.92), rgba(59, 130, 246, 0.88));
+      color: #0f172a;
+      box-shadow: 0 20px 45px -25px rgba(59, 130, 246, 0.85);
+    }
+
     .card {
       position: relative;
       border-radius: 28px;
@@ -769,8 +810,36 @@
         </div>
       </div>
     </div>
-    <div class="fixed top-6 left-6 z-40 text-[0.7rem] tracking-[0.55em] uppercase text-slate-200/80">
-      {% if restaurant %}{{ restaurant.name }}{% else %}Appertivo{% endif %}
+    <div class="fixed top-6 left-6 z-40 flex flex-col items-start gap-3">
+      <div class="text-[0.7rem] tracking-[0.55em] uppercase text-slate-200/80">
+        {% if restaurant %}{{ restaurant.name }}{% else %}Appertivo{% endif %}
+      </div>
+      <div
+        class="view-toggle"
+        role="group"
+        aria-label="Choose layout view"
+        data-view-toggle
+        data-view-default="swipe"
+      >
+        <button
+          type="button"
+          class="view-toggle-btn"
+          data-view-option="swipe"
+          data-view-target="#swipeView"
+          aria-pressed="true"
+        >
+          Swipe view
+        </button>
+        <button
+          type="button"
+          class="view-toggle-btn"
+          data-view-option="tower"
+          data-view-target="#towerView"
+          aria-pressed="false"
+        >
+          Tower view
+        </button>
+      </div>
     </div>
 
     <!-- Slide-out Menu -->
@@ -793,7 +862,7 @@
 
     {% if concepts %}
       <!-- Main Content Area -->
-      <div class="touch-area">
+      <div id="swipeView" class="touch-area" data-view-container="swipe">
         <div id="verticalSlider" class="slide-container">
           {% for concept in concepts %}
             <div class="concept-slide" data-concept-index="{{ forloop.counter0 }}">
