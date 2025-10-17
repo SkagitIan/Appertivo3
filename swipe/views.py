@@ -520,7 +520,7 @@ class FavoritesView(TemplateView):
 
 
 class DemoFavoritesView(TemplateView):
-    template_name = "swipe/favorites.html"
+    template_name = "swipe/demo_favorites.html"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -534,10 +534,12 @@ class DemoFavoritesView(TemplateView):
         for concept in demo_state.favorite_concepts:
             concept_groups.append({"concept": concept, "dishes": dish_lookup.get(concept.id, [])})
 
+        restaurant = SimpleNamespace(name=demo_state.restaurant_name)
+
         context.update(
             {
                 "demo_mode": True,
-                "restaurant": None,
+                "restaurant": restaurant,
                 "favorite_concepts": demo_state.favorite_concepts,
                 "all_favorite_dishes": demo_state.favorite_dishes,
                 "favorite_concept_groups": concept_groups,
