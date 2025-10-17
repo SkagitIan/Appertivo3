@@ -789,15 +789,22 @@
                   >
                     <div class="card-inner">
                       {% with concept_image=concept.display_sketch_url concept_placeholder="https://placehold.co/1200x800?text=Concept" %}
-                      <div class="card-face card-front" style="background-image: url('{{ concept_image }}');">
+                      <div
+                        class="card-face card-front"
+                        style="background-image: none;"
+                        data-background-placeholder="{{ concept_placeholder }}"
+                        data-background-image="{{ concept_image }}"
+                      >
                         <span class="card-note">{{ concept.name }}</span>
                         <img
-                          src="{{ concept_image }}"
+                          src="{{ concept_placeholder }}"
+                          data-src="{{ concept_image }}"
+                          data-placeholder="{{ concept_placeholder }}"
                           alt="{{ concept.name }} concept sketch"
                           class="card-media"
                           decoding="async"
                           loading="lazy"
-                          onerror="this.onerror=null;this.src='{{ concept_placeholder }}';"
+                          onerror="this.onerror=null;const p=this.dataset.placeholder||'';if(p){this.src=p;const f=this.closest('.card-face');if(f){f.style.backgroundImage='url(' + p + ')';}}"
                         >
                       </div>
                       {% endwith %}
@@ -874,14 +881,21 @@
                     >
                       <div class="card-inner">
                         {% with dish_image=dish.display_image_url dish_placeholder="https://placehold.co/800x600?text=Dish" %}
-                        <div class="card-face card-front" style="background-image: url('{{ dish_image }}');">
+                        <div
+                          class="card-face card-front"
+                          style="background-image: none;"
+                          data-background-placeholder="{{ dish_placeholder }}"
+                          data-background-image="{{ dish_image }}"
+                        >
                           <img
-                            src="{{ dish_image }}"
+                            src="{{ dish_placeholder }}"
+                            data-src="{{ dish_image }}"
+                            data-placeholder="{{ dish_placeholder }}"
                             alt="{{ dish.name }} presentation"
                             class="card-media"
                             decoding="async"
                             loading="lazy"
-                            onerror="this.onerror=null;this.src='{{ dish_placeholder }}';"
+                            onerror="this.onerror=null;const p=this.dataset.placeholder||'';if(p){this.src=p;const f=this.closest('.card-face');if(f){f.style.backgroundImage='url(' + p + ')';}}"
                           >
                         </div>
                         {% endwith %}
@@ -1045,6 +1059,67 @@
     const dismissIntro = document.getElementById('dismissIntro');
     const DISH_PLACEHOLDER = 'https://placehold.co/800x600?text=Dish';
     const conceptStates = {};
+
+    function loadCardMedia(card) {
+      if (!card || card.dataset.mediaLoaded === 'true') {
+        return;
+      }
+
+      const front = card.querySelector('.card-face.card-front');
+      const backgroundUrl = front ? front.dataset.backgroundImage : undefined;
+      const backgroundPlaceholder = front ? front.dataset.backgroundPlaceholder : undefined;
+
+      if (front) {
+        if (backgroundUrl) {
+          front.style.backgroundImage = `url('${backgroundUrl}')`;
+        } else if (backgroundPlaceholder) {
+          front.style.backgroundImage = `url('${backgroundPlaceholder}')`;
+        }
+      }
+
+      const img = front ? front.querySelector('.card-media') : null;
+      if (img) {
+        const actualSrc = img.dataset.src;
+        if (actualSrc) {
+          img.src = actualSrc;
+          delete img.dataset.src;
+        } else if (backgroundPlaceholder && front) {
+          front.style.backgroundImage = `url('${backgroundPlaceholder}')`;
+        }
+      }
+
+      card.dataset.mediaLoaded = 'true';
+    }
+
+    let cardObserver = null;
+
+    if ('IntersectionObserver' in window) {
+      cardObserver = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              loadCardMedia(entry.target);
+              if (cardObserver) {
+                cardObserver.unobserve(entry.target);
+              }
+            }
+          });
+        },
+        { rootMargin: '200px 0px', threshold: 0.1 },
+      );
+    }
+
+    function observeCard(card) {
+      if (!card || card.dataset.mediaLoaded === 'true') {
+        return;
+      }
+
+      if (cardObserver) {
+        cardObserver.observe(card);
+      } else {
+        loadCardMedia(card);
+      }
+    }
 
     function getConceptState(conceptId) {
       if (!conceptId) {
@@ -1211,21 +1286,30 @@
       inner.className = 'card-inner';
       card.appendChild(inner);
 
-      const imageUrl = dish.image_url || DISH_PLACEHOLDER;
+      const imageUrl = dish.image_url || '';
       const front = document.createElement('div');
       front.className = 'card-face card-front';
-      front.style.backgroundImage = `url('${imageUrl}')`;
+      front.style.backgroundImage = 'none';
+      front.dataset.backgroundPlaceholder = DISH_PLACEHOLDER;
+      if (imageUrl) {
+        front.dataset.backgroundImage = imageUrl;
+      }
 
       const img = document.createElement('img');
-      img.src = imageUrl;
+      img.src = DISH_PLACEHOLDER;
+      img.dataset.placeholder = DISH_PLACEHOLDER;
+      if (imageUrl) {
+        img.dataset.src = imageUrl;
+      }
       img.alt = `${dish.name || 'Dish'} presentation`;
       img.className = 'card-media';
       img.decoding = 'async';
       img.loading = 'lazy';
       img.addEventListener('error', () => {
-        img.onerror = null;
-        img.src = DISH_PLACEHOLDER;
-        front.style.backgroundImage = `url('${DISH_PLACEHOLDER}')`;
+        const placeholder = img.dataset.placeholder || DISH_PLACEHOLDER;
+        img.src = placeholder;
+        front.style.backgroundImage = `url('${placeholder}')`;
+        delete img.dataset.src;
       });
 
       front.appendChild(img);
@@ -1360,6 +1444,7 @@
 
     document.querySelectorAll('[data-card]').forEach((card) => {
       initializeCard(card);
+      observeCard(card);
     });
 
     const getSlideHeight = () => {
@@ -1528,6 +1613,7 @@
             const card = createDishCard(dish, targetConceptId);
             initializeCard(card);
             track.appendChild(card);
+            observeCard(card);
 
             if (window.htmx) {
               window.htmx.process(card);
@@ -1632,6 +1718,7 @@
         initializeCard(card);
         const track = placeholder.closest('.horizontal-track');
         placeholder.replaceWith(card);
+        observeCard(card);
         state.placeholder = null;
 
         if (window.htmx) {
