@@ -410,25 +410,9 @@ def dish_grid(request, concept_name: str):
 
 def home_view(request):
     """Landing page with signup/login links."""
-    (
-        demo_concept,
-        demo_concept_favorite,
-        demo_dish,
-        demo_dish_favorite,
-        demo_restaurant,
-    ) = _load_home_demo_favorites()
 
-    context = {
-        "demo_concept": demo_concept,
-        "demo_concept_favorite": demo_concept_favorite,
-        "demo_dish": demo_dish,
-        "demo_dish_favorite": demo_dish_favorite,
-        "demo_restaurant": demo_restaurant,
-        "demo_user_id": DEMO_USER_ID,
-        "footer_articles": _footer_articles(limit=3),
-    }
 
-    return render(request, "home.html", context)
+    return render(request, "new_home.html")
 
 
 def privacy_view(request):
