@@ -1,8 +1,30 @@
 {% extends "base_public.html" %}
+{% load navigation_tags %}
 
 {% block title %}Appertivo - AI That Knows Your Restaurant{% endblock %}
 
 {% block content %}
+    <div class="topbar">
+        {% if request.user.is_authenticated %}
+            {% primary_restaurant as current_restaurant %}
+            {% if current_restaurant %}
+                <a href="{% url 'swipe:home' %}" class="topbar-link">
+                    <span>{{ current_restaurant.name }}</span>
+                    <span class="indicator">&nearr;</span>
+                </a>
+            {% else %}
+                <a href="{% url 'swipe:home' %}" class="topbar-link">
+                    <span>Enter App</span>
+                    <span class="indicator">&nearr;</span>
+                </a>
+            {% endif %}
+        {% else %}
+            <a href="{% url 'login' %}" class="topbar-link">
+                <span>Log in</span>
+                <span class="indicator">&rarr;</span>
+            </a>
+        {% endif %}
+    </div>
     <!-- Hero Section -->
     <section class="hero">
         <div class="floating-cards">

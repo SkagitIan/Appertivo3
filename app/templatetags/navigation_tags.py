@@ -10,6 +10,12 @@ register = template.Library()
 
 def _membership_restaurant_id(user):
     """Return the first restaurant id for the user's account."""
+    restaurant = _membership_restaurant(user)
+    return getattr(restaurant, "id", None)
+
+
+def _membership_restaurant(user):
+    """Return the first restaurant for the user's account."""
     membership = (
         models.Membership.objects.filter(user=user)
         .select_related("account")
@@ -20,7 +26,6 @@ def _membership_restaurant_id(user):
     return (
         models.Restaurant.objects.filter(account=membership.account)
         .order_by("created_at")
-        .values_list("id", flat=True)
         .first()
     )
 
@@ -50,3 +55,13 @@ def resolve_dashboard_url(context):
             return reverse("dashboard", args=[restaurant_id])
 
     return reverse("home")
+
+
+@register.simple_tag(takes_context=True)
+def primary_restaurant(context):
+    """Return the primary restaurant for the authenticated user, if available."""
+    request = context.get("request")
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        return None
+    return _membership_restaurant(user)

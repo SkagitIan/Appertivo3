@@ -21,6 +21,66 @@
             overflow-x: hidden;
         }
 
+        .topbar {
+            position: fixed;
+            top: 1.5rem;
+            right: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            z-index: 100;
+        }
+
+        .topbar-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.65rem 1.5rem;
+            border-radius: 9999px;
+            background: rgba(15, 23, 42, 0.55);
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            color: #e2e8f0;
+            text-decoration: none;
+            font-weight: 500;
+            letter-spacing: 0.05em;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(14px);
+            white-space: nowrap;
+        }
+
+        .topbar-link:hover {
+            border-color: rgba(167, 139, 250, 0.6);
+            color: #ffffff;
+            transform: translateY(-2px);
+            box-shadow: 0 18px 32px rgba(167, 139, 250, 0.22);
+        }
+
+        .topbar-link .indicator {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 1.75rem;
+            height: 1.75rem;
+            border-radius: 9999px;
+            background: rgba(167, 139, 250, 0.2);
+            border: 1px solid rgba(167, 139, 250, 0.3);
+            font-size: 0.85rem;
+        }
+
+        @media (max-width: 640px) {
+            .topbar {
+                top: 1rem;
+                right: auto;
+                left: 50%;
+                transform: translateX(-50%);
+            }
+
+            .topbar-link {
+                padding: 0.55rem 1.25rem;
+                font-size: 0.9rem;
+            }
+        }
+
         /* Hero Section */
         .hero {
             min-height: 100vh;

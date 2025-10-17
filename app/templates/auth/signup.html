@@ -148,6 +148,16 @@
         </div>
 
         <div class="auth-card">
+            {% if user.is_authenticated %}
+            <h2>You're already logged in</h2>
+            <p>You can log out below or head back to your Appertivo workspace.</p>
+            <form method="post" action="{% url 'logout' %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary">
+                    Log Out
+                </button>
+            </form>
+            {% else %}
             <h2>Create Your Workspace</h2>
             <p>We’ll tailor Appertivo to your restaurant in just a few steps.</p>
             <form method="post" novalidate>
@@ -194,6 +204,7 @@
                 Already have an account?
                 <a href="{% url 'login' %}">Log in</a>
             </div>
+            {% endif %}
         </div>
     </div>
 </section>
