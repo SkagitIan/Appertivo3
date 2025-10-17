@@ -124,7 +124,7 @@
       display: flex;
       flex-direction: column;
       padding: 0;
-      position: relative;
+      position: absolute;
       min-height: 0;
       background: #0f172a;
       isolation: isolate;
@@ -153,7 +153,7 @@
       height: 100%;
       width: 100%;
       overscroll-behavior: contain;
-      padding: 4.5rem 2rem 2rem;
+      padding: 5.5rem 2rem 2rem;
       gap: 1.5rem;
       justify-content: flex-start;
       align-items: stretch;
@@ -279,98 +279,6 @@
       margin-bottom: 0;
     }
 
-    .load-more-chevron {
-      flex: 0 0 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: transparent;
-      border: none;
-      padding: 0;
-      cursor: pointer;
-      height: 100%;
-    }
-
-    .load-more-chevron-inner {
-      position: relative;
-      width: 3.25rem;
-      min-height: 10rem;
-      height: 100%;
-      border-radius: 1.5rem;
-      border: 1px solid rgba(244, 114, 182, 0.45);
-      background: linear-gradient(180deg, #f472b6 0%, #ec4899 100%);
-      box-shadow: 0 22px 45px -28px rgba(236, 72, 153, 0.85);
-      color: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: transform 0.2s ease, box-shadow 0.3s ease;
-      animation: chevronPulse 2.6s ease-in-out infinite;
-    }
-
-    .load-more-chevron-inner::before {
-      content: '';
-      position: absolute;
-      inset: 0.35rem;
-      border-radius: inherit;
-      border: 1px solid rgba(255, 255, 255, 0.32);
-      opacity: 0.65;
-      pointer-events: none;
-    }
-
-    .load-more-chevron svg {
-      width: 1.5rem;
-      height: 1.5rem;
-      transition: transform 0.2s ease;
-    }
-
-    .load-more-chevron:hover svg,
-    .load-more-chevron:focus-visible svg {
-      transform: translateX(2px);
-    }
-
-    .load-more-chevron[data-loading='true'] .load-more-chevron-inner {
-      animation: none;
-      opacity: 0.85;
-      box-shadow: 0 12px 32px -20px rgba(236, 72, 153, 0.75);
-    }
-
-    .load-more-chevron[data-loading='true'] svg {
-      opacity: 0;
-    }
-
-    .load-chevron-spinner {
-      position: absolute;
-      width: 1.2rem;
-      height: 1.2rem;
-      border-radius: 9999px;
-      border: 2px solid rgba(255, 255, 255, 0.8);
-      border-top-color: transparent;
-      animation: spin 0.75s linear infinite;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-    }
-
-    .load-more-chevron:focus-visible {
-      outline: none;
-    }
-
-    .load-more-chevron:focus-visible .load-more-chevron-inner {
-      outline: 2px solid rgba(248, 250, 252, 0.8);
-      outline-offset: 4px;
-    }
-
-    @keyframes chevronPulse {
-      0%,
-      100% {
-        box-shadow: 0 22px 45px -28px rgba(236, 72, 153, 0.85), 0 0 0 0 rgba(236, 72, 153, 0.35);
-      }
-
-      50% {
-        box-shadow: 0 28px 52px -24px rgba(236, 72, 153, 0.95), 0 0 0 12px rgba(236, 72, 153, 0);
-      }
-    }
 
     @keyframes spin {
       to {
@@ -818,7 +726,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
                           </svg>
                         </button>
-                        <div class="card-back-content">
+                        <div class="card-back-content" data-scrollable>
                           <div class="card-back-body">
                             <h2 class="card-back-title">{{ concept.name }}</h2>
                             <p class="card-back-subtitle">{{ concept.subtitle }}</p>
@@ -902,7 +810,7 @@
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
                             </svg>
                           </button>
-                          <div class="card-back-content">
+                          <div class="card-back-content" data-scrollable>
                             <div class="card-back-body">
                               <h3 class="card-back-heading">{{ dish.name }}</h3>
                               <p class="card-back-description">{{ dish.reasoning }}</p>
@@ -924,22 +832,6 @@
                       <p class="text-slate-200/80 text-center tracking-[0.25em] uppercase">No dishes generated yet for this concept.</p>
                     </div>
                   {% endfor %}
-                  <button
-                    type="button"
-                    class="load-more-chevron"
-                    aria-label="Get more dishes for {{ concept.name }}"
-                    data-load-dishes
-                    data-concept-id="{{ concept.id }}"
-                    data-concept-index="{{ forloop.counter0 }}"
-                    data-endpoint="{% url 'swipe:concept_append_dishes' concept.id %}"
-                  >
-                    <span class="load-more-chevron-inner">
-                      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
-                      </svg>
-                      <span class="load-chevron-spinner hidden" data-spinner aria-hidden="true"></span>
-                    </span>
-                  </button>
                 </div>
               </div>
             </div>
@@ -1058,14 +950,59 @@
       const inner = card.querySelector('.card-inner');
       if (!inner) return;
 
+      const lastPointer = {
+        insideScrollable: false,
+        moved: false,
+      };
+      const movementThreshold = 6;
+      let pointerStart = { x: 0, y: 0 };
+
       const toggleFlip = () => {
         card.classList.toggle('is-flipped');
       };
+
+      card.addEventListener(
+        'pointerdown',
+        (event) => {
+          pointerStart = { x: event.clientX, y: event.clientY };
+          lastPointer.insideScrollable = Boolean(event.target.closest('[data-scrollable]'));
+          lastPointer.moved = false;
+        },
+        { passive: true },
+      );
+
+      card.addEventListener(
+        'pointermove',
+        (event) => {
+          if (!lastPointer.insideScrollable || lastPointer.moved) return;
+          const deltaX = Math.abs(event.clientX - pointerStart.x);
+          const deltaY = Math.abs(event.clientY - pointerStart.y);
+          if (deltaX > movementThreshold || deltaY > movementThreshold) {
+            lastPointer.moved = true;
+          }
+        },
+        { passive: true },
+      );
+
+      const resetPointerStart = () => {
+        pointerStart = { x: 0, y: 0 };
+      };
+
+      card.addEventListener('pointerup', resetPointerStart, { passive: true });
+      card.addEventListener('pointercancel', resetPointerStart, { passive: true });
+      card.addEventListener('pointerleave', resetPointerStart, { passive: true });
 
       card.addEventListener('click', (event) => {
         if (event.target.closest('[data-prevent-flip]')) {
           return;
         }
+        if (lastPointer.insideScrollable && lastPointer.moved) {
+          lastPointer.insideScrollable = false;
+          lastPointer.moved = false;
+          return;
+        }
+        lastPointer.insideScrollable = false;
+        lastPointer.moved = false;
         toggleFlip();
       });
 
@@ -1158,6 +1095,7 @@
 
       const content = document.createElement('div');
       content.className = 'card-back-content';
+      content.setAttribute('data-scrollable', '');
       back.appendChild(content);
 
       const body = document.createElement('div');
@@ -1452,7 +1390,7 @@
           return;
         }
         const dishCount = dishCounts[currentConceptIndex] || 0;
-        const maxIndex = dishCount + 1;
+        const maxIndex = dishCount;
         const newIndex = currentDishIndex + direction;
         if (newIndex >= 0 && newIndex <= maxIndex) {
           currentDishIndex = newIndex;
@@ -1543,7 +1481,7 @@
         }
 
         const dishCount = dishCounts[currentConceptIndex] || 0;
-        const maxIndex = dishCount + 1;
+        const maxIndex = dishCount;
 
         if (currentDishIndex === 0) {
           indicator.textContent = `${currentConceptIndex + 1} / ${totalConcepts}`;

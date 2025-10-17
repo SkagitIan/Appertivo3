@@ -59,7 +59,11 @@ class GetConcepts:
 
         self.restaurant = restaurant
         self.locale_summary = ""
-        threading.Thread(target=self._load_locale, daemon=True).start()
+        # fire async task
+        if asyncio.get_event_loop().is_running():
+            asyncio.create_task(self._load_locale())
+        else:
+            asyncio.run(self._load_locale())
 
 
     # -----------------------------
@@ -157,7 +161,7 @@ class GetConcepts:
     # -----------------------------
     # 🧩 Helpers
     # -----------------------------
-    def _load_locale(self):
+    async def _load_locale(self):
         if not self.openai_client or not self.restaurant:
             return
 
@@ -171,7 +175,7 @@ class GetConcepts:
         """
 
         try:
-            resp = self.openai_client.responses.create(
+            resp = await self.openai_client.responses.create(
                 model="gpt-5-nano-2025-08-07",
                 reasoning={"effort": "minimal"},
                 input=prompt,
@@ -179,6 +183,7 @@ class GetConcepts:
             self.locale_summary = resp.output_text.strip() if resp.output_text else ""
         except Exception as e:
             print("⚠️ Locale error:", e)
+            self.locale_summary = ""
             
     async def _generate_concepts(self):
         """Call OpenAI once to generate three structured concepts."""
