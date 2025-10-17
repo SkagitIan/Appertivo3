@@ -12,7 +12,10 @@ from app.llm import *
 from app.models import Restaurant
 # Stub imports for future service integration
 # from .services import generate_concepts_batch  # to be implemented
+from types import SimpleNamespace
+
 from swipe.llm_utils import GetConcepts
+from swipe.demo_data import build_demo_state
 from swipe.models import Concept, Dish
 from django.shortcuts import get_object_or_404
 logger = logging.getLogger(__name__)
@@ -86,6 +89,26 @@ class SwipeHomeView(TemplateView):
         )
         return context
 
+
+class SwipeDemoView(TemplateView):
+    template_name = "swipe/index.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        demo_state = build_demo_state()
+        concepts = demo_state.concepts
+        dish_counts = [len(concept.dishes.all()) for concept in concepts]
+
+        context.update(
+            {
+                "demo_mode": True,
+                "restaurant": None,
+                "concepts": concepts,
+                "dish_counts": dish_counts,
+                "demo_payload": demo_state.as_payload(),
+            }
+        )
+        return context
 
 
 # --- Healthcheck ---
@@ -496,6 +519,34 @@ class FavoritesView(TemplateView):
         return context
 
 
+class DemoFavoritesView(TemplateView):
+    template_name = "swipe/favorites.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        demo_state = build_demo_state()
+
+        concept_groups = []
+        dish_lookup = {}
+        for dish in demo_state.favorite_dishes:
+            dish_lookup.setdefault(dish.concept_id, []).append(dish)
+
+        for concept in demo_state.favorite_concepts:
+            concept_groups.append({"concept": concept, "dishes": dish_lookup.get(concept.id, [])})
+
+        context.update(
+            {
+                "demo_mode": True,
+                "restaurant": None,
+                "favorite_concepts": demo_state.favorite_concepts,
+                "all_favorite_dishes": demo_state.favorite_dishes,
+                "favorite_concept_groups": concept_groups,
+                "demo_payload": demo_state.as_payload(),
+            }
+        )
+        return context
+
+
 class SettingsView(TemplateView):
     template_name = "swipe/settings.html"
 
@@ -512,6 +563,24 @@ class SettingsView(TemplateView):
         context = super().get_context_data(**kwargs)
         restaurant = self.get_restaurant()
         context.update({"restaurant": restaurant})
+        return context
+
+
+class DemoSettingsView(TemplateView):
+    template_name = "swipe/settings.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        restaurant = SimpleNamespace(
+            name="Appertivo Demo",
+            location_text="Anywhere, USA",
+            phone="(555) 010-2024",
+            website="https://appertivo.com",
+            google_place_id=None,
+            updated_at=None,
+        )
+
+        context.update({"demo_mode": True, "restaurant": restaurant})
         return context
 
 

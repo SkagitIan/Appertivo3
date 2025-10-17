@@ -4,7 +4,7 @@
   data-dish-id="{{ dish.id }}"
   tabindex="0"
   role="button"
-  {% if not dish.is_seen %}
+  {% if not demo_mode and not dish.is_seen %}
     hx-post="{% url 'swipe:mark_seen' %}"
     hx-trigger="revealed delay:3s once"
     hx-vals='{"type":"dish","id":"{{ dish.id }}"}'
@@ -52,7 +52,7 @@
       <button type="button"
               class="variation-btn absolute top-5 right-20 rounded-full border border-slate-100/40 bg-slate-900/60 p-3 shadow-lg z-10"
               data-prevent-flip
-              data-variation-endpoint="{% url 'swipe:dish_variation' dish.id %}"
+              data-variation-endpoint="{% if demo_mode %}#{% else %}{% url 'swipe:dish_variation' dish.id %}{% endif %}"
               data-concept-id="{{ concept.id }}"
               data-dish-id="{{ dish.id }}"
               aria-label="Generate variation for {{ dish.name }}">
