@@ -1,27 +1,168 @@
-{% extends "auth/base.html" %}
+{% extends "base_public.html" %}
 
 {% block title %}Log In — Appertivo{% endblock %}
 
-{% block auth_title %}Welcome Back{% endblock %}
+{% block extra_head %}
+<style>
+    .auth-card {
+        margin: 0 auto;
+        max-width: 480px;
+        width: 100%;
+        background: rgba(15, 23, 42, 0.85);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 1.75rem;
+        padding: 2.5rem;
+        backdrop-filter: blur(18px);
+        box-shadow: 0 30px 80px rgba(15, 23, 42, 0.45);
+        text-align: left;
+    }
 
-{% block form_fields %}
-  <div>
-    <label class="block text-sm font-medium text-slate-200">Email</label>
-    <input type="email" name="email" value="{{ form_data.email }}" required autofocus
-           class="mt-2 w-full rounded-2xl border border-white/10 bg-slate-900/50 px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:border-transparent focus:ring-2 focus:ring-[#a78bfa]/60 focus:outline-none">
-  </div>
-  <div>
-    <label class="block text-sm font-medium text-slate-200">Password</label>
-    <input type="password" name="password" required
-           class="mt-2 w-full rounded-2xl border border-white/10 bg-slate-900/50 px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:border-transparent focus:ring-2 focus:ring-[#a78bfa]/60 focus:outline-none">
-  </div>
+    .auth-card .btn {
+        width: 100%;
+        text-align: center;
+        display: inline-flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .auth-card h2 {
+        font-size: 1.75rem;
+        font-weight: 400;
+        margin-bottom: 0.75rem;
+        letter-spacing: 0.02em;
+    }
+
+    .auth-card p {
+        color: #94a3b8;
+        margin-bottom: 2rem;
+        font-size: 1rem;
+    }
+
+    .form-field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .form-field label {
+        font-size: 0.875rem;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: #cbd5e1;
+    }
+
+    .form-field input {
+        width: 100%;
+        padding: 0.875rem 1.25rem;
+        border-radius: 9999px;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        background: rgba(15, 23, 42, 0.6);
+        color: #e2e8f0;
+        font-size: 1rem;
+        transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .form-field input::placeholder {
+        color: #64748b;
+    }
+
+    .form-field input:focus {
+        outline: none;
+        border-color: rgba(167, 139, 250, 0.6);
+        box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.15);
+    }
+
+    .error-banner {
+        background: rgba(248, 113, 113, 0.15);
+        border: 1px solid rgba(248, 113, 113, 0.4);
+        color: #fecaca;
+        border-radius: 1rem;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.5rem;
+        font-size: 0.95rem;
+    }
+
+    .auth-footer {
+        margin-top: 2rem;
+        text-align: center;
+        color: #94a3b8;
+        font-size: 0.95rem;
+    }
+
+    .auth-footer a {
+        color: inherit;
+        font-weight: 600;
+        background: linear-gradient(135deg, #a78bfa 0%, #ec4899 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        transition: opacity 0.3s ease;
+    }
+
+    .auth-footer a:hover {
+        opacity: 0.85;
+    }
+
+    @media (max-width: 640px) {
+        .auth-card {
+            padding: 2rem;
+        }
+
+        .auth-card h2 {
+            font-size: 1.5rem;
+        }
+    }
+</style>
 {% endblock %}
 
-{% block submit_label %}Log In{% endblock %}
+{% block content %}
+<section class="hero">
+    <div class="floating-cards">
+        <div class="floating-card card-1"></div>
+        <div class="floating-card card-2"></div>
+        <div class="floating-card card-3"></div>
+    </div>
 
-{% block auth_footer %}
-  Don’t have an account?
-  <a href="{% url 'signup' %}" class="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-[#a78bfa] to-[#ec4899] hover:opacity-80">
-    Sign up
-  </a>
+    <div class="hero-content">
+        <div class="logo">APPERTIVO</div>
+        <h1>
+            Welcome Back to<br/>
+            <span class="highlight">Purpose-Built AI</span>
+        </h1>
+        <p>
+            Log in to continue generating dish concepts grounded in your restaurant’s data. Every insight stays aligned with your kitchen, menu, and guests.
+        </p>
+
+        <div class="auth-card">
+            <h2>Log In</h2>
+            <p>Enter your credentials to access your workspace.</p>
+            <form method="post" novalidate>
+                {% csrf_token %}
+                {% if error %}
+                <div class="error-banner">{{ error }}</div>
+                {% endif %}
+
+                <div class="form-field">
+                    <label for="email">Email</label>
+                    <input id="email" name="email" type="email" value="{{ form_data.email }}" placeholder="you@restaurant.com" required autofocus>
+                </div>
+
+                <div class="form-field">
+                    <label for="password">Password</label>
+                    <input id="password" name="password" type="password" placeholder="••••••••" required>
+                </div>
+
+                <button type="submit" class="btn btn-primary">
+                    Log In
+                </button>
+            </form>
+
+            <div class="auth-footer">
+                Don’t have an account?
+                <a href="{% url 'signup' %}">Start your 10 dishes free</a>
+            </div>
+        </div>
+    </div>
+</section>
 {% endblock %}

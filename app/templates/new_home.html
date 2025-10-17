@@ -1,697 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Appertivo - AI That Knows Your Restaurant</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+{% extends "base_public.html" %}
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: #0f172a;
-            color: #e2e8f0;
-            overflow-x: hidden;
-        }
+{% block title %}Appertivo - AI That Knows Your Restaurant{% endblock %}
 
-        /* Hero Section */
-        .hero {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            overflow: hidden;
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
-        }
-
-        .hero::before {
-            content: '';
-            position: absolute;
-            width: 150%;
-            height: 150%;
-            background: radial-gradient(circle at 50% 50%, rgba(139, 92, 246, 0.1) 0%, transparent 50%);
-            animation: pulse 8s ease-in-out infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); opacity: 0.3; }
-            50% { transform: scale(1.1); opacity: 0.6; }
-        }
-
-        .hero-content {
-            position: relative;
-            z-index: 2;
-            text-align: center;
-            padding: 2rem;
-            max-width: 1200px;
-        }
-
-        .logo {
-            font-size: 0.75rem;
-            letter-spacing: 0.3em;
-            color: #94a3b8;
-            margin-bottom: 3rem;
-            font-weight: 300;
-        }
-
-        .hero h1 {
-            font-size: clamp(2.5rem, 8vw, 5rem);
-            font-weight: 300;
-            letter-spacing: 0.02em;
-            margin-bottom: 1.5rem;
-            line-height: 1.2;
-        }
-
-        .hero h1 .highlight {
-            background: linear-gradient(135deg, #a78bfa 0%, #ec4899 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            font-weight: 400;
-        }
-
-        .hero p {
-            font-size: clamp(1rem, 2vw, 1.25rem);
-            color: #cbd5e1;
-            max-width: 700px;
-            margin: 0 auto 3rem;
-            line-height: 1.8;
-        }
-
-        .hero .subtext {
-            font-size: clamp(0.875rem, 1.5vw, 1rem);
-            color: #a78bfa;
-            margin-bottom: 3rem;
-            font-weight: 500;
-        }
-
-        .cta-group {
-            display: flex;
-            gap: 1.5rem;
-            justify-content: center;
-            flex-wrap: wrap;
-            align-items: center;
-        }
-
-        .btn {
-            padding: 1rem 2.5rem;
-            border-radius: 9999px;
-            font-size: 1rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-decoration: none;
-            display: inline-block;
-            letter-spacing: 0.05em;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #a78bfa 0%, #ec4899 100%);
-            color: white;
-            border: none;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 20px 40px rgba(167, 139, 250, 0.3);
-        }
-
-        .trial-badge {
-            padding: 0.5rem 1.5rem;
-            background: rgba(167, 139, 250, 0.2);
-            border: 1px solid rgba(167, 139, 250, 0.4);
-            border-radius: 9999px;
-            color: #e2e8f0;
-            font-size: 0.875rem;
-        }
-
-        /* Floating Cards Preview */
-        .floating-cards {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-        }
-
-        .floating-card {
-            position: absolute;
-            width: 300px;
-            height: 200px;
-            border-radius: 1.5rem;
-            background: rgba(30, 41, 59, 0.6);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(148, 163, 184, 0.2);
-            overflow: hidden;
-            opacity: 0.4;
-        }
-
-        .floating-card::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(135deg, rgba(167, 139, 250, 0.3) 0%, rgba(236, 72, 153, 0.3) 100%);
-        }
-
-        .card-1 { top: 10%; left: 5%; animation: float 6s ease-in-out infinite; }
-        .card-2 { top: 60%; right: 10%; animation: float 8s ease-in-out infinite 1s; }
-        .card-3 { bottom: 15%; left: 15%; animation: float 7s ease-in-out infinite 0.5s; }
-
-        @keyframes float {
-            0%, 100% { transform: translateY(0) rotate(2deg); }
-            50% { transform: translateY(-20px) rotate(-2deg); }
-        }
-
-        /* AI Training Section - HERO #2 */
-        .ai-training-hero {
-            padding: 8rem 2rem;
-            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .ai-training-hero::before {
-            content: '';
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            background: radial-gradient(circle at 30% 50%, rgba(236, 72, 153, 0.1) 0%, transparent 50%);
-        }
-
-        .ai-training-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            text-align: center;
-            position: relative;
-            z-index: 2;
-        }
-
-        .ai-training-content h2 {
-            font-size: clamp(2.5rem, 6vw, 4rem);
-            font-weight: 300;
-            margin-bottom: 2rem;
-            letter-spacing: 0.02em;
-            line-height: 1.2;
-        }
-
-        .ai-training-content h2 .highlight {
-            background: linear-gradient(135deg, #a78bfa 0%, #ec4899 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            font-weight: 400;
-        }
-
-        .ai-training-content .lead {
-            font-size: clamp(1.125rem, 2vw, 1.5rem);
-            color: #cbd5e1;
-            max-width: 800px;
-            margin: 0 auto 4rem;
-            line-height: 1.8;
-        }
-
-        .training-sources {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 2rem;
-            margin-top: 4rem;
-        }
-
-        .training-source {
-            background: rgba(30, 41, 59, 0.4);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(148, 163, 184, 0.2);
-            border-radius: 1.5rem;
-            padding: 2.5rem;
-            transition: all 0.4s ease;
-            text-align: center;
-        }
-
-        .training-source:hover {
-            transform: translateY(-8px);
-            border-color: rgba(167, 139, 250, 0.5);
-            box-shadow: 0 20px 60px rgba(167, 139, 250, 0.2);
-        }
-
-        .training-source-icon {
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, rgba(167, 139, 250, 0.2) 0%, rgba(236, 72, 153, 0.2) 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 2.5rem;
-            margin: 0 auto 1.5rem;
-        }
-
-        .training-source h3 {
-            font-size: 1.5rem;
-            font-weight: 400;
-            margin-bottom: 1rem;
-            letter-spacing: 0.02em;
-        }
-
-        .training-source p {
-            color: #94a3b8;
-            line-height: 1.7;
-        }
-
-        /* Features Section */
-        .features {
-            padding: 8rem 2rem;
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-
-        .section-header {
-            text-align: center;
-            margin-bottom: 5rem;
-        }
-
-        .section-header h2 {
-            font-size: clamp(2rem, 5vw, 3.5rem);
-            font-weight: 300;
-            margin-bottom: 1rem;
-            letter-spacing: 0.02em;
-        }
-
-        .section-header p {
-            color: #94a3b8;
-            font-size: 1.125rem;
-            max-width: 600px;
-            margin: 0 auto;
-        }
-
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 2rem;
-            margin-top: 4rem;
-        }
-
-        .feature-card {
-            background: rgba(30, 41, 59, 0.4);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(148, 163, 184, 0.2);
-            border-radius: 1.5rem;
-            padding: 2.5rem;
-            transition: all 0.4s ease;
-        }
-
-        .feature-card:hover {
-            transform: translateY(-8px);
-            border-color: rgba(167, 139, 250, 0.5);
-            box-shadow: 0 20px 60px rgba(167, 139, 250, 0.2);
-        }
-
-        .feature-icon {
-            width: 60px;
-            height: 60px;
-            border-radius: 1rem;
-            background: linear-gradient(135deg, rgba(167, 139, 250, 0.2) 0%, rgba(236, 72, 153, 0.2) 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.75rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .feature-card h3 {
-            font-size: 1.5rem;
-            font-weight: 400;
-            margin-bottom: 1rem;
-            letter-spacing: 0.02em;
-        }
-
-        .feature-card p {
-            color: #94a3b8;
-            line-height: 1.7;
-        }
-
-        /* Interactive Demo Section */
-        .demo-section {
-            padding: 8rem 2rem;
-            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .demo-container {
-            max-width: 1400px;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 4rem;
-            align-items: center;
-        }
-
-        .demo-content h2 {
-            font-size: clamp(2rem, 5vw, 3rem);
-            font-weight: 300;
-            margin-bottom: 1.5rem;
-            letter-spacing: 0.02em;
-        }
-
-        .demo-content p {
-            color: #94a3b8;
-            font-size: 1.125rem;
-            line-height: 1.8;
-            margin-bottom: 2rem;
-        }
-
-        .demo-visual {
-            position: relative;
-            height: 600px;
-        }
-
-        .concept-card {
-            position: absolute;
-            width: 400px;
-            background: rgba(30, 41, 59, 0.8);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(148, 163, 184, 0.3);
-            border-radius: 1.5rem;
-            padding: 2rem;
-            transition: all 0.5s ease;
-        }
-
-        .concept-card.active {
-            transform: scale(1.05);
-            z-index: 10;
-            border-color: rgba(167, 139, 250, 0.6);
-            box-shadow: 0 30px 80px rgba(167, 139, 250, 0.3);
-        }
-
-        .concept-card:nth-child(1) { top: 0; left: 0; }
-        .concept-card:nth-child(2) { top: 100px; left: 50px; opacity: 0.7; }
-        .concept-card:nth-child(3) { top: 200px; left: 100px; opacity: 0.4; }
-
-        .card-image {
-            width: 100%;
-            height: 200px;
-            border-radius: 1rem;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            margin-bottom: 1.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 1.25rem;
-            font-weight: 500;
-        }
-
-        .card-title {
-            font-size: 1.25rem;
-            font-weight: 500;
-            margin-bottom: 0.75rem;
-            letter-spacing: 0.05em;
-        }
-
-        .card-tags {
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-        }
-
-        .tag {
-            padding: 0.375rem 1rem;
-            background: rgba(148, 163, 184, 0.2);
-            border: 1px solid rgba(148, 163, 184, 0.3);
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            color: #cbd5e1;
-        }
-
-        /* How It Works */
-        .how-it-works {
-            padding: 8rem 2rem;
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-
-        .steps {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 3rem;
-            margin-top: 4rem;
-        }
-
-        .step {
-            text-align: center;
-            position: relative;
-        }
-
-        .step-number {
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, rgba(167, 139, 250, 0.2) 0%, rgba(236, 72, 153, 0.2) 100%);
-            border: 2px solid rgba(167, 139, 250, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 2rem;
-            font-weight: 300;
-            margin: 0 auto 2rem;
-            transition: all 0.3s ease;
-        }
-
-        .step:hover .step-number {
-            transform: scale(1.1);
-            background: linear-gradient(135deg, rgba(167, 139, 250, 0.4) 0%, rgba(236, 72, 153, 0.4) 100%);
-        }
-
-        .step h3 {
-            font-size: 1.5rem;
-            font-weight: 400;
-            margin-bottom: 1rem;
-        }
-
-        .step p {
-            color: #94a3b8;
-            line-height: 1.7;
-        }
-
-        /* Social Proof */
-        .social-proof {
-            padding: 8rem 2rem;
-            background: rgba(30, 41, 59, 0.3);
-        }
-
-        .testimonials {
-            max-width: 1400px;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-            gap: 2rem;
-            margin-top: 4rem;
-        }
-
-        .testimonial {
-            background: rgba(30, 41, 59, 0.5);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(148, 163, 184, 0.2);
-            border-radius: 1.5rem;
-            padding: 2.5rem;
-        }
-
-        .testimonial-quote {
-            font-size: 1.125rem;
-            line-height: 1.8;
-            margin-bottom: 1.5rem;
-            font-style: italic;
-            color: #cbd5e1;
-        }
-
-        .testimonial-author {
-            color: #94a3b8;
-            font-size: 0.875rem;
-        }
-
-        /* Pricing */
-        .pricing {
-            padding: 8rem 2rem;
-            max-width: 900px;
-            margin: 0 auto;
-        }
-
-        .pricing-card {
-            background: rgba(30, 41, 59, 0.4);
-            backdrop-filter: blur(10px);
-            border: 2px solid rgba(167, 139, 250, 0.6);
-            border-radius: 2rem;
-            padding: 4rem;
-            text-align: center;
-            background: linear-gradient(135deg, rgba(167, 139, 250, 0.1) 0%, rgba(236, 72, 153, 0.1) 100%);
-        }
-
-        .plan-badge {
-            display: inline-block;
-            padding: 0.5rem 1.5rem;
-            background: rgba(167, 139, 250, 0.2);
-            border: 1px solid rgba(167, 139, 250, 0.4);
-            border-radius: 9999px;
-            font-size: 0.875rem;
-            color: #e2e8f0;
-            margin-bottom: 2rem;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-        }
-
-        .plan-price {
-            font-size: 5rem;
-            font-weight: 300;
-            margin-bottom: 0.5rem;
-            background: linear-gradient(135deg, #a78bfa 0%, #ec4899 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .plan-price span {
-            font-size: 2rem;
-            color: #94a3b8;
-        }
-
-        .plan-description {
-            color: #cbd5e1;
-            font-size: 1.25rem;
-            margin-bottom: 3rem;
-            line-height: 1.8;
-        }
-
-        .plan-features {
-            list-style: none;
-            margin-bottom: 3rem;
-            text-align: left;
-            max-width: 500px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        .plan-features li {
-            padding: 1rem 0;
-            color: #cbd5e1;
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            font-size: 1.125rem;
-            border-bottom: 1px solid rgba(148, 163, 184, 0.1);
-        }
-
-        .plan-features li:last-child {
-            border-bottom: none;
-        }
-
-        .plan-features li::before {
-            content: '✓';
-            color: #a78bfa;
-            font-weight: bold;
-            font-size: 1.5rem;
-            flex-shrink: 0;
-        }
-
-        /* CTA Section */
-        .final-cta {
-            padding: 8rem 2rem;
-            text-align: center;
-            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-        }
-
-        .final-cta h2 {
-            font-size: clamp(2rem, 5vw, 3.5rem);
-            font-weight: 300;
-            margin-bottom: 1.5rem;
-            letter-spacing: 0.02em;
-        }
-
-        .final-cta p {
-            color: #94a3b8;
-            font-size: 1.25rem;
-            max-width: 600px;
-            margin: 0 auto 3rem;
-        }
-
-        /* Footer */
-        footer {
-            padding: 4rem 2rem 2rem;
-            max-width: 1400px;
-            margin: 0 auto;
-            border-top: 1px solid rgba(148, 163, 184, 0.2);
-        }
-
-        .footer-content {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 3rem;
-            margin-bottom: 3rem;
-        }
-
-        .footer-section h4 {
-            font-size: 0.875rem;
-            letter-spacing: 0.1em;
-            color: #94a3b8;
-            margin-bottom: 1.5rem;
-            text-transform: uppercase;
-        }
-
-        .footer-section ul {
-            list-style: none;
-        }
-
-        .footer-section ul li {
-            margin-bottom: 0.75rem;
-        }
-
-        .footer-section a {
-            color: #cbd5e1;
-            text-decoration: none;
-            transition: color 0.3s ease;
-        }
-
-        .footer-section a:hover {
-            color: #a78bfa;
-        }
-
-        .footer-bottom {
-            text-align: center;
-            padding-top: 2rem;
-            color: #64748b;
-            font-size: 0.875rem;
-        }
-
-        @media (max-width: 768px) {
-            .demo-container {
-                grid-template-columns: 1fr;
-            }
-
-            .demo-visual {
-                height: 400px;
-            }
-
-            .concept-card {
-                width: 100%;
-                max-width: 350px;
-            }
-
-            .floating-card {
-                display: none;
-            }
-
-            .training-sources {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
-</head>
-<body>
+{% block content %}
     <!-- Hero Section -->
     <section class="hero">
         <div class="floating-cards">
@@ -699,7 +10,7 @@
             <div class="floating-card card-2"></div>
             <div class="floating-card card-3"></div>
         </div>
-        
+
         <div class="hero-content">
             <div class="logo">APPERTIVO</div>
             <h1>
@@ -713,7 +24,7 @@
                 Every concept is relevant. Every dish is realistic.
             </div>
             <div class="cta-group">
-                <a href="#" class="btn btn-primary">Start Your 10 Dishes Free</a>
+                <a href="{% url 'signup' %}" class="btn btn-primary">Start Your 10 Dishes Free</a>
                 <span class="trial-badge">Then $59/month</span>
             </div>
         </div>
@@ -742,13 +53,6 @@
                     <h3>Your Menus</h3>
                     <p>Current dishes, retired favorites, seasonal specials. The AI learns your style, flavor profiles, and what's worked before.</p>
                 </div>
-
-                <div class="training-source">
-                    <div class="training-source-icon">💰</div>
-                    <h3>Pricing Context</h3>
-                    <p>The AI knows your price points and suggests concepts that match your positioning—from casual to fine dining.</p>
-                </div>
-
                 <div class="training-source">
                     <div class="training-source-icon">📍</div>
                     <h3>Local Insights</h3>
@@ -773,70 +77,55 @@
             </div>
 
             <div class="feature-card">
-                <div class="feature-icon">✨</div>
-                <h3>Instant Visualization</h3>
-                <p>See dish concepts come to life. Generate stunning imagery that matches your restaurant's aesthetic and plating style.</p>
+                <div class="feature-icon">📸</div>
+                <h3>Realistic Visuals</h3>
+                <p>Generate dish imagery that looks like it came right out of your kitchen, not a stock photo library.</p>
             </div>
 
             <div class="feature-card">
-                <div class="feature-icon">🎨</div>
-                <h3>Smart Variations</h3>
-                <p>Tweak ingredients, adjust plating, explore alternatives. The AI keeps suggestions within your operational reality.</p>
-            </div>
-
-            <div class="feature-card">
-                <div class="feature-icon">⭐</div>
-                <h3>Organize Favorites</h3>
-                <p>Heart concepts worth developing. Build collections by season, occasion, or testing status. Your best ideas, always accessible.</p>
-            </div>
-
-            <div class="feature-card">
-                <div class="feature-icon">📝</div>
-                <h3>Menu Copy That Sells</h3>
-                <p>Descriptions written in your restaurant's voice. The AI learns your tone from existing menus and creates compelling copy automatically.</p>
-            </div>
-
-            <div class="feature-card">
-                <div class="feature-icon">🤝</div>
-                <h3>Team Collaboration</h3>
-                <p>Share concepts, gather feedback, build menus together. Keep your entire team aligned from inspiration to launch.</p>
+                <div class="feature-icon">🧠</div>
+                <h3>Menu Intelligence</h3>
+                <p>Get ingredient sourcing, flavor notes, guest appeal, and positioning guidance for every concept.</p>
             </div>
         </div>
     </section>
+    <section>
+      
+    </section>
 
-    <!-- Demo Section -->
+    <!-- Interactive Demo Section -->
     <section class="demo-section">
         <div class="demo-container">
             <div class="demo-content">
-                <h2>Concepts That Actually Make Sense</h2>
-                <p>
-                    Because the AI is trained on your restaurant, every suggestion is grounded in reality. No wild ideas that don't fit your kitchen. No ingredients you can't source. No pricing that breaks your model.
-                </p>
-                <p>
-                    Just relevant, actionable dish concepts that you can actually execute—and that your guests will actually want.
-                </p>
+                <h2>Visualize Dishes Before You Launch</h2>
+                <p>Create and refine realistic dish imagery that matches your plating style and guest expectations.</p>
+                <div class="cta-group" style="justify-content: flex-start;">
+                    <a href="{% url 'signup' %}" class="btn btn-primary">Start Generating Concepts</a>
+                </div>
             </div>
 
             <div class="demo-visual">
                 <div class="concept-card active">
-                    <div class="card-image">Cedar-Smoked Ribeye</div>
-                    <div class="card-title">RIVERSIDE CEDAR-SMOKED RIBEYE</div>
+                    <div class="card-image">Charred Octopus</div>
+                    <div class="card-title">COASTAL SUMMER OCTOPUS</div>
                     <div class="card-tags">
-                        <span class="tag">$48 range</span>
-                        <span class="tag">local cedar</span>
-                        <span class="tag">seasonal veg</span>
+                        <span class="tag">Seasonal</span>
+                        <span class="tag">$32 range</span>
+                        <span class="tag">Guest favorite</span>
                     </div>
                 </div>
+
                 <div class="concept-card">
-                    <div class="card-image" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">Prime Rib Tradition</div>
-                    <div class="card-title">PRIME RIB TRADITION</div>
+                    <div class="card-image">Heirloom Salad</div>
+                    <div class="card-title">HEIRLOOM TOMATO BURRATA</div>
                     <div class="card-tags">
-                        <span class="tag">$52 range</span>
-                        <span class="tag">existing strength</span>
+                        <span class="tag">Summer</span>
+                        <span class="tag">Vegetarian</span>
                     </div>
                 </div>
+
                 <div class="concept-card">
-                    <div class="card-image" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">Pacific Salmon</div>
+                    <div class="card-image">Cedar Salmon</div>
                     <div class="card-title">CEDAR PLANK SALMON</div>
                     <div class="card-tags">
                         <span class="tag">$42 range</span>
@@ -935,7 +224,7 @@
                 <li>Priority support</li>
                 <li>New features as we ship them</li>
             </ul>
-            <a href="#" class="btn btn-primary" style="font-size: 1.125rem; padding: 1.25rem 3rem;">Start Your 10 Free Dishes</a>
+            <a href="{% url 'signup' %}" class="btn btn-primary" style="font-size: 1.125rem; padding: 1.25rem 3rem;">Start Your 10 Free Dishes</a>
             <p style="margin-top: 1.5rem; color: #64748b; font-size: 0.875rem;">
                 No credit card required • Takes 2 minutes to set up
             </p>
@@ -947,7 +236,7 @@
         <h2>Ready for AI That Gets Your Restaurant?</h2>
         <p>Start creating dish concepts that actually make sense for your kitchen, pricing, and guests.</p>
         <div class="cta-group">
-            <a href="#" class="btn btn-primary">Start Your 10 Free Dishes</a>
+            <a href="{% url 'signup' %}" class="btn btn-primary">Start Your 10 Free Dishes</a>
         </div>
         <p style="margin-top: 2rem; color: #64748b;">
             Try 10 concepts free • Then $59/month • Cancel anytime
@@ -1001,5 +290,4 @@
             <p>&copy; 2025 Appertivo. All rights reserved.</p>
         </div>
     </footer>
-</body>
-</html>
+{% endblock %}
