@@ -1523,8 +1523,13 @@
           return;
         }
 
-        const state = getConceptState(conceptId);
-        if (state && (state.buffer.length === 0) && !state.fetchPromise) {
+        const state = conceptStates[conceptId];
+        const placeholderActive = hasActivePlaceholder(conceptId);
+        if (!state || !placeholderActive) {
+          return;
+        }
+
+        if (state.buffer.length === 0 && !state.fetchPromise) {
           ensureBuffer(conceptId);
         }
       }

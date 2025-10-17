@@ -6,12 +6,13 @@ from typing import Iterable, List
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import models
-from django.db.models import Q
+from django.db.models import Q, Prefetch
 from django.utils import timezone
 import uuid
 import json
 # Allow index names that match historical migrations.
 models.Index.max_name_length = 63
+from django.core.cache import cache
 
 
 class TimestampedModel(models.Model):
@@ -84,7 +85,14 @@ class Restaurant(TimestampedModel):
 
     @property
     def context(self):
-        """Concatenated context string for LLMs."""
+        from swipe.models import Concept, Dish
+        """Concatenated, cached restaurant context string for LLMs."""
+        cache_key = f"restaurant_context_{self.id}"
+        cached = cache.get(cache_key)
+        if cached:
+            return cached
+
+        # --- Base context ---
         sections = [
             f"Name: {self.name}",
             f"Location: {self.location_text}",
@@ -94,7 +102,32 @@ class Restaurant(TimestampedModel):
             self.reviews_markdown or "",
             self.personas or "",
         ]
-        return "\n\n".join(s for s in sections if s)
+
+        # --- Append recent concepts & dishes ---
+        concepts = (
+            Concept.objects
+            .filter(restaurant=self)
+            .order_by("-created_at")
+            .prefetch_related(
+                Prefetch(
+                    "dishes",
+                    queryset=Dish.objects.only("name")[:3],
+                    to_attr="recent_dishes",
+                )
+            )[:16]
+            .only("name", "subtitle")
+        )
+
+        if concepts.exists():
+            recent_bits = []
+            for c in concepts:
+                dishes_text = ", ".join(d.name for d in getattr(c, "recent_dishes", []))
+                recent_bits.append(f"{c.name}: {c.subtitle} — {dishes_text}")
+            sections.append("#DO NOT DUPLICATE Recent concepts and dishes:\n" + "\n".join(recent_bits))
+
+        context_str = "\n\n".join(s for s in sections if s)
+        cache.set(cache_key, context_str, 60 * 30)  # cache for 30 minutes
+        return context_str
         
     def __str__(self):
         return self.name

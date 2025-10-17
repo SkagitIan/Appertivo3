@@ -28,7 +28,7 @@ class GetConcepts:
     Handles initialization of OpenAI, Replicate, and Cloudinary clients.
     """
 
-    def __init__(self, restaurant=None):
+    def __init__(self, restaurant=None, *, restaurant_context=None):
         # --- Environment setup ---
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
         self.replicate_token = os.getenv("REPLICATE_API_KEY")
@@ -58,10 +58,16 @@ class GetConcepts:
         self.DEFAULT_CONCEPT_IMAGE_URL = "https://placehold.co/1200x800?text=Concept"
 
         self.restaurant = restaurant
+        self.restaurant_context = restaurant_context
         self.locale_summary = ""
         # fire async task
-        if asyncio.get_event_loop().is_running():
-            asyncio.create_task(self._load_locale())
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop and loop.is_running():
+            loop.create_task(self._load_locale())
         else:
             asyncio.run(self._load_locale())
 
@@ -192,14 +198,15 @@ class GetConcepts:
             logger.info("OpenAI client not configured; returning no concepts.")
             return []
 
+        restaurant_context = await self._get_restaurant_context()
         response = await self.openai_client.responses.create(
             model="gpt-4.1-mini",
             input=[
                 {
                     "role": "system",
-                    "content": self.concept_prompt(),
+                    "content": self.concept_prompt(restaurant_context),
                 },
-                {"role": "user", "content": self.restaurant.context},
+                {"role": "user", "content": restaurant_context},
             ],
             text={"format": self.concept_schema()},
         )
@@ -208,7 +215,7 @@ class GetConcepts:
         logger.info("Concept OpenAI response: %s", data)
         return data.get("concepts", [])
 
-    def concept_prompt(self):
+    def concept_prompt(self, restaurant_context: str):
         prompt = f"""
                 **Role**: You are a seasoned restaurant marketing consultant with deep knowledge of regional cuisines, seasonal ingredients, and cultural dining traditions.
                 **Task**: Generate exactly 3 unique, theme-based concepts for daily specials that emphasize regional flavors and seasonal ingredients.
@@ -453,13 +460,13 @@ class GetConcepts:
             logger.warning("Cloudinary upload failed: %s", exc, exc_info=True)
             return ""
 
-    def dish_prompt(self, c):
+    def dish_prompt(self, c, restaurant_context: str):
         prompt = f"""
             Given the following restaurant profile and concept, generate three (3) saleable dish ideas that fit seamlessly within the restaurant’s 
             current culinary voice, audience, and menu architecture.
 
             Restaurant Context:
-            {self.restaurant.context}
+            {restaurant_context}
 
             Concept:
             {c["title"]} — {c.get("subtitle", "")}
@@ -525,9 +532,10 @@ class GetConcepts:
             logger.info("OpenAI client not configured; returning no dishes.")
             return []
 
+        restaurant_context = await self._get_restaurant_context()
         response = await self.openai_client.responses.create(
             model="gpt-4.1-mini",
-            input=self.dish_prompt(concept_payload),
+            input=self.dish_prompt(concept_payload, restaurant_context),
             text={"format": self.dish_schema()},
         )
 
@@ -535,6 +543,19 @@ class GetConcepts:
         logger.info("Generate dishes OpenAI response: %s", data)
 
         return data.get("dishes", [])
+
+    async def _get_restaurant_context(self) -> str:
+        if not self.restaurant:
+            return ""
+        if self.restaurant_context is not None:
+            return self.restaurant_context
+
+        def fetch_context():
+            return self.restaurant.context
+
+        context = await asyncio.to_thread(fetch_context)
+        self.restaurant_context = context
+        return context
 
     async def _generate_image(self, dish) -> str:
         title = dish.get("title", "")

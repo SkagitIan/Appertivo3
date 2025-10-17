@@ -24,7 +24,8 @@ def generate_concepts_view(request, restaurant_id):
     """
     try:
         restaurant = get_object_or_404(Restaurant, id=restaurant_id)
-        generator = GetConcepts(restaurant=restaurant)
+        restaurant_context = restaurant.context
+        generator = GetConcepts(restaurant=restaurant, restaurant_context=restaurant_context)
 
         logger.info(f"Starting concept generation for restaurant: {restaurant.name}")
         results = asyncio.run(generator.generate_batch())
@@ -175,7 +176,11 @@ class ConceptDishAppendView(View):
             pk=concept_id,
         )
 
-        generator = GetConcepts(restaurant=concept.restaurant)
+        restaurant_context = concept.restaurant.context
+        generator = GetConcepts(
+            restaurant=concept.restaurant,
+            restaurant_context=restaurant_context,
+        )
 
         try:
             saved_dishes = asyncio.run(generator.append_dishes_to_concept(concept))
