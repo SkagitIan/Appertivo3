@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Appertivo - Where Concepts Become Signature Dishes</title>
+    <title>Appertivo - AI That Knows Your Restaurant</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
     <style>
@@ -85,11 +85,19 @@
             line-height: 1.8;
         }
 
+        .hero .subtext {
+            font-size: clamp(0.875rem, 1.5vw, 1rem);
+            color: #a78bfa;
+            margin-bottom: 3rem;
+            font-weight: 500;
+        }
+
         .cta-group {
             display: flex;
             gap: 1.5rem;
             justify-content: center;
             flex-wrap: wrap;
+            align-items: center;
         }
 
         .btn {
@@ -115,15 +123,13 @@
             box-shadow: 0 20px 40px rgba(167, 139, 250, 0.3);
         }
 
-        .btn-secondary {
-            background: transparent;
+        .trial-badge {
+            padding: 0.5rem 1.5rem;
+            background: rgba(167, 139, 250, 0.2);
+            border: 1px solid rgba(167, 139, 250, 0.4);
+            border-radius: 9999px;
             color: #e2e8f0;
-            border: 1px solid #475569;
-        }
-
-        .btn-secondary:hover {
-            border-color: #a78bfa;
-            background: rgba(167, 139, 250, 0.1);
+            font-size: 0.875rem;
         }
 
         /* Floating Cards Preview */
@@ -160,6 +166,101 @@
         @keyframes float {
             0%, 100% { transform: translateY(0) rotate(2deg); }
             50% { transform: translateY(-20px) rotate(-2deg); }
+        }
+
+        /* AI Training Section - HERO #2 */
+        .ai-training-hero {
+            padding: 8rem 2rem;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ai-training-hero::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 30% 50%, rgba(236, 72, 153, 0.1) 0%, transparent 50%);
+        }
+
+        .ai-training-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            text-align: center;
+            position: relative;
+            z-index: 2;
+        }
+
+        .ai-training-content h2 {
+            font-size: clamp(2.5rem, 6vw, 4rem);
+            font-weight: 300;
+            margin-bottom: 2rem;
+            letter-spacing: 0.02em;
+            line-height: 1.2;
+        }
+
+        .ai-training-content h2 .highlight {
+            background: linear-gradient(135deg, #a78bfa 0%, #ec4899 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 400;
+        }
+
+        .ai-training-content .lead {
+            font-size: clamp(1.125rem, 2vw, 1.5rem);
+            color: #cbd5e1;
+            max-width: 800px;
+            margin: 0 auto 4rem;
+            line-height: 1.8;
+        }
+
+        .training-sources {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+            margin-top: 4rem;
+        }
+
+        .training-source {
+            background: rgba(30, 41, 59, 0.4);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 1.5rem;
+            padding: 2.5rem;
+            transition: all 0.4s ease;
+            text-align: center;
+        }
+
+        .training-source:hover {
+            transform: translateY(-8px);
+            border-color: rgba(167, 139, 250, 0.5);
+            box-shadow: 0 20px 60px rgba(167, 139, 250, 0.2);
+        }
+
+        .training-source-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(167, 139, 250, 0.2) 0%, rgba(236, 72, 153, 0.2) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            margin: 0 auto 1.5rem;
+        }
+
+        .training-source h3 {
+            font-size: 1.5rem;
+            font-weight: 400;
+            margin-bottom: 1rem;
+            letter-spacing: 0.02em;
+        }
+
+        .training-source p {
+            color: #94a3b8;
+            line-height: 1.7;
         }
 
         /* Features Section */
@@ -202,7 +303,6 @@
             border-radius: 1.5rem;
             padding: 2.5rem;
             transition: all 0.4s ease;
-            cursor: pointer;
         }
 
         .feature-card:hover {
@@ -418,84 +518,84 @@
         /* Pricing */
         .pricing {
             padding: 8rem 2rem;
-            max-width: 1400px;
+            max-width: 900px;
             margin: 0 auto;
-        }
-
-        .pricing-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 2rem;
-            margin-top: 4rem;
         }
 
         .pricing-card {
             background: rgba(30, 41, 59, 0.4);
             backdrop-filter: blur(10px);
-            border: 1px solid rgba(148, 163, 184, 0.2);
-            border-radius: 1.5rem;
-            padding: 3rem;
-            transition: all 0.4s ease;
+            border: 2px solid rgba(167, 139, 250, 0.6);
+            border-radius: 2rem;
+            padding: 4rem;
             text-align: center;
+            background: linear-gradient(135deg, rgba(167, 139, 250, 0.1) 0%, rgba(236, 72, 153, 0.1) 100%);
         }
 
-        .pricing-card.featured {
-            border-color: rgba(167, 139, 250, 0.6);
-            background: rgba(167, 139, 250, 0.1);
-            transform: scale(1.05);
-        }
-
-        .pricing-card:hover {
-            transform: translateY(-8px) scale(1.02);
-            border-color: rgba(167, 139, 250, 0.5);
-        }
-
-        .pricing-card.featured:hover {
-            transform: translateY(-8px) scale(1.07);
-        }
-
-        .plan-name {
+        .plan-badge {
+            display: inline-block;
+            padding: 0.5rem 1.5rem;
+            background: rgba(167, 139, 250, 0.2);
+            border: 1px solid rgba(167, 139, 250, 0.4);
+            border-radius: 9999px;
             font-size: 0.875rem;
+            color: #e2e8f0;
+            margin-bottom: 2rem;
             letter-spacing: 0.1em;
-            color: #94a3b8;
-            margin-bottom: 1rem;
             text-transform: uppercase;
         }
 
         .plan-price {
-            font-size: 3.5rem;
+            font-size: 5rem;
             font-weight: 300;
             margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #a78bfa 0%, #ec4899 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
 
         .plan-price span {
-            font-size: 1.25rem;
+            font-size: 2rem;
             color: #94a3b8;
         }
 
         .plan-description {
-            color: #94a3b8;
-            margin-bottom: 2rem;
+            color: #cbd5e1;
+            font-size: 1.25rem;
+            margin-bottom: 3rem;
+            line-height: 1.8;
         }
 
         .plan-features {
             list-style: none;
-            margin-bottom: 2rem;
+            margin-bottom: 3rem;
             text-align: left;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
         }
 
         .plan-features li {
-            padding: 0.75rem 0;
+            padding: 1rem 0;
             color: #cbd5e1;
             display: flex;
             align-items: center;
-            gap: 0.75rem;
+            gap: 1rem;
+            font-size: 1.125rem;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+        }
+
+        .plan-features li:last-child {
+            border-bottom: none;
         }
 
         .plan-features li::before {
             content: '✓';
             color: #a78bfa;
             font-weight: bold;
+            font-size: 1.5rem;
+            flex-shrink: 0;
         }
 
         /* CTA Section */
@@ -584,6 +684,10 @@
             .floating-card {
                 display: none;
             }
+
+            .training-sources {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -599,15 +703,57 @@
         <div class="hero-content">
             <div class="logo">APPERTIVO</div>
             <h1>
-                Where Concepts Become<br/>
-                <span class="highlight">Signature Dishes</span>
+                AI That Actually Knows<br/>
+                <span class="highlight">Your Restaurant</span>
             </h1>
             <p>
-                Transform fleeting inspiration into menu-ready masterpieces. AI-powered creative tools designed for restaurants that never stop innovating.
+                Trained on your menus, reviews, pricing, and location. Appertivo generates dish concepts and ideas that match what you can offer and what your guests actually want.
             </p>
+            <div class="subtext">
+                Every concept is relevant. Every dish is realistic.
+            </div>
             <div class="cta-group">
-                <a href="#" class="btn btn-primary">Start Free Trial</a>
-                <a href="#demo" class="btn btn-secondary">See It In Action</a>
+                <a href="#" class="btn btn-primary">Start Your 10 Dishes Free</a>
+                <span class="trial-badge">Then $59/month</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- AI Training Hero Section -->
+    <section class="ai-training-hero">
+        <div class="ai-training-content">
+            <h2>
+                We Train the AI on<br/>
+                <span class="highlight">Your Restaurant's Reality</span>
+            </h2>
+            <p class="lead">
+                Not generic food ideas. Not impossible dishes. Appertivo learns from your actual restaurant data to generate concepts that fit your kitchen, pricing, and what your guests love.
+            </p>
+
+            <div class="training-sources">
+                <div class="training-source">
+                    <div class="training-source-icon">⭐</div>
+                    <h3>Guest Reviews</h3>
+                    <p>We analyze what diners love about your restaurant. The AI understands your strengths and creates concepts that amplify them.</p>
+                </div>
+
+                <div class="training-source">
+                    <div class="training-source-icon">📋</div>
+                    <h3>Your Menus</h3>
+                    <p>Current dishes, retired favorites, seasonal specials. The AI learns your style, flavor profiles, and what's worked before.</p>
+                </div>
+
+                <div class="training-source">
+                    <div class="training-source-icon">💰</div>
+                    <h3>Pricing Context</h3>
+                    <p>The AI knows your price points and suggests concepts that match your positioning—from casual to fine dining.</p>
+                </div>
+
+                <div class="training-source">
+                    <div class="training-source-icon">📍</div>
+                    <h3>Local Insights</h3>
+                    <p>Your location matters. Get concepts using regional ingredients, seasonal availability, and local dining trends.</p>
+                </div>
             </div>
         </div>
     </section>
@@ -615,61 +761,60 @@
     <!-- Features Section -->
     <section class="features">
         <div class="section-header">
-            <h2>From Napkin Sketch to Plated Perfection</h2>
-            <p>Every tool you need to capture, refine, and launch your next signature dish.</p>
+            <h2>From Relevant Concepts to Ready Dishes</h2>
+            <p>AI-powered tools that understand your restaurant's constraints and opportunities.</p>
         </div>
 
         <div class="features-grid">
             <div class="feature-card">
+                <div class="feature-icon">🎯</div>
+                <h3>Tailored Concepts</h3>
+                <p>Every concept is generated with your kitchen capabilities, ingredient access, and price points in mind. No impossible ideas.</p>
+            </div>
+
+            <div class="feature-card">
                 <div class="feature-icon">✨</div>
-                <h3>AI Concept Sketches</h3>
-                <p>Describe your idea in plain language. Watch as AI generates stunning dish visualizations that bring your vision to life instantly.</p>
+                <h3>Instant Visualization</h3>
+                <p>See dish concepts come to life. Generate stunning imagery that matches your restaurant's aesthetic and plating style.</p>
             </div>
 
             <div class="feature-card">
                 <div class="feature-icon">🎨</div>
-                <h3>Infinite Variations</h3>
-                <p>Tweak plating, swap ingredients, adjust styles. Generate unlimited variations until you find the perfect expression of your concept.</p>
+                <h3>Smart Variations</h3>
+                <p>Tweak ingredients, adjust plating, explore alternatives. The AI keeps suggestions within your operational reality.</p>
             </div>
 
             <div class="feature-card">
                 <div class="feature-icon">⭐</div>
-                <h3>Organized by Favorites</h3>
-                <p>Heart the concepts that resonate. Build collections of ideas worth developing. Your best work, always at your fingertips.</p>
+                <h3>Organize Favorites</h3>
+                <p>Heart concepts worth developing. Build collections by season, occasion, or testing status. Your best ideas, always accessible.</p>
             </div>
 
             <div class="feature-card">
                 <div class="feature-icon">📝</div>
                 <h3>Menu Copy That Sells</h3>
-                <p>AI trained on your restaurant's voice writes compelling descriptions. Every word captures your style, automatically.</p>
+                <p>Descriptions written in your restaurant's voice. The AI learns your tone from existing menus and creates compelling copy automatically.</p>
             </div>
 
             <div class="feature-card">
                 <div class="feature-icon">🤝</div>
-                <h3>Seamless Collaboration</h3>
-                <p>Share concepts with your team. Gather feedback. Build menus together. Keep everyone aligned from idea to execution.</p>
-            </div>
-
-            <div class="feature-card">
-                <div class="feature-icon">🔒</div>
-                <h3>Your Data, Your Model</h3>
-                <p>Fine-tuned on your workspace alone. Your creative direction, plating style, and flavor profiles stay completely private.</p>
+                <h3>Team Collaboration</h3>
+                <p>Share concepts, gather feedback, build menus together. Keep your entire team aligned from inspiration to launch.</p>
             </div>
         </div>
     </section>
 
     <!-- Demo Section -->
-    <section class="demo-section" id="demo">
+    <section class="demo-section">
         <div class="demo-container">
             <div class="demo-content">
-                <h2>Watch Ideas Transform in Real-Time</h2>
+                <h2>Concepts That Actually Make Sense</h2>
                 <p>
-                    Type a concept. See it visualized. Refine with variations. Save your favorites. Build menus. It's the creative process, accelerated.
+                    Because the AI is trained on your restaurant, every suggestion is grounded in reality. No wild ideas that don't fit your kitchen. No ingredients you can't source. No pricing that breaks your model.
                 </p>
                 <p>
-                    Every interaction teaches the AI more about your restaurant's style. The more you create, the better it gets at capturing your voice.
+                    Just relevant, actionable dish concepts that you can actually execute—and that your guests will actually want.
                 </p>
-                <a href="#" class="btn btn-primary">Request Demo</a>
             </div>
 
             <div class="demo-visual">
@@ -677,25 +822,25 @@
                     <div class="card-image">Cedar-Smoked Ribeye</div>
                     <div class="card-title">RIVERSIDE CEDAR-SMOKED RIBEYE</div>
                     <div class="card-tags">
-                        <span class="tag">ribeye</span>
-                        <span class="tag">horseradish</span>
-                        <span class="tag">seasonal</span>
+                        <span class="tag">$48 range</span>
+                        <span class="tag">local cedar</span>
+                        <span class="tag">seasonal veg</span>
                     </div>
                 </div>
                 <div class="concept-card">
                     <div class="card-image" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">Prime Rib Tradition</div>
                     <div class="card-title">PRIME RIB TRADITION</div>
                     <div class="card-tags">
-                        <span class="tag">prime rib</span>
-                        <span class="tag">classic</span>
+                        <span class="tag">$52 range</span>
+                        <span class="tag">existing strength</span>
                     </div>
                 </div>
                 <div class="concept-card">
                     <div class="card-image" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">Pacific Salmon</div>
                     <div class="card-title">CEDAR PLANK SALMON</div>
                     <div class="card-tags">
-                        <span class="tag">salmon</span>
-                        <span class="tag">local</span>
+                        <span class="tag">$42 range</span>
+                        <span class="tag">PNW sourcing</span>
                     </div>
                 </div>
             </div>
@@ -706,32 +851,32 @@
     <section class="how-it-works">
         <div class="section-header">
             <h2>How It Works</h2>
-            <p>Four steps from inspiration to menu-ready dish.</p>
+            <p>From data to dishes in four simple steps.</p>
         </div>
 
         <div class="steps">
             <div class="step">
                 <div class="step-number">1</div>
-                <h3>Capture Inspiration</h3>
-                <p>Describe your concept in natural language. No prompting expertise required—just write like you'd tell your sous chef.</p>
+                <h3>We Learn Your Restaurant</h3>
+                <p>Connect your menus, reviews, and location data. Our AI builds a custom model that understands your unique reality.</p>
             </div>
 
             <div class="step">
                 <div class="step-number">2</div>
-                <h3>Visualize & Refine</h3>
-                <p>Generate dish imagery instantly. Create variations, adjust plating, swap ingredients. Explore possibilities without kitchen waste.</p>
+                <h3>Generate Relevant Concepts</h3>
+                <p>Browse AI-generated dish concepts tailored to your kitchen, pricing, and guest preferences. Every idea is actionable.</p>
             </div>
 
             <div class="step">
                 <div class="step-number">3</div>
-                <h3>Favorite & Organize</h3>
-                <p>Heart the winners. Tag by season, occasion, or margin. Build collections that make sense for your operation.</p>
+                <h3>Refine & Visualize</h3>
+                <p>Create variations, tweak ingredients, adjust plating. See realistic dish imagery that matches your restaurant's aesthetic.</p>
             </div>
 
             <div class="step">
                 <div class="step-number">4</div>
-                <h3>Build Menus</h3>
-                <p>Drag favorites into menu lineups. Generate descriptions that match your voice. Share with your team for feedback.</p>
+                <h3>Launch With Confidence</h3>
+                <p>Favorite the winners, generate menu copy, share with your team. Go from concept to launch faster than ever.</p>
             </div>
         </div>
     </section>
@@ -745,21 +890,21 @@
         <div class="testimonials">
             <div class="testimonial">
                 <div class="testimonial-quote">
-                    "We spotted this combo after favoriting just two sketches. The AI copy matched our voice out of the gate."
+                    "The AI actually understands our price points and what works in our kitchen. Every concept feels like something we could actually do."
                 </div>
-                <div class="testimonial-author">— Chef, Pacific Northwest Bistro</div>
+                <div class="testimonial-author">— Chef, Pacific Northwest Steakhouse</div>
             </div>
 
             <div class="testimonial">
                 <div class="testimonial-quote">
-                    "Tagging a dish as 'patio launch' let the team build an entire seafood flight from the same concept."
+                    "It's like having a sous chef who's read every review we've ever gotten and knows exactly what our guests want more of."
                 </div>
                 <div class="testimonial-author">— Owner, Coastal Seafood House</div>
             </div>
 
             <div class="testimonial">
                 <div class="testimonial-quote">
-                    "Favorites plus notes gave us a menu-ready description and shot list for socials in one click."
+                    "We went from concept to menu-ready in a week. The descriptions matched our voice perfectly without any editing."
                 </div>
                 <div class="testimonial-author">— Marketing Director, Restaurant Group</div>
             </div>
@@ -769,65 +914,44 @@
     <!-- Pricing -->
     <section class="pricing">
         <div class="section-header">
-            <h2>Simple Pricing for Every Kitchen</h2>
-            <p>Start free. Scale when you're ready.</p>
+            <h2>Simple, Transparent Pricing</h2>
+            <p>No hidden fees. No complex tiers. Just powerful AI for your restaurant.</p>
         </div>
 
-        <div class="pricing-grid">
-            <div class="pricing-card">
-                <div class="plan-name">Free Trial</div>
-                <div class="plan-price">$0<span></span></div>
-                <div class="plan-description">14 days to explore concepts, dishes, and favorites.</div>
-                <ul class="plan-features">
-                    <li>Unlimited concept sketches</li>
-                    <li>Basic AI generations</li>
-                    <li>Up to 50 favorites</li>
-                    <li>1 user</li>
-                </ul>
-                <a href="#" class="btn btn-secondary">Start Free Trial</a>
+        <div class="pricing-card">
+            <div class="plan-badge">Pro Plan</div>
+            <div class="plan-price">$59<span>/mo</span></div>
+            <div class="plan-description">
+                Start with 10 free dish concepts. No credit card required.<br/>
+                Continue for $59/month when you're ready.
             </div>
-
-            <div class="pricing-card featured">
-                <div class="plan-name">Pro</div>
-                <div class="plan-price">$59<span>/mo</span></div>
-                <div class="plan-description">Unlock enhancements, menu building, and AI-powered features.</div>
-                <ul class="plan-features">
-                    <li>Everything in Free Trial</li>
-                    <li>Unlimited favorites</li>
-                    <li>Advanced variations</li>
-                    <li>Menu builder</li>
-                    <li>Team collaboration</li>
-                    <li>Custom AI training</li>
-                    <li>Priority support</li>
-                </ul>
-                <a href="#" class="btn btn-primary">Start Pro Trial</a>
-            </div>
-
-            <div class="pricing-card">
-                <div class="plan-name">Enterprise</div>
-                <div class="plan-price">Custom</div>
-                <div class="plan-description">For groups and multi-location operators.</div>
-                <ul class="plan-features">
-                    <li>Everything in Pro</li>
-                    <li>Multiple locations</li>
-                    <li>Brand consistency tools</li>
-                    <li>Advanced analytics</li>
-                    <li>Dedicated support</li>
-                    <li>Custom integrations</li>
-                </ul>
-                <a href="#" class="btn btn-secondary">Contact Sales</a>
-            </div>
+            <ul class="plan-features">
+                <li>Custom AI trained on your restaurant</li>
+                <li>Unlimited concept generation</li>
+                <li>Unlimited variations & refinements</li>
+                <li>Unlimited favorites & collections</li>
+                <li>Menu builder & descriptions</li>
+                <li>Team collaboration</li>
+                <li>Priority support</li>
+                <li>New features as we ship them</li>
+            </ul>
+            <a href="#" class="btn btn-primary" style="font-size: 1.125rem; padding: 1.25rem 3rem;">Start Your 10 Free Dishes</a>
+            <p style="margin-top: 1.5rem; color: #64748b; font-size: 0.875rem;">
+                No credit card required • Takes 2 minutes to set up
+            </p>
         </div>
     </section>
 
     <!-- Final CTA -->
     <section class="final-cta">
-        <h2>Ready to Transform Your Menu Development?</h2>
-        <p>Join restaurants already using Appertivo to turn inspiration into signature dishes.</p>
+        <h2>Ready for AI That Gets Your Restaurant?</h2>
+        <p>Start creating dish concepts that actually make sense for your kitchen, pricing, and guests.</p>
         <div class="cta-group">
-            <a href="#" class="btn btn-primary">Start Free Trial</a>
-            <a href="#" class="btn btn-secondary">Book a Demo</a>
+            <a href="#" class="btn btn-primary">Start Your 10 Free Dishes</a>
         </div>
+        <p style="margin-top: 2rem; color: #64748b;">
+            Try 10 concepts free • Then $59/month • Cancel anytime
+        </p>
     </section>
 
     <!-- Footer -->
@@ -838,7 +962,7 @@
                 <ul>
                     <li><a href="#">Features</a></li>
                     <li><a href="#">Pricing</a></li>
-                    <li><a href="#">Demo</a></li>
+                    <li><a href="#">How It Works</a></li>
                     <li><a href="#">Updates</a></li>
                 </ul>
             </div>
@@ -850,8 +974,32 @@
                     <li><a href="#">Blog</a></li>
                     <li><a href="#">Careers</a></li>
                     <li><a href="#">Contact</a></li>
+                </ul>
+            </div>
 
-                </div>
-              </div>
+            <div class="footer-section">
+                <h4>Resources</h4>
+                <ul>
+                    <li><a href="#">Help Center</a></li>
+                    <li><a href="#">API Docs</a></li>
+                    <li><a href="#">Case Studies</a></li>
+                    <li><a href="#">Community</a></li>
+                </ul>
+            </div>
 
-              </footer>
+            <div class="footer-section">
+                <h4>Legal</h4>
+                <ul>
+                    <li><a href="#">Privacy Policy</a></li>
+                    <li><a href="#">Terms of Service</a></li>
+                    <li><a href="#">Data Security</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="footer-bottom">
+            <p>&copy; 2025 Appertivo. All rights reserved.</p>
+        </div>
+    </footer>
+</body>
+</html>
