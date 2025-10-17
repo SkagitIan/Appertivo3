@@ -81,6 +81,153 @@
       margin-bottom: 1.5rem;
     }
 
+    .tower-view-container {
+      padding: 7rem 3rem 3rem;
+    }
+
+    .tower-view {
+      display: grid;
+      gap: 2rem;
+      grid-template-columns: minmax(220px, 320px) 1fr;
+      align-items: stretch;
+      max-width: 1200px;
+      margin: 0 auto;
+      height: min(70vh, calc(100vh - 12rem));
+    }
+
+    .tower-sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      overflow-y: auto;
+      padding-right: 0.5rem;
+    }
+
+    .tower-concept {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.85rem;
+      background: rgba(15, 23, 42, 0.55);
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      border-radius: 18px;
+      padding: 0.85rem;
+      color: inherit;
+      text-align: left;
+      width: 100%;
+      cursor: pointer;
+      transition: border-color 0.2s ease, background 0.2s ease;
+    }
+
+    .tower-concept:hover {
+      border-color: rgba(244, 114, 182, 0.6);
+    }
+
+    .tower-concept.is-active {
+      border-color: rgba(244, 114, 182, 0.85);
+      background: rgba(30, 41, 59, 0.75);
+    }
+
+    .tower-thumb {
+      width: 3.5rem;
+      height: 3.5rem;
+      border-radius: 1rem;
+      overflow: hidden;
+      flex-shrink: 0;
+      background: rgba(15, 23, 42, 0.7);
+    }
+
+    .tower-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .tower-copy {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      font-size: 0.8rem;
+    }
+
+    .tower-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .tower-summary {
+      font-size: 0.75rem;
+      line-height: 1.35;
+      color: rgba(226, 232, 240, 0.75);
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .tower-dish-area {
+      position: relative;
+      overflow: hidden;
+      border-radius: 24px;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      background: rgba(15, 23, 42, 0.45);
+      padding: 1.5rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .tower-track {
+      height: 100%;
+    }
+
+    .tower-track-inner {
+      display: flex;
+      gap: 1.5rem;
+      overflow-x: auto;
+      padding-bottom: 0.5rem;
+      scroll-snap-type: x proximity;
+    }
+
+    .tower-track-inner::-webkit-scrollbar {
+      height: 8px;
+    }
+
+    .tower-track-inner::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.35);
+      border-radius: 9999px;
+    }
+
+    @media (max-width: 1024px) {
+      .tower-view {
+        grid-template-columns: minmax(0, 1fr);
+        height: auto;
+      }
+
+      .tower-sidebar {
+        flex-direction: row;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding-bottom: 0.5rem;
+      }
+
+      .tower-concept {
+        min-width: 14rem;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .tower-view-container {
+        padding: 6rem 1.5rem 2.5rem;
+      }
+
+      .tower-dish-area {
+        padding: 1.25rem 1rem;
+      }
+    }
+
     @supports (height: 100dvh) {
       .card {
         height: min(64vh, calc(100dvh - 15rem));
@@ -954,94 +1101,7 @@
 
                   <!-- Dish Cards -->
                   {% for dish in concept.dishes.all %}
-                    <div
-                      class="card w-full"
-                      data-card
-                      tabindex="0"
-                      role="button"
-                      {% if not dish.is_seen %}
-                        hx-post="{% url 'swipe:mark_seen' %}"
-                        hx-trigger="revealed delay:3s once"
-                        hx-vals='{"type":"dish","id":"{{ dish.id }}"}'
-                        hx-headers='{"X-CSRFToken": "{{ csrf_token|escapejs }}", "Content-Type": "application/json"}'
-                        hx-encoding="json"
-                        hx-swap="none"
-                      {% endif %}
-                    >
-                      <div class="card-inner">
-                        {% with dish_image=dish.display_image_url dish_placeholder="https://placehold.co/800x600?text=Dish" %}
-                        <div
-                          class="card-face card-front"
-                          style="background-image: none;"
-                          data-background-placeholder="{{ dish_placeholder }}"
-                          data-background-image="{{ dish_image }}"
-                          data-media-state="idle"
-                        >
-                          <img
-                            src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
-                            data-src="{{ dish_image }}"
-                            data-placeholder="{{ dish_placeholder }}"
-                            alt="{{ dish.name }} presentation"
-                            class="card-media"
-                            decoding="async"
-                            loading="lazy"
-                            onerror="this.onerror=null;const p=this.dataset.placeholder||'';if(p){this.src=p;}const f=this.closest('.card-face');if(f){if(p){f.style.backgroundImage='url(' + p + ')';}f.setAttribute('data-media-state','loaded');}this.classList.add('is-loaded');delete this.dataset.src;"
-                          >
-                          <div class="card-media-loader" data-media-loader aria-hidden="true">
-                            <div class="card-media-spinner h-8 w-8 animate-spin rounded-full border-2 border-white/40 border-t-transparent"></div>
-                          </div>
-                        </div>
-                        {% endwith %}
-                        <div class="card-face card-back">
-                          <button type="button"
-                                  class="delete-btn absolute top-5 left-5 rounded-full border border-slate-100/40 bg-slate-900/60 p-3 shadow-lg z-10"
-                                  data-prevent-flip
-                                  data-delete-trigger
-                                  data-delete-type="dish"
-                                  data-delete-id="{{ dish.id }}"
-                                  aria-label="Delete {{ dish.name }} dish">
-                            <svg class="w-6 h-6 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 7h12M10 11v6m4-6v6m-7 4h10a1 1 0 001-1V7H6v13a1 1 0 001 1zm3-17h4l1 2H8l1-2z"></path>
-                            </svg>
-                          </button>
-                          <button type="button"
-                                  class="variation-btn absolute top-5 right-20 rounded-full border border-slate-100/40 bg-slate-900/60 p-3 shadow-lg z-10"
-                                  data-prevent-flip
-                                  data-variation-endpoint="{% url 'swipe:dish_variation' dish.id %}"
-                                  data-concept-id="{{ concept.id }}"
-                                  data-dish-id="{{ dish.id }}"
-                                  aria-label="Generate variation for {{ dish.name }}">
-                            <svg class="w-5 h-5 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4.5 9.75A7.5 7.5 0 0119.5 8m0 0v4m0-4h-4" />
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M19.5 14.25a7.5 7.5 0 01-15 1.75m0 0v-4m0 4h4" />
-                            </svg>
-                          </button>
-                          <button type="button"
-                                  class="heart-btn absolute top-5 right-5 rounded-full border border-slate-100/40 bg-slate-900/60 p-3 shadow-lg z-10 {% if dish.is_favorite %}favorited{% endif %}"
-                                  data-prevent-flip
-                                  onclick="toggleFavorite(this, 'dish', '{{ dish.id }}')"
-                                  data-id="{{ dish.id }}">
-                            <svg class="w-6 h-6 text-rose-500" fill="{% if dish.is_favorite %}currentColor{% else %}none{% endif %}" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
-                            </svg>
-                          </button>
-                          <div class="card-back-content" data-scrollable>
-                            <div class="card-back-body">
-                              <h3 class="card-back-heading">{{ dish.name }}</h3>
-                              <p class="card-back-description">{{ dish.reasoning }}</p>
-                              {% if dish.price %}
-                                <p class="card-back-price">{{ dish.price }}</p>
-                              {% endif %}
-                            </div>
-                            <div class="card-back-tags">
-                              {% for ingredient in dish.ingredients %}
-                                <span class="tag-chip">{{ ingredient }}</span>
-                              {% endfor %}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    {% include "swipe/_dish_card.html" with dish=dish concept=concept %}
                   {% empty %}
                     <div class="card w-full flex items-center justify-center p-6 bg-slate-900/60 border border-slate-100/20">
                       <p class="text-slate-200/80 text-center tracking-[0.25em] uppercase">No dishes generated yet for this concept.</p>
@@ -1054,8 +1114,67 @@
         </div>
       </div>
 
+      <div
+        id="towerView"
+        class="tower-view-container hidden"
+        data-view-container="tower"
+        aria-hidden="true"
+      >
+        <div class="tower-view">
+          <aside class="tower-sidebar" data-tower-concepts>
+            {% for concept in concepts %}
+              {% with concept_image=concept.display_sketch_url concept_placeholder="https://placehold.co/400x400?text=Concept" %}
+                <button
+                  type="button"
+                  class="tower-concept{% if forloop.first %} is-active{% endif %}"
+                  data-tower-option
+                  data-concept-id="{{ concept.id }}"
+                  data-concept-index="{{ forloop.counter0 }}"
+                  aria-pressed="{% if forloop.first %}true{% else %}false{% endif %}"
+                >
+                  <span class="tower-thumb">
+                    <img
+                      src="{{ concept_image|default:concept_placeholder }}"
+                      alt="{{ concept.name }} thumbnail"
+                      loading="lazy"
+                    >
+                  </span>
+                  <span class="tower-copy">
+                    <span class="tower-title">{{ concept.name }}</span>
+                    {% with summary=concept.subtitle|default:concept.meta_reasoning %}
+                      {% if summary %}
+                        <span class="tower-summary">{{ summary|truncatewords:26 }}</span>
+                      {% endif %}
+                    {% endwith %}
+                  </span>
+                </button>
+              {% endwith %}
+            {% endfor %}
+          </aside>
+          <section class="tower-dish-area" data-tower-dishes>
+            {% for concept in concepts %}
+              <div
+                class="tower-track{% if not forloop.first %} hidden{% endif %}"
+                data-tower-track
+                data-concept-id="{{ concept.id }}"
+              >
+                <div class="tower-track-inner" data-tower-scroller>
+                  {% for dish in concept.dishes.all %}
+                    {% include "swipe/_dish_card.html" with dish=dish concept=concept %}
+                  {% empty %}
+                    <div class="card w-full flex items-center justify-center p-6 bg-slate-900/60 border border-slate-100/20">
+                      <p class="text-slate-200/80 text-center tracking-[0.25em] uppercase">No dishes generated yet for this concept.</p>
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+            {% endfor %}
+          </section>
+        </div>
+      </div>
+
       <!-- Floating Navigation -->
-      <div class="floating-controls">
+      <div class="floating-controls" data-view-only="swipe">
         <div class="floating-controls-inner">
           <button id="navVerticalUp" onclick="navigateVertical(-1)" aria-label="Previous concept">
             <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
@@ -1109,6 +1228,7 @@
         aria-label="Open menu"
         data-tool
         data-menu-trigger
+        data-view-only="swipe"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M5 7h14M5 12h10M5 17h6" />
@@ -1120,6 +1240,7 @@
           class="floating-generate-feedback hidden"
           role="status"
           aria-live="polite"
+          data-view-only="swipe"
         ></div>
       {% endif %}
     {% else %}
@@ -1153,6 +1274,156 @@
     const DISH_PLACEHOLDER = 'https://placehold.co/800x600?text=Dish';
     const TRANSPARENT_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
     const conceptStates = {};
+    const viewToggle = document.querySelector('[data-view-toggle]');
+    const viewContainers = Array.from(document.querySelectorAll('[data-view-container]'));
+    const viewOnlyNodes = Array.from(document.querySelectorAll('[data-view-only]'));
+    const towerView = document.getElementById('towerView');
+    let activeView = null;
+    let towerInitialized = false;
+    let towerButtons = [];
+    let towerTracks = [];
+    let towerActiveConceptId = null;
+
+    function escapeSelector(value) {
+      const stringValue = value === undefined || value === null ? '' : String(value);
+      if (window.CSS && typeof window.CSS.escape === 'function') {
+        try {
+          return window.CSS.escape(stringValue);
+        } catch (error) {
+          return stringValue;
+        }
+      }
+      return stringValue;
+    }
+
+    function setupTowerView() {
+      if (!towerView) {
+        return;
+      }
+
+      towerButtons = Array.from(towerView.querySelectorAll('[data-tower-option]'));
+      towerTracks = Array.from(towerView.querySelectorAll('[data-tower-track]'));
+
+      towerButtons.forEach((button) => {
+        if (button.dataset.towerBound === 'true') {
+          return;
+        }
+        button.dataset.towerBound = 'true';
+        button.addEventListener('click', () => {
+          const conceptId = button.dataset.conceptId || '';
+          activateTowerConcept(conceptId);
+        });
+      });
+
+      towerInitialized = true;
+    }
+
+    function activateTowerConcept(conceptId) {
+      if (!towerView) {
+        return;
+      }
+
+      if (!towerInitialized) {
+        setupTowerView();
+      }
+
+      towerButtons = towerButtons.filter((button) => button.isConnected);
+      towerTracks = towerTracks.filter((track) => track.isConnected);
+
+      if (!towerButtons.length) {
+        towerActiveConceptId = null;
+        return;
+      }
+
+      const availableIds = towerButtons.map((button) => button.dataset.conceptId || '');
+      let targetId = '';
+
+      if (conceptId && availableIds.includes(conceptId)) {
+        targetId = conceptId;
+      } else {
+        targetId = availableIds[0];
+      }
+
+      towerButtons.forEach((button) => {
+        const isActive = button.dataset.conceptId === targetId;
+        button.classList.toggle('is-active', isActive);
+        button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      });
+
+      towerTracks.forEach((track) => {
+        const isMatch = track.dataset.conceptId === targetId;
+        track.classList.toggle('hidden', !isMatch);
+        if (isMatch) {
+          const scroller = track.querySelector('[data-tower-scroller]');
+          if (scroller) {
+            scroller.scrollLeft = 0;
+          }
+        }
+      });
+
+      const activeButton = towerButtons.find((button) => button.dataset.conceptId === targetId);
+      if (activeButton) {
+        activeButton.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      }
+
+      towerActiveConceptId = targetId;
+    }
+
+    function setView(view) {
+      if (!view) {
+        return;
+      }
+
+      viewContainers.forEach((container) => {
+        const isMatch = container.dataset.viewContainer === view;
+        container.classList.toggle('hidden', !isMatch);
+        if (isMatch) {
+          container.removeAttribute('aria-hidden');
+        } else {
+          container.setAttribute('aria-hidden', 'true');
+        }
+      });
+
+      viewOnlyNodes.forEach((node) => {
+        const shouldShow = (node.dataset.viewOnly || '') === view;
+        node.classList.toggle('hidden', !shouldShow);
+      });
+
+      if (view === 'tower') {
+        setupTowerView();
+        activateTowerConcept(towerActiveConceptId);
+      }
+
+      activeView = view;
+    }
+
+    if (viewToggle) {
+      const viewButtons = Array.from(viewToggle.querySelectorAll('[data-view-option]'));
+      const defaultView = viewToggle.dataset.viewDefault || 'swipe';
+
+      const updatePressedState = (activeOption) => {
+        viewButtons.forEach((button) => {
+          const isActive = button.dataset.viewOption === activeOption;
+          button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+      };
+
+      viewButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+          const option = button.dataset.viewOption;
+          if (!option || option === activeView) {
+            return;
+          }
+          updatePressedState(option);
+          setView(option);
+        });
+      });
+
+      updatePressedState(defaultView);
+      setView(defaultView);
+    } else {
+      setView('swipe');
+    }
 
     function loadCardMedia(card) {
       if (
@@ -2324,6 +2595,27 @@
           delete conceptStates[conceptId];
         }
 
+        if (towerView) {
+          const conceptKey = conceptId ? escapeSelector(conceptId) : null;
+          if (conceptKey) {
+            const towerButton = towerView.querySelector(`[data-tower-option][data-concept-id="${conceptKey}"]`);
+            const towerTrack = towerView.querySelector(`[data-tower-track][data-concept-id="${conceptKey}"]`);
+            if (towerButton) {
+              towerButton.remove();
+            }
+            if (towerTrack) {
+              towerTrack.remove();
+            }
+            if (towerActiveConceptId === conceptId) {
+              towerActiveConceptId = null;
+            }
+          }
+          towerInitialized = false;
+          if (activeView === 'tower') {
+            activateTowerConcept(towerActiveConceptId);
+          }
+        }
+
         if (index < currentConceptIndex) {
           currentConceptIndex = Math.max(currentConceptIndex - 1, 0);
         } else if (index === currentConceptIndex) {
@@ -2342,12 +2634,39 @@
         if (!card) {
           return;
         }
-        const track = card.closest('.horizontal-track');
+
+        let track = card.closest('.horizontal-track');
+        const dishId = button.dataset.deleteId ? String(button.dataset.deleteId) : null;
+        let sliderCard = track ? card : null;
+        let towerCard = null;
+
+        if (dishId) {
+          const safeDishId = escapeSelector(dishId);
+          if (!sliderCard) {
+            sliderCard = document.querySelector(`.horizontal-track [data-card][data-dish-id="${safeDishId}"]`);
+          }
+          if (towerView) {
+            towerCard = towerView.querySelector(`[data-card][data-dish-id="${safeDishId}"]`);
+          }
+        }
+
+        card.remove();
+
+        if (towerCard && towerCard !== card) {
+          towerCard.remove();
+        }
+
+        if (sliderCard && sliderCard !== card) {
+          const sliderTrack = sliderCard.closest('.horizontal-track');
+          sliderCard.remove();
+          if (!track) {
+            track = sliderTrack;
+          }
+        }
+
         const conceptIndex = track
           ? Number.parseInt(track.dataset.conceptIndex || '-1', 10)
           : -1;
-
-        card.remove();
 
         if (conceptIndex >= 0 && conceptIndex < dishCounts.length) {
           const nextCount = Math.max(0, (dishCounts[conceptIndex] || 0) - 1);
