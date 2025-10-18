@@ -1139,7 +1139,7 @@
 
 {% block content %}
   <div class="relative min-h-screen">
-    {% if demo_mode %}
+    {% if demo_mode or show_demo_splash %}
       <div id="demoSplash" class="demo-splash" role="status" aria-live="polite">
         <div class="demo-splash-card">
           <div class="demo-splash-title">Training your personal tastemaker…</div>
@@ -1217,43 +1217,19 @@
         </div>
       </div>
     </div>
-    <div class="fixed top-6 left-6 z-40 flex flex-col items-start gap-3">
-      <div class="text-[0.7rem] tracking-[0.55em] uppercase text-slate-200/80">
-        {% if restaurant %}
-          {{ restaurant.name }}
-        {% elif demo_mode %}
-          Appertivo Demo
-        {% else %}
-          Appertivo
-        {% endif %}
+    {% if not hide_restaurant_label %}
+      <div class="fixed top-6 left-6 z-40 flex flex-col items-start gap-3">
+        <div class="text-[0.7rem] tracking-[0.55em] uppercase text-slate-200/80">
+          {% if restaurant %}
+            {{ restaurant.name }}
+          {% elif demo_mode %}
+            Appertivo Demo
+          {% else %}
+            Appertivo
+          {% endif %}
+        </div>
       </div>
-      <div
-        class="view-toggle"
-        role="group"
-        aria-label="Choose layout view"
-        data-view-toggle
-        data-view-default="swipe"
-      >
-        <button
-          type="button"
-          class="view-toggle-btn"
-          data-view-option="swipe"
-          data-view-target="#swipeView"
-          aria-pressed="true"
-        >
-          Swipe view
-        </button>
-        <button
-          type="button"
-          class="view-toggle-btn"
-          data-view-option="tower"
-          data-view-target="#towerView"
-          aria-pressed="false"
-        >
-          Tower view
-        </button>
-      </div>
-    </div>
+    {% endif %}
 
     <!-- Slide-out Menu -->
     {% include "swipe/_slide_menu.html" %}

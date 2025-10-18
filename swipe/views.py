@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from uuid import UUID
 
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponse, HttpResponseBadRequest, JsonResponse, QueryDict
@@ -90,24 +91,23 @@ class SwipeHomeView(TemplateView):
         return context
 
 
-class SwipeDemoView(TemplateView):
+class SwipeDemoView(SwipeHomeView):
     template_name = "swipe/index.html"
+    DEMO_RESTAURANT_ID = UUID("83647628-3514-4224-b1dc-701519004db8")
+
+    def get_restaurant(self):
+        return get_object_or_404(Restaurant, id=self.DEMO_RESTAURANT_ID)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        demo_state = build_demo_state()
-        concepts = demo_state.concepts
-        dish_counts = [len(concept.dishes.all()) for concept in concepts]
-
-        context.update(
-            {
-                "demo_mode": True,
-                "restaurant": None,
-                "concepts": concepts,
-                "dish_counts": dish_counts,
-                "demo_payload": demo_state.as_payload(),
-            }
-        )
+        context["demo_mode"] = True
+        context["show_demo_splash"] = True
+        context["hide_restaurant_label"] = True
+        context["demo_payload"] = {
+            "concepts": [],
+            "buffers": {},
+            "favorites": {"concept_ids": [], "dish_ids": []},
+        }
         return context
 
 
