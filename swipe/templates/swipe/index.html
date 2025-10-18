@@ -240,6 +240,11 @@
       scroll-snap-align: start;
     }
 
+    .tower-track-inner > .card.is-tower-active {
+      border-color: rgba(244, 114, 182, 0.65);
+      box-shadow: 0 32px 60px -38px rgba(59, 130, 246, 0.55);
+    }
+
     .tower-track-inner::-webkit-scrollbar {
       height: 4px;
     }
@@ -844,6 +849,14 @@
       height: 1.5rem;
     }
 
+    .generate-btn-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+    }
+
     .generate-btn [data-spinner] {
       border: 2px solid rgba(255, 255, 255, 0.7);
       border-top-color: transparent;
@@ -912,10 +925,10 @@
     }
 
     .floating-generate-feedback {
-      position: fixed;
-      bottom: calc(2.5rem + 4.5rem);
+      position: absolute;
+      bottom: calc(100% + 0.75rem);
       left: 50%;
-      transform: translateX(-50%);
+      transform: translate(-50%, 0);
       padding: 0.75rem 1.25rem;
       border-radius: 0.75rem;
       background: rgba(15, 23, 42, 0.9);
@@ -926,6 +939,22 @@
       box-shadow: 0 20px 50px -30px rgba(8, 11, 19, 0.85);
       backdrop-filter: blur(12px);
       text-align: center;
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 50;
+    }
+
+    .floating-generate-feedback::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-top: 8px solid rgba(15, 23, 42, 0.9);
     }
 
     .floating-generate-feedback.bg-green-600\/90 {
@@ -938,6 +967,18 @@
 
     .floating-generate-feedback.bg-black\/80 {
       background: rgba(15, 23, 42, 0.8);
+    }
+
+    .floating-generate-feedback.bg-green-600\/90::after {
+      border-top-color: rgba(34, 197, 94, 0.9);
+    }
+
+    .floating-generate-feedback.bg-red-600\/90::after {
+      border-top-color: rgba(225, 29, 72, 0.9);
+    }
+
+    .floating-generate-feedback.bg-black\/80::after {
+      border-top-color: rgba(15, 23, 42, 0.8);
     }
 
     @media (max-width: 600px) {
@@ -1009,13 +1050,20 @@
         height: 1.35rem;
       }
 
-      #generateConceptsBtn {
+      .generate-btn-wrapper {
         position: absolute;
         right: 1rem;
         bottom: calc(100% + 10px);
         z-index: 45;
+      }
+
+      #generateConceptsBtn {
         width: 3rem;
         height: 3rem;
+      }
+
+      .generate-btn-wrapper .floating-generate-feedback {
+        bottom: calc(100% + 0.5rem);
       }
     }
 
@@ -1413,7 +1461,7 @@
       </div>
 
       <!-- Floating Navigation -->
-      <div class="floating-controls" data-view-only="swipe">
+      <div class="floating-controls" data-view-only="swipe tower">
         <div class="floating-controls-inner">
           <button id="navVerticalUp" onclick="navigateVertical(-1)" aria-label="Previous concept">
             <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
@@ -1442,26 +1490,36 @@
             </svg>
           </button>
           {% if restaurant or demo_mode %}
-            <button
-              id="generateConceptsBtn"
-              type="button"
-              class="generate-btn"
-              aria-label="Generate more concepts and dishes"
-              {% if demo_mode %}
-                data-endpoint="#"
-              {% else %}
-                data-endpoint="{% url 'swipe:generate_concepts' restaurant.id %}"
-              {% endif %}
-            >
-              <svg data-icon fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m-7-7h14" />
-              </svg>
-              <span
-                data-spinner
-                class="hidden"
+            <div class="generate-btn-wrapper">
+              <button
+                id="generateConceptsBtn"
+                type="button"
+                class="generate-btn"
+                aria-label="Generate more concepts and dishes"
+                {% if demo_mode %}
+                  data-endpoint="#"
+                {% else %}
+                  data-endpoint="{% url 'swipe:generate_concepts' restaurant.id %}"
+                {% endif %}
+              >
+                <svg data-icon fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m-7-7h14" />
+                </svg>
+                <span
+                  data-spinner
+                  class="hidden"
+                  aria-hidden="true"
+                ></span>
+              </button>
+              <div
+                id="generateConceptsFeedback"
+                class="floating-generate-feedback hidden"
+                role="status"
+                aria-live="polite"
                 aria-hidden="true"
-              ></span>
-            </button>
+                data-view-only="swipe tower"
+              ></div>
+            </div>
           {% endif %}
         </div>
       </div>
@@ -1471,21 +1529,12 @@
         aria-label="Open menu"
         data-tool
         data-menu-trigger
-        data-view-only="swipe"
+        data-view-only="swipe tower"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M5 7h14M5 12h10M5 17h6" />
         </svg>
       </button>
-      {% if restaurant or demo_mode %}
-        <div
-          id="generateConceptsFeedback"
-          class="floating-generate-feedback hidden"
-          role="status"
-          aria-live="polite"
-          data-view-only="swipe"
-        ></div>
-      {% endif %}
     {% else %}
       <div class="flex items-center justify-center pt-32 pb-12">
         <div class="max-w-md rounded-3xl border border-slate-700/60 bg-slate-900/70 p-10 text-center text-slate-200 shadow-[0_35px_70px_-40px_rgba(8,11,19,0.8)]">
@@ -1689,7 +1738,11 @@
       });
 
       viewOnlyNodes.forEach((node) => {
-        const shouldShow = (node.dataset.viewOnly || '') === view;
+        const viewKeys = (node.dataset.viewOnly || '')
+          .split(/[\s,]+/)
+          .map((value) => value.trim())
+          .filter(Boolean);
+        const shouldShow = viewKeys.length ? viewKeys.includes(view) : false;
         node.classList.toggle('hidden', !shouldShow);
       });
 
@@ -2225,6 +2278,7 @@
         generateFeedback.textContent = message;
         generateFeedback.classList.remove('hidden', 'bg-green-600/90', 'bg-red-600/90', 'bg-black/80');
         generateFeedback.classList.add(isError ? 'bg-red-600/90' : 'bg-green-600/90');
+        generateFeedback.removeAttribute('aria-hidden');
 
         if (feedbackTimeoutId) {
           window.clearTimeout(feedbackTimeoutId);
@@ -2232,6 +2286,8 @@
 
         feedbackTimeoutId = window.setTimeout(() => {
           generateFeedback.classList.add('hidden');
+          generateFeedback.setAttribute('aria-hidden', 'true');
+          feedbackTimeoutId = null;
         }, 4000);
       };
 
@@ -2470,7 +2526,96 @@
         return { buttons, panels };
       }
 
-      function setTowerActiveConcept(conceptId, { conceptIndex = null, focus = false } = {}) {
+      function getTowerTrackContext(conceptId) {
+        if (!towerViewContainer || !conceptId) {
+          return { track: null, scroller: null, cards: [] };
+        }
+        const safeId = escapeSelector(conceptId);
+        const track = towerViewContainer.querySelector(
+          `[data-tower-track][data-concept-id="${safeId}"]`,
+        );
+        if (!track) {
+          return { track: null, scroller: null, cards: [] };
+        }
+        const scroller = track.querySelector('[data-tower-scroller]');
+        const cards = scroller ? Array.from(scroller.querySelectorAll('[data-card]')) : [];
+        return { track, scroller, cards };
+      }
+
+      function updateTowerDishFocus(targetIndex, { behavior = 'auto', focus = false } = {}) {
+        const conceptId = getConceptIdByIndex(currentConceptIndex);
+        if (!conceptId) {
+          return;
+        }
+        const { scroller, cards } = getTowerTrackContext(conceptId);
+        if (!scroller) {
+          return;
+        }
+        const scrollBehavior = behavior === 'smooth' ? 'smooth' : 'auto';
+
+        const activeCards = scroller.querySelectorAll('[data-card].is-tower-active');
+        activeCards.forEach((card) => {
+          card.classList.remove('is-tower-active');
+        });
+
+        if (targetIndex <= 0 || cards.length === 0) {
+          if (typeof scroller.scrollTo === 'function') {
+            scroller.scrollTo({ left: 0, behavior: scrollBehavior });
+          } else {
+            scroller.scrollLeft = 0;
+          }
+          return;
+        }
+
+        const adjustedIndex = Math.min(targetIndex - 1, cards.length - 1);
+        const targetCard = cards[adjustedIndex];
+        if (!targetCard) {
+          return;
+        }
+
+        targetCard.classList.add('is-tower-active');
+        const targetLeft = targetCard.offsetLeft;
+
+        if (typeof scroller.scrollTo === 'function') {
+          scroller.scrollTo({ left: targetLeft, behavior: scrollBehavior });
+        } else {
+          scroller.scrollLeft = targetLeft;
+        }
+
+        if (focus && typeof targetCard.focus === 'function') {
+          targetCard.focus({ preventScroll: true });
+        }
+      }
+
+      function inferTowerDishIndex(conceptId) {
+        const { scroller, cards } = getTowerTrackContext(conceptId);
+        if (!scroller || cards.length === 0) {
+          return 0;
+        }
+
+        const scrollLeft = scroller.scrollLeft;
+        if (scrollLeft <= 16) {
+          return 0;
+        }
+
+        let closestIndex = 0;
+        let closestDistance = Number.POSITIVE_INFINITY;
+
+        cards.forEach((card, index) => {
+          const delta = Math.abs(card.offsetLeft - scrollLeft);
+          if (delta < closestDistance) {
+            closestDistance = delta;
+            closestIndex = index;
+          }
+        });
+
+        return closestIndex + 1;
+      }
+
+      function setTowerActiveConcept(
+        conceptId,
+        { conceptIndex = null, focus = false, behavior = 'auto' } = {},
+      ) {
         if (!towerViewContainer || !conceptId) {
           return;
         }
@@ -2534,6 +2679,12 @@
           panel.setAttribute('aria-hidden', matches ? 'false' : 'true');
         });
 
+        const shouldFocusDish = activeView === 'tower' && currentDishIndex > 0;
+        updateTowerDishFocus(currentDishIndex, {
+          behavior,
+          focus: shouldFocusDish,
+        });
+
         towerViewContainer
           .querySelectorAll(`[data-load-dishes][data-concept-id="${conceptId}"]`)
           .forEach((button) => {
@@ -2571,10 +2722,15 @@
           panel.classList.add('hidden');
           panel.setAttribute('aria-hidden', 'true');
         });
+        towerViewContainer
+          .querySelectorAll('[data-card].is-tower-active')
+          .forEach((card) => {
+            card.classList.remove('is-tower-active');
+          });
         towerActiveConceptId = null;
       }
 
-      function syncTowerView({ focus = false } = {}) {
+      function syncTowerView({ focus = false, behavior = 'auto' } = {}) {
         if (!towerViewContainer) {
           return;
         }
@@ -2583,6 +2739,7 @@
           setTowerActiveConcept(conceptId, {
             conceptIndex: currentConceptIndex,
             focus,
+            behavior,
           });
           return;
         }
@@ -2627,7 +2784,10 @@
         }
 
         if (activeView === 'tower') {
-          syncTowerView({ focus: focusTower });
+          syncTowerView({
+            focus: focusTower,
+            behavior: focusTower ? 'smooth' : 'auto',
+          });
         } else if (previousView === 'tower' && !towerActiveConceptId) {
           clearTowerSelection();
         }
@@ -2695,6 +2855,8 @@
           : null;
         setTowerActiveConcept(conceptId, {
           conceptIndex: Number.isInteger(parsedIndex) ? parsedIndex : null,
+          focus: true,
+          behavior: 'smooth',
         });
       });
 
@@ -2949,6 +3111,9 @@
             updateHorizontalPosition({ instant: true });
             updatePositionIndicator();
             updateNavigationButtons();
+            if (activeView === 'tower') {
+              syncTowerView({ behavior: 'auto' });
+            }
           }
         }
 
@@ -3131,8 +3296,19 @@
       });
 
       window.navigateVertical = function(direction) {
-        if (totalConcepts === 0 || currentDishIndex !== 0) {
+        if (totalConcepts === 0) {
           return;
+        }
+
+        if (activeView !== 'tower' && currentDishIndex !== 0) {
+          return;
+        }
+
+        if (activeView === 'tower' && currentDishIndex !== 0) {
+          currentDishIndex = 0;
+          updateHorizontalPosition({ instant: true });
+          updatePositionIndicator();
+          updateNavigationButtons();
         }
 
         const newIndex = currentConceptIndex + direction;
@@ -3147,7 +3323,7 @@
           updateNavigationButtons();
           prepareBufferForConcept(currentConceptIndex);
           if (activeView === 'tower') {
-            syncTowerView();
+            syncTowerView({ focus: true, behavior: 'smooth' });
           }
         }
       };
@@ -3156,6 +3332,17 @@
         if (totalConcepts === 0) {
           return;
         }
+
+        if (activeView === 'tower') {
+          const conceptId = getConceptIdByIndex(currentConceptIndex);
+          if (conceptId) {
+            const inferredIndex = inferTowerDishIndex(conceptId);
+            if (Number.isFinite(inferredIndex)) {
+              currentDishIndex = inferredIndex;
+            }
+          }
+        }
+
         const dishCount = dishCounts[currentConceptIndex] || 0;
         if (direction > 0 && currentDishIndex + direction > dishCount) {
           prepareNextDishCard(currentConceptIndex);
@@ -3168,7 +3355,7 @@
           updatePositionIndicator();
           updateNavigationButtons();
           if (activeView === 'tower') {
-            syncTowerView();
+            syncTowerView({ behavior: 'smooth' });
           }
         }
       };
@@ -3288,13 +3475,15 @@
         const conceptId = getConceptIdByIndex(currentConceptIndex);
         const placeholderActive = conceptId ? hasActivePlaceholder(conceptId) : false;
         const isOnConceptCard = currentDishIndex === 0;
+        const allowVerticalFromDish = activeView === 'tower';
+        const canUseVertical = isOnConceptCard || allowVerticalFromDish;
 
         if (navVerticalUp) {
-          navVerticalUp.disabled = !isOnConceptCard || currentConceptIndex === 0;
+          navVerticalUp.disabled = !canUseVertical || currentConceptIndex === 0;
         }
         if (navVerticalDown) {
           navVerticalDown.disabled =
-            !isOnConceptCard || currentConceptIndex >= totalConcepts - 1;
+            !canUseVertical || currentConceptIndex >= totalConcepts - 1;
         }
         if (navHorizontalLeft) {
           navHorizontalLeft.disabled = currentDishIndex === 0;
@@ -3568,7 +3757,7 @@
           prepareBufferForConcept(currentConceptIndex);
 
           if (activeView === 'tower') {
-            syncTowerView();
+            syncTowerView({ behavior: instant ? 'auto' : 'smooth' });
           }
 
           return true;
