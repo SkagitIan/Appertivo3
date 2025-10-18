@@ -5,6 +5,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Appertivo - AI That Knows Your Restaurant{% endblock %}</title>
+    <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Shadows+Into+Light&display=swap"
+    >
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
     <style>
@@ -546,24 +550,173 @@
         }
 
         .testimonial {
-            background: rgba(30, 41, 59, 0.4);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(148, 163, 184, 0.2);
-            border-radius: 1.5rem;
-            padding: 2.5rem;
-            font-size: 1.1rem;
-            line-height: 1.8;
+            position: relative;
+            background: rgba(30, 41, 59, 0.55);
+            backdrop-filter: blur(14px);
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            border-radius: 1.75rem;
+            padding: 2.75rem;
+            overflow: hidden;
+        }
+
+        .testimonial-rotator {
+            position: relative;
+            min-height: 420px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .testimonial-panel {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 2rem;
+            gap: 1.5rem;
+            opacity: 0;
+            transform: translateY(18px);
+            animation: testimonial-cycle 18s infinite;
+            animation-fill-mode: both;
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+
+        .testimonial-panel:nth-child(1) { animation-delay: 0s; }
+        .testimonial-panel:nth-child(2) { animation-delay: 6s; }
+        .testimonial-panel:nth-child(3) { animation-delay: 12s; }
+
+        .testimonial-panel.is-quote {
+            text-align: left;
+            align-items: flex-start;
+            justify-content: center;
+            gap: 1.75rem;
+        }
+
+        .testimonial-stage-tag {
+            font-size: 0.75rem;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            color: rgba(148, 163, 184, 0.75);
         }
 
         .testimonial-quote {
             font-style: italic;
             color: #e2e8f0;
-            margin-bottom: 1.5rem;
+            font-size: 1.2rem;
+            line-height: 1.9;
         }
 
         .testimonial-author {
             color: #94a3b8;
-            font-size: 0.875rem;
+            font-size: 0.95rem;
+        }
+
+        .testimonial-panel.is-sketch,
+        .testimonial-panel.is-dish {
+            text-align: center;
+        }
+
+        .testimonial-sketch {
+            position: relative;
+            width: min(280px, 70%);
+            aspect-ratio: 4 / 5;
+            border-radius: 1.5rem;
+            overflow: hidden;
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            background: rgba(15, 23, 42, 0.35);
+            box-shadow: 0 28px 48px -36px rgba(8, 11, 19, 0.8);
+        }
+
+        .testimonial-sketch::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.05) 10%, rgba(15, 23, 42, 0.65) 100%);
+            mix-blend-mode: multiply;
+            pointer-events: none;
+        }
+
+        .testimonial-sketch img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .testimonial-sketch-label {
+            position: absolute;
+            bottom: 1rem;
+            left: 1.1rem;
+            right: 1.1rem;
+            font-family: 'Shadows Into Light', cursive;
+            font-size: 1.35rem;
+            letter-spacing: 0.08em;
+            color: #f8fafc;
+            text-shadow: 0 14px 28px rgba(15, 23, 42, 0.75);
+        }
+
+        .testimonial-dish {
+            width: min(320px, 80%);
+            border-radius: 1.5rem;
+            overflow: hidden;
+            border: 1px solid rgba(148, 163, 184, 0.28);
+            background: rgba(15, 23, 42, 0.4);
+            box-shadow: 0 32px 60px -32px rgba(8, 11, 19, 0.85);
+        }
+
+        .testimonial-dish img {
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: cover;
+        }
+
+        .testimonial-stage-note {
+            max-width: 340px;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: rgba(226, 232, 240, 0.75);
+        }
+
+        @keyframes testimonial-cycle {
+            0%, 27% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            33%, 100% {
+                opacity: 0;
+                transform: translateY(24px);
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .testimonial-panel {
+                position: relative;
+                opacity: 1;
+                transform: none;
+                animation: none;
+            }
+
+            .testimonial-panel:not(:first-child) {
+                display: none;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .testimonial {
+                padding: 2.25rem;
+            }
+
+            .testimonial-rotator {
+                min-height: 360px;
+            }
+
+            .testimonial-stage-note {
+                max-width: 100%;
+            }
         }
 
         /* Pricing */
