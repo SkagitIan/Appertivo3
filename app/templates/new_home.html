@@ -4,6 +4,96 @@
 {% block title %}Appertivo - AI That Knows Your Restaurant{% endblock %}
 
 {% block content %}
+
+
+<style>
+.feature-card.p-0 {
+  padding: 0;
+  overflow: hidden;
+}
+
+.animation-demo {
+  --gap: 0.5rem;
+  --t: 18s;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  border-radius: inherit;
+  overflow: hidden; /* keep corners consistent */
+}
+
+/* The inner mask fully fills and inherits rounding */
+.animation-demo .mask {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+/* The animation track spans horizontally */
+.animation-demo .track {
+  display: flex;
+  width: 200%;
+  height: 100%;
+  animation: slideX var(--t) ease-in-out infinite;
+}
+
+/* --- sketches column --- */
+.animation-demo .sketches {
+  flex: 0 0 100%;
+  display: flex;
+  flex-direction: column;
+  animation: scrollY var(--t) ease-in-out infinite;
+}
+
+.animation-demo .sketches img {
+  width: 100%;
+  height: 100%;
+  flex: 1;
+  border-radius: inherit;
+  object-fit: cover;
+  object-position: center center;
+  filter: grayscale(0.85) contrast(0.9);
+}
+
+/* --- dishes row --- */
+.animation-demo .dishes {
+  flex: 0 0 100%;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  margin-left: 0;
+}
+
+.animation-demo .dishes img {
+  flex: 1 1 0;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+  image-rendering: crisp-edges;
+}
+
+/* --- vertical scroll --- */
+@keyframes scrollY {
+  0%, 10% { transform: translateY(0); }
+  30% { transform: translateY(-100%); }
+  50% { transform: translateY(-200%); }
+  60%, 100% { transform: translateY(-200%); }
+}
+
+/* --- horizontal slide --- */
+@keyframes slideX {
+  0%, 45% { transform: translateX(0); }
+  55%, 95% { transform: translateX(-50%); }
+  100% { transform: translateX(0); }
+}
+
+</style>
+
+
     <div class="topbar">
         {% if request.user.is_authenticated %}
             {% primary_restaurant as current_restaurant %}
@@ -40,14 +130,14 @@
                 <span class="highlight">Your Restaurant</span>
             </h1>
             <p>
-                Trained on your menus, reviews, pricing, and location. Appertivo generates dish concepts and ideas that match what you can offer and what your guests actually want.
+                 Not generic food ideas. Not impossible dishes. Appertivo learns from your actual restaurant data to generate concepts that fit your kitchen, pricing, and what your guests love.
             </p>
             <div class="subtext">
                 Every concept is relevant. Every dish is realistic.
             </div>
             <div class="cta-group">
                 <a href="{% url 'signup' %}" class="btn btn-primary">Start Your 10 Dishes Free</a>
-                <span class="trial-badge">Then $59/month</span>
+                <a href="/swipe/demo"><span class="trial-badge">Live Demo</span></a>
             </div>
         </div>
     </section>
@@ -60,7 +150,7 @@
                 <span class="highlight">Your Restaurant's Reality</span>
             </h2>
             <p class="lead">
-                Not generic food ideas. Not impossible dishes. Appertivo learns from your actual restaurant data to generate concepts that fit your kitchen, pricing, and what your guests love.
+                Not generic food ideas. Not impossible dishes. Appertivo learns from your actual restaurant data to generate concepts -> dishes that fit your kitchen, pricing, and what your guests love.
             </p>
 
             <div class="training-sources">
@@ -84,11 +174,18 @@
         </div>
     </section>
 
+
+
     <!-- Features Section -->
     <section class="features">
         <div class="section-header">
-            <h2>From Relevant Concepts to Ready Dishes</h2>
-            <p>AI-powered tools that understand your restaurant's constraints and opportunities.</p>
+            <h2>Visualize Dishes Before You Launch</h2>
+                <p>Create and refine realistic dish imagery that matches your plating style and guest expectations.<br/>
+                </p>
+                <div class="cta-group mt-4">
+                <a href="{% url 'signup' %}" class="btn btn-primary">Start Your 10 Dishes Free</a>
+                <a href="/swipe/demo"><span class="trial-badge">Live Demo</span></a>
+            </div>
         </div>
 
         <div class="features-grid">
@@ -104,72 +201,33 @@
                 <p>Generate dish imagery that looks like it came right out of your kitchen, not a stock photo library.</p>
             </div>
 
-            <div class="feature-card">
-                <div class="feature-icon">🧠</div>
-                <h3>Menu Intelligence</h3>
-                <p>Get ingredient sourcing, flavor notes, guest appeal, and positioning guidance for every concept.</p>
+            <div class="feature-card p-0">
+<section class="animation-demo">
+  <div class="mask">
+    <div class="track">
+      <!-- Vertical reel: 3 sketches stacked -->
+      <div class="sketches">
+        <img src="https://res.cloudinary.com/dfz4bhlzs/image/upload/v1760474125/concept_sketches/8d79a138-98d1-4c75-8377-65baf4e0255d.png" alt="Sketch 1">
+        <img src="https://res.cloudinary.com/dfz4bhlzs/image/upload/v1760474125/concept_sketches/8d79a138-98d1-4c75-8377-65baf4e0255d.png" alt="Sketch 2">
+        <img src="https://res.cloudinary.com/dfz4bhlzs/image/upload/v1760474125/concept_sketches/8d79a138-98d1-4c75-8377-65baf4e0255d.png" alt="Sketch 3">
+      </div>
+
+      <!-- Horizontal row: 3 dishes inline -->
+      <div class="dishes">
+        <img src="https://res.cloudinary.com/dfz4bhlzs/image/upload/f_auto,q_auto,c_fill,g_auto:subject,w_1000/v1760829337/dish_images/dcacc66c-e9e2-422c-9690-fee8d65a3431.jpg" alt="Dish 1">
+        <img src="https://res.cloudinary.com/dfz4bhlzs/image/upload/f_auto,q_auto,c_fill,g_auto:subject,w_1000/v1760829337/dish_images/dcacc66c-e9e2-422c-9690-fee8d65a3431.jpg" alt="Dish 1">
+        <img src="https://res.cloudinary.com/dfz4bhlzs/image/upload/f_auto,q_auto,c_fill,g_auto:subject,w_1000/v1760829337/dish_images/dcacc66c-e9e2-422c-9690-fee8d65a3431.jpg" alt="Dish 1">
+      </div>
+    </div>
+  </div>
+</section>
+
             </div>
         </div>
     </section>
     <section>
       <!-- Features Section -->
 
-    <!-- Interactive Demo Section -->
-    <section class="demo-section">
-        <div class="demo-container">
-            <div class="demo-content">
-                <h2>Visualize Dishes Before You Launch</h2>
-                <p>Create and refine realistic dish imagery that matches your plating style and guest expectations.</p>
-                <div class="cta-group" style="justify-content: flex-start;">
-                    <a href="{% url 'signup' %}" class="btn btn-primary">Start Generating Concepts</a>
-                </div>
-            </div>
-
-            <div class="demo-visual">
-              <!-- Embedded Video -->
-  <div class="relative max-w-4xl mx-auto rounded-2xl overflow-hidden shadow-2xl mb-16 border border-[#49475B]/30">
-    <video autoplay loop muted playsinline class="w-full aspect-video object-cover">
-      <source src="https://res.cloudinary.com/dfz4bhlzs/video/upload/c_scale,w_400/v1760731088/screen-20251017-125316_3_pa4jv0.mp4" type="video/mp4" />
-      Your browser does not support the video tag.
-    </video>
-  </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- How It Works -->
-    <section class="how-it-works">
-        <div class="section-header">
-            <h2>How It Works</h2>
-            <p>From data to dishes in four simple steps.</p>
-        </div>
-
-        <div class="steps">
-            <div class="step">
-                <div class="step-number">1</div>
-                <h3>We Learn Your Restaurant</h3>
-                <p>Connect your menus, reviews, and location data. Our AI builds a custom model that understands your unique reality.</p>
-            </div>
-
-            <div class="step">
-                <div class="step-number">2</div>
-                <h3>Generate Relevant Concepts</h3>
-                <p>Browse AI-generated dish concepts tailored to your kitchen, pricing, and guest preferences. Every idea is actionable.</p>
-            </div>
-
-            <div class="step">
-                <div class="step-number">3</div>
-                <h3>Refine & Visualize</h3>
-                <p>Create variations, tweak ingredients, adjust plating. See realistic dish imagery that matches your restaurant's aesthetic.</p>
-            </div>
-
-            <div class="step">
-                <div class="step-number">4</div>
-                <h3>Launch With Confidence</h3>
-                <p>Favorite the winners, generate menu copy, share with your team. Go from concept to launch faster than ever.</p>
-            </div>
-        </div>
-    </section>
 
     <!-- Social Proof -->
     <section class="social-proof">
@@ -183,7 +241,7 @@
                     <div class="card testimonial-card is-active" data-testimonial-card data-stage="quote" aria-hidden="false">
                         <div class="card-inner">
                             <div class="card-face card-front card-front--quote" data-media-state="loaded">
-                                <span class="testimonial-stage-tag">01 • Real feedback</span>
+                            
                                 <blockquote class="testimonial-quote">
                                     "The AI actually understands our price points and what works in our kitchen. Every concept feels like something we could actually do."
                                 </blockquote>
@@ -192,7 +250,7 @@
                             <div class="card-face card-back card-back--note">
                                 <div class="card-back-content">
                                     <div class="card-back-body">
-                                        <h3 class="card-back-heading">Real feedback</h3>
+                                        
                                         <p class="card-back-description">
                                             "The AI actually understands our price points and what works in our kitchen. Every concept feels like something we could actually do."
                                         </p>
@@ -207,12 +265,12 @@
                             <div class="card-face card-front card-front--media" data-media-state="loaded">
                                 <span class="card-note">Cedar-Planked Ribeye</span>
                                 <img
-                                    src="https://images.unsplash.com/photo-1482049016688-2d3e1b311543?auto=format&fit=crop&w=1200&q=80"
+                                    src="https://res.cloudinary.com/dfz4bhlzs/image/upload/v1760702527/concept_sketches/9d937692-4e44-40b0-bead-4e5c3f2792f9.png"
                                     alt="Pencil sketch outlining a cedar-planked ribeye special"
                                     loading="lazy"
                                     class="card-media is-loaded"
                                 >
-                                <span class="testimonial-sketch-label">Concept sketch</span>
+                                <span class="testimonial-sketch-label"></span>
                             </div>
                             <div class="card-face card-back">
                                 <div class="card-back-content">
@@ -239,7 +297,7 @@
                             <div class="card-face card-back">
                                 <div class="card-back-content">
                                     <div class="card-back-body">
-                                        <h3 class="card-back-heading">Dish visual</h3>
+                                        <h3 class="card-back-heading"></h3>
                                         <p class="card-back-description">
                                             Preview plating, pricing notes, and service cues before running the special for guests.
                                         </p>
@@ -253,10 +311,10 @@
 
             <div class="testimonial">
                 <div class="testimonial-card-stack" data-testimonial-rotator>
-                    <div class="card testimonial-card is-active" data-testimonial-card data-stage="quote" aria-hidden="false">
+                    <div class="card testimonial-card" data-testimonial-card data-stage="quote" aria-hidden="true">
                         <div class="card-inner">
                             <div class="card-face card-front card-front--quote" data-media-state="loaded">
-                                <span class="testimonial-stage-tag">01 • Real feedback</span>
+                                
                                 <blockquote class="testimonial-quote">
                                     "It's like having a sous chef who's read every review we've ever gotten and knows exactly what our guests want more of."
                                 </blockquote>
@@ -265,7 +323,7 @@
                             <div class="card-face card-back card-back--note">
                                 <div class="card-back-content">
                                     <div class="card-back-body">
-                                        <h3 class="card-back-heading">Real feedback</h3>
+                                        
                                         <p class="card-back-description">
                                             "It's like having a sous chef who's read every review we've ever gotten and knows exactly what our guests want more of."
                                         </p>
@@ -275,17 +333,17 @@
                             </div>
                         </div>
                     </div>
-                    <div class="card testimonial-card" data-testimonial-card data-stage="concept" aria-hidden="true">
+                    <div class="card testimonial-card is-active" data-testimonial-card data-stage="concept" aria-hidden="false">
                         <div class="card-inner">
                             <div class="card-face card-front card-front--media" data-media-state="loaded">
                                 <span class="card-note">Sea Glass Tower</span>
                                 <img
-                                    src="https://images.unsplash.com/photo-1498654896293-37aacf113fd9?auto=format&fit=crop&w=1200&q=80"
+                                    src="https://res.cloudinary.com/dfz4bhlzs/image/upload/v1760729008/concept_sketches/984a54a0-86b8-43ea-a2c1-f9dc429bc1d3.png"
                                     alt="Pencil sketch of a seafood tower concept with oysters and citrus"
                                     loading="lazy"
                                     class="card-media is-loaded"
                                 >
-                                <span class="testimonial-sketch-label">Concept sketch</span>
+                               
                             </div>
                             <div class="card-face card-back">
                                 <div class="card-back-content">
@@ -312,7 +370,7 @@
                             <div class="card-face card-back">
                                 <div class="card-back-content">
                                     <div class="card-back-body">
-                                        <h3 class="card-back-heading">Dish visual</h3>
+                                        
                                         <p class="card-back-description">
                                             Detailed imagery helps the team rehearse the build and nail the guest story before service.
                                         </p>
@@ -326,10 +384,10 @@
 
             <div class="testimonial">
                 <div class="testimonial-card-stack" data-testimonial-rotator>
-                    <div class="card testimonial-card is-active" data-testimonial-card data-stage="quote" aria-hidden="false">
+                    <div class="card testimonial-card" data-testimonial-card data-stage="quote" aria-hidden="true">
                         <div class="card-inner">
                             <div class="card-face card-front card-front--quote" data-media-state="loaded">
-                                <span class="testimonial-stage-tag">01 • Real feedback</span>
+                                
                                 <blockquote class="testimonial-quote">
                                     "We went from concept to menu-ready in a week. The descriptions matched our voice perfectly without any editing."
                                 </blockquote>
@@ -338,7 +396,7 @@
                             <div class="card-face card-back card-back--note">
                                 <div class="card-back-content">
                                     <div class="card-back-body">
-                                        <h3 class="card-back-heading">Real feedback</h3>
+                                        
                                         <p class="card-back-description">
                                             "We went from concept to menu-ready in a week. The descriptions matched our voice perfectly without any editing."
                                         </p>
@@ -353,12 +411,12 @@
                             <div class="card-face card-front card-front--media" data-media-state="loaded">
                                 <span class="card-note">Weekend Harvest Plate</span>
                                 <img
-                                    src="https://images.unsplash.com/photo-1470337458703-46ad1756a187?auto=format&fit=crop&w=1200&q=80"
+                                    src="https://res.cloudinary.com/dfz4bhlzs/image/upload/v1760462333/concept_sketches/5a365ef8-feb2-4c91-863c-7f477696dc73.png"
                                     alt="Pencil sketch planning a modern brunch dish"
                                     loading="lazy"
                                     class="card-media is-loaded"
                                 >
-                                <span class="testimonial-sketch-label">Concept sketch</span>
+                               
                             </div>
                             <div class="card-face card-back">
                                 <div class="card-back-content">
@@ -372,7 +430,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="card testimonial-card" data-testimonial-card data-stage="dish" aria-hidden="true">
+                    <div class="card testimonial-card is-active" data-testimonial-card data-stage="dish" aria-hidden="false">
                         <div class="card-inner">
                             <div class="card-face card-front card-front--media" data-media-state="loaded">
                                 <img
@@ -385,7 +443,7 @@
                             <div class="card-face card-back">
                                 <div class="card-back-content">
                                     <div class="card-back-body">
-                                        <h3 class="card-back-heading">Dish visual</h3>
+                                        
                                         <p class="card-back-description">
                                             Keep menu copy, photography notes, and rollout assets aligned from idea to launch.
                                         </p>
@@ -398,6 +456,50 @@
             </div>
         </div>
     </section>
+
+    <div class="mx-auto mt-24 w-full max-w-4xl px-6">
+        <section class="relative overflow-hidden rounded-3xl border border-indigo-500/20 bg-slate-950/90 px-6 py-10 shadow-[0_36px_90px_rgba(8,12,25,0.45)] sm:px-10 md:py-12">
+            <div class="pointer-events-none absolute -left-24 top-1/2 hidden h-56 w-56 -translate-y-1/2 rounded-full bg-indigo-500/10 blur-3xl lg:block"></div>
+            <div class="pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full bg-violet-500/10 blur-3xl"></div>
+            <div class="relative space-y-10">
+                <div class="space-y-5 text-slate-100">
+                    <p class="text-xs font-semibold uppercase tracking-[0.35em] text-indigo-300/80">Newsletter</p>
+                    <h2 class="text-3xl font-semibold sm:text-4xl">Join the Appertivo Weekly</h2>
+                    <p class="text-base text-slate-300 sm:text-lg">
+                        Sign up to receive customer-created dishes, AI plating upgrades, and early access to new tools that power your menu.
+                    </p>
+                    <div class="flex flex-wrap gap-3 text-xs font-medium uppercase tracking-wide text-slate-200/80">
+                        <span class="rounded-full border border-indigo-500/30 bg-slate-900/70 px-4 py-1">Weekly service-ready dishes</span>
+                        <span class="rounded-full border border-indigo-500/30 bg-slate-900/70 px-4 py-1">AI workflows that work</span>
+                        <span class="rounded-full border border-indigo-500/30 bg-slate-900/70 px-4 py-1">Tool drops & tasting invites</span>
+                    </div>
+                </div>
+                <form method="post" novalidate class="space-y-4 text-slate-100">
+                    {% csrf_token %}
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+                        {{ newsletter_form.email }}
+                        <button type="submit" class="btn btn-primary w-full sm:w-auto">Subscribe</button>
+                    </div>
+                    {% if subscription_status == "created" %}
+                        <p class="text-sm text-lime-300/90">
+                            Thanks for joining! We’ll send the next collection straight to your inbox.
+                        </p>
+                    {% elif subscription_status == "exists" %}
+                        <p class="text-sm text-amber-300/90">
+                            You’re already on the list—watch for this week’s drop of dishes and tools.
+                        </p>
+                    {% elif subscription_status == "invalid" %}
+                        <p class="text-sm text-rose-200">
+                            {{ newsletter_form.email.errors.0|default:"Please enter a valid email address." }}
+                        </p>
+                    {% endif %}
+                    <p class="text-xs text-slate-400">
+                        We send one email each week. No spam—unsubscribe any time.
+                    </p>
+                </form>
+            </div>
+        </section>
+    </div>
 
     <!-- Pricing -->
     <section class="pricing">
@@ -481,7 +583,15 @@
             return;
           }
 
-          let currentIndex = 0;
+          let currentIndex = cards.findIndex((card) => card.classList.contains('is-active'));
+          if (currentIndex < 0) {
+            currentIndex = 0;
+          }
+          cards.forEach((card, idx) => {
+            if (idx !== currentIndex) {
+              card.classList.remove('is-active');
+            }
+          });
           let timerId = null;
 
           const syncState = () => {

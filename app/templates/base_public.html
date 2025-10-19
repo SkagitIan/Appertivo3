@@ -13,6 +13,9 @@
         rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&display=swap"
     >
+      <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+  <script src="https://unpkg.com/alpinejs" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
     <style>
@@ -190,6 +193,20 @@
         .btn-primary:hover {
             transform: translateY(-2px);
             box-shadow: 0 20px 40px rgba(167, 139, 250, 0.3);
+        }
+
+        .btn-outline {
+            border: 1px solid rgba(236, 72, 153, 0.65);
+            color: #f472b6;
+            background: transparent;
+        }
+
+        .btn-outline:hover {
+            transform: translateY(-2px);
+            border-color: rgba(236, 72, 153, 0.85);
+            color: #fecdd3;
+            background: rgba(236, 72, 153, 0.12);
+            box-shadow: 0 20px 40px rgba(236, 72, 153, 0.18);
         }
 
         .trial-badge {
@@ -501,42 +518,319 @@
         /* How It Works */
         .how-it-works {
             padding: 8rem 2rem;
-            max-width: 1400px;
+            max-width: 1320px;
             margin: 0 auto;
+            position: relative;
         }
 
-        .steps {
+        .how-it-works::before {
+            content: '';
+            position: absolute;
+            inset: 12% auto auto -120px;
+            width: 260px;
+            height: 260px;
+            background: radial-gradient(50% 50% at 50% 50%, rgba(79, 70, 229, 0.25) 0%, rgba(15, 23, 42, 0) 70%);
+            opacity: 0.75;
+            pointer-events: none;
+            filter: blur(2px);
+        }
+
+        .how-layout {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 3rem;
+            gap: clamp(2.5rem, 6vw, 4.5rem);
+            grid-template-columns: minmax(260px, 360px) minmax(0, 1fr);
+            align-items: start;
             margin-top: 4rem;
         }
 
-        .step {
-            text-align: center;
+        .how-intro-card {
+            position: relative;
+            padding: clamp(2rem, 4vw, 2.75rem);
+            border-radius: 28px;
+            background: rgba(15, 23, 42, 0.55);
+            border: 1px solid rgba(148, 163, 184, 0.32);
+            box-shadow: 0 48px 80px -48px rgba(8, 11, 19, 0.75);
+            display: grid;
+            gap: 1.5rem;
+            overflow: hidden;
         }
 
-        .step-number {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            border: 1px solid rgba(148, 163, 184, 0.3);
+        .how-intro-card::after {
+            content: '';
+            position: absolute;
+            inset: auto -40% -45% auto;
+            width: 320px;
+            height: 320px;
+            background: radial-gradient(circle, rgba(244, 114, 182, 0.32), rgba(59, 130, 246, 0));
+            filter: blur(1px);
+            animation: howPulse 7s ease-in-out infinite alternate;
+            pointer-events: none;
+        }
+
+        .how-intro-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.45rem 1.25rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            background: linear-gradient(135deg, rgba(244, 114, 182, 0.15), rgba(59, 130, 246, 0.28));
+            color: rgba(226, 232, 240, 0.75);
+            border: 1px solid rgba(148, 163, 184, 0.35);
+        }
+
+        .how-intro-card h3 {
+            font-size: clamp(1.7rem, 3vw, 2.2rem);
+            line-height: 1.35;
+        }
+
+        .how-intro-card p {
+            color: rgba(226, 232, 240, 0.7);
+            line-height: 1.75;
+        }
+
+        .how-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .how-pill {
+            padding: 0.55rem 1.15rem;
+            border-radius: 9999px;
+            background: rgba(148, 163, 184, 0.18);
+            border: 1px solid rgba(148, 163, 184, 0.28);
+            font-size: 0.85rem;
+            color: rgba(226, 232, 240, 0.85);
+        }
+
+        .how-metrics {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .how-metric {
+            flex: 1;
+            min-width: 140px;
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(148, 163, 184, 0.24);
+            border-radius: 20px;
+            padding: 1.15rem 1.25rem;
+            display: grid;
+            gap: 0.35rem;
+            transition: transform 0.4s ease, border-color 0.4s ease;
+        }
+
+        .how-metric:hover {
+            transform: translateY(-4px);
+            border-color: rgba(244, 114, 182, 0.45);
+        }
+
+        .metric-value {
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: rgba(244, 114, 182, 0.95);
+        }
+
+        .metric-label {
+            font-size: 0.75rem;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: rgba(148, 163, 184, 0.7);
+        }
+
+        .how-steps {
+            --timeline-x: clamp(1rem, 3vw, 1.35rem);
+            position: relative;
+            padding-left: calc(var(--timeline-x) + 2.6rem);
+            display: grid;
+            gap: clamp(1.75rem, 2.5vw, 2.75rem);
+        }
+
+        .how-steps::before {
+            content: '';
+            position: absolute;
+            left: var(--timeline-x);
+            top: 0.5rem;
+            bottom: 0.5rem;
+            width: 2px;
+            background: linear-gradient(180deg, rgba(244, 114, 182, 0.4), rgba(59, 130, 246, 0.4));
+            opacity: 0.7;
+            animation: howLineGlow 6s ease-in-out infinite;
+            box-shadow: 0 0 0 rgba(244, 114, 182, 0);
+        }
+
+        .how-step {
+            position: relative;
+            background: rgba(15, 23, 42, 0.5);
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            border-radius: 24px;
+            padding: clamp(1.6rem, 3vw, 2.2rem) clamp(1.75rem, 3vw, 2.4rem);
+            box-shadow: 0 30px 60px -40px rgba(8, 11, 19, 0.85);
+            display: grid;
+            gap: 0.75rem;
+            overflow: hidden;
+            opacity: 0;
+            transform: translate3d(0, 32px, 0);
+            animation: howFadeUp 0.9s ease forwards;
+            animation-delay: var(--reveal-delay, 0s);
+            transition: transform 0.35s ease, border-color 0.35s ease;
+        }
+
+        .how-step::before {
+            content: attr(data-step);
+            position: absolute;
+            left: calc(var(--timeline-x) - 1.3rem);
+            top: 1.4rem;
+            width: 2.6rem;
+            height: 2.6rem;
+            border-radius: 999px;
+            background: linear-gradient(135deg, rgba(244, 114, 182, 0.92), rgba(59, 130, 246, 0.88));
+            color: #0f172a;
+            font-weight: 600;
+            letter-spacing: 0.08em;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0 auto 1.5rem;
-            font-size: 1.5rem;
-            color: #a78bfa;
+            box-shadow: 0 18px 30px -18px rgba(59, 130, 246, 0.8);
         }
 
-        .step h3 {
-            font-size: 1.5rem;
-            margin-bottom: 1rem;
+        .how-step::after {
+            content: '';
+            position: absolute;
+            inset: auto 45% -45px -45px;
+            height: 120px;
+            background: radial-gradient(circle, rgba(244, 114, 182, 0.18), rgba(59, 130, 246, 0));
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            pointer-events: none;
         }
 
-        .step p {
-            color: #94a3b8;
-            line-height: 1.7;
+        .how-step:hover {
+            transform: translate3d(0, -6px, 0);
+            border-color: rgba(244, 114, 182, 0.45);
+        }
+
+        .how-step:hover::after {
+            opacity: 1;
+        }
+
+        .how-step-heading {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 0.75rem;
+        }
+
+        .how-step h3 {
+            font-size: 1.55rem;
+            letter-spacing: -0.01em;
+        }
+
+        .how-step-meta {
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            color: rgba(148, 163, 184, 0.75);
+        }
+
+        .how-step p {
+            color: rgba(226, 232, 240, 0.72);
+            line-height: 1.75;
+        }
+
+        .how-step:nth-child(1) { --reveal-delay: 0s; }
+        .how-step:nth-child(2) { --reveal-delay: 0.12s; }
+        .how-step:nth-child(3) { --reveal-delay: 0.24s; }
+        .how-step:nth-child(4) { --reveal-delay: 0.36s; }
+
+        @keyframes howFadeUp {
+            from {
+                opacity: 0;
+                transform: translate3d(0, 32px, 0);
+            }
+            to {
+                opacity: 1;
+                transform: translate3d(0, 0, 0);
+            }
+        }
+
+        @keyframes howPulse {
+            from {
+                transform: translate3d(0, 0, 0) scale(1);
+                opacity: 0.45;
+            }
+            to {
+                transform: translate3d(12px, -12px, 0) scale(1.12);
+                opacity: 0.75;
+            }
+        }
+
+        @keyframes howLineGlow {
+            0%, 100% {
+                opacity: 0.55;
+            }
+            50% {
+                opacity: 0.85;
+                box-shadow: 0 0 24px rgba(244, 114, 182, 0.25);
+            }
+        }
+
+        @media (max-width: 1080px) {
+            .how-layout {
+                grid-template-columns: minmax(0, 1fr);
+            }
+
+            .how-intro-card {
+                order: 2;
+            }
+
+            .how-steps {
+                order: 1;
+                margin-bottom: 2.5rem;
+            }
+        }
+
+        @media (max-width: 720px) {
+            .how-steps {
+                --timeline-x: 0.85rem;
+                padding-left: 2.65rem;
+            }
+
+            .how-step::before {
+                top: 1.2rem;
+            }
+        }
+
+        @media (max-width: 540px) {
+            .metric-value {
+                font-size: 1.5rem;
+            }
+
+            .how-steps {
+                gap: 1.75rem;
+            }
+
+            .how-step {
+                padding: 1.45rem 1.5rem 1.6rem;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .how-intro-card::after,
+            .how-steps::before,
+            .how-step {
+                animation: none !important;
+            }
+
+            .how-step {
+                opacity: 1;
+                transform: none;
+            }
         }
 
         /* Swipe-style Cards */

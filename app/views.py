@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Iterable, List, Optional
 
+from django import forms
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
@@ -408,11 +409,56 @@ def dish_grid(request, concept_name: str):
     return render(request, "app/dish_grid.html", ctx)
 
 
+class NewsletterSignupForm(forms.Form):
+    """Simple email capture used on the marketing landing page."""
+
+    email = forms.EmailField(
+        widget=forms.EmailInput(
+            attrs={
+                "placeholder": "Enter your email",
+                "autocomplete": "email",
+                "class": "w-full sm:flex-1 rounded-full border border-indigo-500/25 bg-slate-950/70 px-5 py-3 text-base text-slate-100 placeholder-slate-500 transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/40",
+            }
+        ),
+        label="",
+    )
+
+
 def home_view(request):
     """Landing page with signup/login links."""
 
+    subscription_status = None
+    form = NewsletterSignupForm(request.POST or None)
 
-    return render(request, "new_home.html")
+    if request.method == "POST":
+        if form.is_valid():
+            email = form.cleaned_data["email"].strip().lower()
+
+            try:
+                subscriber, created = models.NewsletterSubscriber.objects.get_or_create(
+                    email=email,
+                    defaults={"source": "new_home"},
+                )
+            except IntegrityError:
+                # In the unlikely event of a race, fall back to fetch/update.
+                subscriber = models.NewsletterSubscriber.objects.filter(email=email).first()
+                created = False
+
+            if subscriber and not subscriber.source:
+                subscriber.source = "new_home"
+                subscriber.save(update_fields=["source"])
+
+            subscription_status = "created" if created else "exists"
+            form = NewsletterSignupForm()
+        else:
+            subscription_status = "invalid"
+
+    context = {
+        "newsletter_form": form,
+        "subscription_status": subscription_status,
+    }
+
+    return render(request, "new_home.html", context)
 
 
 def privacy_view(request):

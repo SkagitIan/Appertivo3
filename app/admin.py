@@ -89,6 +89,12 @@ class MembershipAdmin(TimestampedAdmin):
     list_filter = ("role", "account")
 
 
+@admin.register(models.NewsletterSubscriber)
+class NewsletterSubscriberAdmin(TimestampedAdmin):
+    list_display = ("email", "source", "created_at")
+    search_fields = ("email", "source")
+
+
 class DishIdeaInline(admin.TabularInline):
     model = models.DishIdea
     extra = 0

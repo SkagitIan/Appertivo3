@@ -63,6 +63,25 @@ class Membership(TimestampedModel):
         unique_together = ("account", "user")
 
 
+class NewsletterSubscriber(TimestampedModel):
+    """Email capture for the weekly newsletter."""
+
+    email = models.EmailField(unique=True)
+    source = models.CharField(
+        max_length=64,
+        blank=True,
+        help_text="Optional tag for where the signup originated.",
+    )
+
+    class Meta:
+        verbose_name = "Newsletter subscriber"
+        verbose_name_plural = "Newsletter subscribers"
+        indexes = [models.Index(fields=["created_at"])]
+
+    def __str__(self) -> str:
+        return self.email
+
+
 class Restaurant(TimestampedModel):
     account = models.ForeignKey(Account, on_delete=models.CASCADE)
     name = models.TextField()

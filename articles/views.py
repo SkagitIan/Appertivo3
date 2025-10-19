@@ -342,19 +342,36 @@ def staff_generate_concepts(request):
     pdf_text = extract_pdf_text(pdf_upload) if pdf_upload else ""
 
     client = get_openai_client()
-    prompt = (
-        "You are an editorial strategist for independent restaurants. "
-        "Provide five distinct article concepts with a compelling title and subtitle. "
-        "Return JSON with an 'ideas' list where each idea has 'title', 'subtitle', and 'angle'. "
-        "Use the research context and any extracted PDF insights to ground the suggestions."
-        f"\n\nContext:\n{context_text}\n\n"
-    )
+    prompt = f"""
+        You are an experienced editorial strategist specializing in independent restaurants, food media, and culinary storytelling. 
+        Your task is to develop five unique article concepts designed to attract attention, demonstrate local expertise, and inspire restaurant audiences.
+
+        Each idea must include:
+        - "title": a short, scroll-stopping headline (under 12 words)
+        - "subtitle": one-sentence elaboration that teases the story
+        - "angle": 2–3 sentences summarizing the editorial approach, ideal audience, and why it’s relevant now
+
+        Guidelines:
+        - Use the provided research and PDF insights to ground your ideas in real context (no generic food writing).
+        - Avoid repetition between ideas — each should serve a distinct editorial purpose.
+        - Favor human tone and industry realism over marketing fluff.
+
+        THE READERS WILL BE:
+        - independant restaurant owners
+        - chefs, 
+        - restaurant managers,
+        - creative consultants
+        - tech savy restaurant workers.
+
+        Context:\n{article_context()}\n\n"""
+
     if pdf_text:
         prompt += f"Extracted PDF notes:\n{pdf_text}\n\n"
     response = client.responses.create(model="gpt-4.1-nano", input=prompt)
     response_dict = (
         response.model_dump() if hasattr(response, "model_dump") else getattr(response, "to_dict", lambda: {})()
     )
+    logger.info(response_dict)
     payload = parse_structured_payload(extract_output_text(response))
     ideas = ensure_list(payload.get("ideas"))
     normalized_ideas: List[Dict[str, Any]] = []
@@ -379,7 +396,7 @@ def staff_generate_concepts(request):
         response_dict=response_dict,
         usage=getattr(response, "usage", None) or response_dict.get("usage"),
     )
-
+    
     context = {
         "ideas": normalized_ideas,
         "active_run": run,
@@ -699,3 +716,188 @@ def staff_delete_run(request, run_id: int):
     response = render(request, "articles/_run_list.html", context)
     response["HX-Trigger"] = json.dumps({"articles:refresh-runs": True, "articles:clear-workflow": True})
     return response
+
+def article_context():
+
+    context = """
+
+            Here’s the PDF fully converted to clean Markdown:
+
+            ---
+
+            # Independent Restaurants in 2025: Challenges and a New Era of Dining Out
+
+            ---
+
+            ## Core Challenges for Independent Restaurant Owners in 2025
+
+            Independent restaurateurs are navigating an exceptionally challenging landscape in 2025, marked by high costs, labor woes, shifting consumer habits, and other pressures. Unlike large chains with deep resources, independents operate on razor-thin margins and feel these stresses acutely. Below are the key pain points holding back independent operators today:
+
+            ### Rising Food & Operating Costs
+
+            Inflation and supply disruptions have driven up the cost of ingredients, utilities, and supplies, squeezing already thin margins.
+
+            * 76% of independent owners cited increasing food prices as the top trend impacting their business.
+            * Nearly all had to raise menu prices in 2024 to keep pace with “rising food, labor, and general operating costs.”
+            * Restaurants that raised prices over 15% saw profits drop and customer traffic fall off.
+            * After five years of nearly 30% cumulative menu price increases, over half of U.S. adults said they were cutting back on dining out to save money.
+
+            Independents are caught between surging expenses and customers’ price sensitivity.
+
+            ### Labor Shortages and High Wages
+
+            Staffing remains a chronic headache.
+
+            * 92% of independents raised wages in 2024, often by more than 10%.
+            * New wage laws and higher pay standards (e.g., California’s FAST Act) raised costs further.
+            * Cross-training and flexible schedules are now common retention tools.
+
+            Still, labor costs are among the top two challenges, alongside food costs.
+
+            ### Shifting Consumer Behavior
+
+            Diners are going out less and seeking more value.
+
+            * Over 70% of independent restaurants saw a drop in traffic in 2024.
+            * Price sensitivity has grown, and loyalty has eroded.
+            * Guests are deal-driven and responsive to promotions or perceived value.
+
+            To adapt, independents are leaning heavily on digital marketing:
+
+            * Nearly 75% use social media as a primary marketing tool.
+            * Many invest in loyalty programs, experiences, and personalized outreach to deepen engagement.
+
+            ### Technology Fragmentation and Complexity
+
+            Independent operators struggle with fragmented tech stacks:
+
+            * Many juggle multiple tablets and disconnected systems for delivery, online ordering, and reservations.
+            * These inefficiencies cost time and money.
+            * “Technology should help reduce complexity and cost, not add to it,” noted one industry veteran.
+
+            Operators increasingly seek **“smarter platforms, fewer vendors.”**
+            Unified tools and order aggregators are becoming essential to manage delivery apps and POS systems efficiently.
+
+            ### Competitive and Regulatory Pressures
+
+            * Chain restaurants grew sales by **8.2%** in 2023, while independents grew only **1.5%**.
+            * Regulations (minimum wage, scheduling, menu labeling) hit small businesses hardest.
+            * Higher interest rates raised loan costs.
+            * Extreme weather disrupted supply chains—2024 saw 27 billion-dollar disasters in the U.S.
+
+            Despite this, independent restaurants that **innovate**—testing new revenue models or technology—are outperforming others. Over 85% made at least one non-traditional change in 2024, from pop-ups to product lines.
+
+            ---
+
+            ## Opportunities That Could Redefine Dining Out
+
+            ### 1. Automation and AI to Streamline Operations
+
+            Automation is moving mainstream:
+
+            * 47% of operators plan to rely more on automation.
+            * Examples include kitchen robots, AI-driven order assistants, and smart ovens.
+
+            Sweetgreen’s “Infinite Kitchen” saw:
+
+            * 10% higher ticket averages
+            * 45% lower turnover
+            * Improved accuracy and throughput
+
+            Automation allows small teams to operate efficiently, shifting human focus to hospitality and creativity.
+
+            ### 2. Immersive and Experience-Driven Dining
+
+            Dining is evolving from “meal” to “experience.”
+
+            * 72% of diners want experiential options (chef tables, themed dinners, interactive cooking).
+            * 89% cite service and atmosphere as key factors when choosing a restaurant.
+            * 64% of full-service patrons now value experience over price.
+
+            Independent restaurants can stand out with:
+
+            * Pop-ups, supper clubs, art/music nights
+            * “Storytelling” menus tied to locale or season
+            * Multi-sensory dining (light, sound, AR)
+
+            This redefines dining out as an **event** worth leaving home for.
+
+            ### 3. Alternative Business Models and Revenue Streams
+
+            New business models are reshaping the industry:
+
+            * **Ghost kitchens** and **virtual brands** expand reach with minimal overhead.
+            * Pop-ups, food halls, and mobile kitchens provide agility and lower fixed costs.
+            * 85% of independents tried at least one new revenue stream in 2024.
+
+            Examples:
+
+            * Selling sauces or products retail
+            * Hosting ticketed events or classes
+            * Subscription-based meal plans
+
+            These flexible formats reduce risk and increase resilience.
+
+            ### 4. Personalization and Digital Engagement
+
+            Data-driven personalization is becoming key:
+
+            * 80% of consumers want brands to personalize offers.
+            * Loyalty apps, reservation systems, and AI marketing enable 1:1 connections.
+            * Even small restaurants can tailor experiences using POS data and feedback loops.
+
+            Retention is powerful: a **5% increase in repeat customers** can boost profits by **25–95%**.
+            AI tools like chatbots and dynamic offers also improve engagement while saving staff time.
+
+            ### 5. Redefining Value Through Innovation
+
+            The next “value revolution” blends **affordability, experience, and ethics**:
+
+            * 47% of operators plan new discounts and deals in 2025.
+            * 73% of consumers are willing to change habits for sustainability.
+
+            Independent restaurants can lead with:
+
+            * Bundled meals or prix-fixe experiences
+            * Locally sourced, sustainable menus
+            * Community engagement and storytelling
+
+            Delivering **more perceived value**—through meaning and experience—could reignite dining demand.
+
+            ---
+
+            ## Conclusion
+
+            Independent restaurant owners face inflation, labor issues, and shifting consumer priorities—but the future isn’t bleak.
+            Those who adapt through **innovation, technology, and creativity** are leading the next wave of dining.
+
+            A new era is emerging:
+
+            * Smart automation in the back of house
+            * Experiential hospitality up front
+            * Personalized, sustainable relationships with guests
+
+            Independent restaurants aren’t just surviving—they’re redefining why people go out to eat.
+
+            ---
+
+            ## Key Sources
+
+            * James Beard Foundation / Deloitte, *2025 Independent Restaurant Industry Report*
+            * Restaurant Business Online, *State of Independent Restaurants 2024*
+            * Restaurant Dive, *8 Restaurant Trends to Watch in 2025*
+            * The Daily Rail, *Top Restaurant Industry Stories of 2024*
+            * National Restaurant Association, *2025 State of the Restaurant Industry*
+            * Entegra Services, *Future of Dining: Exceptional Experiences*
+            * Franchising.com, *Future Restaurant Industry Trends*
+            * Modern Restaurant Management, *Research Roundup on Tech*
+            * Restaurant Dive, *Sweetgreen’s Robot Kitchens*
+            * Multibriefs, *Consumers Want Personalization*
+
+            ---
+
+            Would you like me to format this for your Django CMS (e.g. section headers as HTML or Markdown safe for template injection)?
+
+    """
+
+    return context
