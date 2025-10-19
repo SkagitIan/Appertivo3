@@ -10,10 +10,17 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import TemplateView, View
 from django.urls import reverse
 from app.llm import *
-from app.models import Restaurant
+from app.models import Restaurant, RestaurantSettings
 # Stub imports for future service integration
 # from .services import generate_concepts_batch  # to be implemented
 from types import SimpleNamespace
+
+
+def _resolve_restaurant_settings(restaurant):
+    if not restaurant:
+        return SimpleNamespace(classic_creative_slider=50)
+    settings, _ = RestaurantSettings.objects.get_or_create(restaurant=restaurant)
+    return settings
 
 from swipe.llm_utils import GetConcepts
 from swipe.demo_data import build_demo_state
@@ -80,12 +87,18 @@ class SwipeHomeView(TemplateView):
             concepts = list(concept_qs)
 
         dish_counts = [len(list(c.dishes.all())) for c in concepts]
+        restaurant_settings = _resolve_restaurant_settings(restaurant)
+        update_creativity_url = (
+            reverse("update_creativity", args=[restaurant.id]) if restaurant else "#"
+        )
 
         context.update(
             {
                 "restaurant": restaurant,
                 "concepts": concepts,
                 "dish_counts": dish_counts,
+                "restaurant_settings": restaurant_settings,
+                "update_creativity_url": update_creativity_url,
             }
         )
         return context
@@ -108,6 +121,8 @@ class SwipeDemoView(SwipeHomeView):
             "buffers": {},
             "favorites": {"concept_ids": [], "dish_ids": []},
         }
+        context["restaurant_settings"] = SimpleNamespace(classic_creative_slider=50)
+        context["update_creativity_url"] = "#"
         return context
 
 
@@ -564,7 +579,17 @@ class SettingsView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         restaurant = self.get_restaurant()
-        context.update({"restaurant": restaurant})
+        restaurant_settings = _resolve_restaurant_settings(restaurant)
+        update_creativity_url = (
+            reverse("update_creativity", args=[restaurant.id]) if restaurant else "#"
+        )
+        context.update(
+            {
+                "restaurant": restaurant,
+                "restaurant_settings": restaurant_settings,
+                "update_creativity_url": update_creativity_url,
+            }
+        )
         return context
 
 
@@ -582,7 +607,14 @@ class DemoSettingsView(TemplateView):
             updated_at=None,
         )
 
-        context.update({"demo_mode": True, "restaurant": restaurant})
+        context.update(
+            {
+                "demo_mode": True,
+                "restaurant": restaurant,
+                "restaurant_settings": SimpleNamespace(classic_creative_slider=50),
+                "update_creativity_url": "#",
+            }
+        )
         return context
 
 
