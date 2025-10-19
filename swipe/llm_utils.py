@@ -6,6 +6,7 @@ tests can run without network access.
 """
 
 import os
+import math
 import asyncio
 import threading
 import cloudinary
@@ -61,6 +62,8 @@ class GetConcepts:
         self.restaurant = restaurant
         self.restaurant_context = restaurant_context
         self.locale_summary = ""
+        self.creativity_slider_raw = self._determine_creativity_raw()
+        self.creativity_level = self._determine_creativity_level(self.creativity_slider_raw)
         # fire async task
         try:
             loop = asyncio.get_running_loop()
@@ -216,10 +219,48 @@ class GetConcepts:
         logger.info("Concept OpenAI response: %s", data)
         return data.get("concepts", [])
 
+    def _determine_creativity_raw(self) -> int:
+        """Return the restaurant's 0-100 creativity slider value with a safe default."""
+
+        slider_value: int = 50
+        if not self.restaurant:
+            return slider_value
+
+        try:
+            settings_obj = getattr(self.restaurant, "restaurantsettings")
+        except Exception:
+            settings_obj = None
+
+        candidate = getattr(settings_obj, "classic_creative_slider", None)
+        if candidate is None:
+            return slider_value
+
+        try:
+            numeric_candidate = int(candidate)
+        except (TypeError, ValueError):
+            return slider_value
+
+        return max(0, min(100, numeric_candidate))
+
+    @staticmethod
+    def _determine_creativity_level(raw_value: int) -> int:
+        """Convert a 0-100 slider into a 1-10 level."""
+
+        capped = max(0, min(100, int(raw_value or 0)))
+        level = math.ceil(capped / 10) if capped else 0
+        return max(1, min(10, level))
+
+    def _creativity_statement(self) -> str:
+        return (
+            f"The user has chosen {self.creativity_level} on a 1\N{EN DASH}10 classic-to-creative scale."
+        )
+
     def concept_prompt(self, restaurant_context: str):
         prompt = f"""
                 **Role**: You are a seasoned restaurant marketing consultant with deep knowledge of regional cuisines, seasonal ingredients, and cultural dining traditions.
                 **Task**: Generate exactly 3 unique, theme-based concepts for daily specials that emphasize regional flavors and seasonal ingredients.
+
+                Creativity preference: {self._creativity_statement()}
 
                 **Format Requirements for Each Concept**:
                 - **Name**: Maximum 30 characters
@@ -469,6 +510,8 @@ class GetConcepts:
             Restaurant Context:
             {restaurant_context}
 
+            Creativity preference: {self._creativity_statement()}
+
             Concept:
             {c["title"]} — {c.get("subtitle", "")}
             {c['reasoning']}
@@ -599,6 +642,7 @@ class GetConcepts:
 
         prompt = (
             "You are a culinary R&D assistant creating one menu-ready dish variation.\n"
+            f"{self._creativity_statement()}\n"
             f"Restaurant: {restaurant_name or 'Unknown restaurant'}\n"
             f"Concept: {concept_payload.get('title', '')} — {concept_payload.get('subtitle', '')}\n"
             f"Concept reasoning: {concept_payload.get('reasoning', '')}\n"
