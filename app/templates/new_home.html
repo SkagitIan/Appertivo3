@@ -91,6 +91,62 @@
   100% { transform: translateX(0); }
 }
 
+.guest-reviews-card {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.guest-reviews-card .guest-review-bubbles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.guest-reviews-card .guest-reviews-content {
+  position: relative;
+  z-index: 1;
+}
+
+.guest-reviews-card .bubble {
+  position: absolute;
+  display: inline-block;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.75rem;
+  line-height: 1.1;
+  color: rgba(255,255,255,0.85);
+  border-radius: 9999px;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.22);
+  text-shadow: 0 1px 0 rgba(0,0,0,0.35);
+  opacity: 0.9;
+  animation: guestReviewFloat 9s ease-in-out infinite;
+  will-change: transform;
+}
+
+.guest-reviews-card .bubble:nth-child(1){ animation-duration:7.5s; }
+.guest-reviews-card .bubble:nth-child(2){ animation-duration:8.5s; animation-delay:.6s; }
+.guest-reviews-card .bubble:nth-child(3){ animation-duration:9.5s; animation-delay:1s; }
+.guest-reviews-card .bubble:nth-child(4){ animation-duration:10s;  animation-delay:.3s; }
+.guest-reviews-card .bubble:nth-child(5){ animation-duration:8.8s; animation-delay:1.4s; }
+.guest-reviews-card .bubble:nth-child(6){ animation-duration:11s;  animation-delay:.9s; }
+
+@keyframes guestReviewFloat {
+  0%,100% { transform: translateY(0) scale(1); }
+  50%     { transform: translateY(-6px) scale(1.02); }
+}
+
+@media (max-width: 640px) {
+  .guest-reviews-card .bubble { font-size: 0.7rem; padding: 0.3rem 0.5rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guest-reviews-card .bubble { animation: none !important; }
+}
+
 </style>
 
 
@@ -154,21 +210,186 @@
             </p>
 
             <div class="training-sources">
-                <div class="training-source">
-                    <div class="training-source-icon">⭐</div>
-                    <h3>Guest Reviews</h3>
-                    <p>We analyze what diners love about your restaurant. The AI understands your strengths and creates concepts that amplify them.</p>
-                </div>
+                <div class="training-source guest-reviews-card">
+                    <div class="guest-review-bubbles hidden sm:block" aria-hidden="true">
+                        <span class="bubble left-4 top-[8%] -rotate-2">“Chicken Parm was awesome!”</span>
+                       <span class="bubble right-6 top-[10%] rotate-1">“Cozy vibe, killer fries.”</span>
 
-                <div class="training-source">
-                    <div class="training-source-icon">📋</div>
+                    </div>
+                    <div class="guest-reviews-content">
+                        <!-- <div class="training-source-icon">⭐</div> -->
+                        <h3>Guest Reviews</h3>
+                        <p>We analyze what diners love about your restaurant. The AI understands your strengths and creates concepts that amplify them.</p>
+                    </div>
+                </div>
+                <div class="training-source your-menus-card">
+                    <div class="menu-logo-cloud" aria-hidden="true">
+                        <span class="menu-logo menu-logo--ubereats"></span>
+                        <span class="menu-logo menu-logo--doordash"></span>
+                        <span class="menu-logo menu-logo--grubhub"></span>
+                        <span class="menu-logo menu-logo--instacart"></span>
+                        <span class="menu-logo menu-logo--web"></span>
+                    </div>
+                
                     <h3>Your Menus</h3>
                     <p>Current dishes, retired favorites, seasonal specials. The AI learns your style, flavor profiles, and what's worked before.</p>
                 </div>
-                <div class="training-source">
-                    <div class="training-source-icon">📍</div>
+                <div class="training-source local-insights-card">
                     <h3>Local Insights</h3>
                     <p>Your location matters. Get concepts using regional ingredients, seasonal availability, and local dining trends.</p>
+                </div>
+
+                <style>
+                .local-insights-card {
+                  position: relative;
+                  overflow: hidden;
+                  display: flex;
+                  flex-direction: column;
+                  justify-content: flex-end;
+                  align-items: center;
+                  text-align: center;
+                  padding: 2.5rem;
+                  border-radius: 1.5rem;
+                  background: none;
+                  transition: transform 0.4s ease;
+                  min-height: 18rem;
+                }
+
+                .local-insights-card::before {
+                  content: "";
+                  position: absolute;
+                  inset: 0;
+                  background-image: url('https://res.cloudinary.com/dfz4bhlzs/image/upload/w_1000,ar_1:1,c_fill,g_auto,e_art:hokusai/v1760898788/2954453_n93oqo.jpg');
+                  background-size: cover;
+                  background-position: center;
+                  background-repeat: no-repeat;
+                  z-index: 0;
+                }
+
+                .local-insights-card::after {
+                  content: "";
+                  position: absolute;
+                  inset: 0;
+                  background: linear-gradient(180deg, rgba(15, 23, 42, 0.35) 0%, rgba(15, 23, 42, 0.85) 70%, rgba(15, 23, 42, 0.92) 100%);
+                  pointer-events: none;
+                  z-index: 0;
+                }
+
+                .local-insights-card:hover {
+                  transform: translateY(-4px);
+                }
+
+                .local-insights-card h3,
+                .local-insights-card p {
+                  position: relative;
+                  z-index: 1;
+                  color: #f8fafc;
+                }
+
+                .local-insights-card p {
+                  color: rgba(241, 245, 249, 0.82);
+                }
+
+                .your-menus-card {
+                  position: relative;
+                  overflow: hidden;
+                  display: flex;
+                  flex-direction: column;
+                  justify-content: flex-end;
+                  align-items: center;
+                  text-align: center;
+                  padding: 2.5rem;
+                  min-height: 18rem;
+                  gap: 1.5rem;
+                  background: radial-gradient(circle at top left, rgba(79, 70, 229, 0.25), transparent 55%),
+                              linear-gradient(180deg, rgba(15, 23, 42, 0.65) 0%, rgba(30, 41, 59, 0.9) 100%);
+                }
+
+                .your-menus-card .training-source-icon,
+                .your-menus-card h3,
+                .your-menus-card p {
+                  position: relative;
+                  z-index: 1;
+                }
+
+                .your-menus-card .menu-logo-cloud {
+                  position: absolute;
+                  inset: 0;
+                  z-index: 0;
+                  pointer-events: none;
+                  overflow: hidden;
+                }
+
+                .your-menus-card .menu-logo {
+                  position: absolute;
+                  width: 88px;
+                  height: 88px;
+                  opacity: 0.22;
+                  background: linear-gradient(135deg, rgba(226, 232, 240, 0.45), rgba(148, 163, 184, 0.25));
+                  mask-size: contain;
+                  mask-repeat: no-repeat;
+                  mask-position: center;
+                  -webkit-mask-size: contain;
+                  -webkit-mask-repeat: no-repeat;
+                  -webkit-mask-position: center;
+                  animation: menuLogoFloat 10s ease-in-out infinite;
+                  mix-blend-mode: lighten;
+                }
+
+                .your-menus-card .menu-logo--ubereats {
+                  top: 18%;
+                  left: 12%;
+                  mask-image: url('https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/ubereats.svg');
+                  -webkit-mask-image: url('https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/ubereats.svg');
+                  animation-duration: 11s;
+                }
+
+                .your-menus-card .menu-logo--doordash {
+                  top: 12%;
+                  right: 16%;
+                  mask-image: url('https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/doordash.svg');
+                  -webkit-mask-image: url('https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/doordash.svg');
+                  animation-duration: 12s;
+                  animation-delay: -4s;
+                }
+
+                .your-menus-card .menu-logo--grubhub {
+                  bottom: 18%;
+                  left: 18%;
+                  mask-image: url('https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/grubhub.svg');
+                  -webkit-mask-image: url('https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/grubhub.svg');
+                  animation-duration: 13s;
+                  animation-delay: -2s;
+                }
+
+                .your-menus-card .menu-logo--instacart {
+                  bottom: 14%;
+                  right: 14%;
+                  mask-image: url('https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/instacart.svg');
+                  -webkit-mask-image: url('https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/instacart.svg');
+                  animation-duration: 14s;
+                  animation-delay: -6s;
+                }
+
+                .your-menus-card .menu-logo--web {
+                  top: 40%;
+                  left: 50%;
+                  transform: translateX(-50%);
+                  width: 110px;
+                  height: 110px;
+                  mask-image: url('https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/worldwideweb.svg');
+                  -webkit-mask-image: url('https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/worldwideweb.svg');
+                  opacity: 0.18;
+                  animation-duration: 15s;
+                }
+
+                @keyframes menuLogoFloat {
+                  0%, 100% { transform: translateY(0) scale(1); }
+                  50% { transform: translateY(-10px) scale(1.04); }
+                }
+                </style>
+
+
                 </div>
             </div>
         </div>
@@ -228,234 +449,6 @@
     <section>
       <!-- Features Section -->
 
-
-    <!-- Social Proof -->
-    <section class="social-proof">
-        <div class="section-header">
-            <h2>Restaurants Creating with Appertivo</h2>
-        </div>
-
-        <div class="testimonials">
-            <div class="testimonial">
-                <div class="testimonial-card-stack" data-testimonial-rotator>
-                    <div class="card testimonial-card is-active" data-testimonial-card data-stage="quote" aria-hidden="false">
-                        <div class="card-inner">
-                            <div class="card-face card-front card-front--quote" data-media-state="loaded">
-                            
-                                <blockquote class="testimonial-quote">
-                                    "The AI actually understands our price points and what works in our kitchen. Every concept feels like something we could actually do."
-                                </blockquote>
-                                <div class="card-quote-author">— Chef, Pacific Northwest Steakhouse</div>
-                            </div>
-                            <div class="card-face card-back card-back--note">
-                                <div class="card-back-content">
-                                    <div class="card-back-body">
-                                        
-                                        <p class="card-back-description">
-                                            "The AI actually understands our price points and what works in our kitchen. Every concept feels like something we could actually do."
-                                        </p>
-                                        <p class="card-back-author">Chef · Pacific Northwest Steakhouse</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card testimonial-card" data-testimonial-card data-stage="concept" aria-hidden="true">
-                        <div class="card-inner">
-                            <div class="card-face card-front card-front--media" data-media-state="loaded">
-                                <span class="card-note">Cedar-Planked Ribeye</span>
-                                <img
-                                    src="https://res.cloudinary.com/dfz4bhlzs/image/upload/v1760702527/concept_sketches/9d937692-4e44-40b0-bead-4e5c3f2792f9.png"
-                                    alt="Pencil sketch outlining a cedar-planked ribeye special"
-                                    loading="lazy"
-                                    class="card-media is-loaded"
-                                >
-                                <span class="testimonial-sketch-label"></span>
-                            </div>
-                            <div class="card-face card-back">
-                                <div class="card-back-content">
-                                    <div class="card-back-body">
-                                        <h3 class="card-back-heading">Cedar-Planked Ribeye</h3>
-                                        <p class="card-back-description">
-                                            Quick pencil study lines up the charred citrus butter and cedar smoke the team plans for the special night.
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card testimonial-card" data-testimonial-card data-stage="dish" aria-hidden="true">
-                        <div class="card-inner">
-                            <div class="card-face card-front card-front--media" data-media-state="loaded">
-                                <img
-                                    src="https://res.cloudinary.com/dfz4bhlzs/image/upload/v1758738489/appertivo/dishes/9cbfa6e6-fb9a-44d2-be55-0a3293e3c52e.png"
-                                    alt="Plated cedar-planked ribeye with charred citrus butter"
-                                    loading="lazy"
-                                    class="card-media is-loaded"
-                                >
-                            </div>
-                            <div class="card-face card-back">
-                                <div class="card-back-content">
-                                    <div class="card-back-body">
-                                        <h3 class="card-back-heading"></h3>
-                                        <p class="card-back-description">
-                                            Preview plating, pricing notes, and service cues before running the special for guests.
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="testimonial">
-                <div class="testimonial-card-stack" data-testimonial-rotator>
-                    <div class="card testimonial-card" data-testimonial-card data-stage="quote" aria-hidden="true">
-                        <div class="card-inner">
-                            <div class="card-face card-front card-front--quote" data-media-state="loaded">
-                                
-                                <blockquote class="testimonial-quote">
-                                    "It's like having a sous chef who's read every review we've ever gotten and knows exactly what our guests want more of."
-                                </blockquote>
-                                <div class="card-quote-author">— Owner, Coastal Seafood House</div>
-                            </div>
-                            <div class="card-face card-back card-back--note">
-                                <div class="card-back-content">
-                                    <div class="card-back-body">
-                                        
-                                        <p class="card-back-description">
-                                            "It's like having a sous chef who's read every review we've ever gotten and knows exactly what our guests want more of."
-                                        </p>
-                                        <p class="card-back-author">Owner · Coastal Seafood House</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card testimonial-card is-active" data-testimonial-card data-stage="concept" aria-hidden="false">
-                        <div class="card-inner">
-                            <div class="card-face card-front card-front--media" data-media-state="loaded">
-                                <span class="card-note">Sea Glass Tower</span>
-                                <img
-                                    src="https://res.cloudinary.com/dfz4bhlzs/image/upload/v1760729008/concept_sketches/984a54a0-86b8-43ea-a2c1-f9dc429bc1d3.png"
-                                    alt="Pencil sketch of a seafood tower concept with oysters and citrus"
-                                    loading="lazy"
-                                    class="card-media is-loaded"
-                                >
-                               
-                            </div>
-                            <div class="card-face card-back">
-                                <div class="card-back-content">
-                                    <div class="card-back-body">
-                                        <h3 class="card-back-heading">Sea Glass Tower</h3>
-                                        <p class="card-back-description">
-                                            The AI balances local catch with the citrus butter guests rave about to keep sourcing dialed for the line.
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card testimonial-card" data-testimonial-card data-stage="dish" aria-hidden="true">
-                        <div class="card-inner">
-                            <div class="card-face card-front card-front--media" data-media-state="loaded">
-                                <img
-                                    src="https://res.cloudinary.com/dfz4bhlzs/image/upload/v1758660169/appertivo/dishes/6da827f3-9f60-4e4a-abd9-c233fd8c3645.png"
-                                    alt="Colorful seafood tower with chilled shellfish and citrus garnish"
-                                    loading="lazy"
-                                    class="card-media is-loaded"
-                                >
-                            </div>
-                            <div class="card-face card-back">
-                                <div class="card-back-content">
-                                    <div class="card-back-body">
-                                        
-                                        <p class="card-back-description">
-                                            Detailed imagery helps the team rehearse the build and nail the guest story before service.
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="testimonial">
-                <div class="testimonial-card-stack" data-testimonial-rotator>
-                    <div class="card testimonial-card" data-testimonial-card data-stage="quote" aria-hidden="true">
-                        <div class="card-inner">
-                            <div class="card-face card-front card-front--quote" data-media-state="loaded">
-                                
-                                <blockquote class="testimonial-quote">
-                                    "We went from concept to menu-ready in a week. The descriptions matched our voice perfectly without any editing."
-                                </blockquote>
-                                <div class="card-quote-author">— Marketing Director, Restaurant Group</div>
-                            </div>
-                            <div class="card-face card-back card-back--note">
-                                <div class="card-back-content">
-                                    <div class="card-back-body">
-                                        
-                                        <p class="card-back-description">
-                                            "We went from concept to menu-ready in a week. The descriptions matched our voice perfectly without any editing."
-                                        </p>
-                                        <p class="card-back-author">Marketing Director · Restaurant Group</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card testimonial-card" data-testimonial-card data-stage="concept" aria-hidden="true">
-                        <div class="card-inner">
-                            <div class="card-face card-front card-front--media" data-media-state="loaded">
-                                <span class="card-note">Weekend Harvest Plate</span>
-                                <img
-                                    src="https://res.cloudinary.com/dfz4bhlzs/image/upload/v1760462333/concept_sketches/5a365ef8-feb2-4c91-863c-7f477696dc73.png"
-                                    alt="Pencil sketch planning a modern brunch dish"
-                                    loading="lazy"
-                                    class="card-media is-loaded"
-                                >
-                               
-                            </div>
-                            <div class="card-face card-back">
-                                <div class="card-back-content">
-                                    <div class="card-back-body">
-                                        <h3 class="card-back-heading">Weekend Harvest Plate</h3>
-                                        <p class="card-back-description">
-                                            A quick sketch locks color, plating, and merch moments so marketing lines up shoot assets early.
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card testimonial-card is-active" data-testimonial-card data-stage="dish" aria-hidden="false">
-                        <div class="card-inner">
-                            <div class="card-face card-front card-front--media" data-media-state="loaded">
-                                <img
-                                    src="https://res.cloudinary.com/dfz4bhlzs/image/upload/v1758490681/appertivo/dishes/9c961253-48e8-46ce-a223-d1919b2edfce.png"
-                                    alt="Vibrant brunch plate with heirloom tomatoes and whipped ricotta"
-                                    loading="lazy"
-                                    class="card-media is-loaded"
-                                >
-                            </div>
-                            <div class="card-face card-back">
-                                <div class="card-back-content">
-                                    <div class="card-back-body">
-                                        
-                                        <p class="card-back-description">
-                                            Keep menu copy, photography notes, and rollout assets aligned from idea to launch.
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
 
     <div class="mx-auto mt-24 w-full max-w-4xl px-6">
         <section class="relative overflow-hidden rounded-3xl border border-indigo-500/20 bg-slate-950/90 px-6 py-10 shadow-[0_36px_90px_rgba(8,12,25,0.45)] sm:px-10 md:py-12">

@@ -438,30 +438,29 @@ class GetConcepts:
             return ""
 
         sketch_prompt = f"""
-            Create a high-definition monochrome pencil sketch that captures the culinary spirit of "{c["title"]}".
+            Create a high-definition monochrome pencil concept sketch that captures the culinary spirit of "{c["title"]}".
 
             Concept subtitle: "{c.get("subtitle", "")}" 
 
             Let the sketch interpret this concept through visual metaphors drawn from a well laid out montage of ingredients, settings, cookware, craft, and preparation.
-            Focus on textures, ingredients, and the rhythm of a working kitchen — gestures, utensils, cookware, or produce
+            Focus on textures, ingredients, and the rhythm of a working kitchen — gestures, utensils, cookware, or produce (without adding ANY TEXT)  
             that echo the mood behind the idea. Draw inspiration from these guiding notes: {c.get("tags", []) }.
 
             This concept is described as: "{c['reasoning']}"
             The dishes envisioned for it include: {c['ideal_dishes']}.
 
-            Keep the composition minimalist and tonal — pencil or graphite only, no color, no text, no people, no branding.
+            Keep the composition minimalist and tonal — pencil or graphite only, no color, *no text*, no people, no branding.
             Think of it as a chef’s visual brainstorm, a vignette of creativity and craft rather than a finished dish.  As if chef just jotted it down.
             The art should suggest aroma, movement, and imagination within the world of {c["title"]}.
         """.strip()
 
         # --- Generate image with Replicate ---
         try:
-            locale_suffix = f"\n\nLocale inspiration: {self.locale_summary}" if self.locale_summary else ""
             output = await asyncio.to_thread(
                 self.replicate_client.run,
                 self.REPLICATE_SKETCH_MODEL,
                 input={
-                    "prompt": f"{sketch_prompt}{locale_suffix}",
+                    "prompt": f"{sketch_prompt}",
                     "output_format": "png",
                     "output_quality": 80,
                 },
@@ -710,7 +709,7 @@ class GetConcepts:
         )
 
         data = json.loads(response.output[0].content[0].text)
-        logger.info("Generate dishes OpenAI response: %s", data)
+        #logger.info("Generate dishes OpenAI response: %s", data)
 
         return data.get("dishes", [])
 
