@@ -1513,10 +1513,11 @@
               </button>
               <div
                 id="generateConceptsFeedback"
-                class="floating-generate-feedback hidden"
+                class="floating-generate-feedback"
                 role="status"
                 aria-live="polite"
                 aria-hidden="true"
+                hidden
                 data-view-only="swipe tower"
               ></div>
             </div>
@@ -2277,6 +2278,7 @@
 
         generateFeedback.textContent = message;
         generateFeedback.classList.remove('hidden', 'bg-green-600/90', 'bg-red-600/90', 'bg-black/80');
+        generateFeedback.removeAttribute('hidden');
         generateFeedback.classList.add(isError ? 'bg-red-600/90' : 'bg-green-600/90');
         generateFeedback.removeAttribute('aria-hidden');
 
@@ -2286,6 +2288,7 @@
 
         feedbackTimeoutId = window.setTimeout(() => {
           generateFeedback.classList.add('hidden');
+          generateFeedback.setAttribute('hidden', '');
           generateFeedback.setAttribute('aria-hidden', 'true');
           feedbackTimeoutId = null;
         }, 4000);
