@@ -1265,6 +1265,11 @@
         </div>
       </div>
     </div>
+    <div class="fixed inset-x-0 top-6 z-40 flex justify-center px-6 sm:px-0">
+      <div class="w-full max-w-md">
+        {% include "_partials/creative_balance_control.html" with action_url=update_creativity_url restaurant_settings=restaurant_settings section_classes="!bg-[#0f172a]/80 !border-slate-100/20 text-slate-100 shadow-xl" %}
+      </div>
+    </div>
     {% if not hide_restaurant_label %}
       <div class="fixed top-6 left-6 z-40 flex flex-col items-start gap-3">
         <div class="text-[0.7rem] tracking-[0.55em] uppercase text-slate-200/80">
