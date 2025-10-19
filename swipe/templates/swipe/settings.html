@@ -97,6 +97,28 @@
       line-height: 1.7;
       color: rgba(226, 232, 240, 0.85);
     }
+
+    .back-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.55rem;
+      font-size: 0.68rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: rgba(148, 163, 184, 0.78);
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      border-radius: 9999px;
+      background: rgba(15, 23, 42, 0.55);
+      padding: 0.55rem 1.35rem;
+      text-decoration: none;
+      transition: color 180ms ease, border-color 180ms ease, background 180ms ease;
+    }
+
+    .back-button:hover {
+      color: rgba(94, 234, 212, 0.95);
+      border-color: rgba(94, 234, 212, 0.6);
+      background: rgba(15, 23, 42, 0.75);
+    }
   </style>
 {% endblock %}
 
@@ -104,6 +126,10 @@
   <div class="max-w-5xl mx-auto px-6 pb-20 space-y-12">
     <header class="settings-card flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6">
       <div class="space-y-3">
+        <a href="{% url 'swipe:home' %}" class="back-button">
+          <span aria-hidden="true">&larr;</span>
+          <span>Back to Concepts</span>
+        </a>
         <p class="settings-label">Control Center</p>
         <h1 class="settings-heading">Settings</h1>
         <p class="max-w-xl text-sm text-slate-300">

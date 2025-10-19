@@ -11,7 +11,7 @@
       Favorites Archive
     </a>
     <a
-      href="{% if demo_mode %}{% url 'swipe:demo_settings' %}{% else %}#{% endif %}"
+      href="{% if demo_mode %}{% url 'swipe:demo_settings' %}{% else %}{% url 'swipe:settings' %}{% endif %}"
       class="block border-b border-slate-700/40 pb-4 text-sm tracking-[0.3em] uppercase text-slate-300 hover:text-white"
     >
       Settings

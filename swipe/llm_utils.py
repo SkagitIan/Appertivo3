@@ -53,6 +53,7 @@ class GetConcepts:
             )
 
         # --- Model & defaults ---
+        self.REPLICATE_SKETCH_MODEL="skagitian/restaurant-menu-sketches:3287685abd18b139c2b991fd4755c9855d3f41f3f0b25d60d304cb5df8fd591a"
         self.REPLICATE_MODEL = (
             "prunaai/flux.1-dev:b0306d92aa025bb747dc74162f3c27d6ed83798e08e5f8977adf3d859d0536a3"
         )
@@ -61,6 +62,7 @@ class GetConcepts:
 
         self.restaurant = restaurant
         self.restaurant_context = restaurant_context
+        #logger.info(self.restaurant_context)
         self.locale_summary = ""
         self.creativity_slider_raw = self._determine_creativity_raw()
         self.creativity_level = self._determine_creativity_level(self.creativity_slider_raw)
@@ -216,7 +218,7 @@ class GetConcepts:
         )
 
         data = json.loads(response.output[0].content[0].text)
-        logger.info("Concept OpenAI response: %s", data)
+        #logger.info("Concept OpenAI response: %s", data)
         return data.get("concepts", [])
 
     def _determine_creativity_raw(self) -> int:
@@ -258,7 +260,10 @@ class GetConcepts:
     def concept_prompt(self, restaurant_context: str):
         prompt = f"""
                 **Role**: You are a seasoned restaurant marketing consultant with deep knowledge of regional cuisines, seasonal ingredients, and cultural dining traditions.
-                **Task**: Generate exactly 3 unique, theme-based concepts for daily specials that emphasize regional flavors and seasonal ingredients.
+                **Task**: Generate exactly 3 unique, theme-based concepts for daily specials that emphasize regional flavors and seasonal ingredients.  ITs very important to not show
+                duplicate concepts or dish ideas throughout the process.  we gauruntee unique ideas.  
+
+                restaurant locale: {self.locale_summary}
 
                 Creativity preference: {self._creativity_statement()}
 
@@ -271,7 +276,7 @@ class GetConcepts:
                 - **Sketch Prompt": generate a prompt that instructs an llm to create a sketch of the concept to be used as bckground art for the concept card.
 
                 **Concept Guidelines**:
-                - It should be relevant to the users restaurants menu, not identical but within the same style.
+                - It should be relevant to the users restaurants menu, not identical but within the same style.  If the review say everyone loves the prime rib, DON'T suggest prime rib.
                 - Focus on THEMES, not individual dishes (like "Taco Tuesday" or "Mediterranean Monday")
                 - Emphasize regional specialties around: {self.restaurant.location_text} 
                 - and seasonal ingredients: {datetime.date.today()}
@@ -297,26 +302,9 @@ class GetConcepts:
                 Reasoning: “Leans into coastal identity and freshness; ideal for restaurants near bays or rivers.”
                 Tags: [seafood, coastal, local, freshness, sustainability, light-fare, summer, maritime]
 
-                Name: “Woodfire Wednesday”
-                Subtitle: “Rustic warmth and smoke-kissed flavor straight from the hearth”
-                ideal_dishes: “Wood-grilled flat iron steak with rosemary potatoes, charred vegetable medley, smoked chocolate mousse”
-                Reasoning: “Centers on elemental cooking and the sensory experience of fire.”
-                Tags: [grill, rustic, smoky, comfort-food, dinner, artisan, bold-flavors, midweek-special]
-
-                Name: “Garden Glow Thursday”
-                Subtitle: “A vibrant vegetarian spread celebrating color, texture, and balance”
-                ideal_dishes: “Roasted beet and citrus salad, mushroom risotto with truffle oil, lavender panna cotta”
-                Reasoning: “Brings visual appeal and wellness focus; ideal for health-conscious diners.”
-                Tags: [vegetarian, seasonal, healthy, colorful, light, sustainable, spring, garden-to-table]
-
-                Name: “Fireside Friday”
-                Subtitle: “Hearty fare and nostalgic comfort to welcome the weekend”
-                ideal_dishes: “Short rib pot pie with puff pastry lid, smoked cheddar mac & cheese, bourbon bread pudding”
-                Reasoning: “Invites end-of-week indulgence and evokes cozy camaraderie.”
-                Tags: [comfort-food, weekend, hearty, indulgent, nostalgic, winter, fireside, crowd-pleaser]
                 ```
 
-                **Goal**: Create concepts that restaurant owners can easily adapt to their local region and seasonal availability while building customer excitement and loyalty.
+                **Goal**: Create UNIQUE concepts that restaurant owners can easily adapt to their local region and seasonal availability while building customer excitement and loyalty.
 
             """
         return prompt
@@ -454,7 +442,7 @@ class GetConcepts:
 
             Concept subtitle: "{c.get("subtitle", "")}" 
 
-            Let the sketch interpret this concept through visual metaphors drawn from food, craft, and preparation.
+            Let the sketch interpret this concept through visual metaphors drawn from a well laid out montage of ingredients, settings, cookware, craft, and preparation.
             Focus on textures, ingredients, and the rhythm of a working kitchen — gestures, utensils, cookware, or produce
             that echo the mood behind the idea. Draw inspiration from these guiding notes: {c.get("tags", []) }.
 
@@ -462,7 +450,7 @@ class GetConcepts:
             The dishes envisioned for it include: {c['ideal_dishes']}.
 
             Keep the composition minimalist and tonal — pencil or graphite only, no color, no text, no people, no branding.
-            Think of it as a chef’s visual brainstorm, a vignette of creativity and craft rather than a finished dish.
+            Think of it as a chef’s visual brainstorm, a vignette of creativity and craft rather than a finished dish.  As if chef just jotted it down.
             The art should suggest aroma, movement, and imagination within the world of {c["title"]}.
         """.strip()
 
@@ -471,11 +459,11 @@ class GetConcepts:
             locale_suffix = f"\n\nLocale inspiration: {self.locale_summary}" if self.locale_summary else ""
             output = await asyncio.to_thread(
                 self.replicate_client.run,
-                self.REPLICATE_MODEL,
+                self.REPLICATE_SKETCH_MODEL,
                 input={
                     "prompt": f"{sketch_prompt}{locale_suffix}",
                     "output_format": "png",
-                    "output_quality": 100,
+                    "output_quality": 80,
                 },
             )
         except Exception as exc:
@@ -507,16 +495,6 @@ class GetConcepts:
             Given the following restaurant profile and concept, generate three (3) saleable dish ideas that fit seamlessly within the restaurant’s 
             current culinary voice, audience, and menu architecture.
 
-            Restaurant Context:
-            {restaurant_context}
-
-            Creativity preference: {self._creativity_statement()}
-
-            Concept:
-            {c["title"]} — {c.get("subtitle", "")}
-            {c['reasoning']}
-  
-
             Instructions for Generation:
             Stay in voice: Dishes should feel native to the restaurant—premium comfort with Pacific Northwest ingredients and steakhouse warmth.
             Anchor in reality: Use ingredients already found across the restaurant’s menu for continuity (refer to Key Ingredients and overlapping items).
@@ -530,6 +508,19 @@ class GetConcepts:
             analyze menu pricing, ingredient usage, trends and locale to genreate a suggested price for the dish.
             Example tone (not to be copied):
             “Smoked Maple Ribeye Tips — Charred and glazed with maple-chili butter, served over roasted fingerlings and wilted black kale. A fall riff on Max Dale’s steak bites.”
+
+            restaurant locale: {self.locale_summary}
+            Restaurant Context:
+            {restaurant_context}
+
+            Creativity preference: {self._creativity_statement()}
+
+            Concept:
+            {c["title"]} — {c.get("subtitle", "")}
+            {c['reasoning']}
+  
+
+
         """
         return prompt
 
