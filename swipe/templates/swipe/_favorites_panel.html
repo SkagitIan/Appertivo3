@@ -1,0 +1,183 @@
+{% include "swipe/_slide_menu.html" %}
+
+<div class="relative min-h-screen pb-32 px-4 pt-24">
+  <div class="fixed top-6 left-6 z-40 text-[0.7rem] tracking-[0.55em] uppercase text-slate-200/80">
+    {% if restaurant %}{{ restaurant.name }}{% else %}Appertivo{% endif %}
+  </div>
+
+  <header class="mx-auto mb-12 max-w-3xl text-center space-y-4">
+    <h1 class="text-3xl font-semibold text-slate-100 tracking-[0.18em] uppercase">
+      Saved Favorites
+    </h1>
+    <h2 class="text-[0.65rem] uppercase tracking-[0.45em] text-slate-300/80">
+      Favorites Archive
+    </h2>
+    <p class="text-sm text-slate-300/90">
+      Revisit the dishes and concepts you loved most, organize winning ideas, and get ready to share them with your team.
+    </p>
+  </header>
+
+  {% if favorite_concept_groups %}
+    <div class="concept-grid" id="conceptGrid">
+      {% for group in favorite_concept_groups %}
+        <article
+          class="concept-card"
+          data-concept-card
+          data-concept-id="{{ group.concept.id }}"
+          data-target="concept-{{ group.concept.id }}-dishes"
+          role="button"
+          tabindex="0"
+          aria-controls="concept-{{ group.concept.id }}-dishes"
+          aria-expanded="false"
+        >
+          {% with concept_image=group.concept.display_sketch_url concept_placeholder="https://placehold.co/600x600?text=Concept" %}
+            <div class="concept-thumb">
+              <span class="card-note">{{ group.concept.name }}</span>
+              <img
+                src="{{ concept_image|default:concept_placeholder }}"
+                alt="{{ group.concept.name }} concept sketch"
+                loading="lazy"
+                decoding="async"
+                onerror="this.onerror=null;this.src='{{ concept_placeholder }}';"
+              >
+            </div>
+          {% endwith %}
+          <button
+            type="button"
+            class="delete-btn"
+            data-delete-trigger
+            data-delete-type="concept"
+            data-delete-id="{{ group.concept.id }}"
+            aria-label="Delete {{ group.concept.name }}"
+            data-prevent-toggle
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 7h12M10 11v6m4-6v6m-7 4h10a1 1 0 001-1V7H6v13a1 1 0 001 1zm3-17h4l1 2H8l1-2z" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            class="heart-btn favorited"
+            data-return-main
+            aria-label="Return to Flavor Lab"
+            data-prevent-toggle
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+            </svg>
+          </button>
+        </article>
+      {% endfor %}
+    </div>
+
+    <div class="mt-12 space-y-12" id="conceptDetails">
+      {% for group in favorite_concept_groups %}
+        <section
+          id="concept-{{ group.concept.id }}-dishes"
+          class="concept-dishes hidden"
+          data-concept-dishes="{{ group.concept.id }}"
+        >
+          <div class="concept-dishes__header">
+            <h4>{{ group.concept.name }}</h4>
+            <span data-dish-count>
+              {% with dish_total=group.dishes|length %}
+                {{ dish_total }} dish{% if dish_total != 1 %}es{% endif %}
+              {% endwith %}
+            </span>
+          </div>
+          <div class="concept-dishes__grid">
+            {% for dish in group.dishes %}
+              <article class="dish-thumb" tabindex="0" role="button" aria-pressed="true">
+                <div class="dish-thumb__media">
+                  <img
+                    src="{{ dish.display_image_url|default:'https://placehold.co/600x600?text=Dish' }}"
+                    alt="{{ dish.name }} dish photo"
+                    loading="lazy"
+                    decoding="async"
+                    onerror="this.onerror=null;this.src='https://placehold.co/600x600?text=Dish';"
+                  >
+                  <div class="card-actions">
+                    <button
+                      type="button"
+                      class="delete-btn"
+                      data-delete-trigger
+                      data-delete-type="dish"
+                      data-delete-id="{{ dish.id }}"
+                      aria-label="Remove {{ dish.name }}"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 7h12M10 11v6m4-6v6m-7 4h10a1 1 0 001-1V7H6v13a1 1 0 001 1zm3-17h4l1 2H8l1-2z" />
+                      </svg>
+                    </button>
+                    <button type="button" class="heart-btn favorited" disabled aria-label="Favorited dish">
+                      <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div class="dish-thumb__meta">
+                  <strong>{{ dish.name }}</strong>
+                  <span>{{ dish.price }}</span>
+                </div>
+              </article>
+            {% empty %}
+              <p class="concept-dishes__empty">No dishes saved yet for this concept.</p>
+            {% endfor %}
+          </div>
+        </section>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div id="favoritesEmptyMessage" class="mt-16 text-center text-slate-200">
+      <h2 class="text-lg uppercase tracking-[0.35em]">No favorites yet</h2>
+      <p class="mt-3 text-sm text-slate-300/80">
+        Add dishes or concept cards to your favorites to see them organized here.
+      </p>
+    </div>
+  {% endif %}
+
+  <div class="floating-controls" id="favoritesControls">
+    <div class="floating-controls__inner">
+      <button type="button" class="floating-controls__icon" id="favoritesScrollUp" aria-label="Previous concept group">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 5l-4 4m4-4l4 4M12 5v14" />
+        </svg>
+      </button>
+      <button type="button" class="floating-controls__icon" id="favoritesScrollDown" aria-label="Next concept group">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l4-4m-4 4l-4-4m4 4V5" />
+        </svg>
+      </button>
+      <button type="button" class="floating-controls__icon" id="favoritesMenuButton" aria-label="Open menu" data-menu-trigger>
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 7h14M5 12h10M5 17h6" />
+        </svg>
+      </button>
+      <span class="floating-controls__indicator" id="favoritesIndicator">
+        {% if favorite_concept_groups %}
+          1 / {{ favorite_concept_groups|length }}
+        {% else %}
+          No favorites
+        {% endif %}
+      </span>
+      <button type="button" class="floating-controls__icon" id="favoritesReturn" aria-label="Back to Swipe">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 12l-5-5m5 5l-5 5M15 12H7" />
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <button
+    type="button"
+    class="floating-controls__icon"
+    id="favoritesMenuButtonMobile"
+    aria-label="Open menu"
+    data-menu-trigger
+  >
+    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M5 7h14M5 12h10M5 17h6" />
+    </svg>
+  </button>
+</div>
