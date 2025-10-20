@@ -3,6 +3,40 @@
 
 {% block title %}Data Security — Appertivo{% endblock %}
 
+{% block seo_meta %}
+  {% with canonical_url=request.build_absolute_uri|default:"https://appertivo.com/data-security/" %}
+    {% with meta_title="Data Security — Appertivo" meta_description="Learn how Appertivo protects your restaurant data with encrypted storage, audited infrastructure, and strict workspace privacy controls." %}
+      <meta name="description" content="{{ meta_description }}"/>
+      <meta name="keywords" content="appertivo security, restaurant data protection, menu security, ai compliance"/>
+      <meta name="author" content="Appertivo"/>
+      <meta name="robots" content="index,follow"/>
+      <link rel="canonical" href="{{ canonical_url }}"/>
+      <meta property="og:locale" content="en_US"/>
+      <meta property="og:type" content="website"/>
+      <meta property="og:title" content="{{ meta_title }}"/>
+      <meta property="og:description" content="{{ meta_description }}"/>
+      <meta property="og:url" content="{{ canonical_url }}"/>
+      <meta property="og:site_name" content="Appertivo"/>
+      <meta property="og:image" content="https://placehold.co/1200x630?text=Appertivo+Security"/>
+      <meta property="og:image:alt" content="Secure restaurant data workflow illustration for Appertivo"/>
+      <meta name="twitter:card" content="summary_large_image"/>
+      <meta name="twitter:title" content="{{ meta_title }}"/>
+      <meta name="twitter:description" content="{{ meta_description }}"/>
+      <meta name="twitter:image" content="https://placehold.co/1200x630?text=Appertivo+Security"/>
+      <meta name="twitter:image:alt" content="Secure restaurant data workflow illustration for Appertivo"/>
+      <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@type": "WebPage",
+          "name": "{{ meta_title|escapejs }}",
+          "description": "{{ meta_description|escapejs }}",
+          "url": "{{ canonical_url|escapejs }}"
+        }
+      </script>
+    {% endwith %}
+  {% endwith %}
+{% endblock %}
+
 {% block content %}
     <div class="topbar">
         {% if request.user.is_authenticated %}
@@ -37,7 +71,7 @@
             <div class="logo">APPERTIVO</div>
             <h1>Data Security</h1>
             <p>
-                Your recipes, menus, and concepts stay locked inside your workspace. Appertivo combines infrastructure safeguards with strict access controls to protect your data.
+                Your recipes, menus, and concepts stay locked inside your workspace. We can't view or reuse them. Appertivo only draws on information that is already public on the internet, and there is currently no way to send us additional proprietary data.
             </p>
             <div class="subtext">Built on modern, audited cloud infrastructure</div>
         </div>
@@ -45,38 +79,10 @@
 
     <div class="content-wrapper">
         <article class="content-section">
-            <h2>Platform Security</h2>
-            <p>Appertivo runs on hardened cloud environments with automatic patching and monitoring.</p>
-            <ul>
-                <li>Encrypted storage for every asset you upload or generate.</li>
-                <li>TLS 1.2+ enforced for all data in transit between your browser and our APIs.</li>
-                <li>Continuous monitoring with alerting for suspicious activity.</li>
-            </ul>
-        </article>
-
-        <article class="content-section">
-            <h2>Access Controls</h2>
-            <p>Only the right people can reach your workspace and data.</p>
-            <ul>
-                <li>Role-based permissions within Appertivo to limit who can view, edit, or export content.</li>
-                <li>Strict internal policies ensure employee access is granted only for support or maintenance.</li>
-                <li>Audit trails covering key actions inside the product.</li>
-            </ul>
-        </article>
-
-        <article class="content-section">
-            <h2>Data Retention & Backups</h2>
-            <p>We keep your data available while giving you control over removal.</p>
-            <ul>
-                <li>Regular backups with encryption at rest and isolated storage.</li>
-                <li>Workspace owners can delete dishes, menus, or entire accounts at any time.</li>
-                <li>Deleted data is purged from active systems within 30 days unless legally required otherwise.</li>
-            </ul>
-        </article>
-
-        <article class="content-section">
-            <h2>Need a Security Review?</h2>
-            <p>For vendor questionnaires or deeper security reviews, email <a href="mailto:security@appertivo.com">security@appertivo.com</a>. We’re happy to walk through our controls.</p>
+            <h2>How Appertivo Protects Your Work</h2>
+            <p>Appertivo runs on hardened cloud infrastructure with automatic patching, encrypted storage for every asset, TLS 1.2+ enforced for data in transit, and continuous monitoring with alerting for suspicious activity.</p>
+            <p>Role-based permissions give you control over who can view, edit, or export content inside your workspace, while strict internal policies ensure Appertivo employees only receive access when you request support. Workspace owners can delete dishes, menus, or entire accounts whenever needed, and removals are purged from active systems within 30 days unless legal requirements say otherwise.</p>
+            <p>Need vendor documentation or a deeper security review? Email <a href="mailto:security@appertivo.com">security@appertivo.com</a> and our team will help.</p>
         </article>
     </div>
 

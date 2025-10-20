@@ -5,6 +5,41 @@
   Appertivo Demo · Favorites
 {% endblock %}
 
+{% block seo_meta %}
+  {% with canonical_url=request.build_absolute_uri|default:"https://appertivo.com/swipe/demo/favorites/" %}
+    {% with meta_title="Appertivo Demo · Saved Favorites" meta_description="Preview how Appertivo Swipe organizes favorite dishes and concept cards in the live demo workspace." %}
+      <meta name="description" content="{{ meta_description }}"/>
+      <meta name="keywords" content="appertivo demo favorites, swipe demo dishes, restaurant innovation demo"/>
+      <meta name="author" content="Appertivo"/>
+      <meta name="robots" content="index,follow"/>
+      <link rel="canonical" href="{{ canonical_url }}"/>
+      <meta property="og:locale" content="en_US"/>
+      <meta property="og:type" content="website"/>
+      <meta property="og:title" content="{{ meta_title }}"/>
+      <meta property="og:description" content="{{ meta_description }}"/>
+      <meta property="og:url" content="{{ canonical_url }}"/>
+      <meta property="og:site_name" content="Appertivo Swipe"/>
+      <meta property="og:image" content="https://placehold.co/1200x630?text=Appertivo+Swipe+Demo"/>
+      <meta property="og:image:alt" content="Favorites section inside the Appertivo Swipe demo experience"/>
+      <meta name="twitter:card" content="summary_large_image"/>
+      <meta name="twitter:title" content="{{ meta_title }}"/>
+      <meta name="twitter:description" content="{{ meta_description }}"/>
+      <meta name="twitter:image" content="https://placehold.co/1200x630?text=Appertivo+Swipe+Demo"/>
+      <meta name="twitter:image:alt" content="Favorites section inside the Appertivo Swipe demo experience"/>
+      <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@type": "WebPage",
+          "name": "{{ meta_title|escapejs }}",
+          "description": "{{ meta_description|escapejs }}",
+          "url": "{{ canonical_url|escapejs }}",
+          "primaryImageOfPage": "https://placehold.co/1200x630?text=Appertivo+Swipe+Demo"
+        }
+      </script>
+    {% endwith %}
+  {% endwith %}
+{% endblock %}
+
 {% block head %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -590,9 +625,17 @@
       {% if restaurant %}{{ restaurant.name }}{% else %}Appertivo{% endif %}
     </div>
 
-    <div class="mb-10 text-center text-[0.65rem] uppercase tracking-[0.45em] text-slate-300/80">
-      Favorites Archive
-    </div>
+    <header class="mx-auto mb-12 max-w-3xl text-center space-y-4">
+      <h1 class="text-3xl font-semibold text-slate-100 tracking-[0.18em] uppercase">
+        Demo Favorites
+      </h1>
+      <h2 class="text-[0.65rem] uppercase tracking-[0.45em] text-slate-300/80">
+        Favorites Archive
+      </h2>
+      <p class="text-sm text-slate-300/90">
+        See how the favorites dashboard highlights must-try dishes and keeps concept cards ready to share in the demo workspace.
+      </p>
+    </header>
 
     {% if favorite_concept_groups %}
       <div class="concept-grid" id="conceptGrid">
@@ -611,7 +654,7 @@
               <div class="concept-thumb">
                 <span class="card-note">{{ group.concept.name }}</span>
                 <img
-                  src="{{ concept_image }}"
+                  src="{{ concept_image|default:concept_placeholder }}"
                   alt="{{ group.concept.name }} concept sketch"
                   loading="lazy"
                   decoding="async"
@@ -675,7 +718,7 @@
                   {% with dish_image=dish.display_image_url dish_placeholder="https://placehold.co/600x600?text=Dish" %}
                     <div class="dish-thumb__media">
                       <img
-                        src="{{ dish_image }}"
+                        src="{{ dish_image|default:dish_placeholder }}"
                         alt="{{ dish.name }} presentation"
                         loading="lazy"
                         decoding="async"
@@ -721,7 +764,7 @@
                       {% with dish_image=dish.display_image_url dish_placeholder="https://placehold.co/800x600?text=Dish" %}
                         <div class="card-face card-front">
                           <img
-                            src="{{ dish_image }}"
+                            src="{{ dish_image|default:dish_placeholder }}"
                             alt="{{ dish.name }} presentation"
                             class="card-media"
                             loading="lazy"

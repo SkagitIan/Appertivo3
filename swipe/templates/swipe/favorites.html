@@ -11,6 +11,131 @@
   {% endif %}
 {% endblock %}
 
+{% block seo_meta %}
+  {% with canonical_url=request.build_absolute_uri|default:"https://appertivo.com/swipe/favorites/" %}
+    {% if restaurant %}
+      {% with meta_title=restaurant.name|add:" · Saved Favorites" meta_description="Review the standout dishes and restaurant-ready concepts saved for "|add:restaurant.name %}
+        <meta name="description" content="{{ meta_description }}"/>
+        <meta name="keywords" content="restaurant favorites, menu inspiration, saved dishes, {{ restaurant.name }} concepts"/>
+        <meta name="author" content="Appertivo"/>
+        <meta name="robots" content="index,follow"/>
+        <link rel="canonical" href="{{ canonical_url }}"/>
+        <meta property="og:locale" content="en_US"/>
+        <meta property="og:type" content="website"/>
+        <meta property="og:title" content="{{ meta_title }}"/>
+        <meta property="og:description" content="{{ meta_description }}"/>
+        <meta property="og:url" content="{{ canonical_url }}"/>
+        <meta property="og:site_name" content="Appertivo Swipe"/>
+        <meta property="og:image" content="https://placehold.co/1200x630?text={{ restaurant.name|urlencode }}+Favorites"/>
+        <meta property="og:image:alt" content="Favorite dishes curated for {{ restaurant.name }}"/>
+        <meta name="twitter:card" content="summary_large_image"/>
+        <meta name="twitter:title" content="{{ meta_title }}"/>
+        <meta name="twitter:description" content="{{ meta_description }}"/>
+        <meta name="twitter:image" content="https://placehold.co/1200x630?text={{ restaurant.name|urlencode }}+Favorites"/>
+        <meta name="twitter:image:alt" content="Favorite dishes curated for {{ restaurant.name }}"/>
+        <script type="application/ld+json">
+          {
+            "@context": "https://schema.org",
+            "@type": "ItemList",
+            "name": "{{ meta_title|escapejs }}",
+            "description": "{{ meta_description|escapejs }}",
+            "url": "{{ canonical_url|escapejs }}",
+            "itemListElement": [
+              {% if favorite_concept_groups %}
+                {% for group in favorite_concept_groups|slice:":6" %}
+                  {
+                    "@type": "ListItem",
+                    "position": {{ forloop.counter }},
+                    "name": "{{ group.concept.name|escapejs }}",
+                    "url": "{{ canonical_url|escapejs }}#concept-{{ group.concept.id }}-dishes",
+                    "image": "https://placehold.co/600x600?text={{ group.concept.name|urlencode }}",
+                    {% if group.concept.meta_reasoning %}
+                      "description": "{{ group.concept.meta_reasoning|striptags|truncatechars:150|escapejs }}"
+                    {% elif group.concept.subtitle %}
+                      "description": "{{ group.concept.subtitle|striptags|truncatechars:150|escapejs }}"
+                    {% else %}
+                      "description": "Saved culinary concept from Appertivo Swipe."
+                    {% endif %}
+                  }{% if not forloop.last %},{% endif %}
+                {% endfor %}
+              {% else %}
+                {
+                  "@type": "ListItem",
+                  "position": 1,
+                  "name": "Appertivo Swipe Favorites Sampler",
+                  "description": "Sample collection of saved dishes inside Appertivo Swipe."
+                }
+              {% endif %}
+            ]
+          }
+        </script>
+      {% endwith %}
+    {% elif demo_mode %}
+      {% with meta_title="Appertivo Demo · Saved Favorites" meta_description="Explore what a curated favorites archive looks like inside the Appertivo Swipe demo experience." %}
+        <meta name="description" content="{{ meta_description }}"/>
+        <meta name="keywords" content="appertivo demo favorites, culinary inspiration demo, saved dishes demo"/>
+        <meta name="author" content="Appertivo"/>
+        <meta name="robots" content="index,follow"/>
+        <link rel="canonical" href="{{ canonical_url }}"/>
+        <meta property="og:locale" content="en_US"/>
+        <meta property="og:type" content="website"/>
+        <meta property="og:title" content="{{ meta_title }}"/>
+        <meta property="og:description" content="{{ meta_description }}"/>
+        <meta property="og:url" content="{{ canonical_url }}"/>
+        <meta property="og:site_name" content="Appertivo Swipe"/>
+        <meta property="og:image" content="https://placehold.co/1200x630?text=Appertivo+Swipe+Favorites"/>
+        <meta property="og:image:alt" content="Demo favorites collection inside Appertivo Swipe"/>
+        <meta name="twitter:card" content="summary_large_image"/>
+        <meta name="twitter:title" content="{{ meta_title }}"/>
+        <meta name="twitter:description" content="{{ meta_description }}"/>
+        <meta name="twitter:image" content="https://placehold.co/1200x630?text=Appertivo+Swipe+Favorites"/>
+        <meta name="twitter:image:alt" content="Demo favorites collection inside Appertivo Swipe"/>
+        <script type="application/ld+json">
+          {
+            "@context": "https://schema.org",
+            "@type": "WebPage",
+            "name": "{{ meta_title|escapejs }}",
+            "description": "{{ meta_description|escapejs }}",
+            "url": "{{ canonical_url|escapejs }}",
+            "primaryImageOfPage": "https://placehold.co/1200x630?text=Appertivo+Swipe+Favorites"
+          }
+        </script>
+      {% endwith %}
+    {% else %}
+      {% with meta_title="Appertivo · Favorites" meta_description="Return to your saved dishes and concept cards to build the perfect menu lineup with Appertivo Swipe." %}
+        <meta name="description" content="{{ meta_description }}"/>
+        <meta name="keywords" content="restaurant favorites, menu inspiration, saved dishes"/>
+        <meta name="author" content="Appertivo"/>
+        <meta name="robots" content="index,follow"/>
+        <link rel="canonical" href="{{ canonical_url }}"/>
+        <meta property="og:locale" content="en_US"/>
+        <meta property="og:type" content="website"/>
+        <meta property="og:title" content="{{ meta_title }}"/>
+        <meta property="og:description" content="{{ meta_description }}"/>
+        <meta property="og:url" content="{{ canonical_url }}"/>
+        <meta property="og:site_name" content="Appertivo Swipe"/>
+        <meta property="og:image" content="https://placehold.co/1200x630?text=Appertivo+Swipe+Favorites"/>
+        <meta property="og:image:alt" content="Favorites archive inside Appertivo Swipe"/>
+        <meta name="twitter:card" content="summary_large_image"/>
+        <meta name="twitter:title" content="{{ meta_title }}"/>
+        <meta name="twitter:description" content="{{ meta_description }}"/>
+        <meta name="twitter:image" content="https://placehold.co/1200x630?text=Appertivo+Swipe+Favorites"/>
+        <meta name="twitter:image:alt" content="Favorites archive inside Appertivo Swipe"/>
+        <script type="application/ld+json">
+          {
+            "@context": "https://schema.org",
+            "@type": "WebPage",
+            "name": "{{ meta_title|escapejs }}",
+            "description": "{{ meta_description|escapejs }}",
+            "url": "{{ canonical_url|escapejs }}",
+            "primaryImageOfPage": "https://placehold.co/1200x630?text=Appertivo+Swipe+Favorites"
+          }
+        </script>
+      {% endwith %}
+    {% endif %}
+  {% endwith %}
+{% endblock %}
+
 {% block head %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -596,9 +721,17 @@
       {% if restaurant %}{{ restaurant.name }}{% else %}Appertivo{% endif %}
     </div>
 
-    <div class="mb-10 text-center text-[0.65rem] uppercase tracking-[0.45em] text-slate-300/80">
-      Favorites Archive
-    </div>
+    <header class="mx-auto mb-12 max-w-3xl text-center space-y-4">
+      <h1 class="text-3xl font-semibold text-slate-100 tracking-[0.18em] uppercase">
+        Saved Favorites
+      </h1>
+      <h2 class="text-[0.65rem] uppercase tracking-[0.45em] text-slate-300/80">
+        Favorites Archive
+      </h2>
+      <p class="text-sm text-slate-300/90">
+        Revisit the dishes and concepts you loved most, organize winning ideas, and get ready to share them with your team.
+      </p>
+    </header>
 
     {% if favorite_concept_groups %}
       <div class="concept-grid" id="conceptGrid">
@@ -617,7 +750,7 @@
               <div class="concept-thumb">
                 <span class="card-note">{{ group.concept.name }}</span>
                 <img
-                  src="{{ concept_image }}"
+                  src="{{ concept_image|default:concept_placeholder }}"
                   alt="{{ group.concept.name }} concept sketch"
                   loading="lazy"
                   decoding="async"
@@ -681,7 +814,7 @@
                   {% with dish_image=dish.display_image_url dish_placeholder="https://placehold.co/600x600?text=Dish" %}
                     <div class="dish-thumb__media">
                       <img
-                        src="{{ dish_image }}"
+                        src="{{ dish_image|default:dish_placeholder }}"
                         alt="{{ dish.name }} presentation"
                         loading="lazy"
                         decoding="async"
@@ -727,7 +860,7 @@
                       {% with dish_image=dish.display_image_url dish_placeholder="https://placehold.co/800x600?text=Dish" %}
                         <div class="card-face card-front">
                           <img
-                            src="{{ dish_image }}"
+                            src="{{ dish_image|default:dish_placeholder }}"
                             alt="{{ dish.name }} presentation"
                             class="card-media"
                             loading="lazy"

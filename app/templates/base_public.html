@@ -5,6 +5,40 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Appertivo - AI That Knows Your Restaurant{% endblock %}</title>
+    {% block seo_meta %}
+      <meta name="description" content="Appertivo uses AI to help restaurants create menu concepts, realistic dish imagery, and guest-ready experiences."/>
+      <meta name="keywords" content="restaurant ai, menu innovation, culinary ai, restaurant marketing"/>
+      <meta name="author" content="Appertivo"/>
+      <meta name="robots" content="index,follow"/>
+      <link rel="canonical" href="https://appertivo.com/"/>
+      <meta property="og:locale" content="en_US"/>
+      <meta property="og:type" content="website"/>
+      <meta property="og:title" content="Appertivo - AI That Knows Your Restaurant"/>
+      <meta property="og:description" content="Appertivo uses AI to help restaurants create menu concepts, realistic dish imagery, and guest-ready experiences."/>
+      <meta property="og:url" content="https://appertivo.com/"/>
+      <meta property="og:site_name" content="Appertivo"/>
+      <meta property="og:image" content="https://placehold.co/1200x630?text=Appertivo+AI"/>
+      <meta property="og:image:alt" content="Chef reviewing AI-generated menu concepts in Appertivo"/>
+      <meta name="twitter:card" content="summary_large_image"/>
+      <meta name="twitter:title" content="Appertivo - AI That Knows Your Restaurant"/>
+      <meta name="twitter:description" content="Appertivo uses AI to help restaurants create menu concepts, realistic dish imagery, and guest-ready experiences."/>
+      <meta name="twitter:image" content="https://placehold.co/1200x630?text=Appertivo+AI"/>
+      <meta name="twitter:image:alt" content="Chef reviewing AI-generated menu concepts in Appertivo"/>
+      <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          "name": "Appertivo",
+          "url": "https://appertivo.com/",
+          "logo": "https://placehold.co/512x512?text=Appertivo+Logo",
+          "description": "Appertivo delivers restaurant-ready menu innovation, AI dish imagery, and guest experience insights.",
+          "sameAs": [
+            "https://www.linkedin.com/company/appertivo",
+            "https://www.instagram.com/appertivo"
+          ]
+        }
+      </script>
+    {% endblock %}
     <link
         rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=Shadows+Into+Light&display=swap"
@@ -1439,7 +1473,7 @@
 
         .content-wrapper {
             max-width: 1040px;
-            margin: 0 auto;
+            margin: 4rem auto 0;
             padding: 0 1.5rem 6rem;
             display: grid;
             gap: 2.5rem;

@@ -11,6 +11,119 @@
   {% endif %}
 {% endblock %}
 
+{% block seo_meta %}
+  {% with canonical_url=request.build_absolute_uri|default:"https://appertivo.com/swipe/settings/" %}
+    {% if restaurant %}
+      {% with meta_title=restaurant.name|add:" · Swipe Settings" meta_description="Fine-tune Appertivo Swipe creativity levels and review contact details, website links, and notes for "|add:restaurant.name %}
+        <meta name="description" content="{{ meta_description }}"/>
+        <meta name="keywords" content="restaurant settings, swipe configuration, creativity controls, {{ restaurant.name }} settings"/>
+        <meta name="author" content="Appertivo"/>
+        <meta name="robots" content="index,follow"/>
+        <link rel="canonical" href="{{ canonical_url }}"/>
+        <meta property="og:locale" content="en_US"/>
+        <meta property="og:type" content="website"/>
+        <meta property="og:title" content="{{ meta_title }}"/>
+        <meta property="og:description" content="{{ meta_description }}"/>
+        <meta property="og:url" content="{{ canonical_url }}"/>
+        <meta property="og:site_name" content="Appertivo Swipe"/>
+        <meta property="og:image" content="https://placehold.co/1200x630?text={{ restaurant.name|urlencode }}+Settings"/>
+        <meta property="og:image:alt" content="Settings overview for {{ restaurant.name }} inside Appertivo Swipe"/>
+        <meta name="twitter:card" content="summary_large_image"/>
+        <meta name="twitter:title" content="{{ meta_title }}"/>
+        <meta name="twitter:description" content="{{ meta_description }}"/>
+        <meta name="twitter:image" content="https://placehold.co/1200x630?text={{ restaurant.name|urlencode }}+Settings"/>
+        <meta name="twitter:image:alt" content="Settings overview for {{ restaurant.name }} inside Appertivo Swipe"/>
+        <script type="application/ld+json">
+          {
+            "@context": "https://schema.org",
+            "@type": "WebPage",
+            "name": "{{ meta_title|escapejs }}",
+            "description": "{{ meta_description|escapejs }}",
+            "url": "{{ canonical_url|escapejs }}",
+            "breadcrumb": {
+              "@type": "BreadcrumbList",
+              "itemListElement": [
+                {
+                  "@type": "ListItem",
+                  "position": 1,
+                  "name": "Concepts",
+                  "item": "{{ canonical_url|cut:'settings/'|escapejs }}"
+                },
+                {
+                  "@type": "ListItem",
+                  "position": 2,
+                  "name": "Settings",
+                  "item": "{{ canonical_url|escapejs }}"
+                }
+              ]
+            }
+          }
+        </script>
+      {% endwith %}
+    {% elif demo_mode %}
+      {% with meta_title="Appertivo Demo · Swipe Settings" meta_description="Adjust creativity controls and explore the restaurant data panel inside the Appertivo Swipe demo settings page." %}
+        <meta name="description" content="{{ meta_description }}"/>
+        <meta name="keywords" content="appertivo demo settings, swipe demo configuration, culinary ai demo settings"/>
+        <meta name="author" content="Appertivo"/>
+        <meta name="robots" content="index,follow"/>
+        <link rel="canonical" href="{{ canonical_url }}"/>
+        <meta property="og:locale" content="en_US"/>
+        <meta property="og:type" content="website"/>
+        <meta property="og:title" content="{{ meta_title }}"/>
+        <meta property="og:description" content="{{ meta_description }}"/>
+        <meta property="og:url" content="{{ canonical_url }}"/>
+        <meta property="og:site_name" content="Appertivo Swipe"/>
+        <meta property="og:image" content="https://placehold.co/1200x630?text=Appertivo+Swipe+Demo"/>
+        <meta property="og:image:alt" content="Settings controls inside the Appertivo Swipe demo experience"/>
+        <meta name="twitter:card" content="summary_large_image"/>
+        <meta name="twitter:title" content="{{ meta_title }}"/>
+        <meta name="twitter:description" content="{{ meta_description }}"/>
+        <meta name="twitter:image" content="https://placehold.co/1200x630?text=Appertivo+Swipe+Demo"/>
+        <meta name="twitter:image:alt" content="Settings controls inside the Appertivo Swipe demo experience"/>
+        <script type="application/ld+json">
+          {
+            "@context": "https://schema.org",
+            "@type": "WebPage",
+            "name": "{{ meta_title|escapejs }}",
+            "description": "{{ meta_description|escapejs }}",
+            "url": "{{ canonical_url|escapejs }}"
+          }
+        </script>
+      {% endwith %}
+    {% else %}
+      {% with meta_title="Appertivo · Swipe Settings" meta_description="Control creativity settings, manage restaurant contact information, and prepare for your next culinary launch with Appertivo Swipe." %}
+        <meta name="description" content="{{ meta_description }}"/>
+        <meta name="keywords" content="appertivo settings, swipe configuration, restaurant settings"/>
+        <meta name="author" content="Appertivo"/>
+        <meta name="robots" content="index,follow"/>
+        <link rel="canonical" href="{{ canonical_url }}"/>
+        <meta property="og:locale" content="en_US"/>
+        <meta property="og:type" content="website"/>
+        <meta property="og:title" content="{{ meta_title }}"/>
+        <meta property="og:description" content="{{ meta_description }}"/>
+        <meta property="og:url" content="{{ canonical_url }}"/>
+        <meta property="og:site_name" content="Appertivo Swipe"/>
+        <meta property="og:image" content="https://placehold.co/1200x630?text=Appertivo+Swipe+Settings"/>
+        <meta property="og:image:alt" content="Settings view inside Appertivo Swipe"/>
+        <meta name="twitter:card" content="summary_large_image"/>
+        <meta name="twitter:title" content="{{ meta_title }}"/>
+        <meta name="twitter:description" content="{{ meta_description }}"/>
+        <meta name="twitter:image" content="https://placehold.co/1200x630?text=Appertivo+Swipe+Settings"/>
+        <meta name="twitter:image:alt" content="Settings view inside Appertivo Swipe"/>
+        <script type="application/ld+json">
+          {
+            "@context": "https://schema.org",
+            "@type": "WebPage",
+            "name": "{{ meta_title|escapejs }}",
+            "description": "{{ meta_description|escapejs }}",
+            "url": "{{ canonical_url|escapejs }}"
+          }
+        </script>
+      {% endwith %}
+    {% endif %}
+  {% endwith %}
+{% endblock %}
+
 {% block head %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

@@ -3,6 +3,50 @@
 
 {% block title %}Appertivo - AI That Knows Your Restaurant{% endblock %}
 
+{% block seo_meta %}
+  {% with canonical_url=request.build_absolute_uri|default:"https://appertivo.com/" %}
+    {% with meta_title="Appertivo — AI That Knows Your Restaurant" meta_description="Appertivo trains AI on your guest feedback, menus, and local trends to generate realistic dishes, menu concepts, and imagery tailored to your restaurant." %}
+      <meta name="description" content="{{ meta_description }}"/>
+      <meta name="keywords" content="restaurant ai, menu innovation platform, ai dish imagery, restaurant concept design"/>
+      <meta name="author" content="Appertivo"/>
+      <meta name="robots" content="index,follow"/>
+      <link rel="canonical" href="{{ canonical_url }}"/>
+      <meta property="og:locale" content="en_US"/>
+      <meta property="og:type" content="website"/>
+      <meta property="og:title" content="{{ meta_title }}"/>
+      <meta property="og:description" content="{{ meta_description }}"/>
+      <meta property="og:url" content="{{ canonical_url }}"/>
+      <meta property="og:site_name" content="Appertivo"/>
+      <meta property="og:image" content="https://placehold.co/1200x630?text=Appertivo+Restaurant+AI"/>
+      <meta property="og:image:alt" content="Restaurant team reviewing AI-generated dishes on Appertivo"/>
+      <meta name="twitter:card" content="summary_large_image"/>
+      <meta name="twitter:title" content="{{ meta_title }}"/>
+      <meta name="twitter:description" content="{{ meta_description }}"/>
+      <meta name="twitter:image" content="https://placehold.co/1200x630?text=Appertivo+Restaurant+AI"/>
+      <meta name="twitter:image:alt" content="Restaurant team reviewing AI-generated dishes on Appertivo"/>
+      <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          "name": "Appertivo",
+          "url": "{{ canonical_url|escapejs }}",
+          "description": "{{ meta_description|escapejs }}",
+          "publisher": {
+            "@type": "Organization",
+            "name": "Appertivo",
+            "url": "https://appertivo.com/"
+          },
+          "potentialAction": {
+            "@type": "Action",
+            "name": "Request Early Access",
+            "target": "https://appertivo.com/#join"
+          }
+        }
+      </script>
+    {% endwith %}
+  {% endwith %}
+{% endblock %}
+
 {% block content %}
 
 
@@ -147,6 +191,178 @@
   .guest-reviews-card .bubble { animation: none !important; }
 }
 
+.feature-card.tailored-concepts-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.feature-card.tailored-concepts-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image:
+    linear-gradient(115deg, rgba(15, 23, 42, 0.82) 12%, rgba(15, 23, 42, 0.15) 82%),
+    url("https://res.cloudinary.com/dfz4bhlzs/image/upload/v1760903923/out-0_aqhtpz.webp");
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
+  filter: grayscale(1) contrast(0.92);
+  opacity: 0;
+  transform: translateY(20px) scale(1.05);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.feature-card.tailored-concepts-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.feature-card.tailored-concepts-card.inview::before {
+  animation: tailoredConceptReveal 0.9s ease-out 0.12s forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .feature-card.tailored-concepts-card::before {
+    opacity: 0.32;
+    transform: none;
+    animation: none;
+  }
+}
+
+@keyframes tailoredConceptReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) scale(1.05);
+  }
+  60% {
+    opacity: 0.38;
+    transform: translateY(-2px) scale(1);
+  }
+  100% {
+    opacity: 0.32;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.articles-section {
+  margin: 6rem auto 0;
+  max-width: 72rem;
+  padding: 0 1.5rem;
+}
+
+.articles-section .section-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.articles-section .section-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: rgba(165, 180, 252, 0.8);
+  margin-bottom: 1rem;
+}
+
+.articles-grid {
+  display: grid;
+  gap: 1.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.article-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.5rem;
+  padding: 2.25rem;
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.82) 0%, rgba(15, 23, 42, 0.96) 100%);
+  color: #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-height: 18rem;
+  isolation: isolate;
+  box-shadow: 0 32px 60px rgba(8, 12, 25, 0.45);
+  transition: transform 0.35s ease, border-color 0.35s ease;
+}
+
+.article-card::before {
+  content: "";
+  position: absolute;
+  inset: -10%;
+  background-image: var(--article-image, none);
+  background-size: cover;
+  background-position: center;
+  opacity: 0.55;
+  filter: saturate(0.8);
+  transform: scale(1.05);
+  z-index: -2;
+}
+
+.article-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.2) 0%, rgba(15, 23, 42, 0.85) 65%, rgba(15, 23, 42, 0.95) 100%);
+  z-index: -1;
+}
+
+.article-card:hover {
+  transform: translateY(-6px);
+  border-color: rgba(165, 180, 252, 0.45);
+}
+
+.article-card__tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  background: rgba(99, 102, 241, 0.25);
+  color: rgba(199, 210, 254, 0.88);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.article-card h3 {
+  font-size: 1.35rem;
+  line-height: 1.35;
+  font-weight: 600;
+}
+
+.article-card p {
+  color: rgba(226, 232, 240, 0.82);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.article-card__cta {
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+  font-size: 0.9rem;
+  color: rgba(165, 180, 252, 0.88);
+}
+
+.article-card__cta span:last-child {
+  font-size: 1.1rem;
+}
+
+@media (max-width: 640px) {
+  .articles-section {
+    margin-top: 4rem;
+    padding: 0 1.25rem;
+  }
+}
+
 </style>
 
 
@@ -218,7 +434,7 @@
                     </div>
                     <div class="guest-reviews-content">
                         <!-- <div class="training-source-icon">⭐</div> -->
-                        <h3>Guest Reviews</h3>
+                        <h3 class="font-extrabold">Guest Reviews</h3>
                         <p>We analyze what diners love about your restaurant. The AI understands your strengths and creates concepts that amplify them.</p>
                     </div>
                 </div>
@@ -231,11 +447,11 @@
                         <span class="menu-logo menu-logo--web"></span>
                     </div>
                 
-                    <h3>Your Menus</h3>
+                    <h3 class="font-extrabold">Your Menus</h3>
                     <p>Current dishes, retired favorites, seasonal specials. The AI learns your style, flavor profiles, and what's worked before.</p>
                 </div>
                 <div class="training-source local-insights-card">
-                    <h3>Local Insights</h3>
+                    <h3 class="font-extrabold">Local Insights</h3>
                     <p>Your location matters. Get concepts using regional ingredients, seasonal availability, and local dining trends.</p>
                 </div>
 
@@ -410,38 +626,89 @@
         </div>
 
         <div class="features-grid">
-            <div class="feature-card">
-                <div class="feature-icon">🎯</div>
-                <h3>Tailored Concepts</h3>
+            <div class="feature-card tailored-concepts-card" data-animate="fade">
+                <h3 class="font-extrabold">Tailored Concepts</h3>
                 <p>Every concept is generated with your kitchen capabilities, ingredient access, and price points in mind. No impossible ideas.</p>
             </div>
 
-            <div class="feature-card">
-                <div class="feature-icon">📸</div>
-                <h3>Realistic Visuals</h3>
-                <p>Generate dish imagery that looks like it came right out of your kitchen, not a stock photo library.</p>
-            </div>
+
+            <div class="feature-card text-center text-gray-100 rounded-2xl p-6 shadow-lg flex flex-col items-center">
+  
+  <!-- Thumbnails -->
+  <div class="flex justify-center gap-3 mb-4">
+    <img
+      src="https://placehold.co/140x140?text=Dish+Idea+1"
+      alt="AI generated dish concept garnished with herbs"
+      class="w-14 h-14 object-cover rounded-lg shadow-md opacity-90 hover:opacity-100 transition"
+      loading="lazy"
+    />
+    <img
+      src="https://placehold.co/140x140?text=Dish+Idea+2"
+      alt="Chef-inspired pasta concept plated for tasting"
+      class="w-14 h-14 object-cover rounded-lg shadow-md opacity-90 hover:opacity-100 transition"
+      loading="lazy"
+    />
+    <img
+      src="https://placehold.co/140x140?text=Dish+Idea+3"
+      alt="Seasonal dessert concept created with Appertivo"
+      class="w-14 h-14 object-cover rounded-lg shadow-md opacity-90 hover:opacity-100 transition"
+      loading="lazy"
+    />
+  </div>
+
+  <!-- Text -->
+  <h3 class="text-xl font-semibold mb-2">Inspiring Visuals</h3>
+  <p class="text-sm text-gray-300">
+    Generate dish imagery that looks like it came right out of your kitchen,
+    not a stock photo library.
+  </p>
+</div>
+
 
             <div class="feature-card p-0">
-<section class="animation-demo">
-  <div class="mask">
-    <div class="track">
-      <!-- Vertical reel: 3 sketches stacked -->
-      <div class="sketches">
-        <img src="https://res.cloudinary.com/dfz4bhlzs/image/upload/v1760474125/concept_sketches/8d79a138-98d1-4c75-8377-65baf4e0255d.png" alt="Sketch 1">
-        <img src="https://res.cloudinary.com/dfz4bhlzs/image/upload/v1760474125/concept_sketches/8d79a138-98d1-4c75-8377-65baf4e0255d.png" alt="Sketch 2">
-        <img src="https://res.cloudinary.com/dfz4bhlzs/image/upload/v1760474125/concept_sketches/8d79a138-98d1-4c75-8377-65baf4e0255d.png" alt="Sketch 3">
-      </div>
 
-      <!-- Horizontal row: 3 dishes inline -->
-      <div class="dishes">
-        <img src="https://res.cloudinary.com/dfz4bhlzs/image/upload/f_auto,q_auto,c_fill,g_auto:subject,w_1000/v1760829337/dish_images/dcacc66c-e9e2-422c-9690-fee8d65a3431.jpg" alt="Dish 1">
-        <img src="https://res.cloudinary.com/dfz4bhlzs/image/upload/f_auto,q_auto,c_fill,g_auto:subject,w_1000/v1760829337/dish_images/dcacc66c-e9e2-422c-9690-fee8d65a3431.jpg" alt="Dish 1">
-        <img src="https://res.cloudinary.com/dfz4bhlzs/image/upload/f_auto,q_auto,c_fill,g_auto:subject,w_1000/v1760829337/dish_images/dcacc66c-e9e2-422c-9690-fee8d65a3431.jpg" alt="Dish 1">
-      </div>
-    </div>
+<div class="feature-card p-6 flex flex-col items-center justify-center bg-[#0E1628] text-gray-100 rounded-2xl shadow-lg">
+  <!-- 2x3 grid to suggest organization -->
+  <div class="grid grid-cols-3 gap-2 mb-6 w-32 h-24">
+    <div class="menu-tile bg-[#B993D6]/40"></div>
+    <div class="menu-tile bg-[#58B09C]/40"></div>
+    <div class="menu-tile bg-[#f08000]/40"></div>
+    <div class="menu-tile bg-[#58B09C]/40"></div>
+    <div class="menu-tile bg-[#B993D6]/40"></div>
+    <div class="menu-tile bg-[#f08000]/40"></div>
   </div>
-</section>
+
+  <h3 class="text-xl font-semibold mb-1">Organized Menus</h3>
+  <p class="text-sm text-gray-300 text-center max-w-xs">
+    Concepts and dishes come together into clean, balanced menus —
+    ready to print, post, or share.
+  </p>
+
+  <style>
+    .menu-tile {
+      border-radius: 6px;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      transform: translateY(10px) scale(0.95);
+      animation: tileIn 0.6s ease forwards;
+    }
+
+    .menu-tile:nth-child(1) { animation-delay: 0.1s; }
+    .menu-tile:nth-child(2) { animation-delay: 0.2s; }
+    .menu-tile:nth-child(3) { animation-delay: 0.3s; }
+    .menu-tile:nth-child(4) { animation-delay: 0.4s; }
+    .menu-tile:nth-child(5) { animation-delay: 0.5s; }
+    .menu-tile:nth-child(6) { animation-delay: 0.6s; }
+
+    @keyframes tileIn {
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+  </style>
+</div>
 
             </div>
         </div>
@@ -524,7 +791,7 @@
         </div>
     </section>
 
-    <!-- Final CTA -->
+    <!-- CTA -->
     <section class="final-cta">
         <h2>Ready for AI That Gets Your Restaurant?</h2>
         <p>Start creating dish concepts that actually make sense for your kitchen, pricing, and guests.</p>
@@ -536,12 +803,82 @@
         </p>
     </section>
 
+    <!-- Articles -->
+    <section class="articles-section mb-3">
+        <div class="section-header">
+            <span class="section-eyebrow">Industry Insights</span>
+            <h2>Articles From Our Research Lab</h2>
+            <p>Deep dives on what’s next for operators, from AI-assisted menu testing to how guests choose their next night out.</p>
+        </div>
+        <div class="articles-grid mb-5">
+            <article class="article-card" style="--article-image: url('https://res.cloudinary.com/dfz4bhlzs/image/upload/v1760903923/out-0_aqhtpz.webp');">
+                <span class="article-card__tag">Market Outlook</span>
+                <h3>2025 Restaurant Demand Signals (Placeholder)</h3>
+                <p>What our data is showing about shifting diner preferences, regional spend, and the flavors poised to break through.</p>
+                <div class="article-card__cta">
+                    <span>Full article soon</span>
+                    <span aria-hidden="true">&rarr;</span>
+                </div>
+            </article>
+            <article class="article-card" style="--article-image: url('https://res.cloudinary.com/dfz4bhlzs/image/upload/v1760902978/dish_images/88f772fd-6fbc-489a-bc5f-0c431e21ca4a.jpg');">
+                <span class="article-card__tag">AI In Practice</span>
+                <h3>AI In Restaurant Research Playbook (Placeholder)</h3>
+                <p>A behind-the-line look at how teams are pairing human tasting with predictive models to launch faster.</p>
+                <div class="article-card__cta">
+                    <span>Full article soon</span>
+                    <span aria-hidden="true">&rarr;</span>
+                </div>
+            </article>
+            <article class="article-card" style="--article-image: url('https://res.cloudinary.com/dfz4bhlzs/image/upload/v1760901681/dish_images/fcbc1bd4-546d-42ec-a169-f4fefa0966d4.jpg');">
+                <span class="article-card__tag">Guest Insights</span>
+                <h3>Translating Reviews Into Menu Wins (Placeholder)</h3>
+                <p>Turning thousands of comments into three launch-ready specials that match your kitchen and guest expectations.</p>
+                <div class="article-card__cta">
+                    <span>Full article soon</span>
+                    <span aria-hidden="true">&rarr;</span>
+                </div>
+            </article>
+        </div>
+    </section>
+
     {% include "_partials/minimal_footer.html" %}
 {% endblock %}
 
 {% block extra_scripts %}
     {{ block.super }}
     <script>
+      (() => {
+        const initCardReveal = () => {
+          const card = document.querySelector('.feature-card.tailored-concepts-card');
+          if (!card) {
+            return;
+          }
+
+          const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+          if (prefersReduced.matches) {
+            card.classList.add('inview');
+            return;
+          }
+
+          const revealObserver = new IntersectionObserver((entries, observer) => {
+            entries.forEach((entry) => {
+              if (entry.isIntersecting) {
+                entry.target.classList.add('inview');
+                observer.unobserve(entry.target);
+              }
+            });
+          }, { threshold: 0.2, rootMargin: '0px 0px -10% 0px' });
+
+          revealObserver.observe(card);
+        };
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', initCardReveal, { once: true });
+        } else {
+          initCardReveal();
+        }
+      })();
+
       (() => {
         const stacks = Array.from(document.querySelectorAll('[data-testimonial-rotator]'));
         if (!stacks.length) {
