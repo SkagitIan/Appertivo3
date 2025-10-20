@@ -1,0 +1,930 @@
+<script src="https://unpkg.com/htmx.org@1.9.12"></script>
+{% if dish_counts %}
+  {{ dish_counts|json_script:"dish-counts-data" }}
+{% else %}
+  <script id="dish-counts-data" type="application/json">[]</script>
+{% endif %}
+{% if demo_mode %}
+  {% if demo_payload %}
+    {{ demo_payload|json_script:"demo-payload" }}
+  {% else %}
+    <script id="demo-payload" type="application/json">{"concepts":[],"buffers":{},"favorites":{"concept_ids":[],"dish_ids":[]}}</script>
+  {% endif %}
+{% endif %}
+<script>
+  const csrfToken = '{{ csrf_token }}';
+  const markSeenEndpoint = '{% url 'swipe:mark_seen' %}';
+  const deleteEndpoint = '{% url 'swipe:delete_card' %}';
+  const NEW_CONCEPT_STORAGE_KEY = 'swipe:new-concept-ids';
+  let totalConcepts = {{ concepts|length }};
+  const isDemo = {% if demo_mode %}true{% else %}false{% endif %};
+  const dishCountsData = document.getElementById('dish-counts-data');
+  let dishCounts = dishCountsData ? JSON.parse(dishCountsData.textContent) : [];
+  const demoPayloadScript = document.getElementById('demo-payload');
+  const demoData = demoPayloadScript ? JSON.parse(demoPayloadScript.textContent) : null;
+  const demoBuffers = new Map();
+  const demoFavoriteDishes = new Set(demoData?.favorites?.dish_ids || []);
+  const demoFavoriteConcepts = new Set(demoData?.favorites?.concept_ids || []);
+  if (demoData?.buffers) {
+    Object.entries(demoData.buffers).forEach(([conceptId, dishes]) => {
+      demoBuffers.set(conceptId, Array.isArray(dishes) ? dishes.slice() : []);
+    });
+  }
+  const generateBtn = document.getElementById('generateConceptsBtn');
+  const generateFeedback = document.getElementById('generateConceptsFeedback');
+  const touchArea = document.querySelector('.touch-area');
+  const verticalSlider = document.getElementById('verticalSlider');
+  const introOverlay = document.getElementById('introOverlay');
+  const dismissIntro = document.getElementById('dismissIntro');
+  const DISH_PLACEHOLDER = 'https://placehold.co/800x600?text=Dish';
+  const TRANSPARENT_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+  const conceptStates = {};
+  const viewToggle = document.querySelector('[data-view-toggle]');
+  const viewContainers = Array.from(document.querySelectorAll('[data-view-container]'));
+  const viewOnlyNodes = Array.from(document.querySelectorAll('[data-view-only]'));
+  const towerView = document.getElementById('towerView');
+  let activeView = null;
+  let towerInitialized = false;
+  let towerButtons = [];
+  let towerTracks = [];
+  let showFeedback = () => {};
+  let hideFeedback = () => {};
+
+  if (isDemo) {
+    const splash = document.getElementById('demoSplash');
+    if (splash) {
+      const steps = Array.from(splash.querySelectorAll('[data-demo-step]'));
+      const progressBar = splash.querySelector('[data-demo-progress]');
+      steps.forEach((step) => step.classList.remove('is-active'));
+      if (progressBar) {
+        progressBar.style.width = '0%';
+      }
+
+      steps.forEach((step, index) => {
+        window.setTimeout(() => {
+          step.classList.add('is-active');
+          if (progressBar) {
+            const ratio = ((index + 1) / steps.length) * 100;
+            progressBar.style.width = `${ratio}%`;
+          }
+        }, 650 * (index + 1));
+      });
+
+      const totalSplashDuration = Math.max(5000, 650 * (steps.length + 1));
+      window.setTimeout(() => {
+        splash.classList.add('hidden');
+        if (introOverlay) {
+          introOverlay.classList.remove('hidden');
+        }
+      }, totalSplashDuration);
+
+      if (introOverlay) {
+        introOverlay.classList.add('hidden');
+      }
+    }
+  }
+
+  function demoPopDish(conceptId) {
+    if (!demoBuffers.has(conceptId)) {
+      return null;
+    }
+    const pool = demoBuffers.get(conceptId);
+    if (!pool || pool.length === 0) {
+      return null;
+    }
+    const dish = pool.shift();
+    demoBuffers.set(conceptId, pool);
+    return dish;
+  }
+  let towerActiveConceptId = null;
+
+  function escapeSelector(value) {
+    const stringValue = value === undefined || value === null ? '' : String(value);
+    if (window.CSS && typeof window.CSS.escape === 'function') {
+      try {
+        return window.CSS.escape(stringValue);
+      } catch (error) {
+        return stringValue;
+      }
+    }
+    return stringValue;
+  }
+
+  function setupTowerView() {
+    if (!towerView) {
+      return;
+    }
+
+    towerButtons = Array.from(towerView.querySelectorAll('[data-tower-option]'));
+    towerTracks = Array.from(towerView.querySelectorAll('[data-tower-track]'));
+
+    towerButtons.forEach((button) => {
+      if (button.dataset.towerBound === 'true') {
+        return;
+      }
+      button.dataset.towerBound = 'true';
+      button.addEventListener('click', () => {
+        const conceptId = button.dataset.conceptId || '';
+        activateTowerConcept(conceptId);
+      });
+    });
+
+    towerTracks.forEach((track) => {
+      if (track.dataset.towerBound === 'true') {
+        return;
+      }
+      track.dataset.towerBound = 'true';
+      const scroller = track.querySelector('[data-tower-scroller]');
+      if (scroller) {
+        scroller.addEventListener('scroll', () => {
+          const cards = Array.from(scroller.querySelectorAll('.card'));
+          cards.forEach((card) => {
+            if (!card.dataset.mediaLoaded) {
+              observeCard(card);
+            }
+          });
+        });
+      }
+    });
+
+    towerInitialized = true;
+  }
+
+  function activateTowerConcept(conceptId) {
+    if (!towerInitialized) {
+      setupTowerView();
+    }
+
+    towerActiveConceptId = conceptId;
+    towerButtons.forEach((button) => {
+      const isActive = button.dataset.conceptId === conceptId;
+      button.classList.toggle('is-active', isActive);
+      button.setAttribute('aria-pressed', String(isActive));
+    });
+
+    towerTracks.forEach((track) => {
+      const isActive = track.dataset.conceptId === conceptId;
+      track.classList.toggle('hidden', !isActive);
+      if (isActive) {
+        const scroller = track.querySelector('[data-tower-scroller]');
+        if (scroller) {
+          const cards = Array.from(scroller.querySelectorAll('.card'));
+          cards.forEach(observeCard);
+        }
+      }
+    });
+  }
+
+  function loadCardMedia(card) {
+    if (!card) {
+      return;
+    }
+    const front = card.querySelector('.card-front');
+    if (!front) {
+      return;
+    }
+    const backgroundPlaceholder = front.dataset.backgroundPlaceholder || '';
+    const backgroundImage = front.dataset.backgroundImage || '';
+    const img = front.querySelector('.card-media');
+    if (!img) {
+      if (backgroundImage) {
+        front.style.backgroundImage = `url('${backgroundImage}')`;
+      } else if (backgroundPlaceholder) {
+        front.style.backgroundImage = `url('${backgroundPlaceholder}')`;
+      }
+      front.setAttribute('data-media-state', 'loaded');
+      return;
+    }
+
+    if (img.dataset.src === undefined && img.src && img.src !== TRANSPARENT_PIXEL) {
+      if (img.complete && img.naturalWidth > 0) {
+        front.setAttribute('data-media-state', 'loaded');
+        img.classList.add('is-loaded');
+      }
+      return;
+    }
+
+    const placeholder = img.dataset.placeholder || backgroundPlaceholder || '';
+    const actualSrc = img.dataset.src || backgroundImage;
+
+    const finalize = () => {
+      card.dataset.mediaLoaded = 'true';
+      front.setAttribute('data-media-state', 'loaded');
+      img.classList.add('is-loaded');
+    };
+
+    const cleanup = () => {
+      img.removeEventListener('load', onLoad);
+      img.removeEventListener('error', onError);
+    };
+
+    const onLoad = () => {
+      cleanup();
+      finalize();
+    };
+
+    const onError = () => {
+      cleanup();
+      const fallback = img.dataset.placeholder || backgroundPlaceholder || DISH_PLACEHOLDER;
+      if (fallback) {
+        img.src = fallback;
+        front.style.backgroundImage = `url('${fallback}')`;
+      }
+      delete img.dataset.src;
+      finalize();
+    };
+
+    img.classList.remove('is-loaded');
+    img.addEventListener('load', onLoad);
+    img.addEventListener('error', onError);
+    if (actualSrc) {
+      img.src = actualSrc;
+      delete img.dataset.src;
+    }
+
+    if (img.complete && img.naturalWidth > 0) {
+      onLoad();
+    }
+    return;
+  }
+
+  function observeCard(card) {
+    if (
+      !card ||
+      card.dataset.mediaLoaded === 'true' ||
+      card.dataset.mediaLoaded === 'loading'
+    ) {
+      return;
+    }
+
+    if (cardObserver) {
+      cardObserver.observe(card);
+    } else {
+      loadCardMedia(card);
+    }
+  }
+
+  let cardObserver = null;
+
+  if ('IntersectionObserver' in window) {
+    cardObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            loadCardMedia(entry.target);
+            if (cardObserver) {
+              cardObserver.unobserve(entry.target);
+            }
+          }
+        });
+      },
+      { rootMargin: '200px 0px', threshold: 0.1 },
+    );
+  }
+
+  function getTrackByConceptIndex(index) {
+    return document.querySelector(`.horizontal-track[data-concept-index="${index}"]`);
+  }
+
+  function getTrackByConceptId(conceptId) {
+    return document.querySelector(`.horizontal-track[data-concept-track="${conceptId}"]`);
+  }
+
+  function getConceptIdByIndex(index) {
+    const track = getTrackByConceptIndex(index);
+    return track ? track.dataset.conceptTrack : null;
+  }
+
+  function getConceptEndpoint(conceptId) {
+    const button = document.querySelector(
+      `[data-load-dishes][data-concept-id="${conceptId}"]`
+    );
+    return button ? button.dataset.endpoint : null;
+  }
+
+  function hasActivePlaceholder(conceptId) {
+    const state = conceptStates[conceptId];
+    return Boolean(state?.placeholder && state.placeholder.isConnected);
+  }
+
+  function getMaxDishIndex(conceptIndex) {
+    const dishCount = dishCounts[conceptIndex] || 0;
+    const conceptId = getConceptIdByIndex(conceptIndex);
+    const extra = conceptId && hasActivePlaceholder(conceptId) ? 1 : 0;
+    return dishCount + extra;
+  }
+
+  function applyRevealedTrigger(element, type, id) {
+    if (isDemo) {
+      return;
+    }
+    if (!element || !id) {
+      return;
+    }
+
+    element.setAttribute('hx-post', markSeenEndpoint);
+    element.setAttribute('hx-trigger', 'revealed delay:3s once');
+    element.setAttribute('hx-swap', 'none');
+    element.setAttribute('hx-encoding', 'json');
+    element.setAttribute(
+      'hx-vals',
+      JSON.stringify({ type, id }),
+    );
+    element.setAttribute(
+      'hx-headers',
+      JSON.stringify({ 'X-CSRFToken': csrfToken, 'Content-Type': 'application/json' }),
+    );
+  }
+
+  function markConceptSeen(conceptId, index) {
+    const track = getTrackByConceptIndex(index);
+    if (!track) {
+      return;
+    }
+    const card = track.querySelector('[data-card]');
+    if (card) {
+      applyRevealedTrigger(card, 'concept', conceptId);
+    }
+  }
+
+  function markDishSeen(dishId, element) {
+    applyRevealedTrigger(element, 'dish', dishId);
+  }
+
+  function updatePositionIndicator(conceptIndex, dishIndex) {
+    const indicator = document.getElementById('positionIndicator');
+    if (!indicator) {
+      return;
+    }
+    const conceptNumber = conceptIndex + 1;
+    const maxDishIndex = getMaxDishIndex(conceptIndex);
+    indicator.textContent = `${conceptNumber} / ${totalConcepts}`;
+    indicator.dataset.dish = `${dishIndex + 1} / ${Math.max(1, maxDishIndex)}`;
+  }
+
+  function changeView(targetView) {
+    if (!targetView || activeView === targetView) {
+      return;
+    }
+
+    activeView = targetView;
+    viewContainers.forEach((container) => {
+      const isTarget = container.dataset.viewContainer === targetView;
+      container.classList.toggle('hidden', !isTarget);
+      container.setAttribute('aria-hidden', String(!isTarget));
+      if (isTarget && container === towerView && !towerInitialized) {
+        setupTowerView();
+        const activeTowerButton = towerButtons.find((button) => button.classList.contains('is-active'));
+        if (activeTowerButton) {
+          activateTowerConcept(activeTowerButton.dataset.conceptId);
+        }
+      }
+    });
+
+    viewOnlyNodes.forEach((node) => {
+      const allowed = node.dataset.viewOnly?.split(/\s+/g) || [];
+      const isVisible = allowed.includes(targetView);
+      node.classList.toggle('hidden', !isVisible);
+      if ('aria-hidden' in node.dataset) {
+        node.setAttribute('aria-hidden', String(!isVisible));
+      }
+    });
+
+    if (viewToggle) {
+      const buttons = Array.from(viewToggle.querySelectorAll('[data-view-option]'));
+      buttons.forEach((button) => {
+        const matches = button.dataset.viewOption === targetView;
+        button.setAttribute('aria-pressed', String(matches));
+        button.classList.toggle('is-active', matches);
+      });
+    }
+  }
+
+  function ensureViewInitialized() {
+    if (!activeView) {
+      const defaultView = viewToggle?.dataset.viewDefault || 'swipe';
+      changeView(defaultView);
+    }
+  }
+
+  ensureViewInitialized();
+
+  if (viewToggle) {
+    const viewButtons = Array.from(viewToggle.querySelectorAll('[data-view-option]'));
+    viewButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const target = button.dataset.viewTarget;
+        const view = button.dataset.viewOption;
+        if (target && view) {
+          changeView(view);
+        }
+      });
+    });
+  }
+
+  function announce(message, tone = 'neutral') {
+    if (!generateFeedback) {
+      return;
+    }
+
+    const iconMap = {
+      neutral: '🍽️',
+      success: '✨',
+      error: '⚠️',
+    };
+    const classMap = {
+      neutral: 'floating-generate-feedback bg-black/80 text-slate-100',
+      success: 'floating-generate-feedback bg-green-600/90 text-slate-900',
+      error: 'floating-generate-feedback bg-red-600/90 text-white',
+    };
+
+    generateFeedback.innerHTML = `
+      <span class="toast-icon" aria-hidden="true">${iconMap[tone] || '🍽️'}</span>
+      <span class="toast-message">${message}</span>
+      <button type="button" class="toast-close" data-dismiss>
+        <span aria-hidden="true">×</span>
+        <span class="sr-only">Dismiss message</span>
+      </button>
+    `;
+    generateFeedback.className = classMap[tone] || classMap.neutral;
+    generateFeedback.hidden = false;
+    generateFeedback.setAttribute('aria-hidden', 'false');
+
+    const closeButton = generateFeedback.querySelector('[data-dismiss]');
+    if (closeButton) {
+      closeButton.addEventListener('click', hideFeedback);
+    }
+  }
+
+  hideFeedback = () => {
+    if (!generateFeedback) {
+      return;
+    }
+    generateFeedback.hidden = true;
+    generateFeedback.setAttribute('aria-hidden', 'true');
+    generateFeedback.innerHTML = '';
+  };
+
+  showFeedback = announce;
+
+  function toggleFavorite(button, type, id) {
+    if (!button) {
+      return;
+    }
+
+    if (isDemo) {
+      const favorited = button.classList.toggle('favorited');
+      button.setAttribute('aria-pressed', String(favorited));
+      const targetSet = type === 'dish' ? demoFavoriteDishes : demoFavoriteConcepts;
+      if (favorited) {
+        targetSet.add(id);
+      } else {
+        targetSet.delete(id);
+      }
+      return;
+    }
+
+    button.disabled = true;
+    const endpoint = type === 'dish' ? '{% url 'swipe:favorite_dish' %}' : '{% url 'swipe:favorite_concept' %}';
+    fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrfToken,
+      },
+      body: JSON.stringify({ id }),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('Failed to update favorites');
+        }
+        return response.json();
+      })
+      .then((data) => {
+        if (!data || typeof data.is_favorite !== 'boolean') {
+          throw new Error('Invalid response');
+        }
+        button.classList.toggle('favorited', data.is_favorite);
+        button.setAttribute('aria-pressed', String(data.is_favorite));
+        showFeedback(data.is_favorite ? 'Added to favorites' : 'Removed from favorites', 'success');
+      })
+      .catch(() => {
+        showFeedback('Could not update favorites', 'error');
+      })
+      .finally(() => {
+        button.disabled = false;
+      });
+  }
+
+  window.toggleFavorite = toggleFavorite;
+
+  function focusConcept(index) {
+    const slide = document.querySelector(`.concept-slide[data-concept-index="${index}"]`);
+    if (slide && verticalSlider) {
+      verticalSlider.style.transform = `translateY(-${index * 100}vh)`;
+      const card = slide.querySelector('[data-card]');
+      if (card) {
+        observeCard(card);
+        card.focus({ preventScroll: true });
+      }
+    }
+  }
+
+  let currentConceptIndex = 0;
+  let currentDishIndex = 0;
+
+  function updateDishIndex(conceptIndex, nextIndex) {
+    const track = getTrackByConceptIndex(conceptIndex);
+    if (!track) {
+      return;
+    }
+    const cards = Array.from(track.querySelectorAll('.card'));
+    if (!cards.length) {
+      currentDishIndex = 0;
+      return;
+    }
+
+    const clampedIndex = Math.max(0, Math.min(nextIndex, cards.length - 1));
+    currentDishIndex = clampedIndex;
+
+    cards.forEach((card, index) => {
+      card.classList.toggle('is-tower-active', index === clampedIndex);
+      if (index === clampedIndex) {
+        observeCard(card);
+        markDishSeen(card.dataset.dishId, card);
+      }
+    });
+
+    updatePositionIndicator(conceptIndex, clampedIndex);
+  }
+
+  function navigateVertical(delta) {
+    const nextIndex = Math.max(0, Math.min(totalConcepts - 1, currentConceptIndex + delta));
+    if (nextIndex === currentConceptIndex) {
+      return;
+    }
+    currentConceptIndex = nextIndex;
+    focusConcept(currentConceptIndex);
+    currentDishIndex = 0;
+    markConceptSeen(getConceptIdByIndex(currentConceptIndex), currentConceptIndex);
+    updateDishIndex(currentConceptIndex, currentDishIndex);
+
+    if (towerInitialized) {
+      const activeButton = towerButtons.find((button) => button.dataset.conceptIndex === String(currentConceptIndex));
+      if (activeButton) {
+        activateTowerConcept(activeButton.dataset.conceptId);
+      }
+    }
+  }
+
+  function navigateHorizontal(delta) {
+    const track = getTrackByConceptIndex(currentConceptIndex);
+    if (!track) {
+      return;
+    }
+    const cards = Array.from(track.querySelectorAll('.card'));
+    if (!cards.length) {
+      return;
+    }
+
+    const nextIndex = Math.max(0, Math.min(cards.length - 1, currentDishIndex + delta));
+    currentDishIndex = nextIndex;
+    const targetCard = cards[nextIndex];
+    if (targetCard) {
+      observeCard(targetCard);
+      targetCard.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      markDishSeen(targetCard.dataset.dishId, targetCard);
+    }
+    updateDishIndex(currentConceptIndex, currentDishIndex);
+  }
+
+  window.navigateVertical = navigateVertical;
+  window.navigateHorizontal = navigateHorizontal;
+
+  if (touchArea) {
+    let startY = 0;
+    let startX = 0;
+    let isSwiping = false;
+
+    const onTouchStart = (event) => {
+      const touch = event.touches[0];
+      startY = touch.clientY;
+      startX = touch.clientX;
+      isSwiping = true;
+    };
+
+    const onTouchMove = (event) => {
+      if (!isSwiping) {
+        return;
+      }
+      const touch = event.touches[0];
+      const deltaY = touch.clientY - startY;
+      const deltaX = touch.clientX - startX;
+      if (Math.abs(deltaY) > Math.abs(deltaX)) {
+        if (deltaY > 60) {
+          navigateVertical(-1);
+          isSwiping = false;
+        } else if (deltaY < -60) {
+          navigateVertical(1);
+          isSwiping = false;
+        }
+      } else if (Math.abs(deltaX) > 60) {
+        if (deltaX > 0) {
+          navigateHorizontal(-1);
+        } else {
+          navigateHorizontal(1);
+        }
+        isSwiping = false;
+      }
+    };
+
+    const onTouchEnd = () => {
+      isSwiping = false;
+    };
+
+    touchArea.addEventListener('touchstart', onTouchStart, { passive: true });
+    touchArea.addEventListener('touchmove', onTouchMove, { passive: true });
+    touchArea.addEventListener('touchend', onTouchEnd, { passive: true });
+  }
+
+  function bindCard(card) {
+    if (!card || card.dataset.bound === 'true') {
+      return;
+    }
+    card.dataset.bound = 'true';
+
+    const inner = card.querySelector('.card-inner');
+    const back = card.querySelector('.card-back');
+    if (inner && back) {
+      card.addEventListener('click', (event) => {
+        if (event.target.closest('[data-prevent-flip]')) {
+          return;
+        }
+        card.classList.toggle('is-flipped');
+      });
+    }
+
+    const deleteButton = card.querySelector('[data-delete-trigger]');
+    if (deleteButton) {
+      deleteButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        showFeedback('Delete actions are disabled in this demo', 'error');
+      });
+    }
+
+    const variationButton = card.querySelector('[data-load-dishes]');
+    if (variationButton) {
+      variationButton.addEventListener('click', async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const conceptId = variationButton.dataset.conceptId;
+        if (!conceptId) {
+          return;
+        }
+
+        const endpoint = variationButton.dataset.endpoint;
+        if (!endpoint || endpoint === '#') {
+          const dish = demoPopDish(conceptId);
+          if (!dish) {
+            showFeedback('No more demo dishes available', 'neutral');
+            return;
+          }
+          appendDishCard(conceptId, dish);
+          showFeedback('Added a new demo dish', 'success');
+          return;
+        }
+
+        variationButton.disabled = true;
+        variationButton.dataset.loading = 'true';
+        try {
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': csrfToken,
+            },
+            body: JSON.stringify({ concept_id: conceptId }),
+          });
+          if (!response.ok) {
+            throw new Error('Request failed');
+          }
+          const payload = await response.json();
+          if (!payload?.dish) {
+            throw new Error('Invalid response');
+          }
+          appendDishCard(conceptId, payload.dish);
+          showFeedback('New dish added!', 'success');
+        } catch (error) {
+          console.error(error);
+          showFeedback('We could not generate a new dish right now', 'error');
+        } finally {
+          variationButton.disabled = false;
+          delete variationButton.dataset.loading;
+        }
+      });
+    }
+  }
+
+  function appendDishCard(conceptId, dish) {
+    if (!dish) {
+      return;
+    }
+    const track = getTrackByConceptId(conceptId);
+    if (!track) {
+      return;
+    }
+
+    const cardTemplate = document.createElement('template');
+    cardTemplate.innerHTML = `
+      <div class="card w-full" data-card data-dish-id="${dish.id}">
+        <div class="card-inner">
+          <div class="card-face card-front" style="background-image: none;" data-background-placeholder="${dish.image_url}" data-background-image="${dish.image_url}" data-media-state="idle">
+            <span class="card-note">${dish.name}</span>
+            <img src="${TRANSPARENT_PIXEL}" data-src="${dish.image_url}" data-placeholder="${dish.image_url}" alt="${dish.name}" class="card-media" loading="lazy" decoding="async">
+            <div class="card-media-loader" data-media-loader aria-hidden="true">
+              <div class="card-media-spinner h-8 w-8 animate-spin rounded-full border-2 border-white/40 border-t-transparent"></div>
+            </div>
+          </div>
+          <div class="card-face card-back">
+            <div class="card-back-content" data-scrollable>
+              <div class="card-back-body">
+                <h3 class="card-back-title">${dish.name}</h3>
+                <p class="card-back-description">${dish.reasoning || ''}</p>
+                <p class="card-back-price">${dish.price || ''}</p>
+              </div>
+              <div class="card-back-tags">
+                ${(dish.ingredients || []).map((tag) => `<span class="tag-chip">${tag}</span>`).join('')}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `.trim();
+
+    const card = cardTemplate.content.firstElementChild;
+    track.appendChild(card);
+    bindCard(card);
+    observeCard(card);
+
+    const conceptIndex = Number(track.dataset.conceptIndex || 0);
+    dishCounts[conceptIndex] = (dishCounts[conceptIndex] || 0) + 1;
+    totalConcepts = Math.max(totalConcepts, conceptIndex + 1);
+    updateDishIndex(conceptIndex, card.parentElement.querySelectorAll('.card').length - 1);
+  }
+
+  const cards = Array.from(document.querySelectorAll('[data-card]'));
+  cards.forEach((card) => {
+    bindCard(card);
+    observeCard(card);
+  });
+
+  window.setTimeout(() => {
+    markConceptSeen(getConceptIdByIndex(0), 0);
+    updateDishIndex(0, 0);
+  }, 400);
+
+  document.addEventListener('keydown', (event) => {
+    if (event.defaultPrevented) {
+      return;
+    }
+    switch (event.key) {
+      case 'ArrowUp':
+        navigateVertical(-1);
+        event.preventDefault();
+        break;
+      case 'ArrowDown':
+        navigateVertical(1);
+        event.preventDefault();
+        break;
+      case 'ArrowLeft':
+        navigateHorizontal(-1);
+        event.preventDefault();
+        break;
+      case 'ArrowRight':
+        navigateHorizontal(1);
+        event.preventDefault();
+        break;
+      default:
+        break;
+    }
+  });
+
+  const floatingMenuButtons = Array.from(document.querySelectorAll('[data-menu-trigger]'));
+  const slideMenu = document.getElementById('slideMenu');
+  const slideMenuBackdropId = 'slideMenuBackdrop';
+
+  function openMenu() {
+    if (!slideMenu) {
+      return;
+    }
+    slideMenu.classList.remove('translate-x-full');
+    let backdrop = document.getElementById(slideMenuBackdropId);
+    if (!backdrop) {
+      backdrop = document.createElement('div');
+      backdrop.id = slideMenuBackdropId;
+      backdrop.className = 'fixed inset-0 z-30 bg-black/50 backdrop-blur-sm';
+      backdrop.addEventListener('click', closeMenu);
+      document.body.appendChild(backdrop);
+    }
+  }
+
+  function closeMenu() {
+    if (!slideMenu) {
+      return;
+    }
+    slideMenu.classList.add('translate-x-full');
+    const backdrop = document.getElementById(slideMenuBackdropId);
+    if (backdrop) {
+      backdrop.remove();
+    }
+  }
+
+  floatingMenuButtons.forEach((button) => {
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      if (slideMenu?.classList.contains('translate-x-full')) {
+        openMenu();
+      } else {
+        closeMenu();
+      }
+    });
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      closeMenu();
+    }
+  });
+
+  window.addEventListener('click', (event) => {
+    if (
+      slideMenu &&
+      !slideMenu.contains(event.target) &&
+      !floatingMenuButtons.some((button) => button.contains(event.target))
+    ) {
+      closeMenu();
+    }
+  });
+
+  if (introOverlay && dismissIntro) {
+    const hideIntro = () => {
+      introOverlay.classList.add('is-hidden');
+      window.setTimeout(() => {
+        introOverlay.classList.add('hidden');
+      }, 350);
+    };
+
+    dismissIntro.addEventListener('click', hideIntro);
+
+    introOverlay.addEventListener('click', (event) => {
+      if (event.target === introOverlay) {
+        hideIntro();
+      }
+    });
+  }
+
+  window.addEventListener('message', (event) => {
+    if (event.data?.type === 'demo:init' && event.data.payload) {
+      const payload = event.data.payload;
+      if (Array.isArray(payload.concepts)) {
+        payload.concepts.forEach((concept) => {
+          const conceptTrack = getTrackByConceptId(concept.id);
+          if (!conceptTrack) {
+            return;
+          }
+          concept.dishes?.forEach((dish) => appendDishCard(concept.id, dish));
+        });
+      }
+      if (payload.favorites) {
+        (payload.favorites.concept_ids || []).forEach((id) => {
+          demoFavoriteConcepts.add(String(id));
+        });
+        (payload.favorites.dish_ids || []).forEach((id) => {
+          demoFavoriteDishes.add(String(id));
+        });
+      }
+      if (payload.buffers) {
+        Object.entries(payload.buffers).forEach(([conceptId, dishes]) => {
+          demoBuffers.set(conceptId, Array.isArray(dishes) ? dishes.slice() : []);
+        });
+      }
+    }
+  });
+
+  document.addEventListener('htmx:afterSwap', (event) => {
+    if (!event.detail?.target) {
+      return;
+    }
+    const newCards = event.detail.target.querySelectorAll('[data-card]:not([data-bound="true"])');
+    newCards.forEach((card) => {
+      bindCard(card);
+      observeCard(card);
+    });
+  });
+
+  window.addEventListener('resize', () => {
+    ensureViewInitialized();
+  });
+</script>
