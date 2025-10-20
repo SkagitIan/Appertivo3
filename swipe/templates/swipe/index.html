@@ -140,8 +140,372 @@
 
 {% block content %}
   <div class="relative min-h-screen">
-    {% include "swipe/_hero.html" %}
-    {% include "swipe/_dish_carousel.html" %}
+    {% if demo_mode or show_demo_splash %}
+      <div id="demoSplash" class="demo-splash" role="status" aria-live="polite">
+        <div class="demo-splash-card">
+          <div class="demo-splash-title">Training your personal tastemaker…</div>
+          <div class="demo-steps">
+            <div class="demo-step" data-demo-step>
+              <span class="demo-step-icon">📝</span>
+              <span>Collecting menu language</span>
+            </div>
+            <div class="demo-step" data-demo-step>
+              <span class="demo-step-icon">⭐</span>
+              <span>Studying guest sentiment</span>
+            </div>
+            <div class="demo-step" data-demo-step>
+              <span class="demo-step-icon">🔍</span>
+              <span>Scanning local trends</span>
+            </div>
+            <div class="demo-step" data-demo-step>
+              <span class="demo-step-icon">🧠</span>
+              <span>Designing personas</span>
+            </div>
+            <div class="demo-step" data-demo-step>
+              <span class="demo-step-icon">🍽️</span>
+              <span>Curating nightly specials</span>
+            </div>
+          </div>
+          <div class="demo-progress" aria-hidden="true">
+            <div class="demo-progress-bar" data-demo-progress></div>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+    <div id="introOverlay" class="intro-overlay">
+      <div class="intro-card" role="dialog" aria-modal="true" aria-labelledby="introTitle">
+        <div>
+          <h1 id="introTitle">Welcome to Appertivo</h1>
+          <p>Glide through each concept and dish. Use the view toggle to switch between Stack and Tower layouts.</p>
+        </div>
+        <div class="intro-actions">
+          <div class="intro-row">
+            <span class="intro-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 5l-4 4h8l-4-4Zm0 14 4-4H8l4 4Z" />
+              </svg>
+            </span>
+            <span>Stack view: Swipe Up / Down for Concepts</span>
+          </div>
+          <div class="intro-row">
+            <span class="intro-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m7 12 4-4v3h6V8l4 4-4 4v-3h-6v3l-4-4Z" />
+              </svg>
+            </span>
+            <span>Stack view: Swipe Left / Right for Dishes</span>
+          </div>
+          <div class="intro-row">
+            <span class="intro-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12.76 3.64a4.5 4.5 0 0 1 6.36 6.36L12 17.12l-7.12-7.12a4.5 4.5 0 1 1 6.36-6.36L12 4.24l.76-.6Z" />
+              </svg>
+            </span>
+            <span>Tap the Heart to Favorite</span>
+          </div>
+          <div class="intro-row">
+            <span class="intro-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 6.5h6M5 12h14M5 17.5h10" />
+              </svg>
+            </span>
+            <span>Tower view: Click a concept to jump between dishes</span>
+          </div>
+        </div>
+        <div class="intro-footer">
+          <span>Flip each Stack card or browse Tower panels for more details</span>
+          <button id="dismissIntro" type="button" class="intro-button">Start Exploring</button>
+        </div>
+      </div>
+    </div>
+
+    {% if not hide_restaurant_label %}
+      <div class="fixed top-6 left-6 z-40 flex flex-col items-start gap-3">
+        <div class="text-[0.7rem] tracking-[0.55em] uppercase text-slate-200/80">
+          {% if restaurant %}
+            {{ restaurant.name }}
+          {% elif demo_mode %}
+            Appertivo Demo
+          {% else %}
+            Appertivo
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+
+    <!-- Slide-out Menu -->
+    {% include "swipe/_slide_menu.html" %}
+
+    {% if concepts %}
+      <!-- Main Content Area -->
+      <div id="swipeView" class="touch-area" data-view-container="swipe">
+        <div id="verticalSlider" class="slide-container">
+          {% for concept in concepts %}
+            <div class="concept-slide" data-concept-index="{{ forloop.counter0 }}">
+              <div id="horizontalSlider{{ forloop.counter0 }}" class="horizontal-slider slide-container w-full">
+                <div
+                  class="horizontal-track"
+                  data-concept-track="{{ concept.id }}"
+                  data-concept-index="{{ forloop.counter0 }}"
+                >
+                  <!-- Concept Card -->
+                  <div
+                    class="card w-full"
+                    data-card
+                    tabindex="0"
+                    role="button"
+                    {% if not demo_mode and not concept.is_seen %}
+                      hx-post="{% url 'swipe:mark_seen' %}"
+                      hx-trigger="revealed delay:3s once"
+                      hx-vals='{"type":"concept","id":"{{ concept.id }}"}'
+                      hx-headers='{"X-CSRFToken": "{{ csrf_token|escapejs }}", "Content-Type": "application/json"}'
+                      hx-encoding="json"
+                      hx-swap="none"
+                    {% endif %}
+                  >
+                    <div class="card-inner">
+                      {% with concept_image=concept.display_sketch_url concept_placeholder="https://placehold.co/1200x800?text=Concept" %}
+                      <div
+                        class="card-face card-front"
+                        style="background-image: none;"
+                        data-background-placeholder="{{ concept_placeholder }}"
+                        data-background-image="{{ concept_image|default:concept_placeholder }}"
+                        data-media-state="idle"
+                      >
+                        <span class="card-note">{{ concept.name }}</span>
+                        <img
+                          src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
+                          data-src="{{ concept_image|default:concept_placeholder }}"
+                          data-placeholder="{{ concept_placeholder }}"
+                          alt="{{ concept.name }} concept sketch"
+                          class="card-media"
+                          decoding="async"
+                          loading="lazy"
+                          onerror="this.onerror=null;const p=this.dataset.placeholder||'';if(p){this.src=p;}const f=this.closest('.card-face');if(f){if(p){f.style.backgroundImage='url(' + p + ')';}f.setAttribute('data-media-state','loaded');}this.classList.add('is-loaded');delete this.dataset.src;"
+                        >
+                        <div class="card-media-loader" data-media-loader aria-hidden="true">
+                          <div class="card-media-spinner h-8 w-8 animate-spin rounded-full border-2 border-white/40 border-t-transparent"></div>
+                        </div>
+                      </div>
+                      {% endwith %}
+                      <div class="card-face card-back">
+                        <button type="button"
+                                class="delete-btn absolute top-5 left-5 rounded-full border border-slate-100/40 bg-slate-900/60 p-3 shadow-lg z-10"
+                                data-prevent-flip
+                                data-delete-trigger
+                                data-delete-type="concept"
+                                data-delete-id="{{ concept.id }}"
+                                aria-label="Delete {{ concept.name }} concept">
+                          <svg class="w-6 h-6 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 7h12M10 11v6m4-6v6m-7 4h10a1 1 0 001-1V7H6v13a1 1 0 001 1zm3-17h4l1 2H8l1-2z"></path>
+                          </svg>
+                        </button>
+                        <button type="button"
+                                class="heart-btn absolute top-5 right-5 rounded-full border border-slate-100/40 bg-slate-900/60 p-3 shadow-lg z-10 {% if concept.is_favorite %}favorited{% endif %}"
+                                data-prevent-flip
+                                onclick="toggleFavorite(this, 'concept', '{{ concept.id }}')"
+                                data-id="{{ concept.id }}">
+                          <svg class="w-6 h-6 text-rose-500" fill="{% if concept.is_favorite %}currentColor{% else %}none{% endif %}" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                          </svg>
+                        </button>
+                        <div class="card-back-content" data-scrollable>
+                          <div class="card-back-body">
+                            <h2 class="card-back-title">{{ concept.name }}</h2>
+                            <p class="card-back-subtitle">{{ concept.subtitle }}</p>
+                            <p class="card-back-description">{{ concept.meta_reasoning }}</p>
+                          </div>
+                          <div class="card-back-tags">
+                            {% for tag in concept.meta_ingredients %}
+                              <span class="tag-chip">{{ tag }}</span>
+                            {% empty %}
+                              <span class="tag-chip">Seasonal</span>
+                            {% endfor %}
+                          </div>
+                          <button
+                            type="button"
+                            class="mt-4 inline-flex items-center gap-3 self-start rounded-full border border-slate-100/40 bg-slate-900/70 px-5 py-2 text-[0.55rem] font-semibold uppercase tracking-[0.3em] text-slate-100 transition hover:bg-slate-800/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-100/70"
+                            data-prevent-flip
+                            data-load-dishes
+                            data-concept-id="{{ concept.id }}"
+                            data-concept-index="{{ forloop.counter0 }}"
+                            {% if demo_mode %}
+                              data-endpoint="#"
+                            {% else %}
+                              data-endpoint="{% url 'swipe:concept_append_dishes' concept.id %}"
+                            {% endif %}
+                          >
+                            <span data-label>Get more dishes</span>
+                            <span
+                              class="ml-2 hidden h-4 w-4 animate-spin rounded-full border-2 border-white/60 border-t-transparent"
+                              data-spinner
+                              aria-hidden="true"
+                            ></span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Dish Cards -->
+                  {% for dish in concept.dishes.all %}
+                    {% include "swipe/_dish_card.html" with dish=dish concept=concept %}
+                  {% empty %}
+                    <div class="card w-full flex items-center justify-center p-6 bg-slate-900/60 border border-slate-100/20">
+                      <p class="text-slate-200/80 text-center tracking-[0.25em] uppercase">No dishes generated yet for this concept.</p>
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div
+        id="towerView"
+        class="tower-view-container hidden"
+        data-view-container="tower"
+        aria-hidden="true"
+      >
+        <div class="tower-view">
+          <aside class="tower-sidebar" data-tower-concepts>
+            {% for concept in concepts %}
+              {% with concept_image=concept.display_sketch_url concept_placeholder="https://placehold.co/400x400?text=Concept" %}
+                <button
+                  type="button"
+                  class="tower-concept{% if forloop.first %} is-active{% endif %}"
+                  data-tower-option
+                  data-concept-id="{{ concept.id }}"
+                  data-concept-index="{{ forloop.counter0 }}"
+                  aria-pressed="{% if forloop.first %}true{% else %}false{% endif %}"
+                >
+                  <span class="tower-sketch">
+                    <img
+                      src="{{ concept_image|default:concept_placeholder }}"
+                      alt="{{ concept.name }} thumbnail"
+                      loading="lazy"
+                    >
+                  </span>
+                  <span class="tower-label">{{ concept.name }}</span>
+                </button>
+              {% endwith %}
+            {% endfor %}
+          </aside>
+          <section class="tower-dish-area" data-tower-dishes>
+            {% for concept in concepts %}
+              <div
+                class="tower-track{% if not forloop.first %} hidden{% endif %}"
+                data-tower-track
+                data-concept-id="{{ concept.id }}"
+              >
+                <div class="tower-track-inner" data-tower-scroller>
+                  {% for dish in concept.dishes.all %}
+                    {% include "swipe/_dish_card.html" with dish=dish concept=concept %}
+                  {% empty %}
+                    <div class="card w-full flex items-center justify-center p-6 bg-slate-900/60 border border-slate-100/20">
+                      <p class="text-slate-200/80 text-center tracking-[0.25em] uppercase">No dishes generated yet for this concept.</p>
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+            {% endfor %}
+          </section>
+        </div>
+      </div>
+
+      <!-- Floating Navigation -->
+      <div class="floating-controls" data-view-only="swipe tower">
+        <div class="floating-controls-inner">
+          <button id="navVerticalUp" onclick="navigateVertical(-1)" aria-label="Previous concept">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 5l-4 4m4-4l4 4M12 5v14" />
+            </svg>
+          </button>
+          <button id="navHorizontalLeft" onclick="navigateHorizontal(-1)" aria-label="Previous card">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l5-5m-5 5l5 5M9 12h8" />
+            </svg>
+          </button>
+          <button type="button" id="floatingMenuButton" aria-label="Open menu" data-tool data-menu-trigger>
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 7h14M5 12h10M5 17h6" />
+            </svg>
+          </button>
+          <div class="floating-controls-indicator" id="positionIndicator">1 / {{ concepts|length }}</div>
+          <button id="navHorizontalRight" onclick="navigateHorizontal(1)" aria-label="Next card">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12l-5-5m5 5l-5 5M15 12H7" />
+            </svg>
+          </button>
+          <button id="navVerticalDown" onclick="navigateVertical(1)" aria-label="Next concept">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l4-4m-4 4l-4-4m4 4V5" />
+            </svg>
+          </button>
+          {% if restaurant or demo_mode %}
+            <div class="generate-btn-wrapper">
+              <button
+                id="generateConceptsBtn"
+                type="button"
+                class="generate-btn"
+                aria-label="Generate more concepts and dishes"
+                {% if demo_mode %}
+                  data-endpoint="#"
+                {% else %}
+                  data-endpoint="{% url 'swipe:generate_concepts' restaurant.id %}"
+                {% endif %}
+              >
+                <svg data-icon fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m-7-7h14" />
+                </svg>
+                <span
+                  data-spinner
+                  class="hidden"
+                  aria-hidden="true"
+                ></span>
+              </button>
+              <div
+                id="generateConceptsFeedback"
+                class="floating-generate-feedback"
+                role="status"
+                aria-live="polite"
+                aria-hidden="true"
+                hidden
+                data-view-only="swipe tower"
+              ></div>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+      <button
+        id="floatingMenuButtonMobile"
+        type="button"
+        aria-label="Open menu"
+        data-tool
+        data-menu-trigger
+        data-view-only="swipe tower"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 7h14M5 12h10M5 17h6" />
+        </svg>
+      </button>
+    {% else %}
+      <div class="flex items-center justify-center pt-32 pb-12">
+        <div class="max-w-md rounded-3xl border border-slate-700/60 bg-slate-900/70 p-10 text-center text-slate-200 shadow-[0_35px_70px_-40px_rgba(8,11,19,0.8)]">
+          <h2 class="mb-4 text-3xl font-medium tracking-[0.35em] uppercase">No concepts yet</h2>
+          <p class="text-sm leading-relaxed text-slate-300/80">Generate a new batch to see swipe concepts for this restaurant.</p>
+        </div>
+      </div>
+    {% endif %}
+    {% if not demo_mode and update_creativity_url and update_creativity_url != "#" %}
+      <form
+        class="hidden"
+        aria-hidden="true"
+        data-creative-balance-placeholder
+        hx-post="{{ update_creativity_url }}"
+      ></form>
+    {% endif %}
   </div>
 {% endblock %}
 

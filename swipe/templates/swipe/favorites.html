@@ -723,7 +723,7 @@
     const csrfToken = '{{ csrf_token }}';
     const isDemo = {% if demo_mode %}true{% else %}false{% endif %};
     const deleteEndpoint = {% if demo_mode %}null{% else %}'{% url 'swipe:delete_card' %}'{% endif %};
-    const homeUrl = '{% if demo_mode %}{% url 'swipe:demo_home' %}{% else %}{% url 'swipe:home' %}{% endif %}';
+    const homeUrl = '{% if demo_mode %}{% url 'swipe:swipe-demo' %}{% else %}{% url 'swipe:home' %}{% endif %}';
 
     document.addEventListener('DOMContentLoaded', () => {
       const conceptCards = document.querySelectorAll('[data-concept-card]');

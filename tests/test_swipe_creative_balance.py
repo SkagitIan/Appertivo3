@@ -2,7 +2,6 @@ from django.test import TestCase
 from django.urls import reverse
 
 from app.models import Account, Restaurant, RestaurantSettings
-from swipe.views import SwipeDemoView
 
 
 class CreativeBalanceTests(TestCase):
@@ -12,12 +11,6 @@ class CreativeBalanceTests(TestCase):
             account=self.account,
             name="Balance Bistro",
             location_text="123 Flavor Street",
-        )
-        self.demo_restaurant = Restaurant.objects.create(
-            id=SwipeDemoView.DEMO_RESTAURANT_ID,
-            account=self.account,
-            name="Demo Data",
-            location_text="Demo City",
         )
 
     def test_home_view_includes_restaurant_settings(self):
@@ -86,7 +79,7 @@ class CreativeBalanceTests(TestCase):
         self.assertIn(f'hx-post="{update_url}"', html)
 
     def test_demo_views_provide_default_settings(self):
-        home_response = self.client.get(reverse("swipe:demo_home"))
+        home_response = self.client.get(reverse("swipe:swipe-demo"))
         settings_response = self.client.get(reverse("swipe:demo_settings"))
 
         self.assertEqual(home_response.status_code, 200)
