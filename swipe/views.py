@@ -1,6 +1,5 @@
 import asyncio
 import logging
-from uuid import UUID
 
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponse, HttpResponseBadRequest, JsonResponse, QueryDict
@@ -26,7 +25,20 @@ from swipe.llm_utils import GetConcepts
 from swipe.demo_data import build_demo_state
 from swipe.models import Concept, Dish
 from django.shortcuts import get_object_or_404
+from django.template.response import TemplateResponse
 logger = logging.getLogger(__name__)
+
+
+def _build_dish_counts(concepts):
+    counts = []
+    for concept in concepts:
+        dishes = getattr(concept, "dishes", [])
+        if hasattr(dishes, "all"):
+            dishes_iterable = dishes.all()
+        else:
+            dishes_iterable = dishes
+        counts.append(len(list(dishes_iterable)))
+    return counts
 
 @csrf_exempt
 def generate_concepts_view(request, restaurant_id):
@@ -86,7 +98,7 @@ class SwipeHomeView(TemplateView):
             )
             concepts = list(concept_qs)
 
-        dish_counts = [len(list(c.dishes.all())) for c in concepts]
+        dish_counts = _build_dish_counts(concepts)
         restaurant_settings = _resolve_restaurant_settings(restaurant)
         update_creativity_url = (
             reverse("update_creativity", args=[restaurant.id]) if restaurant else "#"
@@ -104,26 +116,34 @@ class SwipeHomeView(TemplateView):
         return context
 
 
-class SwipeDemoView(SwipeHomeView):
-    template_name = "swipe/index.html"
-    DEMO_RESTAURANT_ID = UUID("83647628-3514-4224-b1dc-701519004db8")
+def demo_view(request):
+    demo_state = build_demo_state()
+    concepts = demo_state.concepts
+    dish_counts = _build_dish_counts(concepts)
+    restaurant = SimpleNamespace(
+        id="demo",
+        name=demo_state.restaurant_name,
+        location_text=None,
+        phone=None,
+        website=None,
+        google_place_id=None,
+        updated_at=None,
+        description=None,
+    )
 
-    def get_restaurant(self):
-        return get_object_or_404(Restaurant, id=self.DEMO_RESTAURANT_ID)
+    context = {
+        "restaurant": restaurant,
+        "concepts": concepts,
+        "dish_counts": dish_counts,
+        "restaurant_settings": SimpleNamespace(classic_creative_slider=50),
+        "update_creativity_url": "#",
+        "demo_mode": True,
+        "show_demo_splash": True,
+        "hide_restaurant_label": True,
+        "demo_payload": demo_state.as_payload(),
+    }
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["demo_mode"] = True
-        context["show_demo_splash"] = True
-        context["hide_restaurant_label"] = True
-        context["demo_payload"] = {
-            "concepts": [],
-            "buffers": {},
-            "favorites": {"concept_ids": [], "dish_ids": []},
-        }
-        context["restaurant_settings"] = SimpleNamespace(classic_creative_slider=50)
-        context["update_creativity_url"] = "#"
-        return context
+    return TemplateResponse(request, "swipe/index.html", context)
 
 
 # --- Healthcheck ---

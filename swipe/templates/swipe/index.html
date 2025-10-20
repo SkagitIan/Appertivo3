@@ -1773,6 +1773,14 @@
         </div>
       </div>
     {% endif %}
+    {% if not demo_mode and update_creativity_url and update_creativity_url != "#" %}
+      <form
+        class="hidden"
+        aria-hidden="true"
+        data-creative-balance-placeholder
+        hx-post="{{ update_creativity_url }}"
+      ></form>
+    {% endif %}
   </div>
 {% endblock %}
 

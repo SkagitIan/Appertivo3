@@ -6,7 +6,7 @@ app_name = "swipe"
 
 urlpatterns = [
     path("", SwipeHomeView.as_view(), name="home"),
-    path("demo/", SwipeDemoView.as_view(), name="demo_home"),
+    path("demo/", demo_view, name="swipe-demo"),
     path("demo/favorites/", DemoFavoritesView.as_view(), name="demo_favorites"),
     path("demo/settings/", DemoSettingsView.as_view(), name="demo_settings"),
     path("favorites/", FavoritesView.as_view(), name="favorites"),
