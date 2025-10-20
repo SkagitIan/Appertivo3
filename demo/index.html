@@ -1,21 +1,17 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Appertivo — Instantly Share Your Restaurant Specials</title>
+{% extends "swipe/base.html" %}
+{% load static %}
+
+{% block title %}Appertivo Demo · Swipe{% endblock %}
+
+{% block seo_meta %}
   <meta name="description" content="Appertivo is the easiest way for restaurants to post daily specials, engage customers, and boost sales — all without logins or technical hassle." />
   <meta name="keywords" content="restaurant specials software, restaurant marketing tool, daily specials widget, restaurant promotion platform" />
   <meta name="author" content="Appertivo" />
   <meta name="robots" content="index, follow" />
-  <meta name="theme-color" content="#ff7043" />
   <link rel="canonical" href="https://appertivo.com/" />
-  <link rel="alternate" href="https://appertivo.com/" hreflang="en" />
-  <link rel="icon" type="image/png" href="https://images.example.com/appertivo-favicon.png" />
   <meta property="og:title" content="Appertivo — Instantly Share Your Restaurant Specials" />
   <meta property="og:description" content="Add a special, see it live. Appertivo lets you update and display your daily specials with a simple dashboard, live preview, and a copy-paste widget for your website." />
   <meta property="og:image" content="https://images.example.com/appertivo-og.png" />
-  <meta property="og:image:secure_url" content="https://images.example.com/appertivo-og.png" />
   <meta property="og:image:alt" content="Appertivo dashboard preview showing restaurant specials" />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://appertivo.com/" />
@@ -26,51 +22,20 @@
   <meta name="twitter:description" content="Let your customers know what’s special today. Easy, mobile-first, and no logins required." />
   <meta name="twitter:image" content="https://images.example.com/appertivo-og.png" />
   <meta name="twitter:image:alt" content="Appertivo dashboard preview showing restaurant specials" />
-  <meta name="twitter:site" content="@appertivo" />
-  <meta name="twitter:creator" content="@appertivo" />
-  <link rel="stylesheet" href="static/style.css">
-  <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
-      "name": "Appertivo",
-      "applicationCategory": "BusinessApplication",
-      "operatingSystem": "Web",
-      "url": "https://appertivo.com/",
-      "description": "Appertivo helps restaurants publish daily specials instantly with a live preview, customizable widgets, and mobile-first editing.",
-      "offers": {
-        "@type": "Offer",
-        "price": "0",
-        "priceCurrency": "USD",
-        "availability": "https://schema.org/PreOrder"
-      },
-      "publisher": {
-        "@type": "Organization",
-        "name": "Appertivo"
-      }
-    }
-  </script>
-</head>
-<body class="landing-body">
-  <main class="landing-container" role="main">
-    <h1>Appertivo is Coming Soon</h1>
-    <div class="tagline">Add a Special. See It Live. Delight Your Customers.</div>
-    <ul>
-      <li><strong>Brain-dead simple:</strong> Add today’s special with a photo, short description, and optional dates—right from your phone. No logins required.</li>
-      <li><strong>Live preview:</strong> See exactly how your special will look before publishing.</li>
-      <li><strong>Easy install:</strong> Copy a widget code or send it to your web developer. Works with WordPress, Shopify, Wix, and more.</li>
-      <li><strong>Boost sales:</strong> Customers see your latest special on your site, with a direct link to “Order Now.”</li>
-      <li><strong>Mobile-first dashboard:</strong> Update specials from your phone, on the go—even with QR code access on your counter.</li>
-      <li><strong>Customize your widget:</strong> Match your colors, choose position, and connect your online ordering provider.</li>
-    </ul>
-    <div class="cta-group">
-      <a class="cta" href="mailto:hello@appertivo.com?subject=Early%20Access%20Request">Get Early Access</a>
-      <a class="cta secondary" href="/swipe/demo/">Try the Demo</a>
-    </div>
-    <div class="footer">
-      Thank you for your patience & support.<br>
-      <span class="small-note">Free for early adopters • Powered by Django & HTMX</span>
-    </div>
-  </main>
-</body>
-</html>
+{% endblock %}
+
+{% block head %}
+  {% include "swipe/_swipe_head_assets.html" %}
+{% endblock %}
+
+{% block content %}
+  <div class="relative min-h-screen">
+    {% include "swipe/_hero.html" with demo_mode=True show_demo_splash=True hide_restaurant_label=False %}
+    {% include "swipe/_dish_carousel.html" with demo_mode=True concepts=None restaurant=None %}
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ block.super }}
+  {% include "swipe/_swipe_scripts.html" with demo_mode=True concepts=None dish_counts=None demo_payload=None %}
+{% endblock %}
