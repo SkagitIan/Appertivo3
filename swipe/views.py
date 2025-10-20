@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from uuid import UUID
 
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponse, HttpResponseBadRequest, JsonResponse, QueryDict
@@ -28,6 +29,8 @@ from django.shortcuts import get_object_or_404
 from django.template.response import TemplateResponse
 logger = logging.getLogger(__name__)
 
+DEMO_RESTAURANT_ID = UUID("83647628-3514-4224-b1dc-701519004db8")
+
 
 def _build_dish_counts(concepts):
     counts = []
@@ -39,6 +42,75 @@ def _build_dish_counts(concepts):
             dishes_iterable = dishes
         counts.append(len(list(dishes_iterable)))
     return counts
+
+
+def _normalize_iterable(value):
+    if isinstance(value, list):
+        return value
+    if not value:
+        return []
+    if isinstance(value, (tuple, set)):
+        return list(value)
+    return [value]
+
+
+def _build_live_demo_payload(concepts):
+    payload_concepts = []
+    favorite_concept_ids = []
+    favorite_dish_ids = []
+
+    for concept in concepts:
+        dishes_attr = getattr(concept, "dishes", [])
+        if hasattr(dishes_attr, "all"):
+            dishes = list(dishes_attr.all())
+        else:
+            dishes = list(dishes_attr)
+
+        dish_payloads = []
+        for dish in dishes:
+            if dish.is_favorite:
+                favorite_dish_ids.append(dish.id)
+            dish_payloads.append(
+                {
+                    "id": dish.id,
+                    "name": dish.name,
+                    "reasoning": dish.reasoning,
+                    "price": dish.price or "",
+                    "image_url": dish.display_image_url,
+                    "ingredients": _normalize_iterable(dish.ingredients),
+                    "concept_id": concept.id,
+                    "is_favorite": dish.is_favorite,
+                    "is_seen": dish.is_seen,
+                }
+            )
+
+        if concept.is_favorite:
+            favorite_concept_ids.append(concept.id)
+
+        meta_ingredients = _normalize_iterable(concept.meta_ingredients)
+
+        payload_concepts.append(
+            {
+                "id": concept.id,
+                "name": concept.name,
+                "subtitle": concept.subtitle,
+                "meta_reasoning": concept.meta_reasoning,
+                "meta_ingredients": meta_ingredients,
+                "display_sketch_url": concept.display_sketch_url,
+                "is_favorite": concept.is_favorite,
+                "is_seen": concept.is_seen,
+                "dishes": dish_payloads,
+            }
+        )
+
+    return {
+        "concepts": payload_concepts,
+        "buffers": {},
+        "favorites": {
+            "concept_ids": favorite_concept_ids,
+            "dish_ids": favorite_dish_ids,
+        },
+    }
 
 @csrf_exempt
 def generate_concepts_view(request, restaurant_id):
@@ -117,10 +189,52 @@ class SwipeHomeView(TemplateView):
 
 
 def demo_view(request):
+    restaurant = Restaurant.objects.filter(id=DEMO_RESTAURANT_ID).first()
+    if restaurant:
+        concept_qs = (
+            Concept.objects.filter(
+                restaurant=restaurant,
+                is_deleted=False,
+            )
+            .order_by("-created_at")
+            .prefetch_related(
+                Prefetch(
+                    "dishes",
+                    queryset=Dish.objects.filter(is_deleted=False).order_by("id"),
+                )
+            )
+        )
+        concepts = list(concept_qs)
+
+        if concepts:
+            dish_counts = _build_dish_counts(concepts)
+            restaurant_settings = _resolve_restaurant_settings(restaurant)
+            context = {
+                "restaurant": restaurant,
+                "concepts": concepts,
+                "dish_counts": dish_counts,
+                "restaurant_settings": restaurant_settings,
+                "update_creativity_url": reverse("update_creativity", args=[restaurant.id]),
+                "demo_mode": True,
+                "show_demo_splash": True,
+                "hide_restaurant_label": False,
+                "demo_payload": _build_live_demo_payload(concepts),
+            }
+            return TemplateResponse(request, "swipe/index.html", context)
+        logger.info(
+            "Demo restaurant %s has no concepts; falling back to static demo data.",
+            DEMO_RESTAURANT_ID,
+        )
+    else:
+        logger.info(
+            "Demo restaurant %s not found; falling back to static demo data.",
+            DEMO_RESTAURANT_ID,
+        )
+
     demo_state = build_demo_state()
     concepts = demo_state.concepts
     dish_counts = _build_dish_counts(concepts)
-    restaurant = SimpleNamespace(
+    restaurant_ns = SimpleNamespace(
         id="demo",
         name=demo_state.restaurant_name,
         location_text=None,
@@ -132,7 +246,7 @@ def demo_view(request):
     )
 
     context = {
-        "restaurant": restaurant,
+        "restaurant": restaurant_ns,
         "concepts": concepts,
         "dish_counts": dish_counts,
         "restaurant_settings": SimpleNamespace(classic_creative_slider=50),

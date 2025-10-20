@@ -2,7 +2,7 @@
   <div id="swipeView" class="touch-area" data-view-container="swipe">
     <div id="verticalSlider" class="slide-container">
       {% for concept in concepts %}
-        <div class="concept-slide" data-concept-index="{{ forloop.counter0 }}">
+        <div class="concept-slide{% if forloop.first %} is-active{% endif %}" data-concept-index="{{ forloop.counter0 }}">
           <div id="horizontalSlider{{ forloop.counter0 }}" class="horizontal-slider slide-container w-full">
             <div
               class="horizontal-track"

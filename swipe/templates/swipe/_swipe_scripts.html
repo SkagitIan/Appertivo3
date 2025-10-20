@@ -467,6 +467,104 @@
 
   showFeedback = announce;
 
+  function setGenerateLoading(isLoading) {
+    if (!generateBtn) {
+      return;
+    }
+    const icon = generateBtn.querySelector('[data-icon]');
+    const spinner = generateBtn.querySelector('[data-spinner]');
+    generateBtn.disabled = Boolean(isLoading);
+    if (isLoading) {
+      generateBtn.dataset.loading = 'true';
+    } else {
+      delete generateBtn.dataset.loading;
+    }
+    if (icon) {
+      icon.classList.toggle('hidden', Boolean(isLoading));
+    }
+    if (spinner) {
+      spinner.classList.toggle('hidden', !isLoading);
+    }
+  }
+
+  function rememberNewConcepts(concepts) {
+    if (!Array.isArray(concepts) || !concepts.length) {
+      return;
+    }
+    const newIds = concepts
+      .map((concept) => String(concept?.id || '').trim())
+      .filter((id) => id.length > 0);
+    if (!newIds.length) {
+      return;
+    }
+    try {
+      const existingRaw = window.localStorage.getItem(NEW_CONCEPT_STORAGE_KEY) || '[]';
+      let existing = [];
+      try {
+        const parsed = JSON.parse(existingRaw);
+        if (Array.isArray(parsed)) {
+          existing = parsed;
+        }
+      } catch (parseError) {
+        existing = [];
+      }
+      const merged = Array.from(new Set([...newIds, ...existing]));
+      window.localStorage.setItem(NEW_CONCEPT_STORAGE_KEY, JSON.stringify(merged));
+    } catch (error) {
+      console.warn('Could not store new concept ids', error);
+    }
+  }
+
+  if (generateBtn) {
+    generateBtn.addEventListener('click', async (event) => {
+      event.preventDefault();
+
+      if (generateBtn.dataset.loading === 'true') {
+        return;
+      }
+
+      const endpoint = generateBtn.dataset.endpoint || '';
+      if (!endpoint || endpoint === '#') {
+        showFeedback('Concept generation is not available in this demo.', 'neutral');
+        return;
+      }
+
+      setGenerateLoading(true);
+      hideFeedback();
+
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken || '',
+          },
+          credentials: 'same-origin',
+          body: JSON.stringify({}),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Request failed with status ${response.status}`);
+        }
+
+        const payload = await response.json();
+        if (payload?.status === 'success') {
+          rememberNewConcepts(payload.results);
+          showFeedback('Fresh concepts are on the way! Reload in a moment to see them.', 'success');
+        } else {
+          const message = payload?.message || 'We could not generate new concepts right now.';
+          throw new Error(message);
+        }
+      } catch (error) {
+        console.error('Concept generation failed', error);
+        showFeedback('We hit a snag generating concepts. Try again in a minute.', 'error');
+      } finally {
+        setGenerateLoading(false);
+      }
+    });
+  }
+
   function toggleFavorite(button, type, id) {
     if (!button) {
       return;
@@ -485,14 +583,14 @@
     }
 
     button.disabled = true;
-    const endpoint = type === 'dish' ? '{% url 'swipe:favorite_dish' %}' : '{% url 'swipe:favorite_concept' %}';
+    const endpoint = '{% url 'swipe:api_favorite' %}';
     fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-CSRFToken': csrfToken,
       },
-      body: JSON.stringify({ id }),
+      body: JSON.stringify({ id, type }),
     })
       .then((response) => {
         if (!response.ok) {
@@ -501,12 +599,13 @@
         return response.json();
       })
       .then((data) => {
-        if (!data || typeof data.is_favorite !== 'boolean') {
+        if (!data || typeof data.favorited !== 'boolean') {
           throw new Error('Invalid response');
         }
-        button.classList.toggle('favorited', data.is_favorite);
-        button.setAttribute('aria-pressed', String(data.is_favorite));
-        showFeedback(data.is_favorite ? 'Added to favorites' : 'Removed from favorites', 'success');
+        const favorited = data.favorited;
+        button.classList.toggle('favorited', favorited);
+        button.setAttribute('aria-pressed', String(favorited));
+        showFeedback(favorited ? 'Added to favorites' : 'Removed from favorites', 'success');
       })
       .catch(() => {
         showFeedback('Could not update favorites', 'error');
@@ -519,10 +618,27 @@
   window.toggleFavorite = toggleFavorite;
 
   function focusConcept(index) {
-    const slide = document.querySelector(`.concept-slide[data-concept-index="${index}"]`);
-    if (slide && verticalSlider) {
-      verticalSlider.style.transform = `translateY(-${index * 100}vh)`;
-      const card = slide.querySelector('[data-card]');
+    const slides = Array.from(document.querySelectorAll('.concept-slide'));
+    if (!slides.length) {
+      return;
+    }
+    const clampedIndex = Math.max(0, Math.min(index, slides.length - 1));
+
+    if (verticalSlider) {
+      verticalSlider.style.transform = `translateY(-${clampedIndex * 100}vh)`;
+    }
+
+    let activeSlide = null;
+    slides.forEach((slide, slideIndex) => {
+      const isActive = slideIndex === clampedIndex;
+      slide.classList.toggle('is-active', isActive);
+      if (isActive) {
+        activeSlide = slide;
+      }
+    });
+
+    if (activeSlide) {
+      const card = activeSlide.querySelector('[data-card]');
       if (card) {
         observeCard(card);
         card.focus({ preventScroll: true });

@@ -53,7 +53,7 @@ class GetConcepts:
             )
 
         # --- Model & defaults ---
-        self.REPLICATE_SKETCH_MODEL="skagitian/restaurant-menu-sketches:3287685abd18b139c2b991fd4755c9855d3f41f3f0b25d60d304cb5df8fd591a"
+        self.REPLICATE_SKETCH_MODEL="skagitian/sketches_v2:b1052f4fa5b83c8a76985c421bc7c676cd01adcacb4e0007e3f2410bc789ec0e"
         self.REPLICATE_MODEL = (
             "prunaai/flux.1-dev:b0306d92aa025bb747dc74162f3c27d6ed83798e08e5f8977adf3d859d0536a3"
         )

@@ -389,6 +389,12 @@
     justify-content: center;
     background: rgba(15, 23, 42, 0.45);
     z-index: 1;
+    transition: opacity 0.3s ease;
+  }
+
+  .card-face[data-media-state='loaded'] .card-media-loader {
+    opacity: 0;
+    visibility: hidden;
   }
 
   .card-back {
@@ -673,6 +679,10 @@
     align-items: center;
     justify-content: center;
     padding: 2rem 1.25rem 5rem;
+    position: relative;
+    isolation: isolate;
+    width: 100%;
+    overflow: visible;
   }
 
   @supports (height: 100dvh) {
@@ -683,26 +693,7 @@
 
   .concept-slide::before,
   .concept-slide::after {
-    content: '';
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    width: min(720px, 90vw);
-    height: 100%;
-    pointer-events: none;
-    transition: opacity 0.3s ease;
-  }
-
-  .concept-slide::before {
-    top: 3rem;
-    background: radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.22), transparent 55%);
-    filter: blur(65px);
-  }
-
-  .concept-slide::after {
-    bottom: 2rem;
-    background: radial-gradient(circle at 50% 100%, rgba(244, 114, 182, 0.3), transparent 60%);
-    filter: blur(70px);
+    display: none;
   }
 
   .floating-controls {
@@ -739,6 +730,56 @@
     transition: transform 0.2s ease, background 0.2s ease;
   }
 
+  .floating-controls .generate-btn {
+    width: 3rem;
+    height: 3rem;
+    border: none;
+    padding: 0;
+    background: linear-gradient(135deg, #f472b6, #fbcfe8);
+    color: #ffffff;
+    box-shadow: 0 30px 55px -28px rgba(244, 114, 182, 0.7);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .floating-controls .generate-btn svg {
+    width: 1.35rem;
+    height: 1.35rem;
+    pointer-events: none;
+  }
+
+  .floating-controls .generate-btn [data-spinner] {
+    position: absolute;
+    width: 1.35rem;
+    height: 1.35rem;
+    border-radius: 9999px;
+    border: 2px solid rgba(255, 255, 255, 0.45);
+    border-top-color: rgba(255, 255, 255, 0.9);
+    animation: generate-spin 0.75s linear infinite;
+  }
+
+  .floating-controls .generate-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 30px 60px -32px rgba(244, 114, 182, 0.85);
+    background: linear-gradient(135deg, #f78da7, #fde7f5);
+  }
+
+  .floating-controls .generate-btn:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.9);
+    outline-offset: 3px;
+  }
+
+  .floating-controls .generate-btn:active {
+    transform: translateY(0);
+  }
+
+  .floating-controls .generate-btn:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+
   .floating-controls button[data-tool] {
     width: 2.8rem;
   }
@@ -757,6 +798,12 @@
     opacity: 0.45;
     cursor: not-allowed;
     transform: none;
+  }
+
+  @keyframes generate-spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   .floating-controls button:disabled:hover {
