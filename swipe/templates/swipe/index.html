@@ -241,7 +241,11 @@
       <div id="swipeView" class="touch-area" data-view-container="swipe">
         <div id="verticalSlider" class="slide-container">
           {% for concept in concepts %}
-            <div class="concept-slide{% if forloop.first %} is-active{% endif %}" data-concept-index="{{ forloop.counter0 }}">
+            <div
+              class="concept-slide{% if forloop.first %} is-active{% endif %}"
+              data-concept-index="{{ forloop.counter0 }}"
+              data-concept-id="{{ concept.id }}"
+            >
               <div id="horizontalSlider{{ forloop.counter0 }}" class="horizontal-slider slide-container w-full">
                 <div
                   class="horizontal-track"
@@ -252,6 +256,9 @@
                   <div
                     class="card w-full"
                     data-card
+                    data-item-type="concept"
+                    data-concept-id="{{ concept.id }}"
+                    data-seen="{{ concept.is_seen|yesno:'true,false' }}"
                     tabindex="0"
                     role="button"
                     {% if not demo_mode and not concept.is_seen %}
@@ -378,6 +385,7 @@
                   data-tower-option
                   data-concept-id="{{ concept.id }}"
                   data-concept-index="{{ forloop.counter0 }}"
+                  data-seen="{{ concept.is_seen|yesno:'true,false' }}"
                   aria-pressed="{% if forloop.first %}true{% else %}false{% endif %}"
                 >
                   <span class="tower-sketch">

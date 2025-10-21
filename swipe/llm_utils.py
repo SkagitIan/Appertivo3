@@ -61,8 +61,7 @@ class GetConcepts:
         self.DEFAULT_CONCEPT_IMAGE_URL = "https://placehold.co/1200x800?text=Concept"
 
         self.restaurant = restaurant
-        self.restaurant_context = restaurant_context
-        #logger.info(self.restaurant_context)
+        self.restaurant_context = ""
         self.locale_summary = ""
         self.creativity_slider_raw = self._determine_creativity_raw()
         self.creativity_level = self._determine_creativity_level(self.creativity_slider_raw)
@@ -206,14 +205,8 @@ class GetConcepts:
 
         restaurant_context = await self._get_restaurant_context()
         response = await self.openai_client.responses.create(
-            model="gpt-4.1-mini",
-            input=[
-                {
-                    "role": "system",
-                    "content": self.concept_prompt(restaurant_context),
-                },
-                {"role": "user", "content": restaurant_context},
-            ],
+            model="gpt-5-nano",
+            input=self.concept_prompt(restaurant_context),
             text={"format": self.concept_schema()},
         )
 
@@ -261,11 +254,13 @@ class GetConcepts:
         prompt = f"""
                 **Role**: You are a seasoned restaurant marketing consultant with deep knowledge of regional cuisines, seasonal ingredients, and cultural dining traditions.
                 **Task**: Generate exactly 3 unique, theme-based concepts for daily specials that emphasize regional flavors and seasonal ingredients.  ITs very important to not show
-                duplicate concepts or dish ideas throughout the process.  we gauruntee unique ideas.  
+                duplicate concepts or dish ideas throughout the process.  we gauruntee unique ideas.  Do not duplicate concepts, not even close, be creative in your decisions.
 
                 restaurant locale: {self.locale_summary}
 
                 Creativity preference: {self._creativity_statement()}
+
+                Restaurant Context & Background INformation:  {restaurant_context}
 
                 **Format Requirements for Each Concept**:
                 - **Name**: Maximum 30 characters
@@ -278,7 +273,7 @@ class GetConcepts:
                 **Concept Guidelines**:
                 - It should be relevant to the users restaurants menu, not identical but within the same style.  If the review say everyone loves the prime rib, DON'T suggest prime rib.
                 - Focus on THEMES, not individual dishes (like "Taco Tuesday" or "Mediterranean Monday")
-                - Emphasize regional specialties around: {self.restaurant.location_text} 
+                - Emphasize regional specialties around restaurant locale
                 - and seasonal ingredients: {datetime.date.today()}
                 - Consider cultural celebrations, harvest seasons, and local food traditions
                 - Think beyond basic concepts to include:
@@ -304,7 +299,8 @@ class GetConcepts:
 
                 ```
 
-                **Goal**: Create UNIQUE concepts that restaurant owners can easily adapt to their local region and seasonal availability while building customer excitement and loyalty.
+                **Goal**: Create UNIQUE concepts that restaurant owners can easily adapt to their local region and seasonal availability 
+                while building customer excitement and loyalty.
 
             """
         return prompt
@@ -651,7 +647,7 @@ class GetConcepts:
         if self.openai_client:
             try:
                 response = await self.openai_client.responses.create(
-                    model="gpt-4.1-mini",
+                    model="gpt-5-nano",
                     input=prompt,
                     text={"format": self.single_dish_schema()},
                 )
@@ -703,7 +699,7 @@ class GetConcepts:
 
         restaurant_context = await self._get_restaurant_context()
         response = await self.openai_client.responses.create(
-            model="gpt-4.1-mini",
+            model="gpt-5-nano",
             input=self.dish_prompt(concept_payload, restaurant_context),
             text={"format": self.dish_schema()},
         )

@@ -2,6 +2,8 @@
   class="card w-full"
   data-card
   data-dish-id="{{ dish.id }}"
+  data-item-type="dish"
+  data-seen="{{ dish.is_seen|yesno:'true,false' }}"
   tabindex="0"
   role="button"
   {% if not demo_mode and not dish.is_seen %}

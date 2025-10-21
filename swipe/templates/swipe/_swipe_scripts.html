@@ -16,6 +16,9 @@
   const markSeenEndpoint = '{% url 'swipe:mark_seen' %}';
   const deleteEndpoint = '{% url 'swipe:delete_card' %}';
   const NEW_CONCEPT_STORAGE_KEY = 'swipe:new-concept-ids';
+  const LATEST_CONCEPT_STORAGE_KEY = 'swipe:latest-concept-ids';
+  const JUMP_TO_NEW_STORAGE_KEY = 'swipe:jump-to-new';
+  let pendingNewConceptIds = [];
   let totalConcepts = {{ concepts|length }};
   const isDemo = {% if demo_mode %}true{% else %}false{% endif %};
   const dishCountsData = document.getElementById('dish-counts-data');
@@ -422,7 +425,7 @@
     });
   }
 
-  function announce(message, tone = 'neutral') {
+  function announce(message, tone = 'neutral', options = {}) {
     if (!generateFeedback) {
       return;
     }
@@ -432,27 +435,61 @@
       success: '✨',
       error: '⚠️',
     };
-    const classMap = {
-      neutral: 'floating-generate-feedback bg-black/80 text-slate-100',
-      success: 'floating-generate-feedback bg-green-600/90 text-slate-900',
-      error: 'floating-generate-feedback bg-red-600/90 text-white',
+    const toneClassMap = {
+      neutral: 'is-neutral',
+      success: 'is-success',
+      error: 'is-error',
     };
 
+    const resolvedTone = toneClassMap[tone] ? tone : 'neutral';
+    const actionConfig =
+      options && typeof options.action === 'object' && typeof options.action?.onClick === 'function'
+        ? options.action
+        : null;
+    const titleMarkup = options?.title
+      ? `<span class="toast-title">${options.title}</span>`
+      : '';
+    const actionMarkup = actionConfig
+      ? `<button type="button" class="toast-action" data-toast-action>${actionConfig.label || 'View'}</button>`
+      : '';
+
     generateFeedback.innerHTML = `
-      <span class="toast-icon" aria-hidden="true">${iconMap[tone] || '🍽️'}</span>
-      <span class="toast-message">${message}</span>
-      <button type="button" class="toast-close" data-dismiss>
-        <span aria-hidden="true">×</span>
-        <span class="sr-only">Dismiss message</span>
-      </button>
+      <div class="toast-body">
+        <span class="toast-icon" aria-hidden="true">${iconMap[resolvedTone] || iconMap.neutral}</span>
+        <div class="toast-copy">
+          ${titleMarkup}
+          <p class="toast-message">${message}</p>
+        </div>
+      </div>
+      <div class="toast-controls">
+        ${actionMarkup}
+        <button type="button" class="toast-close" data-dismiss>
+          <span aria-hidden="true">×</span>
+          <span class="sr-only">Dismiss message</span>
+        </button>
+      </div>
     `;
-    generateFeedback.className = classMap[tone] || classMap.neutral;
+    generateFeedback.className = `floating-generate-feedback ${toneClassMap[resolvedTone]}`;
     generateFeedback.hidden = false;
     generateFeedback.setAttribute('aria-hidden', 'false');
 
     const closeButton = generateFeedback.querySelector('[data-dismiss]');
     if (closeButton) {
       closeButton.addEventListener('click', hideFeedback);
+    }
+
+    const actionButton = generateFeedback.querySelector('[data-toast-action]');
+    if (actionButton && actionConfig) {
+      if (actionConfig.ariaLabel) {
+        actionButton.setAttribute('aria-label', actionConfig.ariaLabel);
+      }
+      if (actionConfig.title) {
+        actionButton.setAttribute('title', actionConfig.title);
+      }
+      actionButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        actionConfig.onClick();
+      });
     }
   }
 
@@ -462,10 +499,13 @@
     }
     generateFeedback.hidden = true;
     generateFeedback.setAttribute('aria-hidden', 'true');
+    generateFeedback.className = 'floating-generate-feedback';
     generateFeedback.innerHTML = '';
   };
 
-  showFeedback = announce;
+  showFeedback = (message, tone = 'neutral', options = {}) => {
+    announce(message, tone, options);
+  };
 
   function setGenerateLoading(isLoading) {
     if (!generateBtn) {
@@ -497,6 +537,7 @@
     if (!newIds.length) {
       return;
     }
+    pendingNewConceptIds = newIds.slice();
     try {
       const existingRaw = window.localStorage.getItem(NEW_CONCEPT_STORAGE_KEY) || '[]';
       let existing = [];
@@ -510,9 +551,101 @@
       }
       const merged = Array.from(new Set([...newIds, ...existing]));
       window.localStorage.setItem(NEW_CONCEPT_STORAGE_KEY, JSON.stringify(merged));
+      window.localStorage.setItem(LATEST_CONCEPT_STORAGE_KEY, JSON.stringify(newIds));
     } catch (error) {
       console.warn('Could not store new concept ids', error);
     }
+  }
+
+  function handleJumpToLatestConcepts() {
+    try {
+      if (pendingNewConceptIds.length) {
+        window.localStorage.setItem(LATEST_CONCEPT_STORAGE_KEY, JSON.stringify(pendingNewConceptIds));
+      }
+      window.localStorage.setItem(JUMP_TO_NEW_STORAGE_KEY, 'true');
+    } catch (error) {
+      console.warn('Could not persist jump-to-new flag', error);
+    }
+    window.location.reload();
+  }
+
+  function readStoredLatestConceptIds() {
+    try {
+      const raw = window.localStorage.getItem(LATEST_CONCEPT_STORAGE_KEY);
+      if (!raw) {
+        return [];
+      }
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) {
+        return [];
+      }
+      return parsed
+        .map((value) => {
+          if (value === null || value === undefined) {
+            return '';
+          }
+          return String(value).trim();
+        })
+        .filter((value) => value.length > 0);
+    } catch (error) {
+      console.warn('Could not read latest concept ids', error);
+      return [];
+    }
+  }
+
+  function clearStoredLatestConceptIds() {
+    try {
+      window.localStorage.removeItem(LATEST_CONCEPT_STORAGE_KEY);
+    } catch (error) {
+      /* no-op */
+    }
+  }
+
+  function consumeJumpToNewFlag() {
+    try {
+      const shouldJump = window.localStorage.getItem(JUMP_TO_NEW_STORAGE_KEY) === 'true';
+      if (shouldJump) {
+        window.localStorage.removeItem(JUMP_TO_NEW_STORAGE_KEY);
+      }
+      return shouldJump;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function focusStoredConceptsOnLoad() {
+    const storedIds = readStoredLatestConceptIds();
+    if (!storedIds.length) {
+      return;
+    }
+    const shouldJump = consumeJumpToNewFlag();
+    let firstTrack = null;
+    storedIds.forEach((conceptId) => {
+      const escaped = escapeSelector(conceptId);
+      if (!escaped) {
+        return;
+      }
+      const track = document.querySelector(`.horizontal-track[data-concept-track="${escaped}"]`);
+      if (track && !firstTrack) {
+        firstTrack = track;
+      }
+    });
+    if (shouldJump && firstTrack) {
+      const index = Number(firstTrack.dataset.conceptIndex || '0');
+      if (!Number.isNaN(index)) {
+        currentConceptIndex = index;
+        focusConcept(index);
+        currentDishIndex = 0;
+        updateDishIndex(index, 0);
+        markConceptSeen(getConceptIdByIndex(index), index);
+      } else {
+        const slide = firstTrack.closest('.concept-slide');
+        if (slide) {
+          slide.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+    }
+    clearStoredLatestConceptIds();
   }
 
   if (generateBtn) {
@@ -551,7 +684,21 @@
         const payload = await response.json();
         if (payload?.status === 'success') {
           rememberNewConcepts(payload.results);
-          showFeedback('Fresh concepts are on the way! Reload in a moment to see them.', 'success');
+          const hasNewIds = pendingNewConceptIds.length > 0;
+          showFeedback(
+            'We are plating your next batch of ideas. When you are ready, jump straight to the newest concepts.',
+            'success',
+            {
+              title: 'Fresh Concepts Requested',
+              action: hasNewIds
+                ? {
+                    label: 'See new concepts',
+                    onClick: handleJumpToLatestConcepts,
+                    ariaLabel: 'Reload and scroll to the newest concepts',
+                  }
+                : null,
+            },
+          );
         } else {
           const message = payload?.message || 'We could not generate new concepts right now.';
           throw new Error(message);
@@ -716,6 +863,10 @@
 
   window.navigateVertical = navigateVertical;
   window.navigateHorizontal = navigateHorizontal;
+
+  window.requestAnimationFrame(() => {
+    focusStoredConceptsOnLoad();
+  });
 
   if (touchArea) {
     let startY = 0;
