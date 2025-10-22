@@ -184,7 +184,7 @@
 
                 <div class="form-field">
                     <label for="email">Email</label>
-                    <input id="email" name="email" type="email" value="{{ form_data.email }}" placeholder="you@restaurant.com" required>
+                    <input id="email" name="email" type="email" value="{{ form_data.email|default:'' }}" placeholder="you@restaurant.com" required>
                 </div>
 
                 <div class="form-field">
@@ -198,14 +198,21 @@
                 </div>
 
                 <div class="form-field">
-                    <label for="restaurant_name">Restaurant Name</label>
-                    <input id="restaurant_name" name="restaurant_name" type="text" value="{{ form_data.restaurant_name }}" placeholder="Restaurant name" required>
+                    <label for="restaurant_location_search">Restaurant name &amp; location</label>
+                    <div id="restaurant_location_wrapper">
+                        <input
+                            id="restaurant_location_search"
+                            type="text"
+                            value="{% if form_data and form_data.restaurant_name %}{{ form_data.restaurant_name }}{% elif form_data and form_data.location %}{{ form_data.location }}{% endif %}"
+                            placeholder="Start typing your restaurant..."
+                            autocomplete="off"
+                            required
+                        >
+                    </div>
                 </div>
 
-                <div class="form-field">
-                    <label for="location">Location</label>
-                    <input id="location" name="location" type="text" value="{{ form_data.location }}" placeholder="City, State" required>
-                </div>
+                <input id="restaurant_name" name="restaurant_name" type="hidden" value="{% if form_data and form_data.restaurant_name %}{{ form_data.restaurant_name }}{% endif %}">
+                <input id="location" name="location" type="hidden" value="{% if form_data and form_data.location %}{{ form_data.location }}{% endif %}">
 
                 <p class="form-helper">We’ll pull public details to fine-tune the AI once you’re in.</p>
                 <p class="form-helper" id="location-autocomplete-status" hidden role="alert"></p>
@@ -233,11 +240,13 @@
 <script>
     (function() {
         const statusElement = document.getElementById('location-autocomplete-status');
-        let autocomplete;
-        let sessionToken = null;
-        let placesService;
-        let lastDetails = null;
-        let formListenerAttached = false;
+        const wrapper = document.getElementById('restaurant_location_wrapper');
+        let input = document.getElementById('restaurant_location_search');
+        let autocompleteElement = null;
+        const hiddenName = document.getElementById('restaurant_name');
+        const hiddenLocation = document.getElementById('location');
+        const hiddenDetails = document.getElementById('place_details_json');
+        const form = document.querySelector('form');
 
         function updateStatus(message) {
             if (!statusElement) {
@@ -252,191 +261,87 @@
             }
         }
 
-        function ensureSessionToken() {
-            if (!sessionToken && window.google && google.maps && google.maps.places && google.maps.places.AutocompleteSessionToken) {
-                sessionToken = new google.maps.places.AutocompleteSessionToken();
-                if (autocomplete) {
-                    if (typeof autocomplete.setOptions === 'function') {
-                        autocomplete.setOptions({sessionToken: sessionToken});
-                    } else if ('sessionToken' in autocomplete) {
-                        autocomplete.sessionToken = sessionToken;
-                    }
-                }
+        function clearPlaceDetails() {
+            if (hiddenDetails) {
+                hiddenDetails.value = '';
             }
-            return sessionToken;
         }
 
-        function serializeDetails(details) {
-            if (!details) {
-                return null;
+        function writePlaceDetails(place) {
+            if (!place) {
+                clearPlaceDetails();
+                return;
             }
-            const geometry = details.geometry && details.geometry.location;
-            const lat = geometry && typeof geometry.lat === 'function' ? geometry.lat() : null;
-            const lng = geometry && typeof geometry.lng === 'function' ? geometry.lng() : null;
-            return {
-                place_id: details.place_id || '',
-                name: details.name || '',
-                formatted_address: details.formatted_address || '',
+
+            let lat = null;
+            let lng = null;
+            let placeId = '';
+            let name = '';
+            let address = '';
+
+            if (place.geometry && place.geometry.location) {
+                const geometry = place.geometry.location;
+                lat = typeof geometry.lat === 'function' ? geometry.lat() : geometry.lat || null;
+                lng = typeof geometry.lng === 'function' ? geometry.lng() : geometry.lng || null;
+                placeId = place.place_id || '';
+                name = place.name || '';
+                address = place.formatted_address || '';
+            } else {
+                const location = place.location;
+                lat = location && typeof location.lat === 'function' ? location.lat() : location && location.lat !== undefined ? location.lat : null;
+                lng = location && typeof location.lng === 'function' ? location.lng() : location && location.lng !== undefined ? location.lng : null;
+                placeId = place.id || '';
+                if (place.displayName && place.displayName.text) {
+                    name = place.displayName.text;
+                } else {
+                    name = place.name || '';
+                }
+                address = place.formattedAddress || '';
+            }
+
+            const value = {
+                place_id: placeId,
+                name: name,
+                formatted_address: address,
                 latitude: lat,
                 longitude: lng,
-                formatted_phone_number: details.formatted_phone_number || '',
-                website: details.website || '',
-                types: Array.isArray(details.types) ? details.types : [],
             };
-        }
-
-        function updateHiddenField(value) {
-            const hiddenField = document.getElementById('place_details_json');
-            if (!hiddenField) {
-                return;
-            }
-            if (value) {
-                hiddenField.value = JSON.stringify(value);
-            } else {
-                hiddenField.value = '';
+            if (hiddenDetails) {
+                hiddenDetails.value = JSON.stringify(value);
             }
         }
 
-        function extractPlaceFromAutocomplete(source) {
-            if (!source) {
-                return null;
+        function getCurrentValue() {
+            if (autocompleteElement && typeof autocompleteElement.value === 'string') {
+                return autocompleteElement.value;
             }
-            if (typeof source.getPlace === 'function') {
-                return source.getPlace();
+            if (input && typeof input.value === 'string') {
+                return input.value;
             }
-            if (source.place) {
-                return source.place;
-            }
-            if (source.value && typeof source.value === 'object') {
-                return source.value;
-            }
-            return null;
+            return '';
         }
 
-        function handlePlaceSelection() {
-            const place = extractPlaceFromAutocomplete(autocomplete);
-            if (!place || !place.place_id) {
-                lastDetails = null;
-                updateHiddenField(null);
+        function attachClearHandler(target) {
+            if (!target) {
                 return;
             }
-
-            const token = ensureSessionToken();
-            if (!placesService && window.google && google.maps) {
-                placesService = new google.maps.places.PlacesService(document.createElement('div'));
-            }
-            if (!placesService) {
-                return;
-            }
-
-            placesService.getDetails(
-                {
-                    placeId: place.place_id,
-                    sessionToken: token,
-                    fields: [
-                        'place_id',
-                        'name',
-                        'formatted_address',
-                        'geometry.location',
-                        'formatted_phone_number',
-                        'website',
-                        'types',
-                    ],
-                },
-                function(details, status) {
-                    if (status !== google.maps.places.PlacesServiceStatus.OK || !details) {
-                        return;
-                    }
-                    lastDetails = serializeDetails(details);
-                    updateHiddenField(lastDetails);
-                    sessionToken = null;
+            target.addEventListener('input', function() {
+                clearPlaceDetails();
+                if (hiddenName) {
+                    hiddenName.value = '';
                 }
-            );
-        }
-
-        function attachFormSync() {
-            const form = document.querySelector('form');
-            if (!form || formListenerAttached) {
-                return;
-            }
-            form.addEventListener('submit', function() {
-                if (lastDetails) {
-                    updateHiddenField(lastDetails);
+                if (hiddenLocation) {
+                    hiddenLocation.value = '';
                 }
             });
-            formListenerAttached = true;
         }
 
-        function wireInputReset(input) {
-            input.addEventListener('input', function() {
-                if (!input.value) {
-                    lastDetails = null;
-                    updateHiddenField(null);
-                }
-                ensureSessionToken();
-            });
-        }
-
-        async function initWithPlaceElement(input) {
-            try {
-                if (google.maps.importLibrary) {
-                    await google.maps.importLibrary('places');
-                }
-            } catch (error) {
-                console.error('Failed to import Google Maps libraries', error);
-            }
-
-            if (!google.maps.places.PlaceAutocompleteElement) {
-                return false;
-            }
-
-            autocomplete = new google.maps.places.PlaceAutocompleteElement();
-            if (!autocomplete.isConnected) {
-                document.body.appendChild(autocomplete);
-            }
-            autocomplete.inputElement = input;
-            ensureSessionToken();
-
-            const triggerSelection = function() {
-                handlePlaceSelection();
-            };
-
-            if (typeof autocomplete.addListener === 'function') {
-                autocomplete.addListener('place_changed', triggerSelection);
-                autocomplete.addListener('gmpxplacechanged', triggerSelection);
-            } else if (typeof autocomplete.addEventListener === 'function') {
-                autocomplete.addEventListener('place_changed', triggerSelection);
-                autocomplete.addEventListener('gmpxplacechanged', triggerSelection);
-            }
-
-            wireInputReset(input);
-            attachFormSync();
-            return true;
-        }
-
-        function initWithLegacyAutocomplete(input) {
-            if (!google.maps.places.Autocomplete) {
-                return false;
-            }
-
-            autocomplete = new google.maps.places.Autocomplete(input, {
-                fields: ['place_id', 'formatted_address', 'name'],
-                types: ['establishment'],
-                sessionToken: ensureSessionToken(),
-            });
-
-            autocomplete.addListener('place_changed', handlePlaceSelection);
-            wireInputReset(input);
-            attachFormSync();
-            return true;
-        }
-
-        window.initAppertivoAutocomplete = async function() {
-            const input = document.getElementById('location');
-            if (!input) {
+        async function initAutocomplete() {
+            if (!wrapper) {
                 return;
             }
-            if (!window.google || !google.maps || !google.maps.places) {
+
+            if (!window.google || !google.maps || !google.maps.importLibrary) {
                 updateStatus('Google Maps could not be loaded. Please enter your details manually.');
                 return;
             }
@@ -444,30 +349,102 @@
             updateStatus('');
 
             try {
-                const initialized = (await initWithPlaceElement(input)) || initWithLegacyAutocomplete(input);
-                if (!initialized) {
-                    updateStatus('Autocomplete is unavailable right now. Please enter your details manually.');
-                }
-            } catch (error) {
-                console.error('Failed to initialize Google Places autocomplete', error);
-                updateStatus('Autocomplete is unavailable right now. Please enter your details manually.');
-            }
-        };
+                const { PlaceAutocompleteElement } = await google.maps.importLibrary('places');
 
+                if (!PlaceAutocompleteElement) {
+                    updateStatus('Places Autocomplete is unavailable right now. You can type your details manually.');
+                    return;
+                }
+
+                const fallbackValue = getCurrentValue();
+                const autocomplete = new PlaceAutocompleteElement();
+
+                autocomplete.id = 'restaurant_location_search';
+                autocomplete.setAttribute('placeholder', input && input.getAttribute('placeholder') ? input.getAttribute('placeholder') : 'Start typing your restaurant...');
+                autocomplete.includedPrimaryTypes = ['establishment'];
+                autocomplete.setAttribute('aria-describedby', 'location-autocomplete-status');
+                autocomplete.value = fallbackValue;
+
+                wrapper.replaceChildren(autocomplete);
+                autocompleteElement = autocomplete;
+                input = null;
+
+                autocompleteElement.addEventListener('input', function() {
+                    clearPlaceDetails();
+                    if (hiddenName) {
+                        hiddenName.value = '';
+                    }
+                    if (hiddenLocation) {
+                        hiddenLocation.value = '';
+                    }
+                });
+
+                autocompleteElement.addEventListener('gmp-placeselect', async function(event) {
+                    try {
+                        const prediction = event && event.placePrediction ? event.placePrediction : null;
+                        if (!prediction) {
+                            updateStatus('Please choose a place from the list.');
+                            clearPlaceDetails();
+                            return;
+                        }
+
+                        const place = prediction.toPlace();
+                        await place.fetchFields({ fields: ['id', 'displayName', 'formattedAddress', 'location'] });
+
+                        updateStatus('');
+                        const name = place.displayName && place.displayName.text ? place.displayName.text : '';
+                        const address = place.formattedAddress || '';
+
+                        if (hiddenName) {
+                            hiddenName.value = name || address || getCurrentValue();
+                        }
+                        if (hiddenLocation) {
+                            hiddenLocation.value = address || name || getCurrentValue();
+                        }
+                        writePlaceDetails(place);
+                    } catch (error) {
+                        console.error('Failed to fetch place details', error);
+                        updateStatus('There was a problem selecting that place. Please try another search.');
+                    }
+                });
+            } catch (error) {
+                console.error('Failed to load Places library', error);
+                updateStatus('Google Maps could not be loaded. Please enter your details manually.');
+            }
+        }
+
+        if (!input && !wrapper) {
+            return;
+        }
+
+        attachClearHandler(input);
+
+        if (form) {
+            form.addEventListener('submit', function() {
+                if (!hiddenName || !hiddenLocation) {
+                    return;
+                }
+                const currentValue = getCurrentValue().trim();
+                if (!hiddenName.value) {
+                    hiddenName.value = currentValue;
+                }
+                if (!hiddenLocation.value) {
+                    hiddenLocation.value = currentValue;
+                }
+            });
+        }
+
+        window.initAppertivoAutocomplete = initAutocomplete;
         window.appertivoAutocomplete = {
-            reportError: function(message) {
-                updateStatus(message || 'Google Maps could not be loaded. Please enter your details manually.');
+            reportError: function() {
+                updateStatus('Google Maps could not be loaded. Please enter your details manually.');
             },
         };
-
-        document.addEventListener('DOMContentLoaded', function() {
-            attachFormSync();
-        });
     })();
 </script>
 <script
     src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_API_KEY }}&libraries=places&callback=initAppertivoAutocomplete&loading=async"
-    async defer
+    async
     onerror="window.appertivoAutocomplete && window.appertivoAutocomplete.reportError()"
 ></script>
 {% endif %}
