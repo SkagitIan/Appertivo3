@@ -261,13 +261,15 @@
             }
         }
 
+        let suppressNextInputClear = false;
+
         function clearPlaceDetails() {
             if (hiddenDetails) {
                 hiddenDetails.value = '';
             }
         }
 
-        function writePlaceDetails(place) {
+        function writePlaceDetails(place, prediction) {
             if (!place) {
                 clearPlaceDetails();
                 return;
@@ -279,24 +281,49 @@
             let name = '';
             let address = '';
 
+            if (prediction) {
+                if (!name && prediction.text) {
+                    name = prediction.text;
+                }
+                if (!address && prediction.structuredFormat) {
+                    const parts = [];
+                    if (prediction.structuredFormat.mainText) {
+                        parts.push(
+                            prediction.structuredFormat.mainText.text || prediction.structuredFormat.mainText,
+                        );
+                    }
+                    if (prediction.structuredFormat.secondaryText) {
+                        parts.push(
+                            prediction.structuredFormat.secondaryText.text || prediction.structuredFormat.secondaryText,
+                        );
+                    }
+                    if (parts.length) {
+                        address = parts.join(', ');
+                    }
+                }
+                if (!placeId) {
+                    placeId = prediction.id || prediction.placeId || '';
+                }
+            }
+
             if (place.geometry && place.geometry.location) {
                 const geometry = place.geometry.location;
                 lat = typeof geometry.lat === 'function' ? geometry.lat() : geometry.lat || null;
                 lng = typeof geometry.lng === 'function' ? geometry.lng() : geometry.lng || null;
-                placeId = place.place_id || '';
-                name = place.name || '';
-                address = place.formatted_address || '';
+                placeId = place.place_id || placeId || '';
+                name = place.name || name || '';
+                address = place.formatted_address || address || '';
             } else {
                 const location = place.location;
                 lat = location && typeof location.lat === 'function' ? location.lat() : location && location.lat !== undefined ? location.lat : null;
                 lng = location && typeof location.lng === 'function' ? location.lng() : location && location.lng !== undefined ? location.lng : null;
-                placeId = place.id || '';
+                placeId = place.id || place.placeId || placeId || '';
                 if (place.displayName && place.displayName.text) {
                     name = place.displayName.text;
                 } else {
-                    name = place.name || '';
+                    name = place.name || name || '';
                 }
-                address = place.formattedAddress || '';
+                address = place.formattedAddress || place.formatted_address || address || '';
             }
 
             const value = {
@@ -305,10 +332,38 @@
                 formatted_address: address,
                 latitude: lat,
                 longitude: lng,
+                restaurant_name: name,
+                location: address,
             };
+            if (prediction) {
+                value.prediction = {
+                    id: prediction.id || prediction.placeId || '',
+                    text: prediction.text || '',
+                };
+            }
+            if (place.toJSON) {
+                try {
+                    value.place_json = place.toJSON();
+                } catch (error) {
+                    // Ignore serialization issues
+                }
+            }
+
             if (hiddenDetails) {
                 hiddenDetails.value = JSON.stringify(value);
             }
+            target.addEventListener('input', function() {
+                clearPlaceDetails();
+                if (hiddenName) {
+                    hiddenName.value = '';
+                }
+                if (hiddenLocation) {
+                    hiddenLocation.value = '';
+                }
+            });
+        }
+
+            return { name, address };
         }
 
         function getCurrentValue() {
@@ -326,6 +381,10 @@
                 return;
             }
             target.addEventListener('input', function() {
+                if (suppressNextInputClear) {
+                    suppressNextInputClear = false;
+                    return;
+                }
                 clearPlaceDetails();
                 if (hiddenName) {
                     hiddenName.value = '';
@@ -334,6 +393,7 @@
                     hiddenLocation.value = '';
                 }
             });
+            return target;
         }
 
         async function initAutocomplete() {
@@ -369,15 +429,7 @@
                 autocompleteElement = autocomplete;
                 input = null;
 
-                autocompleteElement.addEventListener('input', function() {
-                    clearPlaceDetails();
-                    if (hiddenName) {
-                        hiddenName.value = '';
-                    }
-                    if (hiddenLocation) {
-                        hiddenLocation.value = '';
-                    }
-                });
+                attachClearHandler(autocompleteElement);
 
                 autocompleteElement.addEventListener('gmp-placeselect', async function(event) {
                     try {
@@ -391,9 +443,11 @@
                         const place = prediction.toPlace();
                         await place.fetchFields({ fields: ['id', 'displayName', 'formattedAddress', 'location'] });
 
+                        suppressNextInputClear = true;
                         updateStatus('');
-                        const name = place.displayName && place.displayName.text ? place.displayName.text : '';
-                        const address = place.formattedAddress || '';
+                        const extracted = writePlaceDetails(place, prediction) || {};
+                        const name = extracted.name || (place.displayName && place.displayName.text) || prediction.text || getCurrentValue();
+                        const address = extracted.address || place.formattedAddress || prediction.text || getCurrentValue();
 
                         if (hiddenName) {
                             hiddenName.value = name || address || getCurrentValue();
@@ -401,7 +455,6 @@
                         if (hiddenLocation) {
                             hiddenLocation.value = address || name || getCurrentValue();
                         }
-                        writePlaceDetails(place);
                     } catch (error) {
                         console.error('Failed to fetch place details', error);
                         updateStatus('There was a problem selecting that place. Please try another search.');
