@@ -558,6 +558,33 @@ def signup_view(request):
         except (TypeError, json.JSONDecodeError):
             place_details = None
 
+    def _clean_str(value: object) -> str:
+        return value.strip() if isinstance(value, str) else ""
+
+    if place_details:
+        prediction = place_details.get("prediction") or {}
+
+        details_name = _clean_str(place_details.get("restaurant_name")) or _clean_str(
+            place_details.get("name")
+        )
+        if not details_name and isinstance(place_details.get("displayName"), dict):
+            details_name = _clean_str(place_details["displayName"].get("text"))
+        if not details_name:
+            details_name = _clean_str(prediction.get("text"))
+
+        details_location = (
+            _clean_str(place_details.get("location"))
+            or _clean_str(place_details.get("formatted_address"))
+            or _clean_str(place_details.get("formattedAddress"))
+        )
+        if not details_location:
+            details_location = _clean_str(prediction.get("text"))
+
+        if details_name and not restaurant_name:
+            restaurant_name = details_name
+        if details_location and not location:
+            location = details_location
+
     form_data = {
         "email": email,
         "restaurant_name": restaurant_name,
