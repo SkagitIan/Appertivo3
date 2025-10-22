@@ -1,0 +1,11 @@
+# Block obvious spam bot while allowing everyone else.
+User-agent: spam
+Disallow: /
+
+# Allow all other crawlers and point them to the public articles.
+User-agent: *
+Disallow:
+Allow: /articles/
+
+# Sitemap exposes individual article URLs.
+Sitemap: https://appertivo.com/sitemap.xml

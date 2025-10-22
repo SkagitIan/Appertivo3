@@ -1,0 +1,69 @@
+{% with dish_total=dish_total|default:0 %}
+  <div
+    class="card card-generate w-full"
+    data-card
+    data-placeholder-card
+    data-concept-id="{{ concept.id }}"
+    data-concept-index="{{ concept_index }}"
+    data-placeholder-variant="{{ variant|default:'swipe' }}"
+    data-dish-id=""
+    data-seen="false"
+    data-media-loaded="true"
+  >
+    <div class="card-generate-inner" role="group" aria-label="Generate dishes for {{ concept.name }}">
+      <div class="card-generate-header">
+        <div class="card-generate-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m-7-7h14" />
+          </svg>
+        </div>
+        <h3
+          class="card-generate-title"
+          data-placeholder-title
+          data-empty-copy="Generate your first dish"
+          data-populated-copy="Generate another dish"
+        >
+          {% if dish_total %}
+            Generate another dish
+          {% else %}
+            Generate your first dish
+          {% endif %}
+        </h3>
+      </div>
+      <p
+        class="card-generate-text"
+        data-status-default
+        data-empty-copy="We haven't plated anything for this concept yet. Tap generate to craft the first dish."
+        data-populated-copy="You've reached the end of this concept's dishes. Tap generate to spin up another idea tailored here."
+      >
+        {% if dish_total %}
+          You've reached the end of this concept's dishes. Tap generate to spin up another idea tailored here.
+        {% else %}
+          We haven't plated anything for this concept yet. Tap generate to craft the first dish.
+        {% endif %}
+      </p>
+      <p class="card-generate-text is-loading hidden" data-status-loading>
+        Working on a fresh dish for this concept...
+      </p>
+      <div class="card-generate-indicator hidden" data-loading-indicator aria-live="polite">
+        <span class="card-generate-indicator-dot" aria-hidden="true"></span>
+        <span class="card-generate-indicator-text">Summoning a new dish...</span>
+      </div>
+      <button
+        type="button"
+        class="card-generate-button"
+        data-load-dishes
+        data-concept-id="{{ concept.id }}"
+        data-concept-index="{{ concept_index }}"
+        {% if demo_mode %}
+          data-endpoint="#"
+        {% else %}
+          data-endpoint="{% url 'swipe:concept_append_dishes' concept.id %}"
+        {% endif %}
+      >
+        <span data-label>Generate for this concept</span>
+        <span class="button-spinner hidden" data-spinner aria-hidden="true"></span>
+      </button>
+    </div>
+  </div>
+{% endwith %}

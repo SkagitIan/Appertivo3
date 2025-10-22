@@ -5,6 +5,7 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 import logging, json, time
 from datetime import timedelta
 from django.db import transaction
+import random
 from django.utils import timezone
 from . import llm, models
 from dotenv import load_dotenv
@@ -14,6 +15,7 @@ from outscraper import ApiClient
 from openai import OpenAI
 from urllib.parse import urlparse
 from django.shortcuts import render
+from django.urls import reverse
 # onboarding/views.py
 from django.http import JsonResponse
 from .models import Onboarding
@@ -48,12 +50,23 @@ def onboarding_status(request, onboarding_id):
         "onboarding_id": str(ob.pk),
     }
 
+    # Serve JSON for programmatic polling (e.g., Swipe splash)
+    wants_json = (
+        request.GET.get("format") == "json"
+        or "application/json" in (request.headers.get("Accept", ""))
+    )
+    if wants_json:
+        return JsonResponse(ctx)
+
     # If this is an HTMX poll, render the fragment and use HX-Redirect when done.
     if request.headers.get("HX-Request") == "true":
         response = render(request, "_partials/onboarding_status.html", ctx)
         if is_complete and restaurant_id:
             response["HX-Redirect"] = reverse("dashboard", args=[restaurant_id])
         return response
+
+    # Fallback: render the partial in a bare response for non-HTMX HTML callers
+    return render(request, "_partials/onboarding_status.html", ctx)
 
 
 class OnboardingPipeline:
@@ -209,7 +222,8 @@ class OnboardingPipeline:
                 self.onboarding.save(update_fields=["reviews_json"])
                 self.mark_progress(models.Onboarding.State.REVIEWS_DONE)
 
-                logger.info("Stored %d reviews for %s", r.review_count, r.name)
+                # Restaurant model no longer stores review_count; use fetched list length
+                logger.info("Stored %d reviews for %s", len(reviews or []), r.name)
 
             except Exception as exc:
                 logger.warning("Failed to process review data for %s: %s", r.name, exc, exc_info=True)
@@ -221,9 +235,12 @@ class OnboardingPipeline:
 
 
     def build_web_profile(self) -> dict | None:
-        """Analyze the restaurant website and build a structured profile."""
+        """Analyze the restaurant website and build a structured profile.
+
+        Adds resilient retries for transient OpenAI errors (e.g., 5xx).
+        """
         r = self.restaurant
-        
+
         import tldextract
         raw_url = (r.website or "").strip()
         extracted = tldextract.extract(raw_url)
@@ -233,42 +250,79 @@ class OnboardingPipeline:
         else:
             allowed_domain = ""
 
-        # normalize domain to "domain.com"
-        logger.info("Building web profile for domain: %s", allowed_domain)
-        try:
-            response = self.openai_client.responses.create(
-                model="gpt-5",
-                tools=[
-                    {
-                        "type": "web_search",
-                        "filters": {"allowed_domains": [allowed_domain]},
-                    }
-                ],
-                input=self.web_search_profile_prompt(),
-                text={"format": self.web_search_profile_schema()},
-            )
+        # Prepare tools only if we have a domain to constrain
+        tools = []
+        if allowed_domain:
+            tools = [
+                {
+                    "type": "web_search",
+                    "filters": {"allowed_domains": [allowed_domain]},
+                }
+            ]
 
-            raw = response.output_text  # or whatever the field is that has the JSON text
-            profile = json.loads(raw)
-            if not profile:
-                logger.warning("Empty profile response for %s (%s)", r.name, domain)
-                return None
-            # generate markdown of the data for future llm context
-            r.websearch_markdown = self.llm_clean_response(profile, "Deepdive knowledge of cuisine type, restaurant style and atmosphere, story, history, everything relevant")
-            # persist to database
-            r.websearch_json = json.dumps(profile, indent=2)
-            r.menu_json = json.dumps(profile.get("menus", []))
-            r.ingredients_json = json.dumps(profile.get("ingredients", []))
-            r.save(update_fields=["websearch_json", "menu_json", "ingredients_json","websearch_markdown"])
-            self.onboarding.web_profile_json = profile
-            self.onboarding.save()
-            self.mark_progress(models.Onboarding.State.WEB_ANALYSIS_DONE)
-            logger.info("Saved web profile for %s", r.name)
-            return profile
+        logger.info("Building web profile for domain: %s", allowed_domain or "<none>")
 
-        except Exception as e:
-            logger.exception("Error building web profile for %s: %s", r.name, e)
-            return None
+        max_attempts = 3
+        for attempt in range(1, max_attempts + 1):
+            try:
+                response = self.openai_client.responses.create(
+                    model="gpt-5",
+                    tools=tools,
+                    input=self.web_search_profile_prompt(),
+                    text={"format": self.web_search_profile_schema()},
+                )
+
+                raw = response.output_text or ""
+                profile = json.loads(raw)
+                if not profile:
+                    logger.warning(
+                        "Empty profile response for %s (%s)", r.name, allowed_domain
+                    )
+                    return None
+
+                # Generate markdown of the data for future LLM context
+                r.websearch_markdown = self.llm_clean_response(
+                    profile,
+                    "Deepdive knowledge of cuisine type, restaurant style and atmosphere, story, history, everything relevant",
+                )
+
+                # Persist to database
+                r.websearch_json = json.dumps(profile, indent=2)
+                r.menu_json = json.dumps(profile.get("menus", []))
+                r.ingredients_json = json.dumps(profile.get("ingredients", []))
+                r.save(
+                    update_fields=[
+                        "websearch_json",
+                        "menu_json",
+                        "ingredients_json",
+                        "websearch_markdown",
+                    ]
+                )
+                self.onboarding.web_profile_json = profile
+                self.onboarding.save(update_fields=["web_profile_json"])
+                self.mark_progress(models.Onboarding.State.WEB_ANALYSIS_DONE)
+                logger.info("Saved web profile for %s", r.name)
+                return profile
+
+            except Exception as e:
+                # Transient OpenAI errors (e.g., 500/502) are retried with backoff
+                logger.exception(
+                    "Attempt %d/%d: Error building web profile for %s: %s",
+                    attempt,
+                    max_attempts,
+                    r.name,
+                    e,
+                )
+                if attempt >= max_attempts:
+                    # Record last error but do not fail the entire pipeline
+                    self.onboarding.mark(
+                        self.onboarding.state,
+                        error=f"build_web_profile failed: {type(e).__name__}: {e}",
+                    )
+                    return None
+                # Exponential backoff with jitter
+                sleep_s = min(20, (2 ** (attempt - 1)) + random.uniform(0, 0.5))
+                time.sleep(sleep_s)
 
     def run_review_analysis(self) -> dict:
         """Summarize restaurant reviews using OpenAI, with local fallback."""
@@ -377,8 +431,11 @@ class OnboardingPipeline:
         for step in steps:
             try:
                 with transaction.atomic():
-                    step()
-                    logger.info("Step %s complete", step.__name__)
+                    result = step()
+                    if result is None:
+                        logger.info("Step %s skipped or no-op", step.__name__)
+                    else:
+                        logger.info("Step %s complete", step.__name__)
             except Exception as e:
                 logger.exception("Step %s failed", step.__name__)
                 self.onboarding.fail(str(e))
@@ -547,4 +604,3 @@ class OnboardingPipeline:
             },
         }
         return schema
-

@@ -575,6 +575,12 @@ class DashboardView(StaffOnlyMixin, TemplateView):
                 icon="newspaper",
             ),
             QuickAction(
+                label="Simple Articles",
+                url=str(reverse_lazy("articles:staff_simple_dashboard")),
+                description="Upload research and publish in two steps.",
+                icon="sparkles",
+            ),
+            QuickAction(
                 label="Resend onboarding email",
                 url=str(reverse_lazy("onboarding-retry")),
                 description="Send a fresh activation email to nudge new users.",

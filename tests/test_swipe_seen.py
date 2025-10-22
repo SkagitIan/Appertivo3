@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
 
-from app.models import Account, Restaurant
+from app.models import Account, Membership, Onboarding, Restaurant
 from swipe.models import Concept, Dish
 from swipe.views import SwipeHomeView
 
@@ -18,6 +18,12 @@ class SwipeSeenTests(TestCase):
             account=self.account,
             name="Test Resto",
             location_text="123 Anywhere",
+        )
+        Membership.objects.create(account=self.account, user=self.user)
+        Onboarding.objects.create(
+            user=self.user,
+            restaurant=self.restaurant,
+            state=Onboarding.State.COMPLETE,
         )
         self.concept = Concept.objects.create(
             restaurant=self.restaurant,

@@ -4,6 +4,7 @@ import json
 import logging
 from typing import Any, Dict, Optional
 
+from celery import shared_task
 from django.utils import timezone
 
 from .models import Article, PromptTemplate, RunStep
@@ -14,7 +15,6 @@ from .openai_helpers import (
     parse_structured_payload,
 )
 from .pipeline import build_next_input, finalize_run, next_step_name, schedule_step
-from .schemas import RESEARCH_RESPONSE_SCHEMA
 from .utils import apply_usage_cost, ensure_dict, ensure_list, sections_to_markdown
 
 logger = logging.getLogger(__name__)
@@ -124,7 +124,8 @@ def generate_research_draft(step_id: int, *, client: Optional[Any] = None) -> No
 
     step.status = "running"
     step.error_message = ""
-    step.save(update_fields=["status", "error_message"])
+    step.output_payload = {"progress": {"stage": "starting", "percent": 5}}
+    step.save(update_fields=["status", "error_message", "output_payload"])
 
     run.status = "running"
     run.current_step = "draft"
@@ -137,28 +138,50 @@ def generate_research_draft(step_id: int, *, client: Optional[Any] = None) -> No
     context_details = ensure_dict(payload.get("context"))
 
     client = client or get_openai_client()
+
+    # helper to update progress on the step
+    def _progress(stage: str, percent: int) -> None:
+        payload = ensure_dict(step.output_payload)
+        payload["progress"] = {"stage": stage, "percent": max(0, min(100, percent))}
+        step.output_payload = payload
+        RunStep.objects.filter(pk=step.pk).update(output_payload=payload)
     prompt = (
-        "You are a research assistant with access to live web search. "
+        "You are a research assistant. "
         "Given an article concept and research context, compile supporting citations "
         "and draft a structured outline with section headings and bullet paragraphs. "
-        "Return structured JSON with keys: summary, citations (list with title, url, and snippet), draft (with title, sections)."
+        "Return structured JSON with keys: summary, citations (list with title, url, and snippet), draft (with title, sections or text)."
         f"\n\nSelected concept: {json.dumps(selected_idea, ensure_ascii=False)}"
         f"\n\nContext notes: {context_details.get('context', '')}"
         f"\n\nExtracted PDF notes: {context_details.get('pdf_context', '')}"
     )
 
     try:
-        response = client.responses.create(
-            model="gpt-5",
-            input=prompt,
-            tools=[{"type": "web_search"}],
-            text={"format": RESEARCH_RESPONSE_SCHEMA},
-        )
+        _progress("gathering_citations", 20)
+        pdf_url = context_details.get("pdf_url")
+        if pdf_url:
+            try:
+                response = client.responses.create(
+                    model="gpt-4.1-mini",
+                    input=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "input_text", "text": prompt},
+                                {"type": "input_file", "file_url": pdf_url},
+                            ],
+                        }
+                    ],
+                )
+            except Exception:
+                response = client.responses.create(model="gpt-4.1-mini", input=prompt)
+        else:
+            response = client.responses.create(model="gpt-4.1-mini", input=prompt)
         response_dict = (
             response.model_dump()
             if hasattr(response, "model_dump")
             else getattr(response, "to_dict", lambda: {})()
         )
+        _progress("outlining", 60)
         parsed_payload = parse_structured_payload(extract_output_text(response))
         citations = ensure_list(parsed_payload.get("citations"))
         draft_data = ensure_dict(parsed_payload.get("draft"))
@@ -173,6 +196,8 @@ def generate_research_draft(step_id: int, *, client: Optional[Any] = None) -> No
                 draft_markdown = sections_to_markdown(sections)
             elif draft_data.get("text"):
                 draft_markdown = str(draft_data.get("text"))
+
+        _progress("drafting", 85)
 
         step.status = "ok"
         step.output_payload = {
@@ -196,3 +221,16 @@ def generate_research_draft(step_id: int, *, client: Optional[Any] = None) -> No
         step.ended_at = timezone.now()
         step.save(update_fields=["status", "error_message", "ended_at"])
         run.mark_failed(str(exc), step=step)
+
+
+# Celery task wrappers
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_jitter=True, max_retries=3)
+def run_pipeline_step_task(self, step_id: int) -> None:
+    """Celery wrapper for pipeline step execution."""
+    run_step(step_id)
+
+
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_jitter=True, max_retries=3)
+def generate_research_draft_task(self, step_id: int) -> None:
+    """Celery wrapper for research + draft generation."""
+    generate_research_draft(step_id)

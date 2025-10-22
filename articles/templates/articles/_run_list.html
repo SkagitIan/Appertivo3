@@ -10,13 +10,24 @@
             </div>
             <div class="flex items-center gap-2 text-xs">
               <span class="rounded-full px-2.5 py-1 font-semibold {% if run.status == 'completed' %}bg-emerald-100 text-emerald-700{% elif run.status == 'failed' %}bg-red-100 text-red-700{% else %}bg-amber-100 text-amber-700{% endif %}">{{ run.get_status_display }}</span>
-              <span class="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-600">${{ cost|default:0|floatformat:2 }}</span>
+              <button
+                type="button"
+                class="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50"
+                hx-get="{% url 'articles:staff_draft_status' run.id %}"
+                hx-target="#draft-workflow"
+                hx-swap="outerHTML"
+                hx-on::after-request="document.getElementById('research-accordion')?.setAttribute('open','open');"
+              >
+                <i class="fa-solid fa-play" aria-hidden="true"></i>
+                <span class="ml-1 hidden sm:inline">Resume</span>
+              </button>
               <form
                 method="post"
                 hx-post="{% url 'articles:staff_delete_run' run.id %}"
                 hx-target="#runs-panel"
                 hx-swap="innerHTML"
                 hx-confirm="Delete this run and its drafts?"
+                hx-headers='{"X-CSRFToken": "{{ csrf_token|escapejs }}"}'
                 data-loading-message="Deleting run…"
                 class="inline"
                 data-disable-global-overlay

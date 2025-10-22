@@ -174,3 +174,21 @@ class Article(models.Model):
             except json.JSONDecodeError:
                 return []
         return list(self.sources_json or [])
+
+
+class ArticleIdea(models.Model):
+    """A saved idea concept from Step 1 for future reuse."""
+
+    created_by = models.ForeignKey("auth.User", on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    title = models.CharField(max_length=255)
+    subtitle = models.TextField(blank=True)
+    angle = models.TextField(blank=True)
+    source_run = models.ForeignKey(ArticleRun, on_delete=models.SET_NULL, null=True, blank=True)
+    archived = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self) -> str:  # pragma: no cover - trivial
+        return self.title

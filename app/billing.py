@@ -81,7 +81,7 @@ def create_checkout_session(request: HttpRequest, onboarding_id ) -> HttpRespons
             metadata={"onboarding_id": str(onboarding_id)},
             line_items=[{"price": price_id, "quantity": 1}],
             subscription_data={
-                "trial_period_days": 10,
+                "trial_period_days": 14,
                 "trial_settings": {
                     "end_behavior": {"missing_payment_method": "cancel"},
                 },
@@ -89,7 +89,11 @@ def create_checkout_session(request: HttpRequest, onboarding_id ) -> HttpRespons
             consent_collection={"terms_of_service": "required"},
             allow_promotion_codes=True,
             payment_method_collection="always",  # card required
-            success_url=f"https://appertivo.com/setup?session_id={{CHECKOUT_SESSION_ID}}&onboarding_id={str(onboarding_id)}",
+            # Redirect paid users straight into Swipe with splash polling
+            success_url=(
+                "https://appertivo.com/swipe/?from=stripe&session_id={CHECKOUT_SESSION_ID}"
+                f"&onboarding_id={str(onboarding_id)}"
+            ),
             cancel_url=f"https://appertivo.com/pricing",
         )
         logger.info(session)
@@ -166,5 +170,4 @@ def stripe_webhook(request: HttpRequest) -> HttpResponse:
     run_onboarding_pipeline.delay(onboarding_id)
 
     return JsonResponse({"queued": True})
-
 

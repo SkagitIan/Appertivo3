@@ -130,7 +130,7 @@ class Restaurant(TimestampedModel):
             .prefetch_related(
                 Prefetch(
                     "dishes",
-                    queryset=Dish.objects.only("name")[:3],
+                    queryset=Dish.objects.only("name")[:10],
                     to_attr="recent_dishes",
                 )
             )[:16]

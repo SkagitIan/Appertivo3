@@ -258,9 +258,10 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Celery configuration
-CELERY_BROKER_URL = "redis://localhost:6379/0"
-CELERY_RESULT_BACKEND = CELERY_BROKER_URL
-CELERY_TASK_ALWAYS_EAGER = False  # make sure it’s async!
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", CELERY_BROKER_URL)
+# Enable in-process execution when a broker isn't available (dev-friendly)
+CELERY_TASK_ALWAYS_EAGER = os.getenv("CELERY_TASK_ALWAYS_EAGER", "0").lower() in {"1", "true", "yes"}
 
 
 CELERY_BEAT_SCHEDULE = {
@@ -317,11 +318,11 @@ LOGGING = {
 SERVER_EMAIL = 'ian.larsen.1976@gmail.com'
 DEFAULT_FROM_EMAIL = 'ian@appertivo.com'
 LOGIN_URL = reverse_lazy("login")
-LOGIN_REDIRECT_URL = reverse_lazy("dashboard-redirect")
+LOGIN_REDIRECT_URL = reverse_lazy("swipe:home")
+
 LOGOUT_REDIRECT_URL = reverse_lazy("login")
 SITE_ID=1
 BREVO_API_KEY = os.getenv('BREVO_API_KEY')
-print(f"BREVO_API_KEY: {BREVO_API_KEY}")  # Debugging line to check if the key is loaded
 # if BREVO_API_KEY:
 EMAIL_BACKEND = 'anymail.backends.brevo.EmailBackend'
 ANYMAIL = {'BREVO_API_KEY': BREVO_API_KEY}

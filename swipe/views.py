@@ -1,8 +1,10 @@
 import asyncio
 import logging
+from functools import wraps
 from uuid import UUID
 
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.views import redirect_to_login
 from django.http import HttpResponse, HttpResponseBadRequest, JsonResponse, QueryDict
 from django.db.models import Prefetch
 from django.utils.decorators import method_decorator
@@ -10,7 +12,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import TemplateView, View
 from django.urls import reverse
 from app.llm import *
-from app.models import Restaurant, RestaurantSettings
+from app.models import Onboarding, Restaurant, RestaurantSettings
 # Stub imports for future service integration
 # from .services import generate_concepts_batch  # to be implemented
 from types import SimpleNamespace
@@ -30,6 +32,62 @@ from django.template.response import TemplateResponse
 logger = logging.getLogger(__name__)
 
 DEMO_RESTAURANT_ID = UUID("83647628-3514-4224-b1dc-701519004db8")
+
+
+def _get_swipe_restaurant_for_request(request):
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        return None
+
+    cached = getattr(request, "_swipe_restaurant_cache", None)
+    if cached:
+        return cached
+
+    onboarding = None
+    try:
+        onboarding = user.onboarding
+    except (AttributeError, Onboarding.DoesNotExist):
+        onboarding = None
+
+    if (
+        onboarding
+        and onboarding.restaurant
+        and onboarding.restaurant_id
+        and onboarding.state == Onboarding.State.COMPLETE
+    ):
+        request._swipe_restaurant_cache = onboarding.restaurant
+        return onboarding.restaurant
+
+    return None
+
+
+def _redirect_to_login(request):
+    return redirect_to_login(
+        request.get_full_path(),
+        login_url=None,
+        redirect_field_name=LoginRequiredMixin.redirect_field_name,
+    )
+
+
+def swipe_access_required(view_func):
+    @wraps(view_func)
+    def _wrapped_view(request, *args, **kwargs):
+        restaurant = _get_swipe_restaurant_for_request(request)
+        if not restaurant:
+            return _redirect_to_login(request)
+        request.swipe_restaurant = restaurant
+        return view_func(request, *args, **kwargs)
+
+    return _wrapped_view
+
+
+class SwipeAccessMixin(LoginRequiredMixin):
+    def dispatch(self, request, *args, **kwargs):
+        restaurant = _get_swipe_restaurant_for_request(request)
+        if not restaurant:
+            return _redirect_to_login(request)
+        request.swipe_restaurant = restaurant
+        return super().dispatch(request, *args, **kwargs)
 
 
 def _build_dish_counts(concepts):
@@ -113,6 +171,7 @@ def _build_live_demo_payload(concepts):
     }
 
 @csrf_exempt
+@swipe_access_required
 def generate_concepts_view(request, restaurant_id):
     """
     Fetch a restaurant and generate 3 concepts (each with 3 dishes).
@@ -120,6 +179,9 @@ def generate_concepts_view(request, restaurant_id):
     """
     try:
         restaurant = get_object_or_404(Restaurant, id=restaurant_id)
+        active_restaurant = getattr(request, "swipe_restaurant", None)
+        if not active_restaurant or active_restaurant.id != restaurant.id:
+            return _redirect_to_login(request)
         restaurant_context = restaurant.context
         generator = GetConcepts(restaurant=restaurant, restaurant_context=restaurant_context)
 
@@ -137,21 +199,18 @@ def generate_concepts_view(request, restaurant_id):
         return JsonResponse({"status": "error", "message": str(e)}, status=500)
 
 # --- HTML ---
-class SwipeHomeView(TemplateView):
+class SwipeHomeView(SwipeAccessMixin, TemplateView):
     template_name = "swipe/index.html"
 
     def get_restaurant(self):
-        restaurant_id = self.kwargs.get("restaurant_id") or self.request.GET.get("restaurant_id")
-        if restaurant_id:
-            try:
-                return get_object_or_404(Restaurant, id=restaurant_id)
-            except (TypeError, ValueError):
-                logger.warning("Invalid restaurant_id supplied: %s", restaurant_id)
-        return Restaurant.objects.order_by("-created_at").first()
+        return getattr(self.request, "swipe_restaurant", None)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         restaurant = self.get_restaurant()
+        # Detect return from Stripe with an onboarding splash request
+        onboarding_id = self.request.GET.get("onboarding_id")
+        show_demo_splash = bool(onboarding_id)
         concepts = []
 
         if restaurant:
@@ -183,6 +242,9 @@ class SwipeHomeView(TemplateView):
                 "dish_counts": dish_counts,
                 "restaurant_settings": restaurant_settings,
                 "update_creativity_url": update_creativity_url,
+                # Splash + polling context
+                "show_demo_splash": show_demo_splash,
+                "onboarding_id": onboarding_id,
             }
         )
         return context
@@ -267,7 +329,7 @@ class HealthView(View):
 
 
 # --- APIs ---
-class SwipeConceptBatchView(View):
+class SwipeConceptBatchView(SwipeAccessMixin, View):
     """
     Returns 3 fully generated concepts (each with 3 dishes)
     using existing llm helpers (OpenAI + Replicate).
@@ -340,7 +402,7 @@ class SwipeConceptBatchView(View):
         return JsonResponse({"results": results, "limit": limit, "offset": offset})
 
 
-class ConceptDishAppendView(View):
+class ConceptDishAppendView(SwipeAccessMixin, View):
     """Append freshly generated dishes to an existing concept."""
 
     def post(self, request, concept_id):
@@ -401,7 +463,7 @@ class ConceptDishAppendView(View):
         return JsonResponse({"dishes": response_payload})
 
 
-class DishVariationView(View):
+class DishVariationView(SwipeAccessMixin, View):
     """Generate a new variation for an existing dish."""
 
     def post(self, request, dish_id: int):
@@ -474,7 +536,7 @@ class DishVariationView(View):
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-class ToggleFavoriteAPI(View):
+class ToggleFavoriteAPI(SwipeAccessMixin, View):
     """
     POST: { type: 'concept'|'dish', id: <int> }
     """
@@ -511,7 +573,7 @@ class ToggleFavoriteAPI(View):
             return HttpResponseBadRequest("Unknown type")
 
 
-class DeleteCardAPI(LoginRequiredMixin, View):
+class DeleteCardAPI(SwipeAccessMixin, View):
     def post(self, request):
         import json
 
@@ -596,17 +658,11 @@ class DeleteCardAPI(LoginRequiredMixin, View):
         return HttpResponseBadRequest("Unknown type")
 
 
-class FavoritesView(TemplateView):
+class FavoritesView(SwipeAccessMixin, TemplateView):
     template_name = "swipe/favorites.html"
 
     def get_restaurant(self):
-        restaurant_id = self.kwargs.get("restaurant_id") or self.request.GET.get("restaurant_id")
-        if restaurant_id:
-            try:
-                return get_object_or_404(Restaurant, id=restaurant_id)
-            except (TypeError, ValueError):
-                logger.warning("Invalid restaurant_id supplied: %s", restaurant_id)
-        return Restaurant.objects.order_by("-created_at").first()
+        return getattr(self.request, "swipe_restaurant", None)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -668,7 +724,7 @@ class FavoritesView(TemplateView):
         return context
 
 
-class DemoFavoritesView(TemplateView):
+class DemoFavoritesView(SwipeAccessMixin, TemplateView):
     template_name = "swipe/demo_favorites.html"
 
     def get_context_data(self, **kwargs):
@@ -698,17 +754,11 @@ class DemoFavoritesView(TemplateView):
         return context
 
 
-class SettingsView(TemplateView):
+class SettingsView(SwipeAccessMixin, TemplateView):
     template_name = "swipe/settings.html"
 
     def get_restaurant(self):
-        restaurant_id = self.kwargs.get("restaurant_id") or self.request.GET.get("restaurant_id")
-        if restaurant_id:
-            try:
-                return get_object_or_404(Restaurant, id=restaurant_id)
-            except (TypeError, ValueError):
-                logger.warning("Invalid restaurant_id supplied: %s", restaurant_id)
-        return Restaurant.objects.order_by("-created_at").first()
+        return getattr(self.request, "swipe_restaurant", None)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -727,7 +777,7 @@ class SettingsView(TemplateView):
         return context
 
 
-class DemoSettingsView(TemplateView):
+class DemoSettingsView(SwipeAccessMixin, TemplateView):
     template_name = "swipe/settings.html"
 
     def get_context_data(self, **kwargs):
@@ -752,7 +802,7 @@ class DemoSettingsView(TemplateView):
         return context
 
 
-class MarkSeenAPI(View):
+class MarkSeenAPI(SwipeAccessMixin, View):
     def post(self, request):
         import json
 

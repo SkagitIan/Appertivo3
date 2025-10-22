@@ -27,6 +27,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
+from django.apps import apps
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 from django.core.cache import cache
@@ -137,21 +138,39 @@ def _current_season(current_date: Optional[datetime.date] = None) -> str:
     return "Autumn"
 
 
-def _footer_articles(limit: int = 4) -> List[Any]:
-    """Return a small set of published articles for footer links."""
+def _article_model():
+    """Return the marketing article model if the articles app is installed."""
+    try:
+        return apps.get_model("articles", "Article")
+    except LookupError:
+        return None
 
-    article_model = getattr(models, "Article", None)
+
+def _get_published_articles(limit: int | None = None, fields: Iterable[str] | None = None) -> List[Any]:
+    """Fetch published articles ordered by recency."""
+    article_model = _article_model()
     if article_model is None:
         return []
+
+    queryset = article_model.objects.filter(status="published", published_at__isnull=False).order_by("-published_at")
+    if fields:
+        queryset = queryset.only(*fields)
+    if limit:
+        queryset = queryset[:limit]
+    return list(queryset)
+
+
+def _footer_articles(limit: int = 4) -> List[Any]:
+    """Return a small set of published articles for footer links."""
 
     cache_key = f"footer-articles:{limit}"
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
 
-    articles = list(
-        article_model.objects.filter(published_at__isnull=False)
-        .order_by("-published_at")[:limit]
+    articles = _get_published_articles(
+        limit=limit,
+        fields=("title", "slug", "published_at"),
     )
     cache.set(cache_key, articles, timeout=DEFAULT_CACHE_TIMEOUT)
     return articles
@@ -456,6 +475,10 @@ def home_view(request):
     context = {
         "newsletter_form": form,
         "subscription_status": subscription_status,
+        "latest_articles": _get_published_articles(
+            limit=3,
+            fields=("title", "summary", "slug", "seo_description", "published_at", "og_image_url"),
+        ),
     }
 
     return render(request, "new_home.html", context)
@@ -625,7 +648,7 @@ def login_view(request):
                 .first()
             )
             if restaurant_id:
-                return redirect("dashboard", restaurant_id=restaurant_id)
+                return redirect("swipe:home")
             return redirect("getting-started")
 
         return render(

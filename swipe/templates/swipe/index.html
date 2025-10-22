@@ -355,13 +355,12 @@
                   </div>
 
                   <!-- Dish Cards -->
-                  {% for dish in concept.dishes.all %}
-                    {% include "swipe/_dish_card.html" with dish=dish concept=concept %}
-                  {% empty %}
-                    <div class="card w-full flex items-center justify-center p-6 bg-slate-900/60 border border-slate-100/20">
-                      <p class="text-slate-200/80 text-center tracking-[0.25em] uppercase">No dishes generated yet for this concept.</p>
-                    </div>
-                  {% endfor %}
+                  {% with concept_index=forloop.counter0 dishes=concept.dishes.all %}
+                    {% for dish in dishes %}
+                      {% include "swipe/_dish_card.html" with dish=dish concept=concept %}
+                    {% endfor %}
+                    {% include "swipe/_dish_generate_placeholder.html" with concept=concept concept_index=concept_index dish_total=dishes|length variant='swipe' %}
+                  {% endwith %}
                 </div>
               </div>
             </div>
@@ -408,13 +407,12 @@
                 data-concept-id="{{ concept.id }}"
               >
                 <div class="tower-track-inner" data-tower-scroller>
-                  {% for dish in concept.dishes.all %}
-                    {% include "swipe/_dish_card.html" with dish=dish concept=concept %}
-                  {% empty %}
-                    <div class="card w-full flex items-center justify-center p-6 bg-slate-900/60 border border-slate-100/20">
-                      <p class="text-slate-200/80 text-center tracking-[0.25em] uppercase">No dishes generated yet for this concept.</p>
-                    </div>
-                  {% endfor %}
+                  {% with concept_index=forloop.counter0 dishes=concept.dishes.all %}
+                    {% for dish in dishes %}
+                      {% include "swipe/_dish_card.html" with dish=dish concept=concept %}
+                    {% endfor %}
+                    {% include "swipe/_dish_generate_placeholder.html" with concept=concept concept_index=concept_index dish_total=dishes|length variant='tower' %}
+                  {% endwith %}
                 </div>
               </div>
             {% endfor %}

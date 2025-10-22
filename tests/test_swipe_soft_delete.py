@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
 
-from app.models import Account, Restaurant
+from app.models import Account, Membership, Onboarding, Restaurant
 from swipe.models import Concept, Dish
 from swipe.views import FavoritesView, SwipeHomeView
 
@@ -39,6 +39,12 @@ class SwipeSoftDeleteTests(TestCase):
         )
         self.user = get_user_model().objects.create_user(
             username="tester", email="tester@example.com", password="pass"
+        )
+        Membership.objects.create(account=self.account, user=self.user)
+        Onboarding.objects.create(
+            user=self.user,
+            restaurant=self.restaurant,
+            state=Onboarding.State.COMPLETE,
         )
         self.factory = RequestFactory()
 

@@ -60,6 +60,13 @@
               <i class="fa-solid fa-circle-notch animate-spin" aria-hidden="true"></i>
               Generating…
             </span>
+            <button
+              type="button"
+              id="back-to-ideas-btn"
+              class="hidden rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              Back to all ideas
+            </button>
           </summary>
           <div class="concepts-body space-y-4 pt-4">
             <form
@@ -71,6 +78,7 @@
               hx-swap="innerHTML"
               hx-encoding="multipart/form-data"
               hx-indicator="#concepts-loading"
+              hx-headers='{"X-CSRFToken": "{{ csrf_token|escapejs }}"}'
               hx-on::before-request="const accordion = document.getElementById('concepts-accordion'); if (accordion) { accordion.classList.add('is-submitting'); accordion.dataset.wasOpen = accordion.open ? 'true' : 'false'; accordion.open = true; }"
               hx-on::after-request="const accordion = document.getElementById('concepts-accordion'); if (accordion) { accordion.classList.remove('is-submitting'); if (event.detail.successful) { accordion.removeAttribute('open'); } else if (accordion.dataset.wasOpen === 'true') { accordion.setAttribute('open', 'open'); } }"
               class="space-y-4"
@@ -213,13 +221,25 @@
           if (list && list.matches("[data-concepts-list]")) {
             list.querySelectorAll("[data-concept-card]").forEach(function (card) {
               card.classList.remove("concept-card--active");
-              if (card !== conceptCard) {
-                card.classList.add("concept-card--inactive");
-              }
+              if (card !== conceptCard) { card.classList.add("concept-card--inactive"); }
             });
             conceptCard.classList.remove("concept-card--inactive");
             conceptCard.classList.add("concept-card--active");
             list.prepend(conceptCard);
+            // Collapse other ideas for a tighter page
+            setTimeout(function(){
+              list.querySelectorAll("[data-concept-card]").forEach(function(card){
+                if (!card.classList.contains("concept-card--active")) {
+                  card.style.maxHeight = "0px";
+                  card.style.padding = "0";
+                  card.style.margin = "0";
+                  card.style.opacity = "0";
+                  card.style.overflow = "hidden";
+                }
+              });
+              const backBtn = document.getElementById("back-to-ideas-btn");
+              if (backBtn) { backBtn.classList.remove("hidden"); }
+            }, 200);
           }
         }
       });
@@ -249,6 +269,26 @@
           });
         });
       });
+
+      // Back to ideas restores collapsed cards
+      const backBtn = document.getElementById("back-to-ideas-btn");
+      if (backBtn) {
+        backBtn.addEventListener("click", function(){
+          const list = document.querySelector("[data-concepts-list]");
+          if (!list) return;
+          list.querySelectorAll("[data-concept-card]").forEach(function(card){
+            card.style.maxHeight = "";
+            card.style.padding = "";
+            card.style.margin = "";
+            card.style.opacity = "";
+            card.style.overflow = "";
+            card.classList.remove("concept-card--active", "concept-card--inactive");
+          });
+          const accordion = document.getElementById('concepts-accordion');
+          accordion?.setAttribute('open','open');
+          backBtn.classList.add("hidden");
+        });
+      }
     });
   </script>
 

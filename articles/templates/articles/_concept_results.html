@@ -11,13 +11,19 @@
   </div>
 {% endif %}
 
+{% if concept_warnings %}
+  <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+    <p class="font-semibold">Heads up</p>
+    <ul class="mt-1 list-disc space-y-1 pl-5">
+      {% for msg in concept_warnings %}
+        <li>{{ msg }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+{% endif %}
+
 {% if ideas %}
-  {% if ideas_payload.notes %}
-    <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-      <p class="font-semibold">Model notes</p>
-      <p class="mt-1 whitespace-pre-wrap">{{ ideas_payload.notes }}</p>
-    </div>
-  {% endif %}
+  {# Model notes intentionally removed for a cleaner UI #}
   <div class="grid gap-4 md:grid-cols-2" data-concepts-list>
     {% for idea in ideas %}
       <div
@@ -38,6 +44,7 @@
           hx-target="#draft-workflow"
           hx-swap="innerHTML"
           hx-indicator="#research-loading"
+          hx-headers='{"X-CSRFToken": "{{ csrf_token|escapejs }}"}'
           hx-on::before-request="document.getElementById('concepts-accordion')?.removeAttribute('open'); console.info('Queuing research for concept {{ forloop.counter }}');"
           hx-on::after-request="if (event.detail.successful) { document.getElementById('research-accordion').setAttribute('open', 'open'); }"
           class="mt-4"

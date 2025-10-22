@@ -23,6 +23,7 @@ import uuid
 logger = logging.getLogger(__name__)
 import json
 from typing import Any, Dict, Optional, Union
+from articles.openai_helpers import extract_output_text
 
 class GetConcepts:
     """
@@ -210,8 +211,17 @@ class GetConcepts:
             text={"format": self.concept_schema()},
         )
 
-        data = json.loads(response.output[0].content[0].text)
-        #logger.info("Concept OpenAI response: %s", data)
+        raw = extract_output_text(response).strip()
+        if not raw:
+            logger.warning("OpenAI concept response returned no text.")
+            return []
+
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            logger.warning("Failed to parse concept payload: %s", exc)
+            return []
+
         return data.get("concepts", [])
 
     def _determine_creativity_raw(self) -> int:
@@ -255,6 +265,8 @@ class GetConcepts:
                 **Role**: You are a seasoned restaurant marketing consultant with deep knowledge of regional cuisines, seasonal ingredients, and cultural dining traditions.
                 **Task**: Generate exactly 3 unique, theme-based concepts for daily specials that emphasize regional flavors and seasonal ingredients.  ITs very important to not show
                 duplicate concepts or dish ideas throughout the process.  we gauruntee unique ideas.  Do not duplicate concepts, not even close, be creative in your decisions.
+                for example if recently suggested a flatbread, don't use flatbread.  if they used an ingredient, recently, come up with something else.  
+                just because they are a steakhouse, don't always offer steak.  please create unique items.
 
                 restaurant locale: {self.locale_summary}
 
@@ -651,8 +663,22 @@ class GetConcepts:
                     input=prompt,
                     text={"format": self.single_dish_schema()},
                 )
-                content = response.output[0].content[0].text if response.output else ""
-                data = json.loads(content) if content else {}
+                raw = extract_output_text(response).strip()
+                data: Dict[str, Any] = {}
+                if not raw:
+                    logger.warning(
+                        "OpenAI dish variation response returned no text for dish '%s'.",
+                        dish_obj.name,
+                    )
+                else:
+                    try:
+                        data = json.loads(raw)
+                    except json.JSONDecodeError as exc:
+                        logger.warning(
+                            "Failed to parse dish variation payload for dish '%s': %s",
+                            dish_obj.name,
+                            exc,
+                        )
                 variation_payload = data.get("dish")
             except Exception as exc:  # pragma: no cover - network guard
                 logger.warning("Dish variation generation failed: %s", exc)
@@ -704,8 +730,23 @@ class GetConcepts:
             text={"format": self.dish_schema()},
         )
 
-        data = json.loads(response.output[0].content[0].text)
-        #logger.info("Generate dishes OpenAI response: %s", data)
+        raw = extract_output_text(response).strip()
+        if not raw:
+            logger.warning(
+                "OpenAI dish response returned no text for concept '%s'.",
+                concept_payload.get("title", ""),
+            )
+            return []
+
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            logger.warning(
+                "Failed to parse dish payload for concept '%s': %s",
+                concept_payload.get("title", ""),
+                exc,
+            )
+            return []
 
         return data.get("dishes", [])
 

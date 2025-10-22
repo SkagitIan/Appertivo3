@@ -14,7 +14,7 @@
 <script>
   const csrfToken = '{{ csrf_token }}';
   const markSeenEndpoint = '{% url 'swipe:mark_seen' %}';
-  const deleteEndpoint = '{% url 'swipe:delete_card' %}';
+  const deleteEndpoint = {% if demo_mode %}null{% else %}'{% url 'swipe:delete_card' %}'{% endif %};
   const NEW_CONCEPT_STORAGE_KEY = 'swipe:new-concept-ids';
   const LATEST_CONCEPT_STORAGE_KEY = 'swipe:latest-concept-ids';
   const JUMP_TO_NEW_STORAGE_KEY = 'swipe:jump-to-new';
@@ -39,6 +39,9 @@
   const verticalSlider = document.getElementById('verticalSlider');
   const introOverlay = document.getElementById('introOverlay');
   const dismissIntro = document.getElementById('dismissIntro');
+  const showSplash = {% if show_demo_splash %}true{% else %}false{% endif %};
+  const onboardingStatusUrl = {% if onboarding_id %}'{% url 'onboarding_status' onboarding_id %}?format=json'{% else %}null{% endif %};
+  const swipeHomeUrl = '{% url "swipe:home" %}';
   const DISH_PLACEHOLDER = 'https://placehold.co/800x600?text=Dish';
   const TRANSPARENT_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
   const conceptStates = {};
@@ -84,6 +87,65 @@
       if (introOverlay) {
         introOverlay.classList.add('hidden');
       }
+    }
+  }
+
+  // Live splash polling for onboarding (non-demo flow)
+  if (!isDemo && showSplash && onboardingStatusUrl) {
+    const splash = document.getElementById('demoSplash');
+    if (splash) {
+      const steps = Array.from(splash.querySelectorAll('[data-demo-step]'));
+      const progressBar = splash.querySelector('[data-demo-progress]');
+      // Hide the intro overlay while onboarding is in progress
+      if (introOverlay) {
+        introOverlay.classList.add('hidden');
+      }
+
+      const applyState = (data) => {
+        try {
+          const allSteps = Array.isArray(data?.steps) ? data.steps : [];
+          const doneCount = allSteps.filter((s) => !!s?.done).length;
+          steps.forEach((step, index) => {
+            step.classList.toggle('is-active', index < doneCount || (doneCount === 0 && (data?.progress || 0) > 0 && index === 0));
+          });
+          const pct = Math.max(0, Math.min(100, Number(data?.progress || 0)));
+          if (progressBar) {
+            progressBar.style.width = `${pct}%`;
+          }
+        } catch (_e) {}
+      };
+
+      let pollTimer = null;
+      const poll = async () => {
+        try {
+          const res = await fetch(onboardingStatusUrl, { headers: { 'Accept': 'application/json' } });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          applyState(data);
+          if (data?.is_complete) {
+            if (splash) splash.classList.add('hidden');
+            if (introOverlay) introOverlay.classList.remove('hidden');
+            if (data?.restaurant_id) {
+              window.location.replace(`${swipeHomeUrl}?restaurant_id=${data.restaurant_id}`);
+              return;
+            }
+            return; // stop polling
+          }
+          if (data?.is_failed) {
+            // Keep splash visible but stop polling; labels can be refined later
+            if (progressBar) progressBar.style.width = '0%';
+            return;
+          }
+        } catch (_err) {
+          // Swallow transient errors and retry
+        }
+        pollTimer = window.setTimeout(poll, 2000);
+      };
+      poll();
+      // Defensive cleanup if needed later
+      window.addEventListener('beforeunload', () => {
+        if (pollTimer) window.clearTimeout(pollTimer);
+      });
     }
   }
 
@@ -158,24 +220,73 @@
       setupTowerView();
     }
 
-    towerActiveConceptId = conceptId;
-    towerButtons.forEach((button) => {
-      const isActive = button.dataset.conceptId === conceptId;
+    if (!towerView) {
+      return;
+    }
+
+    refreshTowerState();
+
+    const idString = conceptId == null ? '' : String(conceptId);
+    if (!idString) {
+      return;
+    }
+
+    towerActiveConceptId = idString;
+    let targetIndex = null;
+
+    towerButtons.forEach((button, buttonIndex) => {
+      const isActive = button.dataset.conceptId === idString;
+      const wasActive = button.classList.contains('is-active');
       button.classList.toggle('is-active', isActive);
       button.setAttribute('aria-pressed', String(isActive));
+      if (isActive) {
+        const candidateIndex = Number(button.dataset.conceptIndex ?? buttonIndex);
+        if (Number.isFinite(candidateIndex)) {
+          targetIndex = candidateIndex;
+        }
+        button.classList.remove('is-bouncing');
+        window.requestAnimationFrame(() => {
+          button.classList.add('is-bouncing');
+        });
+        button.addEventListener(
+          'animationend',
+          () => {
+            button.classList.remove('is-bouncing');
+          },
+          { once: true },
+        );
+      } else if (wasActive) {
+        button.classList.remove('is-bouncing');
+      }
     });
 
-    towerTracks.forEach((track) => {
-      const isActive = track.dataset.conceptId === conceptId;
+    towerTracks.forEach((track, index) => {
+      const isActive = track.dataset.conceptId === idString;
       track.classList.toggle('hidden', !isActive);
       if (isActive) {
+        if (targetIndex !== null) {
+          track.dataset.conceptIndex = String(targetIndex);
+        } else if (!track.dataset.conceptIndex) {
+          track.dataset.conceptIndex = String(index);
+        }
         const scroller = track.querySelector('[data-tower-scroller]');
         if (scroller) {
           const cards = Array.from(scroller.querySelectorAll('.card'));
-          cards.forEach(observeCard);
+          if (!cards.length) {
+            scroller.scrollTo({ left: 0 });
+          } else {
+            cards.forEach(observeCard);
+          }
         }
       }
     });
+
+    if (targetIndex !== null) {
+      currentConceptIndex = targetIndex;
+      currentDishIndex = 0;
+      updateDishIndex(currentConceptIndex, currentDishIndex);
+      markConceptSeen(idString, currentConceptIndex);
+    }
   }
 
   function loadCardMedia(card) {
@@ -285,17 +396,67 @@
     );
   }
 
+  function getTowerTrackByIndex(index) {
+    if (!towerView) {
+      return null;
+    }
+    if (!towerTracks.length) {
+      refreshTowerState();
+    }
+    const numericIndex = Number(index);
+    if (Number.isFinite(numericIndex)) {
+      const matched = towerTracks.find(
+        (track) => Number(track.dataset.conceptIndex) === numericIndex,
+      );
+      if (matched) {
+        return matched;
+      }
+    }
+    return towerTracks[index] || null;
+  }
+
   function getTrackByConceptIndex(index) {
-    return document.querySelector(`.horizontal-track[data-concept-index="${index}"]`);
+    if (activeView === 'tower') {
+      const towerTrack = getTowerTrackByIndex(index);
+      if (towerTrack) {
+        return towerTrack;
+      }
+    }
+
+    const horizontalTrack = document.querySelector(`.horizontal-track[data-concept-index="${index}"]`);
+    if (horizontalTrack) {
+      return horizontalTrack;
+    }
+
+    return getTowerTrackByIndex(index);
   }
 
   function getTrackByConceptId(conceptId) {
-    return document.querySelector(`.horizontal-track[data-concept-track="${conceptId}"]`);
+    const idString = conceptId == null ? '' : String(conceptId);
+    if (!idString) {
+      return null;
+    }
+    const escaped = escapeSelector(idString);
+    const horizontalTrack = document.querySelector(`.horizontal-track[data-concept-track="${escaped}"]`);
+    if (horizontalTrack) {
+      return horizontalTrack;
+    }
+
+    if (!towerView) {
+      return null;
+    }
+    if (!towerTracks.length) {
+      refreshTowerState();
+    }
+    return towerTracks.find((track) => track.dataset.conceptId === escaped) || null;
   }
 
   function getConceptIdByIndex(index) {
     const track = getTrackByConceptIndex(index);
-    return track ? track.dataset.conceptTrack : null;
+    if (!track) {
+      return null;
+    }
+    return track.dataset.conceptTrack || track.dataset.conceptId || null;
   }
 
   function getConceptEndpoint(conceptId) {
@@ -306,8 +467,133 @@
   }
 
   function hasActivePlaceholder(conceptId) {
-    const state = conceptStates[conceptId];
-    return Boolean(state?.placeholder && state.placeholder.isConnected);
+    if (conceptId === undefined || conceptId === null) {
+      return false;
+    }
+    const id = String(conceptId);
+    const state = conceptStates[id];
+    const placeholderEntry = state?.placeholder;
+    const element = placeholderEntry?.element;
+    return Boolean(element && element.isConnected);
+  }
+
+  function ensureConceptState(conceptId) {
+    if (conceptId === undefined || conceptId === null) {
+      return null;
+    }
+    const id = String(conceptId);
+    if (!conceptStates[id]) {
+      conceptStates[id] = {};
+    }
+    return conceptStates[id];
+  }
+
+  function buildPlaceholderEntry(card) {
+    if (!card) {
+      return null;
+    }
+    return {
+      element: card,
+      button: card.querySelector('[data-load-dishes]') || null,
+      statusDefault: card.querySelector('[data-status-default]') || null,
+      statusLoading: card.querySelector('[data-status-loading]') || null,
+      indicator: card.querySelector('[data-loading-indicator]') || null,
+      title: card.querySelector('[data-placeholder-title]') || null,
+    };
+  }
+
+  function registerPlaceholder(card) {
+    if (!card || !card.hasAttribute('data-placeholder-card')) {
+      return;
+    }
+    const conceptId = card.dataset.conceptId;
+    if (!conceptId) {
+      return;
+    }
+    const variant = card.dataset.placeholderVariant || 'swipe';
+    const state = ensureConceptState(conceptId);
+    if (!state) {
+      return;
+    }
+    const entry = buildPlaceholderEntry(card);
+    if (!entry) {
+      return;
+    }
+    if (variant === 'tower') {
+      state.towerPlaceholder = entry;
+    } else {
+      state.placeholder = entry;
+    }
+    syncPlaceholderState(conceptId);
+  }
+
+  function getPlaceholderEntries(conceptId) {
+    if (conceptId === undefined || conceptId === null) {
+      return [];
+    }
+    const id = String(conceptId);
+    const state = conceptStates[id];
+    if (!state) {
+      return [];
+    }
+    return [state.placeholder, state.towerPlaceholder].filter(
+      (entry) => entry?.element && entry.element.isConnected,
+    );
+  }
+
+  function setPlaceholderLoading(conceptId, isLoading, activeButton) {
+    const entries = getPlaceholderEntries(conceptId);
+    if (!entries.length) {
+      return;
+    }
+    entries.forEach((entry) => {
+      const { element, statusDefault, statusLoading, indicator, button } = entry;
+      if (element) {
+        if (isLoading) {
+          element.dataset.loading = 'true';
+        } else {
+          delete element.dataset.loading;
+        }
+      }
+      if (indicator) {
+        indicator.classList.toggle('hidden', !isLoading);
+      }
+      if (statusDefault) {
+        statusDefault.classList.toggle('hidden', Boolean(isLoading));
+      }
+      if (statusLoading) {
+        statusLoading.classList.toggle('hidden', !isLoading);
+      }
+      if (button && button !== activeButton) {
+        button.disabled = Boolean(isLoading);
+      }
+    });
+  }
+
+  function syncPlaceholderState(conceptId) {
+    const entries = getPlaceholderEntries(conceptId);
+    if (!entries.length) {
+      return;
+    }
+    entries.forEach((entry) => {
+      const { element, title, statusDefault } = entry;
+      if (!element) {
+        return;
+      }
+      const conceptIndex = Number(element.dataset.conceptIndex || '0');
+      const dishTotal = Number.isFinite(conceptIndex) ? (dishCounts[conceptIndex] || 0) : 0;
+      element.dataset.hasDishes = dishTotal > 0 ? 'true' : 'false';
+      if (title) {
+        const emptyCopy = title.dataset.emptyCopy || title.textContent;
+        const populatedCopy = title.dataset.populatedCopy || emptyCopy;
+        title.textContent = dishTotal > 0 ? populatedCopy : emptyCopy;
+      }
+      if (statusDefault) {
+        const emptyCopy = statusDefault.dataset.emptyCopy || statusDefault.textContent;
+        const populatedCopy = statusDefault.dataset.populatedCopy || emptyCopy;
+        statusDefault.textContent = dishTotal > 0 ? populatedCopy : emptyCopy;
+      }
+    });
   }
 
   function getMaxDishIndex(conceptIndex) {
@@ -340,7 +626,8 @@
   }
 
   function markConceptSeen(conceptId, index) {
-    const track = getTrackByConceptIndex(index);
+    const horizontalTrack = document.querySelector(`.horizontal-track[data-concept-index="${index}"]`);
+    const track = horizontalTrack || getTrackByConceptIndex(index);
     if (!track) {
       return;
     }
@@ -359,6 +646,11 @@
     if (!indicator) {
       return;
     }
+    if (totalConcepts <= 0) {
+      indicator.textContent = '0 / 0';
+      indicator.dataset.dish = '0 / 0';
+      return;
+    }
     const conceptNumber = conceptIndex + 1;
     const maxDishIndex = getMaxDishIndex(conceptIndex);
     indicator.textContent = `${conceptNumber} / ${totalConcepts}`;
@@ -371,18 +663,28 @@
     }
 
     activeView = targetView;
+    let shouldSyncTower = false;
     viewContainers.forEach((container) => {
       const isTarget = container.dataset.viewContainer === targetView;
       container.classList.toggle('hidden', !isTarget);
       container.setAttribute('aria-hidden', String(!isTarget));
-      if (isTarget && container === towerView && !towerInitialized) {
-        setupTowerView();
-        const activeTowerButton = towerButtons.find((button) => button.classList.contains('is-active'));
-        if (activeTowerButton) {
-          activateTowerConcept(activeTowerButton.dataset.conceptId);
+      if (isTarget && container === towerView) {
+        if (!towerInitialized) {
+          setupTowerView();
         }
+        shouldSyncTower = true;
       }
     });
+
+    if (shouldSyncTower) {
+      const conceptId =
+        getConceptIdByIndex(currentConceptIndex) ||
+        towerButtons[0]?.dataset.conceptId ||
+        null;
+      if (conceptId) {
+        activateTowerConcept(conceptId);
+      }
+    }
 
     viewOnlyNodes.forEach((node) => {
       const allowed = node.dataset.viewOnly?.split(/\s+/g) || [];
@@ -718,14 +1020,7 @@
     }
 
     if (isDemo) {
-      const favorited = button.classList.toggle('favorited');
-      button.setAttribute('aria-pressed', String(favorited));
-      const targetSet = type === 'dish' ? demoFavoriteDishes : demoFavoriteConcepts;
-      if (favorited) {
-        targetSet.add(id);
-      } else {
-        targetSet.delete(id);
-      }
+      showFeedback('Favorite actions are disabled in this demo', 'error');
       return;
     }
 
@@ -914,11 +1209,247 @@
     touchArea.addEventListener('touchend', onTouchEnd, { passive: true });
   }
 
+  function refreshTowerState() {
+    if (!towerView) {
+      towerButtons = [];
+      towerTracks = [];
+      return;
+    }
+    towerButtons = Array.from(towerView.querySelectorAll('[data-tower-option]'));
+    towerTracks = Array.from(towerView.querySelectorAll('[data-tower-track]'));
+  }
+
+  function updateConceptIndices() {
+    const slides = Array.from(document.querySelectorAll('.concept-slide'));
+    slides.forEach((slide, index) => {
+      slide.dataset.conceptIndex = String(index);
+      const track = slide.querySelector('.horizontal-track');
+      if (track) {
+        track.dataset.conceptIndex = String(index);
+      }
+      const placeholderCard = track ? track.querySelector('[data-placeholder-card]') : null;
+      if (placeholderCard) {
+        placeholderCard.dataset.conceptIndex = String(index);
+        registerPlaceholder(placeholderCard);
+      }
+      const loadButtons = Array.from(slide.querySelectorAll('[data-load-dishes]'));
+      loadButtons.forEach((button) => {
+        button.dataset.conceptIndex = String(index);
+      });
+    });
+
+    refreshTowerState();
+    towerButtons.forEach((button, index) => {
+      button.dataset.conceptIndex = String(index);
+    });
+    towerTracks.forEach((track, index) => {
+      track.dataset.conceptIndex = String(index);
+      const placeholderCard = track.querySelector('[data-placeholder-card]');
+      if (placeholderCard) {
+        placeholderCard.dataset.conceptIndex = String(index);
+        registerPlaceholder(placeholderCard);
+      }
+      const loadButtons = Array.from(track.querySelectorAll('[data-load-dishes]'));
+      loadButtons.forEach((button) => {
+        button.dataset.conceptIndex = String(index);
+      });
+    });
+
+    return slides.length;
+  }
+
+  function handleDishDeleted(dishId, conceptId) {
+    const idString = String(dishId);
+    const elements = Array.from(document.querySelectorAll(`[data-dish-id="${idString}"]`));
+    elements.forEach((element) => {
+      element.remove();
+    });
+
+    if (!conceptId) {
+      return;
+    }
+
+    const track = getTrackByConceptId(String(conceptId));
+    if (!track) {
+      return;
+    }
+
+    const conceptIndex = Number(track.dataset.conceptIndex || '0');
+    if (!Number.isFinite(conceptIndex)) {
+      return;
+    }
+
+    dishCounts[conceptIndex] = Math.max(0, (dishCounts[conceptIndex] || 0) - 1);
+
+    if (currentConceptIndex === conceptIndex) {
+      const cards = Array.from(track.querySelectorAll('.card'));
+      const maxIndex = Math.max(0, cards.length - 1);
+      currentDishIndex = Math.min(currentDishIndex, maxIndex);
+      updateDishIndex(conceptIndex, currentDishIndex);
+    }
+
+    if (conceptId !== undefined && conceptId !== null) {
+      syncPlaceholderState(conceptId);
+    }
+  }
+
+  function handleConceptDeleted(conceptId, removedDishIds) {
+    const idString = String(conceptId);
+    const track = getTrackByConceptId(idString);
+    let conceptIndex = null;
+    if (track) {
+      conceptIndex = Number(track.dataset.conceptIndex || '0');
+    }
+
+    const wasBeforeActive =
+      conceptIndex !== null && Number.isFinite(conceptIndex) && conceptIndex < currentConceptIndex;
+    const wasActive =
+      conceptIndex !== null && Number.isFinite(conceptIndex) && conceptIndex === currentConceptIndex;
+
+    if (track) {
+      const slide = track.closest('.concept-slide');
+      if (slide) {
+        slide.remove();
+      } else {
+        track.remove();
+      }
+    }
+
+    if (towerView) {
+      const towerButton = towerView.querySelector(
+        `[data-tower-option][data-concept-id="${idString}"]`
+      );
+      if (towerButton) {
+        towerButton.remove();
+      }
+      const towerTrack = towerView.querySelector(`[data-tower-track][data-concept-id="${idString}"]`);
+      if (towerTrack) {
+        towerTrack.remove();
+      }
+    }
+
+    if (Array.isArray(removedDishIds)) {
+      removedDishIds.forEach((dishId) => {
+        document.querySelectorAll(`[data-dish-id="${dishId}"]`).forEach((element) => {
+          element.remove();
+        });
+      });
+    }
+
+    delete conceptStates[idString];
+    pendingNewConceptIds = pendingNewConceptIds.filter((storedId) => String(storedId) !== idString);
+    if (conceptIndex !== null && Number.isFinite(conceptIndex)) {
+      dishCounts.splice(conceptIndex, 1);
+    }
+
+    const newTotal = updateConceptIndices();
+    totalConcepts = newTotal;
+
+    if (towerActiveConceptId === idString) {
+      if (towerButtons.length) {
+        const fallbackIndex = Math.min(currentConceptIndex, towerButtons.length - 1);
+        const fallback = towerButtons[fallbackIndex];
+        if (fallback) {
+          activateTowerConcept(fallback.dataset.conceptId);
+        }
+      } else {
+        towerActiveConceptId = null;
+      }
+    }
+
+    if (wasBeforeActive) {
+      currentConceptIndex = Math.max(0, currentConceptIndex - 1);
+    } else if (wasActive) {
+      currentDishIndex = 0;
+    }
+
+    if (currentConceptIndex >= totalConcepts) {
+      currentConceptIndex = Math.max(0, totalConcepts - 1);
+    }
+
+    if (totalConcepts > 0) {
+      focusConcept(currentConceptIndex);
+      updateDishIndex(currentConceptIndex, currentDishIndex);
+    } else {
+      currentDishIndex = 0;
+      updatePositionIndicator(0, 0);
+    }
+  }
+
+  async function handleDeleteClick(event) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const button = event.currentTarget;
+    if (!button) {
+      return;
+    }
+
+    if (isDemo) {
+      showFeedback('Delete actions are disabled in this demo', 'error');
+      return;
+    }
+
+    if (!deleteEndpoint) {
+      return;
+    }
+
+    if (button.disabled) {
+      return;
+    }
+
+    const type = button.dataset.deleteType;
+    const id = button.dataset.deleteId;
+    if (!type || !id) {
+      return;
+    }
+
+    button.disabled = true;
+
+    try {
+      const response = await fetch(deleteEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken,
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: JSON.stringify({ type, id }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Delete failed');
+      }
+
+      const payload = await response.json();
+      if (!payload?.deleted) {
+        throw new Error('Delete rejected');
+      }
+
+      if (type === 'concept') {
+        handleConceptDeleted(id, payload.removed_dish_ids || []);
+        showFeedback('Concept deleted', 'success');
+      } else if (type === 'dish') {
+        handleDishDeleted(id, payload.concept_id);
+        showFeedback('Dish deleted', 'success');
+      }
+    } catch (error) {
+      console.error('Failed to delete item', error);
+      showFeedback('We could not delete this item right now', 'error');
+    } finally {
+      button.disabled = false;
+    }
+  }
+
   function bindCard(card) {
     if (!card || card.dataset.bound === 'true') {
       return;
     }
     card.dataset.bound = 'true';
+
+    if (card.hasAttribute('data-placeholder-card')) {
+      registerPlaceholder(card);
+    }
 
     const inner = card.querySelector('.card-inner');
     const back = card.querySelector('.card-back');
@@ -933,11 +1464,7 @@
 
     const deleteButton = card.querySelector('[data-delete-trigger]');
     if (deleteButton) {
-      deleteButton.addEventListener('click', (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        showFeedback('Delete actions are disabled in this demo', 'error');
-      });
+      deleteButton.addEventListener('click', handleDeleteClick);
     }
 
     const variationButton = card.querySelector('[data-load-dishes]');
@@ -951,20 +1478,53 @@
           return;
         }
 
+        if (variationButton.dataset.loading === 'true') {
+          return;
+        }
+
+        const spinner = variationButton.querySelector('[data-spinner]');
+        const label = variationButton.querySelector('[data-label]');
+
+        const startLoading = () => {
+          variationButton.disabled = true;
+          variationButton.dataset.loading = 'true';
+          if (spinner) {
+            spinner.classList.remove('hidden');
+          }
+          if (label) {
+            label.classList.add('hidden');
+          }
+          setPlaceholderLoading(conceptId, true, variationButton);
+        };
+
+        const finishLoading = () => {
+          variationButton.disabled = false;
+          delete variationButton.dataset.loading;
+          if (spinner) {
+            spinner.classList.add('hidden');
+          }
+          if (label) {
+            label.classList.remove('hidden');
+          }
+          setPlaceholderLoading(conceptId, false, variationButton);
+        };
+
         const endpoint = variationButton.dataset.endpoint;
+        const isPlaceholderCard = card?.hasAttribute('data-placeholder-card');
+        startLoading();
         if (!endpoint || endpoint === '#') {
           const dish = demoPopDish(conceptId);
           if (!dish) {
             showFeedback('No more demo dishes available', 'neutral');
+            finishLoading();
             return;
           }
           appendDishCard(conceptId, dish);
           showFeedback('Added a new demo dish', 'success');
+          finishLoading();
           return;
         }
 
-        variationButton.disabled = true;
-        variationButton.dataset.loading = 'true';
         try {
           const response = await fetch(endpoint, {
             method: 'POST',
@@ -978,17 +1538,25 @@
             throw new Error('Request failed');
           }
           const payload = await response.json();
-          if (!payload?.dish) {
-            throw new Error('Invalid response');
+          if (isPlaceholderCard) {
+            const dishes = Array.isArray(payload?.dishes) ? payload.dishes : [];
+            if (!dishes.length) {
+              throw new Error('Invalid response');
+            }
+            dishes.forEach((dish) => appendDishCard(conceptId, dish));
+            showFeedback('New dishes added!', 'success');
+          } else {
+            if (!payload?.dish) {
+              throw new Error('Invalid response');
+            }
+            appendDishCard(conceptId, payload.dish);
+            showFeedback('New dish added!', 'success');
           }
-          appendDishCard(conceptId, payload.dish);
-          showFeedback('New dish added!', 'success');
         } catch (error) {
           console.error(error);
           showFeedback('We could not generate a new dish right now', 'error');
         } finally {
-          variationButton.disabled = false;
-          delete variationButton.dataset.loading;
+          finishLoading();
         }
       });
     }
@@ -1031,20 +1599,32 @@
     `.trim();
 
     const card = cardTemplate.content.firstElementChild;
-    track.appendChild(card);
+    const placeholderCard = track.querySelector('[data-placeholder-card]');
+    if (placeholderCard) {
+      track.insertBefore(card, placeholderCard);
+    } else {
+      track.appendChild(card);
+    }
     bindCard(card);
     observeCard(card);
 
     const conceptIndex = Number(track.dataset.conceptIndex || 0);
     dishCounts[conceptIndex] = (dishCounts[conceptIndex] || 0) + 1;
     totalConcepts = Math.max(totalConcepts, conceptIndex + 1);
-    updateDishIndex(conceptIndex, card.parentElement.querySelectorAll('.card').length - 1);
+    syncPlaceholderState(conceptId);
+    const cardsInTrack = Array.from(track.querySelectorAll('.card'));
+    const newIndex = cardsInTrack.indexOf(card);
+    updateDishIndex(conceptIndex, newIndex < 0 ? cardsInTrack.length - 1 : newIndex);
   }
 
   const cards = Array.from(document.querySelectorAll('[data-card]'));
   cards.forEach((card) => {
     bindCard(card);
     observeCard(card);
+  });
+
+  Object.keys(conceptStates).forEach((conceptId) => {
+    syncPlaceholderState(conceptId);
   });
 
   window.setTimeout(() => {

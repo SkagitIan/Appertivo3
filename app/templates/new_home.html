@@ -290,6 +290,7 @@
   isolation: isolate;
   box-shadow: 0 32px 60px rgba(8, 12, 25, 0.45);
   transition: transform 0.35s ease, border-color 0.35s ease;
+  text-decoration: none;
 }
 
 .article-card::before {
@@ -354,6 +355,32 @@
 
 .article-card__cta span:last-child {
   font-size: 1.1rem;
+}
+
+.articles-section .section-actions {
+  margin-top: 2.5rem;
+  display: flex;
+  justify-content: center;
+}
+
+.articles-section__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.85rem 1.6rem;
+  border-radius: 9999px;
+  background: rgba(79, 70, 229, 0.2);
+  color: rgba(224, 231, 255, 0.95);
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-decoration: none;
+  letter-spacing: 0.02em;
+  transition: background 0.25s ease, transform 0.25s ease;
+}
+
+.articles-section__link:hover {
+  background: rgba(79, 70, 229, 0.36);
+  transform: translateY(-2px);
 }
 
 @media (max-width: 640px) {
@@ -816,35 +843,71 @@
             <h2>Articles From Our Research Lab</h2>
             <p>Deep dives on what’s next for operators, from AI-assisted menu testing to how guests choose their next night out.</p>
         </div>
-        <div class="articles-grid mb-5">
-            <article class="article-card" style="--article-image: url('https://res.cloudinary.com/dfz4bhlzs/image/upload/v1760903923/out-0_aqhtpz.webp');">
-                <span class="article-card__tag">Market Outlook</span>
-                <h3>2025 Restaurant Demand Signals (Placeholder)</h3>
-                <p>What our data is showing about shifting diner preferences, regional spend, and the flavors poised to break through.</p>
-                <div class="article-card__cta">
-                    <span>Full article soon</span>
+        {% if latest_articles %}
+            <div class="articles-grid mb-5">
+                {% for article in latest_articles %}
+                    <a
+                        href="{{ article.get_absolute_url }}"
+                        class="article-card"
+                        {% if article.og_image_url %}
+                            style="--article-image: url('{{ article.og_image_url|escape }}');"
+                        {% endif %}
+                    >
+                        <span class="article-card__tag">
+                            {% if article.published_at %}
+                                {{ article.published_at|date:"M j, Y" }}
+                            {% else %}
+                                Research Lab
+                            {% endif %}
+                        </span>
+                        <h3>{{ article.title }}</h3>
+                        {% with excerpt=article.summary|default:article.seo_description|default:article.body_markdown %}
+                            <p>{{ excerpt|truncatewords:24 }}</p>
+                        {% endwith %}
+                        <div class="article-card__cta">
+                            <span>Read article</span>
+                            <span aria-hidden="true">&rarr;</span>
+                        </div>
+                    </a>
+                {% endfor %}
+            </div>
+            <div class="section-actions mb-5">
+                <a href="{% url 'articles:article_index' %}" class="articles-section__link">
+                    Explore the research lab
                     <span aria-hidden="true">&rarr;</span>
-                </div>
-            </article>
-            <article class="article-card" style="--article-image: url('https://res.cloudinary.com/dfz4bhlzs/image/upload/v1760902978/dish_images/88f772fd-6fbc-489a-bc5f-0c431e21ca4a.jpg');">
-                <span class="article-card__tag">AI In Practice</span>
-                <h3>AI In Restaurant Research Playbook (Placeholder)</h3>
-                <p>A behind-the-line look at how teams are pairing human tasting with predictive models to launch faster.</p>
-                <div class="article-card__cta">
-                    <span>Full article soon</span>
-                    <span aria-hidden="true">&rarr;</span>
-                </div>
-            </article>
-            <article class="article-card" style="--article-image: url('https://res.cloudinary.com/dfz4bhlzs/image/upload/v1760901681/dish_images/fcbc1bd4-546d-42ec-a169-f4fefa0966d4.jpg');">
-                <span class="article-card__tag">Guest Insights</span>
-                <h3>Translating Reviews Into Menu Wins (Placeholder)</h3>
-                <p>Turning thousands of comments into three launch-ready specials that match your kitchen and guest expectations.</p>
-                <div class="article-card__cta">
-                    <span>Full article soon</span>
-                    <span aria-hidden="true">&rarr;</span>
-                </div>
-            </article>
-        </div>
+                </a>
+            </div>
+        {% else %}
+            <div class="articles-grid mb-5">
+                <article class="article-card" style="--article-image: url('https://res.cloudinary.com/dfz4bhlzs/image/upload/v1760903923/out-0_aqhtpz.webp');">
+                    <span class="article-card__tag">Market Outlook</span>
+                    <h3>2025 Restaurant Demand Signals (Placeholder)</h3>
+                    <p>What our data is showing about shifting diner preferences, regional spend, and the flavors poised to break through.</p>
+                    <div class="article-card__cta">
+                        <span>Full article soon</span>
+                        <span aria-hidden="true">&rarr;</span>
+                    </div>
+                </article>
+                <article class="article-card" style="--article-image: url('https://res.cloudinary.com/dfz4bhlzs/image/upload/v1760902978/dish_images/88f772fd-6fbc-489a-bc5f-0c431e21ca4a.jpg');">
+                    <span class="article-card__tag">AI In Practice</span>
+                    <h3>AI In Restaurant Research Playbook (Placeholder)</h3>
+                    <p>A behind-the-line look at how teams are pairing human tasting with predictive models to launch faster.</p>
+                    <div class="article-card__cta">
+                        <span>Full article soon</span>
+                        <span aria-hidden="true">&rarr;</span>
+                    </div>
+                </article>
+                <article class="article-card" style="--article-image: url('https://res.cloudinary.com/dfz4bhlzs/image/upload/v1760901681/dish_images/fcbc1bd4-546d-42ec-a169-f4fefa0966d4.jpg');">
+                    <span class="article-card__tag">Guest Insights</span>
+                    <h3>Translating Reviews Into Menu Wins (Placeholder)</h3>
+                    <p>Turning thousands of comments into three launch-ready specials that match your kitchen and guest expectations.</p>
+                    <div class="article-card__cta">
+                        <span>Full article soon</span>
+                        <span aria-hidden="true">&rarr;</span>
+                    </div>
+                </article>
+            </div>
+        {% endif %}
     </section>
 
     {% include "_partials/minimal_footer.html" %}

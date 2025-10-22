@@ -44,15 +44,13 @@
       {% endif %}
     </article>
     <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-      <p class="text-xs text-slate-500">
-        Total Nano 4.1 cost for this run: <span class="font-semibold text-[#2E005D]">${{ run_cost|default:0|floatformat:2 }}</span>
-      </p>
       {% if article.status != 'published' %}
         <form
           method="post"
           hx-post="{% url 'articles:staff_publish_article' %}"
           hx-target="#final-article-panel"
           hx-swap="innerHTML"
+          hx-headers='{"X-CSRFToken": "{{ csrf_token|escapejs }}"}'
           class="inline-flex"
           data-disable-global-overlay
         >

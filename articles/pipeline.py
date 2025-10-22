@@ -4,7 +4,11 @@ import json
 from typing import Dict, Optional
 
 from django.db import transaction
-from django_q.tasks import async_task
+"""Pipeline helpers for the automated multi-step flow.
+
+This module schedules background work using Celery tasks. We keep a small
+indirection so callers do not need to know the queueing backend.
+"""
 
 from .models import Article, ArticleRun, RunStep
 
@@ -22,7 +26,11 @@ def next_step_name(current: str) -> Optional[str]:
 
 
 def schedule_step(step: RunStep) -> None:
-    async_task("articles.tasks.run_step", step.id)
+    # Use Celery to run the step asynchronously.
+    # We import inside the function to avoid circular imports at module load.
+    from .tasks import run_pipeline_step_task
+
+    run_pipeline_step_task.delay(step.id)
 
 
 def launch_article_run(user, *, topic: str = "independent restaurant operations") -> ArticleRun:
