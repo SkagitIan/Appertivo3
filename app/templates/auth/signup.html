@@ -184,7 +184,7 @@
 
                 <div class="form-field">
                     <label for="email">Email</label>
-                    <input id="email" name="email" type="email" value="{{ form_data.email }}" placeholder="you@restaurant.com" required>
+                    <input id="email" name="email" type="email" value="{{ form_data.email|default:'' }}" placeholder="you@restaurant.com" required>
                 </div>
 
                 <div class="form-field">
@@ -202,15 +202,15 @@
                     <input
                         id="restaurant_location_search"
                         type="text"
-                        value="{{ form_data.restaurant_name|default:form_data.location|default:'' }}"
+                        value="{% if form_data %}{% if form_data.restaurant_name %}{{ form_data.restaurant_name }}{% elif form_data.location %}{{ form_data.location }}{% endif %}{% endif %}"
                         placeholder="Start typing your restaurant..."
                         autocomplete="off"
                         required
                     >
                 </div>
 
-                <input id="restaurant_name" name="restaurant_name" type="hidden" value="{{ form_data.restaurant_name }}">
-                <input id="location" name="location" type="hidden" value="{{ form_data.location }}">
+                <input id="restaurant_name" name="restaurant_name" type="hidden" value="{{ form_data.restaurant_name|default:'' }}">
+                <input id="location" name="location" type="hidden" value="{{ form_data.location|default:'' }}">
 
                 <p class="form-helper">We’ll pull public details to fine-tune the AI once you’re in.</p>
                 <p class="form-helper" id="location-autocomplete-status" hidden role="alert"></p>
