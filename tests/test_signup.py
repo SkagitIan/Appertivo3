@@ -106,13 +106,12 @@ class SignupViewTests(TestCase):
             "longitude": -122.987654,
             "formatted_phone_number": "+1 555-555-1234",
             "website": "https://example.com",
+            "name": "Second Place",
         }
         form_data = {
             "email": "owner2@example.com",
             "password1": "pw",
             "password2": "pw",
-            "restaurant_name": "Second Place",
-            "location": "City, State",
             "place_details_json": json.dumps(place_payload),
         }
 
@@ -124,6 +123,8 @@ class SignupViewTests(TestCase):
         self.assertIsNotNone(details)
         self.assertEqual(details["place_id"], "place_123")
         self.assertEqual(details["formatted_address"], "123 Test St, City")
+        self.assertEqual(onboarding.restaurant.name, "Second Place")
+        self.assertEqual(onboarding.restaurant.location_text, "123 Test St, City")
         mock_checkout.assert_called_once()
 
     def test_activation_redirects_to_getting_started(self):
