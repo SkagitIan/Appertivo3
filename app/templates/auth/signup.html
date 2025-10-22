@@ -198,14 +198,19 @@
                 </div>
 
                 <div class="form-field">
-                    <label for="restaurant_name">Restaurant Name</label>
-                    <input id="restaurant_name" name="restaurant_name" type="text" value="{{ form_data.restaurant_name }}" placeholder="Restaurant name" required>
+                    <label for="restaurant_location_search">Restaurant name &amp; location</label>
+                    <input
+                        id="restaurant_location_search"
+                        type="text"
+                        value="{{ form_data.restaurant_name|default:form_data.location|default:'' }}"
+                        placeholder="Start typing your restaurant..."
+                        autocomplete="off"
+                        required
+                    >
                 </div>
 
-                <div class="form-field">
-                    <label for="location">Location</label>
-                    <input id="location" name="location" type="text" value="{{ form_data.location }}" placeholder="City, State" required>
-                </div>
+                <input id="restaurant_name" name="restaurant_name" type="hidden" value="{{ form_data.restaurant_name }}">
+                <input id="location" name="location" type="hidden" value="{{ form_data.location }}">
 
                 <p class="form-helper">We’ll pull public details to fine-tune the AI once you’re in.</p>
                 <p class="form-helper" id="location-autocomplete-status" hidden role="alert"></p>
@@ -233,11 +238,11 @@
 <script>
     (function() {
         const statusElement = document.getElementById('location-autocomplete-status');
-        let autocomplete;
-        let sessionToken = null;
-        let placesService;
-        let lastDetails = null;
-        let formListenerAttached = false;
+        const input = document.getElementById('restaurant_location_search');
+        const hiddenName = document.getElementById('restaurant_name');
+        const hiddenLocation = document.getElementById('location');
+        const hiddenDetails = document.getElementById('place_details_json');
+        const form = document.querySelector('form');
 
         function updateStatus(message) {
             if (!statusElement) {
@@ -252,190 +257,34 @@
             }
         }
 
-        function ensureSessionToken() {
-            if (!sessionToken && window.google && google.maps && google.maps.places && google.maps.places.AutocompleteSessionToken) {
-                sessionToken = new google.maps.places.AutocompleteSessionToken();
-                if (autocomplete) {
-                    if (typeof autocomplete.setOptions === 'function') {
-                        autocomplete.setOptions({sessionToken: sessionToken});
-                    } else if ('sessionToken' in autocomplete) {
-                        autocomplete.sessionToken = sessionToken;
-                    }
-                }
+        function clearPlaceDetails() {
+            if (hiddenDetails) {
+                hiddenDetails.value = '';
             }
-            return sessionToken;
         }
 
-        function serializeDetails(details) {
-            if (!details) {
-                return null;
+        function writePlaceDetails(place) {
+            if (!place) {
+                clearPlaceDetails();
+                return;
             }
-            const geometry = details.geometry && details.geometry.location;
+
+            const geometry = place.geometry && place.geometry.location;
             const lat = geometry && typeof geometry.lat === 'function' ? geometry.lat() : null;
             const lng = geometry && typeof geometry.lng === 'function' ? geometry.lng() : null;
-            return {
-                place_id: details.place_id || '',
-                name: details.name || '',
-                formatted_address: details.formatted_address || '',
+            const value = {
+                place_id: place.place_id || '',
+                name: place.name || '',
+                formatted_address: place.formatted_address || '',
                 latitude: lat,
                 longitude: lng,
-                formatted_phone_number: details.formatted_phone_number || '',
-                website: details.website || '',
-                types: Array.isArray(details.types) ? details.types : [],
             };
-        }
-
-        function updateHiddenField(value) {
-            const hiddenField = document.getElementById('place_details_json');
-            if (!hiddenField) {
-                return;
-            }
-            if (value) {
-                hiddenField.value = JSON.stringify(value);
-            } else {
-                hiddenField.value = '';
+            if (hiddenDetails) {
+                hiddenDetails.value = JSON.stringify(value);
             }
         }
 
-        function extractPlaceFromAutocomplete(source) {
-            if (!source) {
-                return null;
-            }
-            if (typeof source.getPlace === 'function') {
-                return source.getPlace();
-            }
-            if (source.place) {
-                return source.place;
-            }
-            if (source.value && typeof source.value === 'object') {
-                return source.value;
-            }
-            return null;
-        }
-
-        function handlePlaceSelection() {
-            const place = extractPlaceFromAutocomplete(autocomplete);
-            if (!place || !place.place_id) {
-                lastDetails = null;
-                updateHiddenField(null);
-                return;
-            }
-
-            const token = ensureSessionToken();
-            if (!placesService && window.google && google.maps) {
-                placesService = new google.maps.places.PlacesService(document.createElement('div'));
-            }
-            if (!placesService) {
-                return;
-            }
-
-            placesService.getDetails(
-                {
-                    placeId: place.place_id,
-                    sessionToken: token,
-                    fields: [
-                        'place_id',
-                        'name',
-                        'formatted_address',
-                        'geometry.location',
-                        'formatted_phone_number',
-                        'website',
-                        'types',
-                    ],
-                },
-                function(details, status) {
-                    if (status !== google.maps.places.PlacesServiceStatus.OK || !details) {
-                        return;
-                    }
-                    lastDetails = serializeDetails(details);
-                    updateHiddenField(lastDetails);
-                    sessionToken = null;
-                }
-            );
-        }
-
-        function attachFormSync() {
-            const form = document.querySelector('form');
-            if (!form || formListenerAttached) {
-                return;
-            }
-            form.addEventListener('submit', function() {
-                if (lastDetails) {
-                    updateHiddenField(lastDetails);
-                }
-            });
-            formListenerAttached = true;
-        }
-
-        function wireInputReset(input) {
-            input.addEventListener('input', function() {
-                if (!input.value) {
-                    lastDetails = null;
-                    updateHiddenField(null);
-                }
-                ensureSessionToken();
-            });
-        }
-
-        async function initWithPlaceElement(input) {
-            try {
-                if (google.maps.importLibrary) {
-                    await google.maps.importLibrary('places');
-                }
-            } catch (error) {
-                console.error('Failed to import Google Maps libraries', error);
-            }
-
-            if (!google.maps.places.PlaceAutocompleteElement) {
-                return false;
-            }
-
-            autocomplete = new google.maps.places.PlaceAutocompleteElement();
-            if (!autocomplete.isConnected) {
-                document.body.appendChild(autocomplete);
-            }
-            autocomplete.inputElement = input;
-            ensureSessionToken();
-
-            const triggerSelection = function() {
-                handlePlaceSelection();
-            };
-
-            if (typeof autocomplete.addListener === 'function') {
-                autocomplete.addListener('place_changed', triggerSelection);
-                autocomplete.addListener('gmpxplacechanged', triggerSelection);
-            } else if (typeof autocomplete.addEventListener === 'function') {
-                autocomplete.addEventListener('place_changed', triggerSelection);
-                autocomplete.addEventListener('gmpxplacechanged', triggerSelection);
-            }
-
-            wireInputReset(input);
-            attachFormSync();
-            return true;
-        }
-
-        function initWithLegacyAutocomplete(input) {
-            if (!google.maps.places.Autocomplete) {
-                return false;
-            }
-
-            autocomplete = new google.maps.places.Autocomplete(input, {
-                fields: ['place_id', 'formatted_address', 'name'],
-                types: ['establishment'],
-                sessionToken: ensureSessionToken(),
-            });
-
-            autocomplete.addListener('place_changed', handlePlaceSelection);
-            wireInputReset(input);
-            attachFormSync();
-            return true;
-        }
-
-        window.initAppertivoAutocomplete = async function() {
-            const input = document.getElementById('location');
-            if (!input) {
-                return;
-            }
+        function initAutocomplete() {
             if (!window.google || !google.maps || !google.maps.places) {
                 updateStatus('Google Maps could not be loaded. Please enter your details manually.');
                 return;
@@ -443,30 +292,70 @@
 
             updateStatus('');
 
-            try {
-                const initialized = (await initWithPlaceElement(input)) || initWithLegacyAutocomplete(input);
-                if (!initialized) {
-                    updateStatus('Autocomplete is unavailable right now. Please enter your details manually.');
-                }
-            } catch (error) {
-                console.error('Failed to initialize Google Places autocomplete', error);
-                updateStatus('Autocomplete is unavailable right now. Please enter your details manually.');
-            }
-        };
+            const autocomplete = new google.maps.places.Autocomplete(input, {
+                fields: ['place_id', 'formatted_address', 'name', 'geometry.location'],
+                types: ['establishment'],
+            });
 
+            autocomplete.addListener('place_changed', function() {
+                const place = autocomplete.getPlace();
+                if (!place || !place.geometry || !place.geometry.location) {
+                    updateStatus('Please choose a place from the list.');
+                    clearPlaceDetails();
+                    return;
+                }
+
+                updateStatus('');
+                if (hiddenName) {
+                    hiddenName.value = place.name || '';
+                }
+                if (hiddenLocation) {
+                    hiddenLocation.value = place.formatted_address || '';
+                }
+                writePlaceDetails(place);
+            });
+        }
+
+        if (!input) {
+            return;
+        }
+
+        input.addEventListener('input', function() {
+            if (!input.value) {
+                if (hiddenName) {
+                    hiddenName.value = '';
+                }
+                if (hiddenLocation) {
+                    hiddenLocation.value = '';
+                }
+                clearPlaceDetails();
+            }
+        });
+
+        if (form) {
+            form.addEventListener('submit', function() {
+                if (!hiddenName || !hiddenLocation) {
+                    return;
+                }
+                if (!hiddenName.value) {
+                    hiddenName.value = input.value.trim();
+                }
+                if (!hiddenLocation.value) {
+                    hiddenLocation.value = input.value.trim();
+                }
+            });
+        }
+
+        window.initAppertivoAutocomplete = initAutocomplete;
         window.appertivoAutocomplete = {
-            reportError: function(message) {
-                updateStatus(message || 'Google Maps could not be loaded. Please enter your details manually.');
+            reportError: function() {
+                updateStatus('Google Maps could not be loaded. Please enter your details manually.');
             },
         };
-
-        document.addEventListener('DOMContentLoaded', function() {
-            attachFormSync();
-        });
     })();
 </script>
 <script
-    src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_API_KEY }}&libraries=places&callback=initAppertivoAutocomplete&loading=async"
+    src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_API_KEY }}&libraries=places&callback=initAppertivoAutocomplete"
     async defer
     onerror="window.appertivoAutocomplete && window.appertivoAutocomplete.reportError()"
 ></script>
