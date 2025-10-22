@@ -8,6 +8,7 @@ import django
 django.setup()
 
 from django.contrib.auth.models import User
+from django.http import HttpResponse
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
@@ -89,6 +90,41 @@ class SignupViewTests(TestCase):
 
         mock_outscraper.delay.assert_not_called()
         mock_scrape.delay.assert_not_called()
+
+    @patch("app.views.send_activation_email", create=True)
+    @patch("app.views.scrape_menu", create=True)
+    @patch("app.views.run_outscraper_search", create=True)
+    @patch("app.views.create_checkout_session")
+    def test_form_signup_stores_place_details_in_session(
+        self, mock_checkout, mock_outscraper, mock_scrape_menu, mock_send_activation
+    ):
+        mock_checkout.return_value = HttpResponse()
+        place_payload = {
+            "place_id": "place_123",
+            "formatted_address": "123 Test St, City",
+            "latitude": 37.123456,
+            "longitude": -122.987654,
+            "formatted_phone_number": "+1 555-555-1234",
+            "website": "https://example.com",
+        }
+        form_data = {
+            "email": "owner2@example.com",
+            "password1": "pw",
+            "password2": "pw",
+            "restaurant_name": "Second Place",
+            "location": "City, State",
+            "place_details_json": json.dumps(place_payload),
+        }
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(reverse("signup"), data=form_data)
+
+        onboarding = models.Onboarding.objects.get(user__username="owner2@example.com")
+        details = self.client.session.get("signup_place_details", {}).get(str(onboarding.uuid))
+        self.assertIsNotNone(details)
+        self.assertEqual(details["place_id"], "place_123")
+        self.assertEqual(details["formatted_address"], "123 Test St, City")
+        mock_checkout.assert_called_once()
 
     def test_activation_redirects_to_getting_started(self):
         result = signup_service.start_signup(

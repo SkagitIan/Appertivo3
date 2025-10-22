@@ -210,6 +210,7 @@
                 <p class="form-helper">We’ll pull public details to fine-tune the AI once you’re in.</p>
 
                 <input type="hidden" name="recaptcha_token" id="recaptcha_token">
+                <input type="hidden" name="place_details_json" id="place_details_json">
 
                 <button type="submit" class="btn btn-primary">
                     Start Your 14 Day Free Trial
@@ -227,6 +228,142 @@
 {% endblock %}
 
 {% block extra_scripts %}
+{% if GOOGLE_API_KEY %}
+<script>
+    (function() {
+        let autocomplete;
+        let sessionToken = null;
+        let placesService;
+        let lastDetails = null;
+
+        function ensureSessionToken() {
+            if (!sessionToken && window.google && google.maps && google.maps.places) {
+                sessionToken = new google.maps.places.AutocompleteSessionToken();
+                if (autocomplete) {
+                    autocomplete.setOptions({sessionToken: sessionToken});
+                }
+            }
+            return sessionToken;
+        }
+
+        function serializeDetails(details) {
+            if (!details) {
+                return null;
+            }
+            const geometry = details.geometry && details.geometry.location;
+            const lat = geometry && typeof geometry.lat === 'function' ? geometry.lat() : null;
+            const lng = geometry && typeof geometry.lng === 'function' ? geometry.lng() : null;
+            return {
+                place_id: details.place_id || '',
+                name: details.name || '',
+                formatted_address: details.formatted_address || '',
+                latitude: lat,
+                longitude: lng,
+                formatted_phone_number: details.formatted_phone_number || '',
+                website: details.website || '',
+                types: Array.isArray(details.types) ? details.types : [],
+            };
+        }
+
+        function updateHiddenField(value) {
+            const hiddenField = document.getElementById('place_details_json');
+            if (!hiddenField) {
+                return;
+            }
+            if (value) {
+                hiddenField.value = JSON.stringify(value);
+            } else {
+                hiddenField.value = '';
+            }
+        }
+
+        function handlePlaceSelection() {
+            const place = autocomplete.getPlace();
+            if (!place || !place.place_id) {
+                lastDetails = null;
+                updateHiddenField(null);
+                return;
+            }
+
+            const token = ensureSessionToken();
+            if (!placesService && window.google && google.maps) {
+                placesService = new google.maps.places.PlacesService(document.createElement('div'));
+            }
+            if (!placesService) {
+                return;
+            }
+
+            placesService.getDetails(
+                {
+                    placeId: place.place_id,
+                    sessionToken: token,
+                    fields: [
+                        'place_id',
+                        'name',
+                        'formatted_address',
+                        'geometry.location',
+                        'formatted_phone_number',
+                        'website',
+                        'types',
+                    ],
+                },
+                function(details, status) {
+                    if (status !== google.maps.places.PlacesServiceStatus.OK || !details) {
+                        return;
+                    }
+                    lastDetails = serializeDetails(details);
+                    updateHiddenField(lastDetails);
+                    sessionToken = null;
+                }
+            );
+        }
+
+        function attachFormSync() {
+            const form = document.querySelector('form');
+            if (!form) {
+                return;
+            }
+            form.addEventListener('submit', function() {
+                if (lastDetails) {
+                    updateHiddenField(lastDetails);
+                }
+            });
+        }
+
+        window.initAppertivoAutocomplete = function() {
+            const input = document.getElementById('location');
+            if (!input || !window.google || !google.maps || !google.maps.places) {
+                return;
+            }
+
+            autocomplete = new google.maps.places.Autocomplete(input, {
+                fields: ['place_id', 'formatted_address', 'name'],
+                types: ['establishment'],
+                sessionToken: ensureSessionToken(),
+            });
+
+            input.addEventListener('input', function() {
+                if (!input.value) {
+                    lastDetails = null;
+                    updateHiddenField(null);
+                }
+                ensureSessionToken();
+            });
+
+            autocomplete.addListener('place_changed', handlePlaceSelection);
+            attachFormSync();
+        };
+
+        document.addEventListener('DOMContentLoaded', function() {
+            attachFormSync();
+        });
+    })();
+</script>
+<script
+    src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_API_KEY }}&libraries=places&callback=initAppertivoAutocomplete"
+    async defer
+></script>
+{% endif %}
 {% if RECAPTCHA_SITE_KEY %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {

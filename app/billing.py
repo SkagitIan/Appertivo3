@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+from decimal import Decimal, InvalidOperation
 from typing import Any
 from . import tasks
 from dotenv import load_dotenv
@@ -75,10 +76,34 @@ def create_checkout_session(request: HttpRequest, onboarding_id ) -> HttpRespons
 
     stripe.api_key = os.getenv("STRIPE_TEST_KEY")
     price_id = os.getenv("STRIPE_TEST_PRO")
+    metadata: dict[str, str] = {"onboarding_id": str(onboarding_id)}
+    place_details = {}
+    if hasattr(request, "session"):
+        place_details = (
+            request.session.get("signup_place_details", {}).get(str(onboarding_id), {})
+        )
+    if isinstance(place_details, dict) and place_details:
+        place_metadata = {
+            "place_id": place_details.get("place_id"),
+            "place_address": place_details.get("formatted_address"),
+            "place_lat": place_details.get("latitude"),
+            "place_lng": place_details.get("longitude"),
+            "place_phone": place_details.get("formatted_phone_number"),
+            "place_website": place_details.get("website"),
+        }
+        metadata.update(
+            {k: str(v) for k, v in place_metadata.items() if v not in (None, "")}
+        )
+        if getattr(request, "session", None) is not None:
+            details_store = request.session.get("signup_place_details", {})
+            details_store.pop(str(onboarding_id), None)
+            request.session["signup_place_details"] = details_store
+            request.session.modified = True
+
     try:
         session = stripe.checkout.Session.create(
             mode="subscription",
-            metadata={"onboarding_id": str(onboarding_id)},
+            metadata=metadata,
             line_items=[{"price": price_id, "quantity": 1}],
             subscription_data={
                 "trial_period_days": 14,
@@ -165,6 +190,53 @@ def stripe_webhook(request: HttpRequest) -> HttpResponse:
     if not onboarding_id:
         logger.warning(f"No onboarding_id found in metadata: {data_object.get('id')}")
         return HttpResponse()
+
+    metadata = data_object.get("metadata", {}) or {}
+    place_id = metadata.get("place_id", "").strip()
+    place_address = metadata.get("place_address", "").strip()
+    place_lat = metadata.get("place_lat", "").strip()
+    place_lng = metadata.get("place_lng", "").strip()
+    place_phone = metadata.get("place_phone", "").strip()
+    place_website = metadata.get("place_website", "").strip()
+
+    if any([place_id, place_address, place_lat, place_lng, place_phone, place_website]):
+        try:
+            onboarding = models.Onboarding.objects.select_related("restaurant").get(
+                uuid=onboarding_id
+            )
+        except models.Onboarding.DoesNotExist:
+            logger.warning("Onboarding %s not found for place metadata", onboarding_id)
+        else:
+            restaurant = onboarding.restaurant
+            if restaurant:
+                update_fields: list[str] = []
+                if place_id:
+                    restaurant.google_place_id = place_id
+                    update_fields.append("google_place_id")
+                if place_address:
+                    restaurant.location_text = place_address
+                    update_fields.append("location_text")
+                if place_phone:
+                    restaurant.phone = place_phone
+                    update_fields.append("phone")
+                if place_website:
+                    restaurant.website = place_website
+                    update_fields.append("website")
+                if place_lat:
+                    try:
+                        restaurant.latitude = Decimal(place_lat)
+                        update_fields.append("latitude")
+                    except (InvalidOperation, TypeError):
+                        logger.warning("Invalid latitude from metadata: %s", place_lat)
+                if place_lng:
+                    try:
+                        restaurant.longitude = Decimal(place_lng)
+                        update_fields.append("longitude")
+                    except (InvalidOperation, TypeError):
+                        logger.warning("Invalid longitude from metadata: %s", place_lng)
+
+                if update_fields:
+                    restaurant.save(update_fields=list(dict.fromkeys(update_fields)))
 
     logger.info(f"Stripe webhook onboarding_id: {onboarding_id}")
     run_onboarding_pipeline.delay(onboarding_id)

@@ -109,6 +109,7 @@ STRIPE_API_KEY = STRIPE_SECRET_KEY
 
 RECAPTCHA_SITE_KEY = os.getenv("RECAPTCHA_SITE_KEY", "")
 RECAPTCHA_SECRET_KEY = os.getenv("RECAPTCHA_SECRET_KEY", "")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
