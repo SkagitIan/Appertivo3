@@ -352,6 +352,16 @@
             if (hiddenDetails) {
                 hiddenDetails.value = JSON.stringify(value);
             }
+            target.addEventListener('input', function() {
+                clearPlaceDetails();
+                if (hiddenName) {
+                    hiddenName.value = '';
+                }
+                if (hiddenLocation) {
+                    hiddenLocation.value = '';
+                }
+            });
+        }
 
             return { name, address };
         }
