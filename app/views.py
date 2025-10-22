@@ -561,6 +561,8 @@ def signup_view(request):
     def _clean_str(value: object) -> str:
         return value.strip() if isinstance(value, str) else ""
 
+    details_name = ""
+    details_location = ""
     if place_details:
         prediction = place_details.get("prediction") or {}
 
@@ -584,6 +586,20 @@ def signup_view(request):
             restaurant_name = details_name
         if details_location and not location:
             location = details_location
+
+    if not restaurant_name and details_name:
+        restaurant_name = details_name
+    if not restaurant_name and email:
+        restaurant_name = email.split("@")[0]
+    if not restaurant_name:
+        restaurant_name = "New Restaurant"
+
+    if not location and details_location:
+        location = details_location
+    if not location and restaurant_name:
+        location = restaurant_name
+    if not location:
+        location = "Unknown location"
 
     form_data = {
         "email": email,
@@ -618,11 +634,14 @@ def signup_view(request):
             return render(request, "auth/signup.html", context)
         password = password1
 
-    if not email or not restaurant_name or not location:
+    if not email:
         if is_json:
-            return JsonResponse({"error": "missing_fields"}, status=400)
-        context.update({"error": "Please complete all fields.", "form_data": form_data})
+            return JsonResponse({"error": "missing_email"}, status=400)
+        context.update({"error": "Please provide your email.", "form_data": form_data})
         return render(request, "auth/signup.html", context)
+
+    if is_json and (not restaurant_name or not location):
+        return JsonResponse({"error": "missing_fields"}, status=400)
 
     if User.objects.filter(username__iexact=email).exists():
         error_message = "An account with that email already exists."
