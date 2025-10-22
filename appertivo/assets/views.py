@@ -20,8 +20,6 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.text import slugify
 from django.views.decorators.http import require_POST
-from django_q.tasks import async_task
-
 from app.llm import client as openai_client, replicate_client
 from articles.openai_helpers import extract_output_text
 
