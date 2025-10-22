@@ -531,7 +531,10 @@ def setup_view(request):
 def signup_view(request):
     """Register a new user and restaurant."""
 
-    context = {"RECAPTCHA_SITE_KEY": getattr(settings, "RECAPTCHA_SITE_KEY", "")}
+    context = {
+        "RECAPTCHA_SITE_KEY": getattr(settings, "RECAPTCHA_SITE_KEY", ""),
+        "GOOGLE_API_KEY": getattr(settings, "GOOGLE_API_KEY", ""),
+    }
     if request.method != "POST":
         return render(request, "auth/signup.html", context)
 
@@ -547,6 +550,14 @@ def signup_view(request):
     email = (data.get("email") or "").strip()
     restaurant_name = (data.get("restaurant_name") or "").strip()
     location = (data.get("location") or "").strip()
+    place_details_raw = data.get("place_details_json") or ""
+    place_details: dict[str, object] | None = None
+    if place_details_raw:
+        try:
+            place_details = json.loads(place_details_raw)
+        except (TypeError, json.JSONDecodeError):
+            place_details = None
+
     form_data = {
         "email": email,
         "restaurant_name": restaurant_name,
@@ -599,10 +610,16 @@ def signup_view(request):
             password=password,
             restaurant_name=restaurant_name,
             location=location,
-            
+
         )
         from django.contrib.auth import login
         login(request, signup_result.user)
+        if place_details:
+            places_by_onboarding = request.session.setdefault(
+                "signup_place_details", {}
+            )
+            places_by_onboarding[str(signup_result.onboarding.uuid)] = place_details
+            request.session.modified = True
     except IntegrityError:
         logger.exception("Signup failed due to database error", extra={"email": email})
         error_message = "We couldn't sign you up right now. Please try again."

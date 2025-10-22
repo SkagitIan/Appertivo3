@@ -89,6 +89,8 @@ class Restaurant(TimestampedModel):
     phone = models.TextField(null=True, blank=True)
     website = models.TextField(null=True, blank=True)
     google_place_id = models.TextField(null=True, blank=True)
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
     websearch_json = models.JSONField(null=True, blank=True)     # OPENAI Websearch 
     websearch_markdown = models.CharField(max_length=11128, blank=True)
