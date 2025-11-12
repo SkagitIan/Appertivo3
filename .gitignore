@@ -55,3 +55,4 @@ celerybeat-schedule
 venv/
 ENV/
 env/
+logs/app-log.json

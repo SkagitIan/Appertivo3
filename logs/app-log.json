@@ -5769,3 +5769,5 @@
 {"timestamp": "2025-11-12T12:34:22.403455Z", "level": "INFO", "name": "gastronet.management.commands.extract_menus", "message": "Saving 6 items from https://www.amethaijapanese.com/ for AME Thai Japanese Fusion"}
 {"timestamp": "2025-11-12T12:34:22.437514Z", "level": "INFO", "name": "gastronet.management.commands.extract_menus", "message": "✓ Completed AME Thai Japanese Fusion | 0 items saved"}
 {"timestamp": "2025-11-12T12:34:22.853313Z", "level": "INFO", "name": "gastronet.management.commands.extract_menus", "message": "Extraction complete: 0 items, 21.6s elapsed"}
+{"timestamp": "2025-11-12T12:41:18.753878Z", "level": "ERROR", "name": "django.request", "message": "Internal Server Error: /github-webhook"}
+{"timestamp": "2025-11-12T12:41:18.754683Z", "level": "ERROR", "name": "django.request", "message": "Internal Server Error: /github-webhook"}
