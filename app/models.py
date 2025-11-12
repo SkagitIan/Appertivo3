@@ -100,6 +100,7 @@ class Restaurant(TimestampedModel):
     review_analysis = models.CharField(max_length=11128, blank=True)
     reviews_markdown = models.CharField(max_length=11128, blank=True)
     personas = models.CharField(max_length=11128, blank=True)
+    competitive_analysis = models.JSONField(null=True, blank=True)
 
     class Meta:
         indexes = [models.Index(fields=["account", "name"])]
@@ -192,6 +193,7 @@ class Onboarding(TimestampedModel):
 
     review_analysis = models.CharField(max_length=11128, blank=True)
     personas_analysis = models.CharField(max_length=11128, blank=True)
+    competitive_analysis = models.JSONField(null=True, blank=True)
 
     last_error = models.TextField(blank=True)
     progress = models.PositiveSmallIntegerField(default=0)

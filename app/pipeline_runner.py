@@ -2,14 +2,16 @@
 from __future__ import annotations
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
-import logging, json, time
+import logging, json, time, math, re
 from datetime import timedelta
 from django.db import transaction
 import random
 from django.utils import timezone
 from . import llm, models
 from dotenv import load_dotenv
+load_dotenv()
 import os
+import tldextract
 logger = logging.getLogger(__name__)
 from outscraper import ApiClient
 from openai import OpenAI
@@ -241,39 +243,16 @@ class OnboardingPipeline:
         """
         r = self.restaurant
 
-        import tldextract
-        raw_url = (r.website or "").strip()
-        extracted = tldextract.extract(raw_url)
-
-        if extracted.domain and extracted.suffix:
-            allowed_domain = f"{extracted.domain}.{extracted.suffix}"
-        else:
-            allowed_domain = ""
-
-        # Prepare tools only if we have a domain to constrain
-        tools = []
-        if allowed_domain:
-            tools = [
-                {
-                    "type": "web_search",
-                    "filters": {"allowed_domains": [allowed_domain]},
-                }
-            ]
-
+        allowed_domain = self._allowed_domain_from_url(r.website)
         logger.info("Building web profile for domain: %s", allowed_domain or "<none>")
 
         max_attempts = 3
         for attempt in range(1, max_attempts + 1):
             try:
-                response = self.openai_client.responses.create(
-                    model="gpt-5",
-                    tools=tools,
-                    input=self.web_search_profile_prompt(),
-                    text={"format": self.web_search_profile_schema()},
+                profile = self._request_web_profile(
+                    allowed_domain=allowed_domain,
+                    hint=f"{r.name} official site {r.website}".strip(),
                 )
-
-                raw = response.output_text or ""
-                profile = json.loads(raw)
                 if not profile:
                     logger.warning(
                         "Empty profile response for %s (%s)", r.name, allowed_domain
@@ -323,6 +302,444 @@ class OnboardingPipeline:
                 # Exponential backoff with jitter
                 sleep_s = min(20, (2 ** (attempt - 1)) + random.uniform(0, 0.5))
                 time.sleep(sleep_s)
+
+    def _allowed_domain_from_url(self, raw_url: str | None) -> str:
+        raw_url = (raw_url or "").strip()
+        if not raw_url:
+            return ""
+        extracted = tldextract.extract(raw_url)
+        if extracted.domain and extracted.suffix:
+            return f"{extracted.domain}.{extracted.suffix}"
+        return ""
+
+    def _request_web_profile(self, *, allowed_domain: str | None, hint: str | None = None) -> dict | None:
+        prompt = self.web_search_profile_prompt()
+        if hint:
+            prompt = f"{prompt}\nFocus on this restaurant: {hint}"
+
+        tools = []
+        if allowed_domain:
+            tools = [
+                {
+                    "type": "web_search",
+                    "filters": {"allowed_domains": [allowed_domain]},
+                }
+            ]
+
+        response = self.openai_client.responses.create(
+            model="gpt-5",
+            tools=tools,
+            input=prompt,
+            text={"format": self.web_search_profile_schema()},
+        )
+        raw = response.output_text or ""
+        return json.loads(raw) if raw else None
+
+    def build_competitive_analysis(self) -> dict | None:
+        r = self.restaurant
+        subject_context = self._subject_context_snapshot()
+        query = self._derive_competitor_query(subject_context)
+        if not query:
+            logger.info("Skipping competitive analysis for %s; no query available", r.name)
+            return None
+
+        logger.info("Running competitive analysis for %s with query '%s'", r.name, query)
+        try:
+            raw_results = self.outscraper_client.google_maps_search(
+                query,
+                limit=15,
+                language="en",
+                fields=[
+                    "query",
+                    "name",
+                    "place_id",
+                    "full_address",
+                    "latitude",
+                    "longitude",
+                    "site",
+                    "phone",
+                    "type",
+                    "types",
+                    "description",
+                    "category",
+                    "subtypes",
+                    "rating",
+                    "reviews",
+                    "about",
+                ],
+            )
+        except Exception as exc:
+            logger.warning("Outscraper competitor search failed for %s: %s", r.name, exc, exc_info=True)
+            return None
+
+        candidates = self._normalize_outscraper_search_results(
+            raw_results,
+            subject_place_id=r.google_place_id,
+            subject_coords=(subject_context.get("latitude"), subject_context.get("longitude")),
+        )
+
+        if not candidates:
+            logger.info("No competitive candidates found for %s", r.name)
+            return None
+
+        shortlisted = self._select_competitors(subject_context, candidates)
+        if not shortlisted:
+            logger.info("LLM did not select competitors for %s", r.name)
+            return None
+
+        competitor_entries = [self._build_competitor_entry(comp) for comp in shortlisted]
+        analysis_text = self._analyze_competitors(subject_context, competitor_entries)
+
+        payload = {
+            "subject": subject_context,
+            "query": query,
+            "candidates": candidates,
+            "competitors": competitor_entries,
+            "analysis_markdown": analysis_text,
+        }
+
+        r.competitive_analysis = payload
+        r.save(update_fields=["competitive_analysis"])
+        self.onboarding.competitive_analysis = payload
+        self.onboarding.save(update_fields=["competitive_analysis"])
+        logger.info("Competitive analysis saved for %s", r.name)
+        return payload
+
+    def _subject_context_snapshot(self) -> dict:
+        r = self.restaurant
+        outscraper = self.onboarding.outscraper_data or {}
+        web_profile = self.onboarding.web_profile_json or {}
+        location_text = r.location_text or outscraper.get("full_address") or ""
+        city, region = self._extract_city_region(location_text)
+
+        primary_style = (
+            web_profile.get("style_vibe")
+            or outscraper.get("category")
+            or outscraper.get("type")
+            or "restaurant"
+        )
+
+        cuisine_tags = []
+        subtypes = outscraper.get("subtypes") or []
+        if isinstance(subtypes, list):
+            cuisine_tags.extend([s for s in subtypes if s])
+
+        latitude = self._safe_float(r.latitude) or self._safe_float(outscraper.get("latitude"))
+        longitude = self._safe_float(r.longitude) or self._safe_float(outscraper.get("longitude"))
+
+        return {
+            "name": r.name,
+            "location_text": location_text,
+            "city": city,
+            "region": region,
+            "primary_style": primary_style,
+            "cuisine_tags": cuisine_tags,
+            "website": r.website,
+            "latitude": latitude,
+            "longitude": longitude,
+            "description": r.description or outscraper.get("description"),
+        }
+
+    def _derive_competitor_query(self, subject: dict) -> str:
+        location_parts = [p for p in [subject.get("city"), subject.get("region")] if p]
+        location_str = " ".join(location_parts).strip() or (subject.get("location_text") or "")
+        descriptor_candidates = [subject.get("primary_style")]
+        cuisine_tags = subject.get("cuisine_tags") or []
+        if cuisine_tags:
+            descriptor_candidates.append(cuisine_tags[0])
+        descriptor_candidates.append("restaurant")
+        descriptor = " ".join([d for d in descriptor_candidates if d]).strip()
+        if not descriptor or not location_str:
+            return ""
+        return f"{descriptor} in {location_str}".strip()
+
+    def _normalize_outscraper_search_results(self, raw_results, subject_place_id: str | None, subject_coords: tuple[float | None, float | None]) -> list:
+        candidates = []
+        seen = set()
+        lat1, lon1 = subject_coords
+
+        for entry in self._iter_outscraper_places(raw_results):
+            if not isinstance(entry, dict):
+                continue
+            place_id = entry.get("place_id") or entry.get("google_id")
+            if not place_id or place_id == subject_place_id or place_id in seen:
+                continue
+
+            latitude = self._safe_float(entry.get("latitude"))
+            longitude = self._safe_float(entry.get("longitude"))
+            distance = self._distance_miles(lat1, lon1, latitude, longitude)
+
+            candidate = {
+                "place_id": place_id,
+                "name": entry.get("name"),
+                "full_address": entry.get("full_address") or entry.get("address") or entry.get("vicinity"),
+                "site": entry.get("site"),
+                "phone": entry.get("phone"),
+                "types": self._normalize_types(entry),
+                "category": entry.get("category"),
+                "description": entry.get("description") or entry.get("about"),
+                "rating": self._safe_float(entry.get("rating")),
+                "total_reviews": self._safe_int(entry.get("reviews")),
+                "latitude": latitude,
+                "longitude": longitude,
+                "distance_miles": distance,
+            }
+            candidates.append(candidate)
+            seen.add(place_id)
+
+        candidates.sort(
+            key=lambda c: (
+                c["distance_miles"] is None,
+                c["distance_miles"] or float("inf"),
+                -(c.get("rating") or 0),
+            )
+        )
+        return candidates
+
+    def _iter_outscraper_places(self, raw_results):
+        if isinstance(raw_results, list):
+            for entry in raw_results:
+                yield from self._iter_outscraper_places(entry)
+            return
+
+        if isinstance(raw_results, dict):
+            data = (
+                raw_results.get("data")
+                or raw_results.get("results")
+                or raw_results.get("places")
+                or raw_results.get("items")
+            )
+            if isinstance(data, list):
+                for item in data:
+                    if isinstance(item, dict):
+                        yield item
+            else:
+                yield raw_results
+
+    def _distance_miles(self, lat1, lon1, lat2, lon2):
+        if None in (lat1, lon1, lat2, lon2):
+            return None
+        lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
+        dlat = lat2 - lat1
+        dlon = lon2 - lon1
+        a = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+        earth_radius_miles = 3958.8
+        return round(earth_radius_miles * c, 2)
+
+    def _select_competitors(self, subject: dict, candidates: list, max_competitors: int = 5) -> list:
+        if not candidates:
+            return []
+
+        candidate_payload = [
+            {
+                "place_id": c.get("place_id"),
+                "name": c.get("name"),
+                "address": c.get("full_address"),
+                "distance_miles": c.get("distance_miles"),
+                "category": c.get("category"),
+                "types": c.get("types"),
+                "rating": c.get("rating"),
+                "total_reviews": c.get("total_reviews"),
+            }
+            for c in candidates
+        ]
+
+        try:
+            response = self.openai_client.responses.create(
+                model="gpt-5-mini",
+                input=(
+                    f"{self.competitor_selection_prompt()}\n"
+                    f"Subject: {json.dumps(subject, ensure_ascii=False)}\n"
+                    f"Candidates: {json.dumps(candidate_payload, ensure_ascii=False)}"
+                ),
+                text={"format": self.competitor_selection_schema()},
+            )
+            raw = response.output_text or ""
+            picked = json.loads(raw).get("competitors", []) if raw else []
+        except Exception as exc:
+            logger.warning("Competitor selection LLM failed: %s", exc, exc_info=True)
+            picked = []
+
+        lookup = {c.get("place_id"): c for c in candidates if c.get("place_id")}
+        shortlist = []
+        for pick in picked:
+            place_id = pick.get("place_id")
+            base = lookup.get(place_id)
+            if not base:
+                continue
+            enriched = base.copy()
+            enriched["selection_reason"] = pick.get("reason")
+            enriched["selection_score"] = pick.get("similarity_score")
+            enriched["selection_distance_override"] = pick.get("distance_miles")
+            shortlist.append(enriched)
+            if len(shortlist) >= max_competitors:
+                break
+
+        if not shortlist:
+            shortlist = candidates[:max_competitors]
+        return shortlist
+
+    def competitor_selection_prompt(self) -> str:
+        return (
+            "Select up to five restaurants that most directly compete with the subject restaurant. "
+            "Prioritize geographic proximity (<=20 miles when possible) and overlapping cuisine or service style. "
+            "Avoid chains unless the subject is also a chain. Explain why each pick is competitive."
+        )
+
+    def competitor_selection_schema(self):
+        return {
+            "name": "competitor_shortlist",
+            "type": "json_schema",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "competitors": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "properties": {
+                                "place_id": {"type": "string"},
+                                "reason": {"type": "string"},
+                                "similarity_score": {"type": "number"},
+                                "distance_miles": {"type": ["number", "null"]},
+                            },
+                            "required": ["place_id", "reason", "similarity_score"],
+                        },
+                    }
+                },
+                "required": ["competitors"],
+            },
+        }
+
+    def _build_competitor_entry(self, comp: dict) -> dict:
+        entry = comp.copy()
+        entry["profile"] = None
+        entry["profile_trimmed"] = None
+        entry["profile_summary"] = ""
+        site = comp.get("site")
+        if not site:
+            return entry
+
+        allowed_domain = self._allowed_domain_from_url(site)
+        if not allowed_domain:
+            return entry
+
+        try:
+            profile = self._request_web_profile(
+                allowed_domain=allowed_domain,
+                hint=f"{comp.get('name')} competitor site {site}",
+            )
+            entry["profile"] = profile
+            if profile:
+                entry["profile_trimmed"] = self._trim_profile_for_analysis(profile)
+                entry["profile_summary"] = self.llm_clean_response(
+                    {"outscraper": comp, "profile": entry["profile_trimmed"]},
+                    f"Summarize why {comp.get('name')} competes with the subject restaurant.",
+                )
+        except Exception as exc:
+            logger.warning("Failed to build competitor profile for %s: %s", comp.get("name"), exc, exc_info=True)
+
+        return entry
+
+    def _trim_profile_for_analysis(self, profile: dict | None) -> dict | None:
+        if not profile:
+            return None
+        menu_sections = []
+        for section in (profile.get("menus") or [])[:3]:
+            items = section.get("items") or []
+            menu_sections.append(
+                {
+                    "section": section.get("section"),
+                    "sample_items": [item.get("name") for item in items[:5] if item.get("name")],
+                }
+            )
+        return {
+            "style_vibe": profile.get("style_vibe"),
+            "menu_sections": menu_sections,
+            "ingredients": (profile.get("ingredients") or [])[:15],
+            "personas": profile.get("personas"),
+            "contact": profile.get("contact"),
+        }
+
+    def _analyze_competitors(self, subject: dict, competitors: list) -> str:
+        if not competitors:
+            return ""
+
+        analysis_payload = []
+        for comp in competitors:
+            analysis_payload.append(
+                {
+                    "name": comp.get("name"),
+                    "distance_miles": comp.get("distance_miles"),
+                    "selection_reason": comp.get("selection_reason"),
+                    "profile_summary": comp.get("profile_summary"),
+                    "style_vibe": (comp.get("profile") or {}).get("style_vibe") if comp.get("profile") else None,
+                    "menu_sections": (comp.get("profile_trimmed") or {}).get("menu_sections") if comp.get("profile_trimmed") else None,
+                    "ingredients": (comp.get("profile_trimmed") or {}).get("ingredients") if comp.get("profile_trimmed") else None,
+                }
+            )
+
+        try:
+            response = self.openai_client.responses.create(
+                model="gpt-5",
+                input=(
+                    f"{self.competitive_analysis_prompt()}\n"
+                    f"Subject: {json.dumps(subject, ensure_ascii=False)}\n"
+                    f"Competitors: {json.dumps(analysis_payload, ensure_ascii=False)}"
+                ),
+            )
+            return response.output_text or ""
+        except Exception as exc:
+            logger.warning("Competitive analysis write-up failed: %s", exc, exc_info=True)
+            return ""
+
+    def competitive_analysis_prompt(self) -> str:
+        return (
+            "You are an F&B strategy analyst. Compare the subject restaurant to the shortlisted competitors. "
+            "Highlight style overlaps, pricing/occasion positioning, signature menu moves, and whitespace opportunities. "
+            "Close with tactical recommendations for how the subject can differentiate."
+        )
+
+    def _extract_city_region(self, location_text: str | None) -> tuple[str | None, str | None]:
+        if not location_text:
+            return None, None
+        parts = [p.strip() for p in re.split(r",|\n", location_text) if p.strip()]
+        if not parts:
+            return None, None
+        if len(parts) == 1:
+            return parts[0], None
+        return parts[-2], parts[-1]
+
+    def _safe_float(self, value):
+        try:
+            if value is None:
+                return None
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    def _safe_int(self, value):
+        try:
+            if value is None:
+                return None
+            return int(float(value))
+        except (TypeError, ValueError):
+            return None
+
+    def _normalize_types(self, entry: dict) -> list:
+        for key in ("subtypes", "types", "type", "category"):
+            raw = entry.get(key)
+            if isinstance(raw, list):
+                cleaned = [str(item).strip() for item in raw if item]
+                if cleaned:
+                    return cleaned
+            elif isinstance(raw, str) and raw.strip():
+                return [raw.strip()]
+        return []
 
     def run_review_analysis(self) -> dict:
         """Summarize restaurant reviews using OpenAI, with local fallback."""
@@ -425,6 +842,7 @@ class OnboardingPipeline:
             self.fetch_reviews,
             self.run_review_analysis,
             self.build_web_profile,
+            self.build_competitive_analysis,
             self.generate_personas,
             self.finalize,
         ]

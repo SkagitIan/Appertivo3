@@ -9,6 +9,8 @@ These instructions apply to all autonomous or semi-autonomous scripts, tasks, or
 3. **Fail closed** – if an environment variable, API key, or required dependency is missing, the agent exits gracefully.
 
 ---
+** When working with the outscraper API , refer to the docs here: /home/django/appertivo/outscraperAPI.json
+## LOG FILES:  /home/django/appertivo/logs/app-log.json
 
 ### Development Guidelines
 

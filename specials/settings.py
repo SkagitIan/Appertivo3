@@ -23,8 +23,11 @@ from django.urls import reverse_lazy
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-default_log_dir = Path(os.getenv("APP_LOG_DIR", "/tmp/appertivo/logs"))
-APP_LOG_FILE = Path(os.getenv("APP_LOG_FILE", str(default_log_dir / "app-log.json")))
+default_log_dir = Path(os.getenv("APP_LOG_DIR") or (BASE_DIR / "logs"))
+default_log_dir.mkdir(parents=True, exist_ok=True)
+
+APP_LOG_FILE = Path(os.getenv("APP_LOG_FILE") or (default_log_dir / "app-log.json"))
+APP_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
@@ -75,6 +78,9 @@ INSTALLED_APPS = [
     'appertivo.assets.apps.AssetsConfig',
     'articles.apps.ArticlesConfig',
     'swipe.apps.SwipeConfig',
+    "django.contrib.gis",
+    "pgvector",
+    "gastronet", 
 ]
 
 if USE_CLOUDINARY_STORAGE and 'cloudinary_storage' not in INSTALLED_APPS:
@@ -176,11 +182,20 @@ WSGI_APPLICATION = 'specials.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    "default": {  # your old DB
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
+    },
+    "gastronet": {  # new Postgres DB
+        "ENGINE": "django.contrib.gis.db.backends.postgis",
+        "NAME": "gastronet",
+        "USER": "postgres",
+        "PASSWORD": "grandson2025",
+        "HOST": "localhost",
+        "PORT": "5432",
+    },
 }
+DATABASE_ROUTERS = ["gastronet.db_router.GastroRouter"]
 
 ACCOUNT_FORMS = {
     "signup": "app.forms.SignUpForm",
@@ -264,52 +279,46 @@ CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", CELERY_BROKER_URL)
 # Enable in-process execution when a broker isn't available (dev-friendly)
 CELERY_TASK_ALWAYS_EAGER = os.getenv("CELERY_TASK_ALWAYS_EAGER", "0").lower() in {"1", "true", "yes"}
 
-
-CELERY_BEAT_SCHEDULE = {
-    "leads-fetch-weekly": {
-        "task": "appertivo.leads.tasks.fetch_leads",
-        "schedule": timedelta(weeks=1),
-        "options": {"expires": 60 * 60 * 24},
-    },
-}
-
-Q_CLUSTER = {
-    "name": "articles",
-    "workers": 2,
-    "timeout": 120,
-    "retry": 120,
-    "queue_limit": 50,
-    "bulk": 10,
-    "orm": "default",
-}
-
-
+LOG_FORMAT = "%(asctime)s %(levelname)s [%(name)s] %(message)s"
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
+    "formatters": {
+        "console": {
+            "format": LOG_FORMAT,
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+    },
     "handlers": {
         "console": {
             "level": "DEBUG",
             "class": "logging.StreamHandler",
+            "formatter": "console",
         },
         "app_json": {
             "level": "INFO",
             "class": "specials.logging_handlers.DailyJsonFileHandler",
             "filename": str(APP_LOG_FILE),
         },
+        "system": {
+            "level": "INFO",
+            "class": "specials.logging_handlers.SystemLogHandler",
+            "formatter": "console",
+            "address": os.getenv("SYSLOG_ADDRESS") or None,
+        },
     },
     "root": {
-        "handlers": ["console", "app_json"],
+        "handlers": ["console", "app_json", "system"],
         "level": "INFO",
     },
     "loggers": {
         "django": {
-            "handlers": ["console", "app_json"],
+            "handlers": ["console", "app_json", "system"],
             "level": "INFO",
             "propagate": True,
         },
         "app": {  # your app name here
-            "handlers": ["console", "app_json"],
+            "handlers": ["console", "app_json", "system"],
             "level": "DEBUG",
             "propagate": False,
         },

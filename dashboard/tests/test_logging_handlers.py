@@ -43,6 +43,40 @@ class DailyJsonFileHandlerTests(SimpleTestCase):
             payload = json.loads(lines[0])
             self.assertEqual(payload["message"], "json handler env override")
 
+    def test_handler_appends_instead_of_overwriting(self) -> None:
+        """Multiple log records should be appended rather than truncating the file."""
+
+        with TemporaryDirectory() as tmp_dir:
+            log_path = Path(tmp_dir) / "app-log.json"
+            handler = DailyJsonFileHandler(str(log_path))
+
+            first = logging.LogRecord(
+                name="appertivo.tests",
+                level=logging.INFO,
+                pathname=__file__,
+                lineno=0,
+                msg="first message",
+                args=(),
+                exc_info=None,
+            )
+            second = logging.LogRecord(
+                name="appertivo.tests",
+                level=logging.INFO,
+                pathname=__file__,
+                lineno=0,
+                msg="second message",
+                args=(),
+                exc_info=None,
+            )
+
+            handler.emit(first)
+            handler.emit(second)
+
+            lines = log_path.read_text(encoding="utf-8").splitlines()
+            self.assertEqual(len(lines), 2)
+            self.assertEqual(json.loads(lines[0])["message"], "first message")
+            self.assertEqual(json.loads(lines[1])["message"], "second message")
+
     def test_handler_degrades_when_path_unwritable(self) -> None:
         """The handler should fall back to console logging when it cannot write."""
 

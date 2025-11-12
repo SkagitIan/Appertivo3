@@ -239,7 +239,6 @@ def stripe_webhook(request: HttpRequest) -> HttpResponse:
                     restaurant.save(update_fields=list(dict.fromkeys(update_fields)))
 
     logger.info(f"Stripe webhook onboarding_id: {onboarding_id}")
-    #run_onboarding_pipeline.delay(onboarding_id)
+    run_onboarding_pipeline.delay(onboarding_id)
 
     return JsonResponse({"queued": True})
-
